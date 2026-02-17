@@ -1,0 +1,9 @@
+pub const GRID_WIDTH: usize = 256;
+pub const GRID_HEIGHT: usize = 256;
+pub const CELL_SIZE: f32 = 16.0;
+pub const CHUNK_SIZE: usize = 8;
+pub const CHUNKS_X: usize = GRID_WIDTH / CHUNK_SIZE;
+pub const CHUNKS_Y: usize = GRID_HEIGHT / CHUNK_SIZE;
+pub const WATER_THRESHOLD: f32 = 0.35;
+pub const WORLD_WIDTH: f32 = GRID_WIDTH as f32 * CELL_SIZE;
+pub const WORLD_HEIGHT: f32 = GRID_HEIGHT as f32 * CELL_SIZE;

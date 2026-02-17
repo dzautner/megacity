@@ -1,0 +1,11 @@
+[package]
+name = "save"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+bitcode = { workspace = true }
+serde = { workspace = true }
+simulation = { path = "../simulation" }
+rendering = { path = "../rendering" }

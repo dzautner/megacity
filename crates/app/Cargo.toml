@@ -1,0 +1,11 @@
+[package]
+name = "megacity"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+simulation = { path = "../simulation" }
+rendering = { path = "../rendering" }
+ui = { path = "../ui" }
+save = { path = "../save" }

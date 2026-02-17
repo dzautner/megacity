@@ -1,0 +1,19 @@
+[package]
+name = "simulation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+fastnoise-lite = { workspace = true }
+pathfinding = { workspace = true }
+bitcode = { workspace = true }
+serde = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "city_perf"
+harness = false
