@@ -3,9 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::buildings::Building;
-use simulation::citizen::{CitizenDetails, CitizenState};
+use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Velocity};
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid};
+use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
 use simulation::policies::{Policies, Policy};
 use simulation::road_segments::{
@@ -436,6 +437,8 @@ pub struct SaveData {
     pub extended_budget: Option<SaveExtendedBudget>,
     #[serde(default)]
     pub loan_book: Option<SaveLoanBook>,
+    #[serde(default)]
+    pub lifecycle_timer: Option<SaveLifecycleTimer>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -502,6 +505,19 @@ pub struct SaveCitizen {
     pub home_y: usize,
     pub work_x: usize,
     pub work_y: usize,
+    // V3 fields: PathCache, Velocity, Position (backward-compatible via serde defaults)
+    #[serde(default)]
+    pub path_waypoints: Vec<(usize, usize)>,
+    #[serde(default)]
+    pub path_current_index: usize,
+    #[serde(default)]
+    pub velocity_x: f32,
+    #[serde(default)]
+    pub velocity_y: f32,
+    #[serde(default)]
+    pub pos_x: f32,
+    #[serde(default)]
+    pub pos_y: f32,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -594,6 +610,21 @@ impl Default for SaveExtendedBudget {
     }
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode)]
+pub struct SaveLifecycleTimer {
+    pub last_aging_day: u32,
+    pub last_emigration_tick: u32,
+}
+
+impl Default for SaveLifecycleTimer {
+    fn default() -> Self {
+        Self {
+            last_aging_day: 0,
+            last_emigration_tick: 0,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
 pub struct SaveLoanBook {
     pub loans: Vec<SaveLoan>,
@@ -624,6 +655,19 @@ impl SaveData {
     }
 }
 
+/// Input data for serializing a single citizen, collected from ECS queries.
+pub struct CitizenSaveInput {
+    pub details: CitizenDetails,
+    pub state: CitizenState,
+    pub home_x: usize,
+    pub home_y: usize,
+    pub work_x: usize,
+    pub work_y: usize,
+    pub path: PathCache,
+    pub velocity: Velocity,
+    pub position: Position,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn create_save_data(
     grid: &WorldGrid,
@@ -632,7 +676,7 @@ pub fn create_save_data(
     budget: &CityBudget,
     demand: &ZoneDemand,
     buildings: &[(Building,)],
-    citizens: &[(CitizenDetails, CitizenState, usize, usize, usize, usize)],
+    citizens: &[CitizenSaveInput],
     utility_sources: &[UtilitySource],
     service_buildings: &[(ServiceBuilding,)],
     segment_store: Option<&RoadSegmentStore>,
@@ -641,6 +685,7 @@ pub fn create_save_data(
     unlock_state: Option<&UnlockState>,
     extended_budget: Option<&ExtendedBudget>,
     loan_book: Option<&LoanBook>,
+    lifecycle_timer: Option<&LifecycleTimer>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -701,11 +746,11 @@ pub fn create_save_data(
             .collect(),
         citizens: citizens
             .iter()
-            .map(|(d, state, hx, hy, wx, wy)| SaveCitizen {
-                age: d.age,
-                happiness: d.happiness,
-                education: d.education,
-                state: match state {
+            .map(|c| SaveCitizen {
+                age: c.details.age,
+                happiness: c.details.happiness,
+                education: c.details.education,
+                state: match c.state {
                     CitizenState::AtHome => 0,
                     CitizenState::CommutingToWork => 1,
                     CitizenState::Working => 2,
@@ -717,10 +762,16 @@ pub fn create_save_data(
                     CitizenState::CommutingToSchool => 8,
                     CitizenState::AtSchool => 9,
                 },
-                home_x: *hx,
-                home_y: *hy,
-                work_x: *wx,
-                work_y: *wy,
+                home_x: c.home_x,
+                home_y: c.home_y,
+                work_x: c.work_x,
+                work_y: c.work_y,
+                path_waypoints: c.path.waypoints.iter().map(|n| (n.0, n.1)).collect(),
+                path_current_index: c.path.current_index,
+                velocity_x: c.velocity.x,
+                velocity_y: c.velocity.y,
+                pos_x: c.position.x,
+                pos_y: c.position.y,
             })
             .collect(),
         utility_sources: utility_sources
@@ -814,6 +865,10 @@ pub fn create_save_data(
             credit_rating: lb.credit_rating,
             last_payment_day: lb.last_payment_day,
             consecutive_solvent_days: lb.consecutive_solvent_days,
+        }),
+        lifecycle_timer: lifecycle_timer.map(|lt| SaveLifecycleTimer {
+            last_aging_day: lt.last_aging_day,
+            last_emigration_tick: lt.last_emigration_tick,
         }),
     }
 }
@@ -939,6 +994,14 @@ pub fn restore_loan_book(save: &SaveLoanBook) -> LoanBook {
     }
 }
 
+/// Restore a `LifecycleTimer` resource from saved data.
+pub fn restore_lifecycle_timer(save: &SaveLifecycleTimer) -> LifecycleTimer {
+    LifecycleTimer {
+        last_aging_day: save.last_aging_day,
+        last_emigration_tick: save.last_emigration_tick,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -962,7 +1025,7 @@ mod tests {
 
         let save = create_save_data(
             &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None,
+            None, None, None, None, None, None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1242,9 +1305,12 @@ mod tests {
         let mut treasury = 0.0;
         loan_book.take_loan(loans::LoanTier::Small, &mut treasury);
 
+        let lifecycle_timer = LifecycleTimer { last_aging_day: 200, last_emigration_tick: 15 };
+
         let save = create_save_data(
             &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
             Some(&policies), Some(&weather), Some(&unlock), Some(&ext_budget), Some(&loan_book),
+            Some(&lifecycle_timer),
         );
 
         let bytes = save.encode();
@@ -1290,7 +1356,7 @@ mod tests {
 
         let save = create_save_data(
             &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None,
+            None, None, None, None, None, None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1301,5 +1367,23 @@ mod tests {
         assert!(restored.unlock_state.is_none());
         assert!(restored.extended_budget.is_none());
         assert!(restored.loan_book.is_none());
+        assert!(restored.lifecycle_timer.is_none());
+    }
+
+    #[test]
+    fn test_lifecycle_timer_roundtrip() {
+        let timer = LifecycleTimer {
+            last_aging_day: 730,
+            last_emigration_tick: 25,
+        };
+
+        let save = SaveLifecycleTimer {
+            last_aging_day: timer.last_aging_day,
+            last_emigration_tick: timer.last_emigration_tick,
+        };
+
+        let restored = restore_lifecycle_timer(&save);
+        assert_eq!(restored.last_aging_day, 730);
+        assert_eq!(restored.last_emigration_tick, 25);
     }
 }

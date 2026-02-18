@@ -4,9 +4,9 @@ use bevy::prelude::*;
 pub mod serialization;
 
 use serialization::{
-    create_save_data, restore_extended_budget, restore_loan_book, restore_policies,
-    restore_road_segment_store, restore_unlock_state, restore_weather, u8_to_road_type,
-    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, SaveData,
+    create_save_data, restore_extended_budget, restore_lifecycle_timer, restore_loan_book,
+    restore_policies, restore_road_segment_store, restore_unlock_state, restore_weather,
+    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
@@ -16,11 +16,13 @@ use simulation::citizen::{
 };
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
+use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
 use simulation::movement::ActivityTimer;
 use simulation::policies::Policies;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
+use simulation::roads::RoadNode;
 use simulation::services::ServiceBuilding;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
@@ -91,27 +93,34 @@ fn handle_save(
             &CitizenStateComp,
             &HomeLocation,
             &WorkLocation,
+            &PathCache,
+            &Velocity,
+            &Position,
         ),
         With<Citizen>,
     >,
     utility_sources: Query<&UtilitySource>,
     service_buildings: Query<&ServiceBuilding>,
     v2: V2ResourcesRead,
+    lifecycle_timer: Res<LifecycleTimer>,
 ) {
     for _ in events.read() {
         let building_data: Vec<(Building,)> = buildings.iter().map(|b| (b.clone(),)).collect();
 
-        let citizen_data: Vec<_> = citizens
+        let citizen_data: Vec<CitizenSaveInput> = citizens
             .iter()
-            .map(|(d, state, home, work)| {
-                (
-                    d.clone(),
-                    state.0,
-                    home.grid_x,
-                    home.grid_y,
-                    work.grid_x,
-                    work.grid_y,
-                )
+            .map(|(d, state, home, work, path, vel, pos)| {
+                CitizenSaveInput {
+                    details: d.clone(),
+                    state: state.0,
+                    home_x: home.grid_x,
+                    home_y: home.grid_y,
+                    work_x: work.grid_x,
+                    work_y: work.grid_y,
+                    path: path.clone(),
+                    velocity: vel.clone(),
+                    position: pos.clone(),
+                }
             })
             .collect();
 
@@ -141,6 +150,7 @@ fn handle_save(
             Some(&v2.unlock_state),
             Some(&v2.extended_budget),
             Some(&v2.loan_book),
+            Some(&lifecycle_timer),
         );
 
         let bytes = save.encode();
@@ -172,6 +182,7 @@ fn handle_load(
     existing_meshes: Query<Entity, With<BuildingMesh3d>>,
     existing_sprites: Query<Entity, With<CitizenSprite>>,
     mut v2: V2ResourcesWrite,
+    mut lifecycle_timer: ResMut<LifecycleTimer>,
 ) {
     for _ in events.read() {
         let path = save_file_path();
@@ -348,7 +359,40 @@ fn handle_load(
                 Entity::PLACEHOLDER
             };
 
-            let (wx, wy) = WorldGrid::grid_to_world(sc.home_x, sc.home_y);
+            // Restore position: use saved position if available (non-zero),
+            // otherwise fall back to home grid position (backward compat).
+            let (pos_x, pos_y) = if sc.pos_x != 0.0 || sc.pos_y != 0.0 {
+                (sc.pos_x, sc.pos_y)
+            } else {
+                WorldGrid::grid_to_world(sc.home_x, sc.home_y)
+            };
+
+            // Restore path cache: convert saved waypoints to RoadNodes and
+            // validate that all waypoints reference valid grid positions.
+            let (path_cache, restored_state) = {
+                let waypoints: Vec<RoadNode> = sc.path_waypoints
+                    .iter()
+                    .map(|&(x, y)| RoadNode(x, y))
+                    .collect();
+
+                let all_valid = waypoints.iter().all(|n| grid.in_bounds(n.0, n.1));
+
+                if !waypoints.is_empty() && all_valid {
+                    let mut pc = PathCache::new(waypoints);
+                    pc.current_index = sc.path_current_index;
+                    (pc, state)
+                } else if state.is_commuting() {
+                    (PathCache::new(vec![]), CitizenState::AtHome)
+                } else {
+                    (PathCache::new(vec![]), state)
+                }
+            };
+
+            // Restore velocity from saved data (defaults to zero for old saves).
+            let velocity = Velocity {
+                x: sc.velocity_x,
+                y: sc.velocity_y,
+            };
 
             let salary = CitizenDetails::base_salary_for_education(sc.education);
             commands.spawn((
@@ -362,7 +406,7 @@ fn handle_load(
                     salary,
                     savings: salary * 2.0,
                 },
-                CitizenStateComp(state),
+                CitizenStateComp(restored_state),
                 HomeLocation {
                     grid_x: sc.home_x,
                     grid_y: sc.home_y,
@@ -373,9 +417,9 @@ fn handle_load(
                     grid_y: sc.work_y,
                     building: work_building,
                 },
-                Position { x: wx, y: wy },
-                Velocity { x: 0.0, y: 0.0 },
-                PathCache::new(vec![]),
+                Position { x: pos_x, y: pos_y },
+                velocity,
+                path_cache,
                 Personality {
                     ambition: 0.5,
                     sociability: 0.5,
@@ -420,6 +464,16 @@ fn handle_load(
             *v2.loan_book = LoanBook::default();
         }
 
+        // Restore lifecycle timer (prevents mass aging/death burst on load)
+        if let Some(ref saved_timer) = save.lifecycle_timer {
+            *lifecycle_timer = restore_lifecycle_timer(saved_timer);
+        } else {
+            // Old save without lifecycle timer: set last_aging_day to current day
+            // to prevent immediate aging burst on load.
+            lifecycle_timer.last_aging_day = clock.day;
+            lifecycle_timer.last_emigration_tick = 0;
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -442,6 +496,7 @@ fn handle_new_game(
     mut budget: ResMut<CityBudget>,
     mut demand: ResMut<ZoneDemand>,
     mut v2: V2ResourcesWrite,
+    mut lifecycle_timer: ResMut<LifecycleTimer>,
 ) {
     for _ in events.read() {
         // Despawn all game entities
@@ -491,6 +546,7 @@ fn handle_new_game(
         *v2.unlock_state = UnlockState::default();
         *v2.extended_budget = ExtendedBudget::default();
         *v2.loan_book = LoanBook::default();
+        *lifecycle_timer = LifecycleTimer::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
