@@ -4,9 +4,10 @@ use bevy::prelude::*;
 pub mod serialization;
 
 use serialization::{
-    create_save_data, restore_extended_budget, restore_lifecycle_timer, restore_loan_book,
-    restore_policies, restore_road_segment_store, restore_unlock_state, restore_weather,
-    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
+    create_save_data, migrate_save, restore_extended_budget, restore_lifecycle_timer,
+    restore_loan_book, restore_policies, restore_road_segment_store, restore_unlock_state,
+    restore_weather, u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type,
+    CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
@@ -194,13 +195,22 @@ fn handle_load(
             }
         };
 
-        let save = match SaveData::decode(&bytes) {
+        let mut save = match SaveData::decode(&bytes) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Failed to decode save: {}", e);
                 continue;
             }
         };
+
+        // Migrate older save formats to current version
+        let old_version = migrate_save(&mut save);
+        if old_version != CURRENT_SAVE_VERSION {
+            println!(
+                "Migrated save from v{} to v{}",
+                old_version, CURRENT_SAVE_VERSION
+            );
+        }
 
         // Clear existing entities (including 3D mesh representations)
         for entity in &existing_meshes {

@@ -380,6 +380,16 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 }
 
 // ---------------------------------------------------------------------------
+// Version constants
+// ---------------------------------------------------------------------------
+
+/// Current save file version.
+/// v1 = original fields (grid, roads, clock, budget, demand, buildings, citizens, utilities, services, road_segments)
+/// v2 = policies, weather, unlock_state, extended_budget, loans
+/// v3 = lifecycle_timer, path_cache, velocity per citizen
+pub const CURRENT_SAVE_VERSION: u32 = 3;
+
+// ---------------------------------------------------------------------------
 // Save structs
 // ---------------------------------------------------------------------------
 
@@ -415,6 +425,9 @@ pub struct SaveRoadSegmentStore {
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
 pub struct SaveData {
+    /// Save file format version. Defaults to 0 for legacy saves that predate versioning.
+    #[serde(default)]
+    pub version: u32,
     pub grid: SaveGrid,
     pub roads: SaveRoadNetwork,
     pub clock: SaveClock,
@@ -655,6 +668,43 @@ impl SaveData {
     }
 }
 
+/// Migrate a `SaveData` from any older version up to `CURRENT_SAVE_VERSION`.
+///
+/// Each migration step handles one version bump. All new fields use `#[serde(default)]`
+/// and `Option<T>`, so deserialization itself fills in safe defaults -- migration mostly
+/// just bumps the version number so the save will be written at the current version on
+/// the next save.
+///
+/// Returns the original version so callers can log the migration.
+pub fn migrate_save(save: &mut SaveData) -> u32 {
+    let original_version = save.version;
+
+    // v0 -> v1: Legacy unversioned saves. All required fields (grid, roads,
+    // clock, budget, demand, buildings, citizens, etc.) are already present
+    // in the original format.  Option fields default to None.
+    if save.version == 0 {
+        save.version = 1;
+    }
+
+    // v1 -> v2: Added policies, weather, unlock_state, extended_budget, loan_book.
+    // These are all `Option<T>` with `#[serde(default)]`, so they deserialize as None
+    // from a v1 save -- no data fixup needed.
+    if save.version == 1 {
+        save.version = 2;
+    }
+
+    // v2 -> v3: Added lifecycle_timer and per-citizen path_cache / velocity / position.
+    // All use `#[serde(default)]` so they already have safe zero/empty defaults.
+    if save.version == 2 {
+        save.version = 3;
+    }
+
+    // Ensure version is at the current value (safety net for future additions).
+    debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
+
+    original_version
+}
+
 /// Input data for serializing a single citizen, collected from ECS queries.
 pub struct CitizenSaveInput {
     pub details: CitizenDetails,
@@ -705,6 +755,7 @@ pub fn create_save_data(
         .collect();
 
     SaveData {
+        version: CURRENT_SAVE_VERSION,
         grid: SaveGrid {
             cells: save_cells,
             width: grid.width,
@@ -1385,5 +1436,127 @@ mod tests {
         let restored = restore_lifecycle_timer(&save);
         assert_eq!(restored.last_aging_day, 730);
         assert_eq!(restored.last_emigration_tick, 25);
+    }
+
+    // -----------------------------------------------------------------------
+    // Save versioning / migration tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_create_save_data_sets_current_version() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None, None,
+        );
+
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_migrate_from_v0_to_current() {
+        // Simulate a legacy unversioned save (version defaults to 0).
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None, None,
+        );
+        // Force version to 0 to simulate an old unversioned save file.
+        save.version = 0;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 0);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_migrate_current_version_is_noop() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None, None,
+        );
+
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+        let old = migrate_save(&mut save);
+        assert_eq!(old, CURRENT_SAVE_VERSION);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_version_roundtrips_through_encode_decode() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None, None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        assert_eq!(restored.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_migrate_from_v1() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None, None,
+        );
+        save.version = 1;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 1);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_migrate_from_v2() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None, None,
+        );
+        save.version = 2;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 2);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
 }
