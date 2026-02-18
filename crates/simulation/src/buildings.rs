@@ -16,6 +16,15 @@ pub struct Building {
     pub occupants: u32,
 }
 
+/// Marker component for buildings that are still under construction.
+/// While present, the building cannot accept occupants.
+/// Approximately 10 seconds at 10Hz fixed timestep (100 ticks).
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+pub struct UnderConstruction {
+    pub ticks_remaining: u32,
+    pub total_ticks: u32,
+}
+
 impl Building {
     pub fn capacity_for_level(zone: ZoneType, level: u8) -> u32 {
         match (zone, level) {
@@ -57,7 +66,7 @@ impl Building {
 }
 
 /// Tick interval for building spawner (in sim ticks)
-const SPAWN_INTERVAL: u32 = 5;
+const SPAWN_INTERVAL: u32 = 2;
 
 #[derive(Resource, Default)]
 pub struct BuildingSpawnTimer(pub u32);
@@ -91,7 +100,7 @@ pub fn building_spawner(
 
         let spawn_chance = demand.demand_for(zone);
         let mut spawned = 0;
-        let max_per_tick = 20;
+        let max_per_tick = 50;
 
         for y in 0..GRID_HEIGHT {
             for x in 0..GRID_WIDTH {
@@ -118,20 +127,48 @@ pub fn building_spawner(
                 }
 
                 let capacity = Building::capacity_for_level(zone, 1);
+                let construction_ticks = 100; // ~10 seconds at 10Hz
                 let entity = commands
-                    .spawn(Building {
-                        zone_type: zone,
-                        level: 1,
-                        grid_x: x,
-                        grid_y: y,
-                        capacity,
-                        occupants: 0,
-                    })
+                    .spawn((
+                        Building {
+                            zone_type: zone,
+                            level: 1,
+                            grid_x: x,
+                            grid_y: y,
+                            capacity,
+                            occupants: 0,
+                        },
+                        UnderConstruction {
+                            ticks_remaining: construction_ticks,
+                            total_ticks: construction_ticks,
+                        },
+                    ))
                     .id();
 
                 grid.get_mut(x, y).building_id = Some(entity);
                 spawned += 1;
             }
+        }
+    }
+}
+
+/// Advances construction progress each tick. When complete, removes the
+/// `UnderConstruction` component so the building becomes operational.
+/// While under construction, occupants are clamped to 0.
+pub fn progress_construction(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Building, &mut UnderConstruction)>,
+) {
+    for (entity, mut building, mut uc) in &mut query {
+        // Ensure no occupants while under construction
+        building.occupants = 0;
+
+        if uc.ticks_remaining > 0 {
+            uc.ticks_remaining -= 1;
+        }
+
+        if uc.ticks_remaining == 0 {
+            commands.entity(entity).remove::<UnderConstruction>();
         }
     }
 }

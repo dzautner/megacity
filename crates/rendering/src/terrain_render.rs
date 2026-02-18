@@ -6,10 +6,13 @@ use simulation::education::EducationGrid;
 use simulation::garbage::GarbageGrid;
 use simulation::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use simulation::land_value::LandValueGrid;
+use simulation::noise::NoisePollutionGrid;
 use simulation::pollution::PollutionGrid;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::traffic::TrafficGrid;
+use simulation::water_pollution::WaterPollutionGrid;
+use simulation::weather::{Season, Weather};
 
 use crate::overlay::OverlayMode;
 
@@ -19,6 +22,8 @@ pub struct OverlayGrids<'a> {
     pub education: Option<&'a EducationGrid>,
     pub garbage: Option<&'a GarbageGrid>,
     pub traffic: Option<&'a TrafficGrid>,
+    pub noise: Option<&'a NoisePollutionGrid>,
+    pub water_pollution: Option<&'a WaterPollutionGrid>,
 }
 
 impl<'a> OverlayGrids<'a> {
@@ -29,6 +34,8 @@ impl<'a> OverlayGrids<'a> {
             education: None,
             garbage: None,
             traffic: None,
+            noise: None,
+            water_pollution: None,
         }
     }
 }
@@ -47,6 +54,7 @@ pub fn spawn_terrain_chunks(
     grid: Res<WorldGrid>,
     roads: Res<RoadNetwork>,
     segments: Res<RoadSegmentStore>,
+    weather: Res<Weather>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -54,7 +62,7 @@ pub fn spawn_terrain_chunks(
     let overlay_grids = OverlayGrids::none();
     for cy in 0..CHUNKS_Y {
         for cx in 0..CHUNKS_X {
-            let mesh = build_chunk_mesh(&grid, &roads, &segments, cx, cy, &overlay, &overlay_grids);
+            let mesh = build_chunk_mesh(&grid, &roads, &segments, cx, cy, &overlay, &overlay_grids, weather.season);
             let (wx, wz) = chunk_world_pos(cx, cy);
 
             commands.spawn((
@@ -82,12 +90,15 @@ pub fn dirty_chunks_on_overlay_change(
     education_grid: Res<EducationGrid>,
     garbage_grid: Res<GarbageGrid>,
     traffic_grid: Res<TrafficGrid>,
+    noise_grid: Res<NoisePollutionGrid>,
+    water_pollution_grid: Res<WaterPollutionGrid>,
+    weather: Res<Weather>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
 ) {
     use crate::overlay::OverlayMode;
 
-    if overlay.is_changed() {
+    if overlay.is_changed() || weather.is_changed() {
         mark_all_chunks_dirty(&chunks, &mut commands);
         return;
     }
@@ -101,6 +112,8 @@ pub fn dirty_chunks_on_overlay_change(
         OverlayMode::Education => education_grid.is_changed(),
         OverlayMode::Garbage => garbage_grid.is_changed(),
         OverlayMode::Traffic => traffic_grid.is_changed(),
+        OverlayMode::Noise => noise_grid.is_changed(),
+        OverlayMode::WaterPollution => water_pollution_grid.is_changed(),
     };
 
     if data_changed {
@@ -120,6 +133,9 @@ pub fn rebuild_dirty_chunks(
     education_grid: Res<EducationGrid>,
     garbage_grid: Res<GarbageGrid>,
     traffic_grid: Res<TrafficGrid>,
+    noise_grid: Res<NoisePollutionGrid>,
+    water_pollution_grid: Res<WaterPollutionGrid>,
+    weather: Res<Weather>,
     mut meshes: ResMut<Assets<Mesh>>,
     query: Query<(Entity, &TerrainChunk, &Mesh3d), With<ChunkDirty>>,
 ) {
@@ -129,6 +145,8 @@ pub fn rebuild_dirty_chunks(
         education: Some(&education_grid),
         garbage: Some(&garbage_grid),
         traffic: Some(&traffic_grid),
+        noise: Some(&noise_grid),
+        water_pollution: Some(&water_pollution_grid),
     };
     for (entity, chunk, mesh_handle) in &query {
         let new_mesh = build_chunk_mesh(
@@ -139,6 +157,7 @@ pub fn rebuild_dirty_chunks(
             chunk.chunk_y,
             &overlay.mode,
             &overlay_grids,
+            weather.season,
         );
         meshes.insert(&mesh_handle.0, new_mesh);
         commands.entity(entity).remove::<ChunkDirty>();
@@ -154,11 +173,12 @@ fn chunk_world_pos(cx: usize, cy: usize) -> (f32, f32) {
 pub fn build_chunk_mesh(
     grid: &WorldGrid,
     roads: &RoadNetwork,
-    segments: &RoadSegmentStore,
+    _segments: &RoadSegmentStore,
     cx: usize,
     cy: usize,
     overlay: &OverlayMode,
     overlay_grids: &OverlayGrids,
+    season: Season,
 ) -> Mesh {
     let cells_in_chunk = CHUNK_SIZE * CHUNK_SIZE;
     let mut positions: Vec<[f32; 3]> = Vec::with_capacity(cells_in_chunk * 4);
@@ -168,17 +188,6 @@ pub fn build_chunk_mesh(
 
     let base_gx = cx * CHUNK_SIZE;
     let base_gy = cy * CHUNK_SIZE;
-
-    // Build a set of spline-covered cells for this chunk (O(1) lookup instead of O(n*m))
-    let spline_cells: std::collections::HashSet<(usize, usize)> = segments
-        .segments
-        .iter()
-        .flat_map(|seg| seg.rasterized_cells.iter().copied())
-        .filter(|&(gx, gy)| {
-            gx >= base_gx && gx < base_gx + CHUNK_SIZE
-                && gy >= base_gy && gy < base_gy + CHUNK_SIZE
-        })
-        .collect();
 
     for ly in 0..CHUNK_SIZE {
         for lx in 0..CHUNK_SIZE {
@@ -190,7 +199,7 @@ pub fn build_chunk_mesh(
             }
 
             let cell = grid.get(gx, gy);
-            let base_color = terrain_color(cell, gx, gy);
+            let base_color = terrain_color(cell, gx, gy, season);
             let color = apply_overlay(base_color, cell, gx, gy, grid, overlay, overlay_grids);
 
             let x0 = lx as f32 * CELL_SIZE;
@@ -224,14 +233,12 @@ pub fn build_chunk_mesh(
             indices.push(vi + 3);
             indices.push(vi + 2);
 
-            // Road surface and markings (skip for cells covered by spline segments)
+            // Road surface and markings
             if cell.cell_type == CellType::Road && *overlay == OverlayMode::None {
-                if !spline_cells.contains(&(gx, gy)) {
-                    add_road_markings(
-                        &mut positions, &mut normals, &mut colors, &mut indices,
-                        grid, roads, gx, gy, lx, ly, cell.road_type,
-                    );
-                }
+                add_road_markings(
+                    &mut positions, &mut normals, &mut colors, &mut indices,
+                    grid, roads, gx, gy, lx, ly, cell.road_type,
+                );
             }
         }
     }
@@ -249,26 +256,26 @@ pub fn build_chunk_mesh(
     .with_inserted_indices(Indices::U32(indices))
 }
 
-fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize) -> Color {
+fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize, season: Season) -> Color {
     // Per-cell noise for variation (no two cells look identical)
     let noise = ((gx.wrapping_mul(7919).wrapping_add(gy.wrapping_mul(6271))) % 100) as f32 / 100.0;
     let v = (noise - 0.5) * 0.04; // +/- 2% color variation
 
     if cell.zone != ZoneType::None && cell.cell_type != CellType::Road {
-        // Realistic urban ground: muted grays/browns, NOT bright zoning indicators
+        // Urban ground: light concrete/pavement tones (must contrast with dark road asphalt)
         let (r, g, b) = match cell.zone {
             // Residential low: mix of lawn patches + driveways + sidewalks
-            ZoneType::ResidentialLow => (0.42, 0.48, 0.38),
+            ZoneType::ResidentialLow => (0.52, 0.56, 0.46),
             // Residential high: concrete, narrow alleys, building bases
-            ZoneType::ResidentialHigh => (0.50, 0.48, 0.46),
+            ZoneType::ResidentialHigh => (0.62, 0.60, 0.57),
             // Commercial low: parking lots + sidewalks
-            ZoneType::CommercialLow => (0.46, 0.45, 0.43),
-            // Commercial high: dense downtown, almost no ground visible
-            ZoneType::CommercialHigh => (0.44, 0.43, 0.42),
+            ZoneType::CommercialLow => (0.58, 0.57, 0.54),
+            // Commercial high: dense downtown, clean concrete
+            ZoneType::CommercialHigh => (0.60, 0.58, 0.55),
             // Industrial: concrete aprons, gravel, packed dirt
-            ZoneType::Industrial => (0.50, 0.48, 0.42),
+            ZoneType::Industrial => (0.55, 0.52, 0.47),
             // Office: landscaped plazas, clean concrete
-            ZoneType::Office => (0.50, 0.50, 0.48),
+            ZoneType::Office => (0.64, 0.62, 0.58),
             ZoneType::None => unreachable!(),
         };
         return Color::srgb(
@@ -288,12 +295,11 @@ fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize) -> Color {
             Color::srgb(r, g, b)
         }
         CellType::Road => {
-            // Road cells render as SIDEWALK by default (light concrete)
-            // The actual asphalt road surface is drawn as a narrower strip on top
+            // Road cells render as light sidewalk/pavement — the asphalt strip is drawn on top
             let (r, g, b) = if cell.road_type == RoadType::Path {
                 (0.48, 0.44, 0.36) // Dirt path
             } else {
-                (0.58, 0.56, 0.53) // Weathered concrete sidewalk
+                (0.62, 0.60, 0.57) // Light concrete sidewalk (contrasts with dark asphalt)
             };
             Color::srgb(
                 (r + v * 0.3).clamp(0.0, 1.0),
@@ -302,12 +308,13 @@ fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize) -> Color {
             )
         }
         CellType::Grass => {
-            // Muted, desaturated grass with brown undertones (aerial view)
+            // Grass color varies by season with per-cell noise variation
+            let [sr, sg, sb] = season.grass_color();
             let elev = cell.elevation;
             let patch = ((gx.wrapping_mul(31).wrapping_add(gy.wrapping_mul(47))) % 100) as f32 / 100.0;
-            let r = 0.28 + elev * 0.06 + patch * 0.08 + v;
-            let g = 0.38 + elev * 0.10 + patch * 0.04 + v * 0.5;
-            let b = 0.22 + elev * 0.04 + patch * 0.03 + v * 0.3;
+            let r = sr + elev * 0.06 + patch * 0.08 + v;
+            let g = sg + elev * 0.10 + patch * 0.04 + v * 0.5;
+            let b = sb + elev * 0.04 + patch * 0.03 + v * 0.3;
             Color::srgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0))
         }
     }
@@ -384,6 +391,35 @@ fn apply_overlay(
             if let Some(garbage) = grids.garbage {
                 let level = (garbage.get(gx, gy) as f32 / 30.0).clamp(0.0, 1.0);
                 Color::srgba(0.3 + level * 0.5, 0.4 - level * 0.2, 0.2, 1.0)
+            } else {
+                darken_color(base, 0.8)
+            }
+        }
+        OverlayMode::Noise => {
+            if cell.cell_type == CellType::Water { return base; }
+            if let Some(noise) = grids.noise {
+                let level = (noise.get(gx, gy) as f32 / 100.0).clamp(0.0, 1.0);
+                // Purple-orange gradient: quiet=dark purple, loud=bright orange
+                Color::srgba(0.2 + level * 0.7, 0.1 + level * 0.3, 0.4 - level * 0.2, 1.0)
+            } else {
+                darken_color(base, 0.8)
+            }
+        }
+        OverlayMode::WaterPollution => {
+            if let Some(wp) = grids.water_pollution {
+                let level = (wp.get(gx, gy) as f32 / 255.0).clamp(0.0, 1.0);
+                if cell.cell_type == CellType::Water {
+                    // Blue-to-brown gradient: clean water=blue, polluted=brown
+                    let r = 0.1 + level * 0.5;
+                    let g = 0.3 + level * 0.05 - level * 0.2;
+                    let b = 0.6 - level * 0.45;
+                    Color::srgba(r, g.max(0.1), b.max(0.1), 1.0)
+                } else if level > 0.0 {
+                    // Land cells near polluted water get a subtle brown tint
+                    blend_tint(base, Color::srgba(0.5, 0.35, 0.15, level * 0.4))
+                } else {
+                    darken_color(base, 0.7)
+                }
             } else {
                 darken_color(base, 0.8)
             }
@@ -512,17 +548,19 @@ fn add_road_markings(
         RoadType::Path => 3.0,
     };
 
-    // Asphalt color with per-cell noise
+    // Asphalt color — dark like real roads (high contrast with light pavement around buildings)
     let noise = ((gx.wrapping_mul(3571).wrapping_add(gy.wrapping_mul(2143))) % 100) as f32 / 100.0;
-    let av = (noise - 0.5) * 0.03;
+    let av = (noise - 0.5) * 0.02;
     let asphalt: [f32; 4] = match road_type {
-        RoadType::Highway => [0.18 + av, 0.18 + av, 0.22 + av, 1.0],
-        _ => [0.25 + av, 0.25 + av, 0.28 + av, 1.0],
+        RoadType::Highway => [0.10 + av, 0.10 + av, 0.12 + av, 1.0],
+        RoadType::Boulevard => [0.13 + av, 0.13 + av, 0.15 + av, 1.0],
+        RoadType::Avenue => [0.16 + av, 0.16 + av, 0.18 + av, 1.0],
+        _ => [0.20 + av, 0.20 + av, 0.22 + av, 1.0],
     };
 
     let y_road = 0.03;
     let y_mark = 0.06;
-    let y_curb = 0.14;
+    let y_curb = 0.12;
 
     let is_horizontal = has_left || has_right;
     let is_vertical = has_up || has_down;
@@ -631,7 +669,7 @@ fn add_road_markings(
                             let d1 = (sx + dash).min(x1);
                             if d1 > d0 {
                                 push_quad_3d(positions, normals, colors, indices,
-                                    d0, cz - lw, d1, cz + lw, y_mark, [1.0, 1.0, 1.0, 0.45]);
+                                    d0, cz - lw, d1, cz + lw, y_mark, [0.95, 0.95, 0.90, 0.85]);
                             }
                             sx += period;
                         }
@@ -639,9 +677,9 @@ fn add_road_markings(
                     RoadType::Avenue => {
                         let s = 0.2;
                         push_quad_3d(positions, normals, colors, indices,
-                            x0, cz - s - lw, x1, cz - s + lw, y_mark, [0.80, 0.70, 0.12, 0.65]);
+                            x0, cz - s - lw, x1, cz - s + lw, y_mark, [0.90, 0.80, 0.15, 0.90]);
                         push_quad_3d(positions, normals, colors, indices,
-                            x0, cz + s - lw, x1, cz + s + lw, y_mark, [0.80, 0.70, 0.12, 0.65]);
+                            x0, cz + s - lw, x1, cz + s + lw, y_mark, [0.90, 0.80, 0.15, 0.90]);
                     }
                     RoadType::Boulevard => {
                         let lane_w = road_half_w * 0.5;
@@ -675,7 +713,7 @@ fn add_road_markings(
                                 if d1 > d0 {
                                     push_quad_3d(positions, normals, colors, indices,
                                         d0, cz + off - lw, d1, cz + off + lw,
-                                        y_mark, [1.0, 1.0, 1.0, 0.45]);
+                                        y_mark, [0.95, 0.95, 0.90, 0.85]);
                                 }
                                 sx += period;
                             }
@@ -702,7 +740,7 @@ fn add_road_markings(
                             let d1 = (sz + dash).min(z1);
                             if d1 > d0 {
                                 push_quad_3d(positions, normals, colors, indices,
-                                    cx - lw, d0, cx + lw, d1, y_mark, [1.0, 1.0, 1.0, 0.45]);
+                                    cx - lw, d0, cx + lw, d1, y_mark, [0.95, 0.95, 0.90, 0.85]);
                             }
                             sz += period;
                         }
@@ -710,9 +748,9 @@ fn add_road_markings(
                     RoadType::Avenue => {
                         let s = 0.2;
                         push_quad_3d(positions, normals, colors, indices,
-                            cx - s - lw, z0, cx - s + lw, z1, y_mark, [0.80, 0.70, 0.12, 0.65]);
+                            cx - s - lw, z0, cx - s + lw, z1, y_mark, [0.90, 0.80, 0.15, 0.90]);
                         push_quad_3d(positions, normals, colors, indices,
-                            cx + s - lw, z0, cx + s + lw, z1, y_mark, [0.80, 0.70, 0.12, 0.65]);
+                            cx + s - lw, z0, cx + s + lw, z1, y_mark, [0.90, 0.80, 0.15, 0.90]);
                     }
                     RoadType::Boulevard => {
                         let lane_w = road_half_w * 0.5;
@@ -746,7 +784,7 @@ fn add_road_markings(
                                 if d1 > d0 {
                                     push_quad_3d(positions, normals, colors, indices,
                                         cx + off - lw, d0, cx + off + lw, d1,
-                                        y_mark, [1.0, 1.0, 1.0, 0.45]);
+                                        y_mark, [0.95, 0.95, 0.90, 0.85]);
                                 }
                                 sz += period;
                             }
@@ -863,5 +901,5 @@ pub fn mark_all_chunks_dirty(
 }
 
 pub fn cell_color(cell: &simulation::grid::Cell) -> Color {
-    terrain_color(cell, 0, 0)
+    terrain_color(cell, 0, 0, Season::Spring)
 }

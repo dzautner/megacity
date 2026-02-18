@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::buildings::Building;
+use crate::buildings::{Building, UnderConstruction};
 use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
@@ -22,6 +22,7 @@ pub fn spawn_citizens(
     _grid: Res<WorldGrid>,
     mut timer: ResMut<CitizenSpawnTimer>,
     mut buildings: Query<(Entity, &mut Building)>,
+    under_construction: Query<Entity, With<UnderConstruction>>,
     mut virtual_pop: ResMut<VirtualPopulation>,
     citizens: Query<&crate::citizen::Citizen>,
 ) {
@@ -36,9 +37,14 @@ pub fn spawn_citizens(
     let mut rng = rand::thread_rng();
 
     // Collect available workplaces (immutable pass)
+    // Skip buildings that are still under construction
     let available_work: Vec<(Entity, usize, usize)> = buildings
         .iter()
-        .filter(|(_, b)| b.zone_type.is_job_zone() && b.occupants < b.capacity)
+        .filter(|(e, b)| {
+            b.zone_type.is_job_zone()
+                && b.occupants < b.capacity
+                && under_construction.get(*e).is_err()
+        })
         .map(|(e, b)| (e, b.grid_x, b.grid_y))
         .collect();
 
@@ -47,15 +53,21 @@ pub fn spawn_citizens(
     }
 
     // Collect residential buildings that need citizens
+    // Skip buildings that are still under construction
     let homes_to_fill: Vec<Entity> = buildings
         .iter()
-        .filter(|(_, b)| b.zone_type.is_residential() && b.occupants < b.capacity)
+        .filter(|(e, b)| {
+            b.zone_type.is_residential()
+                && b.occupants < b.capacity
+                && under_construction.get(*e).is_err()
+        })
         .map(|(e, _)| e)
         .collect();
 
     // Use burst mode when population is far below building capacity
+    // Only count operational (non-construction) residential capacity
     let total_res_capacity: u32 = buildings.iter()
-        .filter(|(_, b)| b.zone_type.is_residential())
+        .filter(|(e, b)| b.zone_type.is_residential() && under_construction.get(*e).is_err())
         .map(|(_, b)| b.capacity)
         .sum();
     let target_fill = (total_res_capacity as f32 * 0.5) as u32;

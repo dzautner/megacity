@@ -754,14 +754,60 @@ fn generate_service_mesh(service_type: ServiceType) -> Mesh {
             m.add_cylinder(hw * 0.6, hh * 2.5, hd * 0.6, s * 0.02, s * 0.3, 4, [0.5, 0.5, 0.55, 1.0]);
             m.add_cuboid(hw * 0.6, hh * 2.0 + s * 0.25, hd * 0.6, s * 0.06, s * 0.06, s * 0.02, lighten(color, 1.3));
         }
-        ServiceType::SmallAirport | ServiceType::InternationalAirport => {
+        ServiceType::SmallAirstrip => {
             let color = [0.65, 0.65, 0.70, 1.0];
             let hw = s * 0.45 * scale_x;
             let hh = s * 0.15;
             let hd = s * 0.45 * scale_z;
-            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd * 0.4, color);
-            m.add_cuboid(0.0, s * 0.01, hd * 0.3, hw * 0.15, s * 0.01, hd * 0.7, [0.3, 0.3, 0.35, 1.0]);
-            m.add_cylinder(hw * 0.6, hh * 2.0 + s * 0.2, -hd * 0.3, s * 0.06, s * 0.5, 8, [0.5, 0.5, 0.55, 1.0]);
+            // Small terminal building
+            m.add_cuboid(0.0, hh, 0.0, hw * 0.4, hh, hd * 0.3, color);
+            // Runway
+            m.add_cuboid(0.0, s * 0.01, hd * 0.3, hw * 0.12, s * 0.01, hd * 0.7, [0.3, 0.3, 0.35, 1.0]);
+            // Runway center stripe
+            m.add_cuboid(0.0, s * 0.015, hd * 0.3, hw * 0.01, s * 0.005, hd * 0.6, [1.0, 1.0, 1.0, 0.8]);
+            // Windsock pole
+            m.add_cylinder(hw * 0.5, hh * 2.0, -hd * 0.3, s * 0.02, s * 0.3, 4, [0.5, 0.5, 0.55, 1.0]);
+        }
+        ServiceType::RegionalAirport => {
+            let color = [0.60, 0.62, 0.68, 1.0];
+            let hw = s * 0.45 * scale_x;
+            let hh = s * 0.20;
+            let hd = s * 0.45 * scale_z;
+            // Terminal building
+            m.add_cuboid(0.0, hh, -hd * 0.2, hw * 0.5, hh, hd * 0.35, color);
+            // Terminal extension (gate concourse)
+            m.add_cuboid(hw * 0.15, hh * 0.8, -hd * 0.55, hw * 0.2, hh * 0.6, hd * 0.1, darken(color, 0.9));
+            // Runway
+            m.add_cuboid(0.0, s * 0.01, hd * 0.25, hw * 0.15, s * 0.01, hd * 0.75, [0.3, 0.3, 0.35, 1.0]);
+            // Runway center stripe
+            m.add_cuboid(0.0, s * 0.015, hd * 0.25, hw * 0.01, s * 0.005, hd * 0.65, [1.0, 1.0, 1.0, 0.8]);
+            // Control tower
+            m.add_cylinder(hw * 0.55, hh * 2.5, -hd * 0.3, s * 0.05, s * 0.45, 8, [0.5, 0.5, 0.55, 1.0]);
+            // Tower cab (observation deck)
+            m.add_cuboid(hw * 0.55, hh * 2.5 + s * 0.25, -hd * 0.3, s * 0.08, s * 0.06, s * 0.08, [0.4, 0.6, 0.65, 1.0]);
+        }
+        ServiceType::InternationalAirport => {
+            let color = [0.58, 0.60, 0.66, 1.0];
+            let hw = s * 0.45 * scale_x;
+            let hh = s * 0.22;
+            let hd = s * 0.45 * scale_z;
+            // Main terminal building (large)
+            m.add_cuboid(0.0, hh, -hd * 0.15, hw * 0.6, hh, hd * 0.40, color);
+            // Terminal wings (gate concourses on each side)
+            m.add_cuboid(-hw * 0.35, hh * 0.7, -hd * 0.6, hw * 0.15, hh * 0.5, hd * 0.15, darken(color, 0.9));
+            m.add_cuboid(hw * 0.35, hh * 0.7, -hd * 0.6, hw * 0.15, hh * 0.5, hd * 0.15, darken(color, 0.9));
+            // Two parallel runways
+            m.add_cuboid(-hw * 0.25, s * 0.01, hd * 0.3, hw * 0.12, s * 0.01, hd * 0.7, [0.3, 0.3, 0.35, 1.0]);
+            m.add_cuboid(hw * 0.25, s * 0.01, hd * 0.3, hw * 0.12, s * 0.01, hd * 0.7, [0.3, 0.3, 0.35, 1.0]);
+            // Runway center stripes
+            m.add_cuboid(-hw * 0.25, s * 0.015, hd * 0.3, hw * 0.01, s * 0.005, hd * 0.6, [1.0, 1.0, 1.0, 0.8]);
+            m.add_cuboid(hw * 0.25, s * 0.015, hd * 0.3, hw * 0.01, s * 0.005, hd * 0.6, [1.0, 1.0, 1.0, 0.8]);
+            // Tall control tower
+            m.add_cylinder(hw * 0.6, hh * 3.0, -hd * 0.25, s * 0.06, s * 0.65, 8, [0.5, 0.5, 0.55, 1.0]);
+            // Tower cab
+            m.add_cuboid(hw * 0.6, hh * 3.0 + s * 0.35, -hd * 0.25, s * 0.10, s * 0.08, s * 0.10, [0.3, 0.55, 0.6, 1.0]);
+            // Parking structure
+            m.add_cuboid(0.0, hh * 0.5, hd * 0.15, hw * 0.3, hh * 0.3, hd * 0.1, darken(color, 0.7));
         }
         ServiceType::FerryPier => {
             let color = [0.40, 0.55, 0.70, 1.0];
@@ -837,6 +883,216 @@ fn generate_service_mesh(service_type: ServiceType) -> Mesh {
             m.add_cuboid(0.0, hh * 0.2, hd + s * 0.06, hw * 0.8, hh * 0.1, s * 0.04, darken(color, 0.82));
             // Pediment (triangle above columns)
             m.add_roof_prism(0.0, hh * 2.0, hd + s * 0.02, hw * 0.65, hh * 0.3, s * 0.03, darken(color, 0.9));
+        }
+        ServiceType::Cemetery => {
+            // Dark grey cemetery with headstones
+            let color = [0.3, 0.35, 0.3, 1.0];
+            let hw = s * 0.45;
+            let hd = s * 0.45;
+            // Flat ground base
+            m.add_cuboid(0.0, s * 0.02, 0.0, hw, s * 0.02, hd, color);
+            // Headstones scattered across the cemetery
+            let stone_color = [0.6, 0.6, 0.6, 1.0];
+            m.add_cuboid(-hw * 0.5, s * 0.08, -hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(-hw * 0.2, s * 0.08, -hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(hw * 0.1, s * 0.08, -hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(hw * 0.4, s * 0.08, -hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(-hw * 0.5, s * 0.08, 0.0, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(-hw * 0.2, s * 0.08, 0.0, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(hw * 0.1, s * 0.08, 0.0, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(hw * 0.4, s * 0.08, 0.0, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(-hw * 0.5, s * 0.08, hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(-hw * 0.2, s * 0.08, hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(hw * 0.1, s * 0.08, hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            m.add_cuboid(hw * 0.4, s * 0.08, hd * 0.5, s * 0.03, s * 0.06, s * 0.015, stone_color);
+            // Tree (cypress-style, tall and thin)
+            m.add_cylinder(hw * 0.35, s * 0.15, hd * 0.35, s * 0.02, s * 0.2, 6, [0.35, 0.25, 0.15, 1.0]);
+            m.add_cylinder(hw * 0.35, s * 0.35, hd * 0.35, s * 0.06, s * 0.25, 6, [0.15, 0.35, 0.12, 1.0]);
+            // Gate/fence at entrance
+            m.add_cuboid(0.0, s * 0.10, hd, hw * 0.15, s * 0.10, s * 0.02, darken(color, 0.6));
+        }
+        ServiceType::Crematorium => {
+            // Dark red crematorium with chimney
+            let color = [0.4, 0.25, 0.25, 1.0];
+            let hw = s * 0.38;
+            let hh = s * 0.30;
+            let hd = s * 0.38;
+            // Main building
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Tall chimney/smokestack
+            m.add_cylinder(hw * 0.6, hh * 2.5, -hd * 0.4, s * 0.05, hh * 2.0, 8, [0.5, 0.45, 0.45, 1.0]);
+            // Entrance
+            m.add_cuboid(0.0, hh * 0.35, hd + 0.05, hw * 0.2, hh * 0.35, 0.05, darken(color, 0.4));
+            // Peaked roof
+            m.add_roof_prism(0.0, hh * 2.0, 0.0, hw * 1.02, hh * 0.3, hd * 1.02, darken(color, 0.8));
+        }
+        ServiceType::HomelessShelter => {
+            // Warm-toned shelter building with beds visible
+            let color = [0.65, 0.55, 0.45, 1.0];
+            let hw = s * 0.40;
+            let hh = s * 0.25;
+            let hd = s * 0.40;
+            // Main building
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Peaked roof
+            m.add_roof_prism(0.0, hh * 2.0, 0.0, hw * 1.02, hh * 0.35, hd * 1.02, darken(color, 0.8));
+            // Entrance (wide double door)
+            m.add_cuboid(0.0, hh * 0.4, hd + 0.05, hw * 0.3, hh * 0.4, 0.05, darken(color, 0.4));
+            // Windows
+            m.add_cuboid(-hw * 0.5, hh, hd - 0.05, s * 0.04, s * 0.04, 0.08, [0.25, 0.25, 0.35, 1.0]);
+            m.add_cuboid(hw * 0.5, hh, hd - 0.05, s * 0.04, s * 0.04, 0.08, [0.25, 0.25, 0.35, 1.0]);
+            // Small sign
+            m.add_cuboid(hw * 0.7, hh * 1.5, hd * 0.8, s * 0.06, s * 0.04, s * 0.01, [0.3, 0.6, 0.4, 1.0]);
+        }
+        ServiceType::WelfareOffice => {
+            // Civic-style building in teal/green tones
+            let color = [0.45, 0.60, 0.55, 1.0];
+            let hw = s * 0.40;
+            let hh = s * 0.30;
+            let hd = s * 0.40;
+            // Main building
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Entrance with columns
+            m.add_cuboid(-hw * 0.25, hh, hd + s * 0.04, s * 0.025, hh, s * 0.025, [0.7, 0.7, 0.72, 1.0]);
+            m.add_cuboid(hw * 0.25, hh, hd + s * 0.04, s * 0.025, hh, s * 0.025, [0.7, 0.7, 0.72, 1.0]);
+            // Steps
+            m.add_cuboid(0.0, hh * 0.12, hd + s * 0.07, hw * 0.5, hh * 0.12, s * 0.05, darken(color, 0.8));
+            // Windows on each floor
+            for i in 1..4 {
+                let wx = -hw + i as f32 * hw * 0.5;
+                m.add_cuboid(wx, hh, hd - 0.05, s * 0.035, s * 0.04, 0.08, [0.2, 0.22, 0.3, 1.0]);
+            }
+            // Flat roof with small sign
+            m.add_cuboid(0.0, hh * 2.0 + s * 0.02, 0.0, hw * 0.3, s * 0.02, hd * 0.3, darken(color, 0.85));
+            // Flag pole
+            m.add_cylinder(hw * 0.7, hh * 2.5, hd * 0.7, s * 0.015, s * 0.5, 4, [0.5, 0.5, 0.55, 1.0]);
+        }
+        ServiceType::PostOffice => {
+            // Classic post office: warm brick color with mail slot and flag
+            let color = [0.72, 0.55, 0.38, 1.0];
+            let hw = s * 0.38;
+            let hh = s * 0.28;
+            let hd = s * 0.38;
+            // Main building
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Peaked roof
+            m.add_roof_prism(0.0, hh * 2.0, 0.0, hw * 1.02, hh * 0.35, hd * 1.02, darken(color, 0.8));
+            // Entrance door
+            m.add_cuboid(0.0, hh * 0.4, hd + 0.05, hw * 0.2, hh * 0.4, 0.05, darken(color, 0.4));
+            // Windows
+            m.add_cuboid(-hw * 0.5, hh, hd - 0.05, s * 0.04, s * 0.04, 0.08, [0.2, 0.22, 0.3, 1.0]);
+            m.add_cuboid(hw * 0.5, hh, hd - 0.05, s * 0.04, s * 0.04, 0.08, [0.2, 0.22, 0.3, 1.0]);
+            // Mailbox (small blue box at entrance)
+            m.add_cuboid(hw * 0.7, s * 0.08, hd + s * 0.06, s * 0.04, s * 0.08, s * 0.03, [0.2, 0.3, 0.7, 1.0]);
+            // Flag pole
+            m.add_cylinder(-hw * 0.7, hh * 2.5, hd * 0.7, s * 0.015, s * 0.5, 4, [0.6, 0.6, 0.6, 1.0]);
+        }
+        ServiceType::MailSortingCenter => {
+            // Large industrial-style sorting center
+            let color = [0.55, 0.50, 0.45, 1.0];
+            let hw = s * 0.45;
+            let hh = s * 0.30;
+            let hd = s * 0.45;
+            // Main warehouse building
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Flat roof
+            m.add_cuboid(0.0, hh * 2.0 + s * 0.01, 0.0, hw * 1.02, s * 0.01, hd * 1.02, darken(color, 0.85));
+            // Loading dock (raised platform at back)
+            m.add_cuboid(0.0, hh * 0.3, -hd - s * 0.06, hw * 0.8, hh * 0.3, s * 0.06, darken(color, 0.7));
+            // Loading bay doors
+            m.add_cuboid(-hw * 0.4, hh * 0.5, hd + 0.05, hw * 0.2, hh * 0.5, 0.05, darken(color, 0.4));
+            m.add_cuboid(hw * 0.4, hh * 0.5, hd + 0.05, hw * 0.2, hh * 0.5, 0.05, darken(color, 0.4));
+            // Conveyor belt indicator on roof
+            m.add_cuboid(0.0, hh * 2.0 + s * 0.06, 0.0, hw * 0.1, s * 0.04, hd * 0.6, [0.4, 0.4, 0.45, 1.0]);
+            // Sorting center sign
+            m.add_cuboid(0.0, hh * 1.8, hd + 0.03, hw * 0.3, s * 0.04, s * 0.01, [0.2, 0.3, 0.7, 1.0]);
+        }
+        ServiceType::HeatingBoiler => {
+            // Small red-orange boiler building with chimney
+            let color = [0.85, 0.40, 0.20, 1.0];
+            let hw = s * 0.35;
+            let hh = s * 0.25;
+            let hd = s * 0.35;
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Chimney / smokestack
+            m.add_cylinder(hw * 0.5, hh * 2.5, -hd * 0.3, s * 0.06, hh * 2.0, 8, [0.5, 0.5, 0.5, 1.0]);
+            // Pipe network on side
+            m.add_cuboid(-hw * 0.6, hh * 0.8, 0.0, s * 0.03, hh * 0.6, hd * 0.5, [0.6, 0.6, 0.65, 1.0]);
+            // Door
+            m.add_cuboid(0.0, hh * 0.35, hd + 0.05, hw * 0.2, hh * 0.35, 0.05, darken(color, 0.4));
+        }
+        ServiceType::DistrictHeatingPlant => {
+            // Large industrial heating facility with two chimneys and pipes
+            let color = [0.75, 0.35, 0.15, 1.0];
+            let hw = s * 0.45 * scale_x;
+            let hh = s * 0.35;
+            let hd = s * 0.45 * scale_z;
+            // Main building
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Two chimneys
+            m.add_cylinder(-hw * 0.3, hh * 2.8, -hd * 0.3, s * 0.08, hh * 2.0, 8, [0.5, 0.5, 0.55, 1.0]);
+            m.add_cylinder(hw * 0.3, hh * 2.5, -hd * 0.3, s * 0.06, hh * 1.8, 8, [0.55, 0.55, 0.6, 1.0]);
+            // Pipe network along the front
+            m.add_cuboid(0.0, hh * 0.6, hd + s * 0.04, hw * 0.8, s * 0.04, s * 0.04, [0.6, 0.6, 0.65, 1.0]);
+            m.add_cuboid(0.0, hh * 1.0, hd + s * 0.04, hw * 0.8, s * 0.04, s * 0.04, [0.6, 0.6, 0.65, 1.0]);
+            // Loading bay
+            m.add_cuboid(hw * 0.5, hh * 0.4, hd + 0.05, hw * 0.3, hh * 0.4, 0.05, darken(color, 0.4));
+        }
+        ServiceType::GeothermalPlant => {
+            // Geothermal facility with dome and pipes
+            let color = [0.55, 0.40, 0.25, 1.0];
+            let hw = s * 0.45 * scale_x;
+            let hh = s * 0.30;
+            let hd = s * 0.45 * scale_z;
+            // Main building
+            m.add_cuboid(0.0, hh, 0.0, hw, hh, hd, color);
+            // Geothermal dome (represents heat exchanger)
+            m.add_cylinder(0.0, hh * 2.0 + s * 0.08, 0.0, s * 0.18, s * 0.14, 10, [0.65, 0.45, 0.30, 1.0]);
+            // Steam vents (small cylinders)
+            m.add_cylinder(-hw * 0.5, hh * 2.0, hd * 0.4, s * 0.04, s * 0.3, 6, [0.7, 0.7, 0.75, 1.0]);
+            m.add_cylinder(hw * 0.5, hh * 2.0, -hd * 0.4, s * 0.04, s * 0.3, 6, [0.7, 0.7, 0.75, 1.0]);
+            // Underground pipe indicators
+            m.add_cuboid(0.0, s * 0.04, hd + s * 0.06, hw * 0.3, s * 0.04, s * 0.04, [0.5, 0.5, 0.55, 1.0]);
+        }
+        ServiceType::WaterTreatmentPlant => {
+            // Large water treatment facility with settling tanks and processing building
+            let color = [0.30, 0.55, 0.70, 1.0];
+            let hw = s * 0.45 * scale_x;
+            let hh = s * 0.25;
+            let hd = s * 0.45 * scale_z;
+            // Main processing building
+            m.add_cuboid(-hw * 0.3, hh, 0.0, hw * 0.35, hh, hd * 0.6, color);
+            // Circular settling tanks (two large cylinders)
+            m.add_cylinder(hw * 0.25, s * 0.08, -hd * 0.35, s * 0.18, s * 0.08, 12, [0.35, 0.60, 0.75, 1.0]);
+            m.add_cylinder(hw * 0.25, s * 0.08, hd * 0.35, s * 0.18, s * 0.08, 12, [0.35, 0.60, 0.75, 1.0]);
+            // Tank rims (slightly darker)
+            m.add_cylinder(hw * 0.25, s * 0.16, -hd * 0.35, s * 0.19, s * 0.01, 12, darken(color, 0.7));
+            m.add_cylinder(hw * 0.25, s * 0.16, hd * 0.35, s * 0.19, s * 0.01, 12, darken(color, 0.7));
+            // Pipe connecting tanks to building
+            m.add_cuboid(0.0, hh * 0.5, 0.0, hw * 0.5, s * 0.03, s * 0.03, [0.5, 0.5, 0.55, 1.0]);
+            // Outflow pipe
+            m.add_cuboid(hw * 0.45, s * 0.06, hd * 0.6, s * 0.04, s * 0.04, s * 0.15, [0.4, 0.55, 0.65, 1.0]);
+            // Small office/control room on top
+            m.add_cuboid(-hw * 0.3, hh * 2.0 + s * 0.04, 0.0, hw * 0.15, s * 0.08, hd * 0.2, darken(color, 0.85));
+        }
+        ServiceType::WellPump => {
+            // Small well pump station with pump housing and pipe
+            let color = [0.40, 0.60, 0.55, 1.0];
+            let hw = s * 0.30;
+            let hh = s * 0.20;
+            let hd = s * 0.30;
+            // Concrete base/pad
+            m.add_cuboid(0.0, s * 0.03, 0.0, hw, s * 0.03, hd, [0.55, 0.55, 0.55, 1.0]);
+            // Pump housing (small building)
+            m.add_cuboid(0.0, hh, 0.0, hw * 0.6, hh, hd * 0.6, color);
+            // Pump motor on top
+            m.add_cylinder(0.0, hh * 2.0 + s * 0.04, 0.0, s * 0.06, s * 0.06, 8, [0.5, 0.5, 0.55, 1.0]);
+            // Pipe going into the ground
+            m.add_cylinder(hw * 0.4, hh * 0.5, hd * 0.4, s * 0.03, hh * 1.5, 6, [0.45, 0.45, 0.50, 1.0]);
+            // Horizontal output pipe
+            m.add_cuboid(hw * 0.4, hh * 0.6, 0.0, s * 0.03, s * 0.03, hd * 0.6, [0.45, 0.45, 0.50, 1.0]);
+            // Small access hatch on pump housing
+            m.add_cuboid(0.0, hh * 0.35, hd * 0.6 + 0.05, hw * 0.15, hh * 0.35, 0.05, darken(color, 0.4));
         }
         _ => {
             let color = [0.91, 0.82, 0.38, 1.0];
@@ -953,10 +1209,19 @@ pub fn service_base_color(service_type: ServiceType) -> Color {
         | ServiceType::TVStation => Color::srgb(0.91, 0.82, 0.38),
         ServiceType::BusDepot | ServiceType::TrainStation | ServiceType::SubwayStation
         | ServiceType::TramDepot | ServiceType::FerryPier => Color::srgb(0.50, 0.60, 0.70),
-        ServiceType::SmallAirport | ServiceType::InternationalAirport =>
+        ServiceType::SmallAirstrip | ServiceType::RegionalAirport | ServiceType::InternationalAirport =>
             Color::srgb(0.65, 0.65, 0.70),
         ServiceType::CellTower => Color::srgb(0.6, 0.6, 0.6),
         ServiceType::DataCenter => Color::srgb(0.35, 0.40, 0.50),
+        ServiceType::HomelessShelter => Color::srgb(0.65, 0.55, 0.45),
+        ServiceType::WelfareOffice => Color::srgb(0.45, 0.60, 0.55),
+        ServiceType::PostOffice => Color::srgb(0.72, 0.55, 0.38),
+        ServiceType::MailSortingCenter => Color::srgb(0.55, 0.50, 0.45),
+        ServiceType::HeatingBoiler => Color::srgb(0.85, 0.40, 0.20),
+        ServiceType::DistrictHeatingPlant => Color::srgb(0.75, 0.35, 0.15),
+        ServiceType::GeothermalPlant => Color::srgb(0.55, 0.40, 0.25),
+        ServiceType::WaterTreatmentPlant => Color::srgb(0.30, 0.55, 0.70),
+        ServiceType::WellPump => Color::srgb(0.40, 0.60, 0.55),
     }
 }
 

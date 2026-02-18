@@ -4,11 +4,12 @@ use bevy_egui::{egui, EguiContexts};
 use simulation::economy::CityBudget;
 use simulation::stats::CityStats;
 use simulation::time_of_day::GameClock;
+use simulation::weather::Weather;
 use simulation::zones::ZoneDemand;
 
 use rendering::input::{ActiveTool, StatusMessage};
 use rendering::overlay::{OverlayMode, OverlayState};
-use save::{LoadGameEvent, SaveGameEvent};
+use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
 
 use crate::milestones::Milestones;
 
@@ -149,7 +150,8 @@ fn build_categories() -> Vec<ToolCategory> {
                 ToolItem { tool: Some(ActiveTool::PlaceSubwayStation), icon: "SS", name: "Subway", cost: Some(3000.0), overlay: None },
                 ToolItem { tool: Some(ActiveTool::PlaceTramDepot), icon: "TD", name: "Tram Depot", cost: Some(1500.0), overlay: None },
                 ToolItem { tool: Some(ActiveTool::PlaceFerryPier), icon: "FP", name: "Ferry Pier", cost: Some(800.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceSmallAirport), icon: "SA", name: "Small Airport", cost: Some(5000.0), overlay: None },
+                ToolItem { tool: Some(ActiveTool::PlaceSmallAirstrip), icon: "SA", name: "Small Airstrip", cost: Some(5000.0), overlay: None },
+                ToolItem { tool: Some(ActiveTool::PlaceRegionalAirport), icon: "RA", name: "Regional Airport", cost: Some(10000.0), overlay: None },
                 ToolItem { tool: Some(ActiveTool::PlaceInternationalAirport), icon: "IA", name: "Int'l Airport", cost: Some(15000.0), overlay: None },
             ],
         },
@@ -172,6 +174,41 @@ fn build_categories() -> Vec<ToolCategory> {
                 ToolItem { tool: None, icon: "LV", name: "Land Value", cost: None, overlay: Some(OverlayMode::LandValue) },
                 ToolItem { tool: None, icon: "Ed", name: "Education", cost: None, overlay: Some(OverlayMode::Education) },
                 ToolItem { tool: None, icon: "Gb", name: "Garbage", cost: None, overlay: Some(OverlayMode::Garbage) },
+                ToolItem { tool: None, icon: "No", name: "Noise", cost: None, overlay: Some(OverlayMode::Noise) },
+                ToolItem { tool: None, icon: "WP", name: "Water Pollution", cost: None, overlay: Some(OverlayMode::WaterPollution) },
+            ],
+        },
+        ToolCategory {
+            icon: "Ev",
+            name: "Environment",
+            items: vec![
+                ToolItem { tool: Some(ActiveTool::TreePlant), icon: "Tp", name: "Plant Tree", cost: Some(50.0), overlay: None },
+                ToolItem { tool: Some(ActiveTool::TreeRemove), icon: "Tr", name: "Remove Tree", cost: None, overlay: None },
+            ],
+        },
+        ToolCategory {
+            icon: "Te",
+            name: "Terrain",
+            items: vec![
+                ToolItem { tool: Some(ActiveTool::TerrainRaise), icon: "/\\", name: "Raise", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::TerrainLower), icon: "\\/", name: "Lower", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::TerrainLevel), icon: "--", name: "Flatten", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::TerrainWater), icon: "~~", name: "Water", cost: None, overlay: None },
+            ],
+        },
+        ToolCategory {
+            icon: "D",
+            name: "Districts",
+            items: vec![
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(0)), icon: "D0", name: "Downtown", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(1)), icon: "D1", name: "Suburbs", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(2)), icon: "D2", name: "Industrial", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(3)), icon: "D3", name: "Waterfront", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(4)), icon: "D4", name: "Historic", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(5)), icon: "D5", name: "University", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(6)), icon: "D6", name: "Arts", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictPaint(7)), icon: "D7", name: "Tech Park", cost: None, overlay: None },
+                ToolItem { tool: Some(ActiveTool::DistrictErase), icon: "DE", name: "Erase District", cost: None, overlay: None },
             ],
         },
         ToolCategory {
@@ -237,8 +274,10 @@ pub fn toolbar_ui(
     status: Res<StatusMessage>,
     mut save_events: EventWriter<SaveGameEvent>,
     mut load_events: EventWriter<LoadGameEvent>,
+    mut new_game_events: EventWriter<NewGameEvent>,
     mut open_cat: ResMut<OpenCategory>,
     _milestones: Res<Milestones>,
+    weather: Res<Weather>,
 ) {
     let categories = build_categories();
 
@@ -269,8 +308,8 @@ pub fn toolbar_ui(
 
                 ui.separator();
 
-                // Day / time
-                ui.label(clock.formatted());
+                // Day / time / season
+                ui.label(format!("{} | {}", clock.formatted(), weather.season.name()));
 
                 // Speed controls
                 if ui
@@ -299,7 +338,10 @@ pub fn toolbar_ui(
 
                 ui.separator();
 
-                // Save / Load
+                // Save / Load / New Game
+                if ui.button("New").clicked() {
+                    new_game_events.send(NewGameEvent);
+                }
                 if ui.button("Save").clicked() {
                     save_events.send(SaveGameEvent);
                 }

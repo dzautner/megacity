@@ -38,6 +38,7 @@ pub fn update_crime(
     grid: Res<WorldGrid>,
     land_value: Res<LandValueGrid>,
     services: Query<&ServiceBuilding>,
+    ext_budget: Res<crate::budget::ExtendedBudget>,
 ) {
     if !slow_timer.should_run() { return; }
     // Base crime level from land value (low value = more crime)
@@ -66,13 +67,15 @@ pub fn update_crime(
         if !ServiceBuilding::is_police(service.service_type) {
             continue;
         }
+        let police_budget = ext_budget.service_budgets.police;
         let radius = (service.radius / 16.0) as i32;
-        let reduction = match service.service_type {
+        let base_reduction = match service.service_type {
             ServiceType::PoliceKiosk => 10u8,
             ServiceType::PoliceStation => 20u8,
             ServiceType::PoliceHQ => 30u8,
             _ => 15u8,
         };
+        let reduction = (base_reduction as f32 * police_budget) as u8;
         for dy in -radius..=radius {
             for dx in -radius..=radius {
                 let nx = service.grid_x as i32 + dx;

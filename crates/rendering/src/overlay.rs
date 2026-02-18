@@ -11,6 +11,8 @@ pub enum OverlayMode {
     LandValue,
     Education,
     Garbage,
+    Noise,
+    WaterPollution,
 }
 
 #[derive(Resource, Default)]
@@ -69,6 +71,20 @@ pub fn toggle_overlay_keys(
             OverlayMode::None
         } else {
             OverlayMode::Garbage
+        };
+    }
+    if keys.just_pressed(KeyCode::KeyM) {
+        overlay.mode = if overlay.mode == OverlayMode::Noise {
+            OverlayMode::None
+        } else {
+            OverlayMode::Noise
+        };
+    }
+    if keys.just_pressed(KeyCode::KeyU) {
+        overlay.mode = if overlay.mode == OverlayMode::WaterPollution {
+            OverlayMode::None
+        } else {
+            OverlayMode::WaterPollution
         };
     }
 }

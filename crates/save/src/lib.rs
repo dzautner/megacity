@@ -1,25 +1,59 @@
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 pub mod serialization;
 
-use serialization::{create_save_data, restore_road_segment_store, u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, SaveData};
+use serialization::{
+    create_save_data, restore_extended_budget, restore_loan_book, restore_policies,
+    restore_road_segment_store, restore_unlock_state, restore_weather, u8_to_road_type,
+    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, SaveData,
+};
+use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
-use simulation::movement::ActivityTimer;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
+use simulation::loans::LoanBook;
+use simulation::movement::ActivityTimer;
+use simulation::policies::Policies;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
 use simulation::time_of_day::GameClock;
+use simulation::unlocks::UnlockState;
 use simulation::utilities::UtilitySource;
+use simulation::weather::Weather;
 use simulation::zones::ZoneDemand;
 
 use rendering::building_render::BuildingMesh3d;
 use rendering::citizen_render::CitizenSprite;
+
+// ---------------------------------------------------------------------------
+// SystemParam bundles to keep system parameter counts under Bevy's 16 limit
+// ---------------------------------------------------------------------------
+
+/// Read-only access to the V2 resources (policies, weather, unlocks, ext budget, loans).
+#[derive(SystemParam)]
+struct V2ResourcesRead<'w> {
+    policies: Res<'w, Policies>,
+    weather: Res<'w, Weather>,
+    unlock_state: Res<'w, UnlockState>,
+    extended_budget: Res<'w, ExtendedBudget>,
+    loan_book: Res<'w, LoanBook>,
+}
+
+/// Mutable access to the V2 resources.
+#[derive(SystemParam)]
+struct V2ResourcesWrite<'w> {
+    policies: ResMut<'w, Policies>,
+    weather: ResMut<'w, Weather>,
+    unlock_state: ResMut<'w, UnlockState>,
+    extended_budget: ResMut<'w, ExtendedBudget>,
+    loan_book: ResMut<'w, LoanBook>,
+}
 
 pub struct SavePlugin;
 
@@ -27,7 +61,8 @@ impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SaveGameEvent>()
             .add_event::<LoadGameEvent>()
-            .add_systems(Update, (handle_save, handle_load));
+            .add_event::<NewGameEvent>()
+            .add_systems(Update, (handle_save, handle_load, handle_new_game));
     }
 }
 
@@ -36,6 +71,9 @@ pub struct SaveGameEvent;
 
 #[derive(Event)]
 pub struct LoadGameEvent;
+
+#[derive(Event)]
+pub struct NewGameEvent;
 
 #[allow(clippy::too_many_arguments)]
 fn handle_save(
@@ -58,6 +96,7 @@ fn handle_save(
     >,
     utility_sources: Query<&UtilitySource>,
     service_buildings: Query<&ServiceBuilding>,
+    v2: V2ResourcesRead,
 ) {
     for _ in events.read() {
         let building_data: Vec<(Building,)> = buildings.iter().map(|b| (b.clone(),)).collect();
@@ -97,6 +136,11 @@ fn handle_save(
             &utility_data,
             &service_data,
             segment_ref,
+            Some(&v2.policies),
+            Some(&v2.weather),
+            Some(&v2.unlock_state),
+            Some(&v2.extended_budget),
+            Some(&v2.loan_book),
         );
 
         let bytes = save.encode();
@@ -127,6 +171,7 @@ fn handle_load(
     existing_services: Query<Entity, With<ServiceBuilding>>,
     existing_meshes: Query<Entity, With<BuildingMesh3d>>,
     existing_sprites: Query<Entity, With<CitizenSprite>>,
+    mut v2: V2ResourcesWrite,
 ) {
     for _ in events.read() {
         let path = save_file_path();
@@ -343,7 +388,125 @@ fn handle_load(
             ));
         }
 
+        // Restore V2 fields (policies, weather, unlocks, extended budget, loans)
+        // If the save is from V1 (fields are None), use defaults.
+        if let Some(ref saved_policies) = save.policies {
+            *v2.policies = restore_policies(saved_policies);
+        } else {
+            *v2.policies = Policies::default();
+        }
+
+        if let Some(ref saved_weather) = save.weather {
+            *v2.weather = restore_weather(saved_weather);
+        } else {
+            *v2.weather = Weather::default();
+        }
+
+        if let Some(ref saved_unlocks) = save.unlock_state {
+            *v2.unlock_state = restore_unlock_state(saved_unlocks);
+        } else {
+            *v2.unlock_state = UnlockState::default();
+        }
+
+        if let Some(ref saved_ext_budget) = save.extended_budget {
+            *v2.extended_budget = restore_extended_budget(saved_ext_budget);
+        } else {
+            *v2.extended_budget = ExtendedBudget::default();
+        }
+
+        if let Some(ref saved_loans) = save.loan_book {
+            *v2.loan_book = restore_loan_book(saved_loans);
+        } else {
+            *v2.loan_book = LoanBook::default();
+        }
+
         println!("Loaded save from {}", path);
+    }
+}
+
+/// Handle "New Game" -- despawn all entities, reset all resources, regenerate world.
+#[allow(clippy::too_many_arguments)]
+fn handle_new_game(
+    mut events: EventReader<NewGameEvent>,
+    mut commands: Commands,
+    existing_buildings: Query<Entity, With<Building>>,
+    existing_citizens: Query<Entity, With<Citizen>>,
+    existing_utilities: Query<Entity, With<UtilitySource>>,
+    existing_services: Query<Entity, With<ServiceBuilding>>,
+    existing_meshes: Query<Entity, With<BuildingMesh3d>>,
+    existing_sprites: Query<Entity, With<CitizenSprite>>,
+    mut grid: ResMut<WorldGrid>,
+    mut roads: ResMut<RoadNetwork>,
+    mut segments: ResMut<RoadSegmentStore>,
+    mut clock: ResMut<GameClock>,
+    mut budget: ResMut<CityBudget>,
+    mut demand: ResMut<ZoneDemand>,
+    mut v2: V2ResourcesWrite,
+) {
+    for _ in events.read() {
+        // Despawn all game entities
+        for entity in &existing_meshes {
+            commands.entity(entity).despawn();
+        }
+        for entity in &existing_sprites {
+            commands.entity(entity).despawn();
+        }
+        for entity in &existing_buildings {
+            commands.entity(entity).despawn();
+        }
+        for entity in &existing_citizens {
+            commands.entity(entity).despawn();
+        }
+        for entity in &existing_utilities {
+            commands.entity(entity).despawn();
+        }
+        for entity in &existing_services {
+            commands.entity(entity).despawn();
+        }
+
+        // Reset world grid to fresh empty terrain
+        let width = grid.width;
+        let height = grid.height;
+        *grid = WorldGrid::new(width, height);
+        *roads = RoadNetwork::default();
+        *segments = RoadSegmentStore::default();
+
+        // Reset clock
+        clock.day = 1;
+        clock.hour = 8.0;
+        clock.speed = 1.0;
+        clock.paused = false;
+
+        // Reset budget to starting money
+        budget.treasury = 50_000.0;
+        budget.tax_rate = 0.10;
+        budget.last_collection_day = 0;
+
+        // Reset demand
+        *demand = ZoneDemand::default();
+
+        // Reset V2 resources
+        *v2.policies = Policies::default();
+        *v2.weather = Weather::default();
+        *v2.unlock_state = UnlockState::default();
+        *v2.extended_budget = ExtendedBudget::default();
+        *v2.loan_book = LoanBook::default();
+
+        // Generate a flat terrain with water on west edge (simple starter map)
+        for y in 0..height {
+            for x in 0..width {
+                let cell = grid.get_mut(x, y);
+                if x < 10 {
+                    cell.cell_type = simulation::grid::CellType::Water;
+                    cell.elevation = 0.3;
+                } else {
+                    cell.cell_type = simulation::grid::CellType::Grass;
+                    cell.elevation = 0.5;
+                }
+            }
+        }
+
+        println!("New game started — blank map with $50,000 treasury");
     }
 }
 

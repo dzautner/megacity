@@ -1,17 +1,22 @@
 use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::buildings::Building;
 use simulation::citizen::{CitizenDetails, CitizenState};
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid};
+use simulation::loans::{self, LoanBook};
+use simulation::policies::{Policies, Policy};
 use simulation::road_segments::{
     RoadSegment, RoadSegmentStore, SegmentId, SegmentNode, SegmentNodeId,
 };
 use simulation::roads::RoadNetwork;
 use simulation::services::{ServiceBuilding, ServiceType};
 use simulation::time_of_day::GameClock;
+use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
+use simulation::weather::{Season, Weather, WeatherEvent};
 use simulation::zones::ZoneDemand;
 
 // ---------------------------------------------------------------------------
@@ -108,11 +113,21 @@ pub fn service_type_to_u8(s: ServiceType) -> u8 {
         ServiceType::SubwayStation => 32,
         ServiceType::TramDepot => 33,
         ServiceType::FerryPier => 34,
-        ServiceType::SmallAirport => 35,
+        ServiceType::SmallAirstrip => 35,
         ServiceType::InternationalAirport => 36,
         ServiceType::TransferStation => 37,
         ServiceType::CellTower => 38,
         ServiceType::DataCenter => 39,
+        ServiceType::HomelessShelter => 40,
+        ServiceType::PostOffice => 41,
+        ServiceType::MailSortingCenter => 42,
+        ServiceType::RegionalAirport => 43,
+        ServiceType::WelfareOffice => 44,
+        ServiceType::HeatingBoiler => 45,
+        ServiceType::DistrictHeatingPlant => 46,
+        ServiceType::GeothermalPlant => 47,
+        ServiceType::WaterTreatmentPlant => 48,
+        ServiceType::WellPump => 49,
     }
 }
 
@@ -153,11 +168,21 @@ pub fn u8_to_service_type(v: u8) -> Option<ServiceType> {
         32 => Some(ServiceType::SubwayStation),
         33 => Some(ServiceType::TramDepot),
         34 => Some(ServiceType::FerryPier),
-        35 => Some(ServiceType::SmallAirport),
+        35 => Some(ServiceType::SmallAirstrip),
         36 => Some(ServiceType::InternationalAirport),
         37 => Some(ServiceType::TransferStation),
         38 => Some(ServiceType::CellTower),
         39 => Some(ServiceType::DataCenter),
+        40 => Some(ServiceType::HomelessShelter),
+        41 => Some(ServiceType::PostOffice),
+        42 => Some(ServiceType::MailSortingCenter),
+        43 => Some(ServiceType::RegionalAirport),
+        44 => Some(ServiceType::WelfareOffice),
+        45 => Some(ServiceType::HeatingBoiler),
+        46 => Some(ServiceType::DistrictHeatingPlant),
+        47 => Some(ServiceType::GeothermalPlant),
+        48 => Some(ServiceType::WaterTreatmentPlant),
+        49 => Some(ServiceType::WellPump),
         _ => None,
     }
 }
@@ -182,6 +207,174 @@ pub fn u8_to_road_type(v: u8) -> RoadType {
         4 => RoadType::OneWay,
         5 => RoadType::Path,
         _ => RoadType::Local,
+    }
+}
+
+pub fn policy_to_u8(p: Policy) -> u8 {
+    match p {
+        Policy::FreePublicTransport => 0,
+        Policy::HeavyIndustryTaxBreak => 1,
+        Policy::TourismPromotion => 2,
+        Policy::SmallBusinessGrant => 3,
+        Policy::RecyclingProgram => 4,
+        Policy::IndustrialAirFilters => 5,
+        Policy::WaterConservation => 6,
+        Policy::GreenSpaceInitiative => 7,
+        Policy::EducationPush => 8,
+        Policy::HealthcareForAll => 9,
+        Policy::SmokeDetectorMandate => 10,
+        Policy::NeighborhoodWatch => 11,
+        Policy::HighRiseBan => 12,
+        Policy::NightShiftBan => 13,
+        Policy::IndustrialZoningRestriction => 14,
+    }
+}
+
+pub fn u8_to_policy(v: u8) -> Option<Policy> {
+    match v {
+        0 => Some(Policy::FreePublicTransport),
+        1 => Some(Policy::HeavyIndustryTaxBreak),
+        2 => Some(Policy::TourismPromotion),
+        3 => Some(Policy::SmallBusinessGrant),
+        4 => Some(Policy::RecyclingProgram),
+        5 => Some(Policy::IndustrialAirFilters),
+        6 => Some(Policy::WaterConservation),
+        7 => Some(Policy::GreenSpaceInitiative),
+        8 => Some(Policy::EducationPush),
+        9 => Some(Policy::HealthcareForAll),
+        10 => Some(Policy::SmokeDetectorMandate),
+        11 => Some(Policy::NeighborhoodWatch),
+        12 => Some(Policy::HighRiseBan),
+        13 => Some(Policy::NightShiftBan),
+        14 => Some(Policy::IndustrialZoningRestriction),
+        _ => None,
+    }
+}
+
+pub fn weather_event_to_u8(w: WeatherEvent) -> u8 {
+    match w {
+        WeatherEvent::Clear => 0,
+        WeatherEvent::Rain => 1,
+        WeatherEvent::HeatWave => 2,
+        WeatherEvent::ColdSnap => 3,
+        WeatherEvent::Storm => 4,
+    }
+}
+
+pub fn u8_to_weather_event(v: u8) -> WeatherEvent {
+    match v {
+        0 => WeatherEvent::Clear,
+        1 => WeatherEvent::Rain,
+        2 => WeatherEvent::HeatWave,
+        3 => WeatherEvent::ColdSnap,
+        4 => WeatherEvent::Storm,
+        _ => WeatherEvent::Clear,
+    }
+}
+
+pub fn season_to_u8(s: Season) -> u8 {
+    match s {
+        Season::Spring => 0,
+        Season::Summer => 1,
+        Season::Autumn => 2,
+        Season::Winter => 3,
+    }
+}
+
+pub fn u8_to_season(v: u8) -> Season {
+    match v {
+        0 => Season::Spring,
+        1 => Season::Summer,
+        2 => Season::Autumn,
+        3 => Season::Winter,
+        _ => Season::Spring,
+    }
+}
+
+pub fn unlock_node_to_u8(n: UnlockNode) -> u8 {
+    match n {
+        UnlockNode::BasicRoads => 0,
+        UnlockNode::ResidentialZoning => 1,
+        UnlockNode::CommercialZoning => 2,
+        UnlockNode::IndustrialZoning => 3,
+        UnlockNode::BasicPower => 4,
+        UnlockNode::BasicWater => 5,
+        UnlockNode::FireService => 6,
+        UnlockNode::PoliceService => 7,
+        UnlockNode::ElementaryEducation => 8,
+        UnlockNode::SmallParks => 9,
+        UnlockNode::BasicSanitation => 10,
+        UnlockNode::HealthCare => 11,
+        UnlockNode::HighSchoolEducation => 12,
+        UnlockNode::HighDensityResidential => 13,
+        UnlockNode::HighDensityCommercial => 14,
+        UnlockNode::SolarPower => 15,
+        UnlockNode::SewagePlant => 16,
+        UnlockNode::AdvancedParks => 17,
+        UnlockNode::DeathCare => 18,
+        UnlockNode::OfficeZoning => 19,
+        UnlockNode::UniversityEducation => 20,
+        UnlockNode::WindPower => 21,
+        UnlockNode::AdvancedSanitation => 22,
+        UnlockNode::PublicTransport => 23,
+        UnlockNode::Entertainment => 24,
+        UnlockNode::AdvancedEmergency => 25,
+        UnlockNode::Telecom => 26,
+        UnlockNode::AdvancedTransport => 27,
+        UnlockNode::Landmarks => 28,
+        UnlockNode::PolicySystem => 29,
+        UnlockNode::NuclearPower => 30,
+        UnlockNode::BasicHeating => 31,
+        UnlockNode::DistrictHeatingNetwork => 32,
+        UnlockNode::SmallAirstrips => 33,
+        UnlockNode::PostalService => 34,
+        UnlockNode::WaterInfrastructure => 35,
+        UnlockNode::RegionalAirports => 36,
+        UnlockNode::InternationalAirports => 37,
+    }
+}
+
+pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
+    match v {
+        0 => Some(UnlockNode::BasicRoads),
+        1 => Some(UnlockNode::ResidentialZoning),
+        2 => Some(UnlockNode::CommercialZoning),
+        3 => Some(UnlockNode::IndustrialZoning),
+        4 => Some(UnlockNode::BasicPower),
+        5 => Some(UnlockNode::BasicWater),
+        6 => Some(UnlockNode::FireService),
+        7 => Some(UnlockNode::PoliceService),
+        8 => Some(UnlockNode::ElementaryEducation),
+        9 => Some(UnlockNode::SmallParks),
+        10 => Some(UnlockNode::BasicSanitation),
+        11 => Some(UnlockNode::HealthCare),
+        12 => Some(UnlockNode::HighSchoolEducation),
+        13 => Some(UnlockNode::HighDensityResidential),
+        14 => Some(UnlockNode::HighDensityCommercial),
+        15 => Some(UnlockNode::SolarPower),
+        16 => Some(UnlockNode::SewagePlant),
+        17 => Some(UnlockNode::AdvancedParks),
+        18 => Some(UnlockNode::DeathCare),
+        19 => Some(UnlockNode::OfficeZoning),
+        20 => Some(UnlockNode::UniversityEducation),
+        21 => Some(UnlockNode::WindPower),
+        22 => Some(UnlockNode::AdvancedSanitation),
+        23 => Some(UnlockNode::PublicTransport),
+        24 => Some(UnlockNode::Entertainment),
+        25 => Some(UnlockNode::AdvancedEmergency),
+        26 => Some(UnlockNode::Telecom),
+        27 => Some(UnlockNode::AdvancedTransport),
+        28 => Some(UnlockNode::Landmarks),
+        29 => Some(UnlockNode::PolicySystem),
+        30 => Some(UnlockNode::NuclearPower),
+        31 => Some(UnlockNode::BasicHeating),
+        32 => Some(UnlockNode::DistrictHeatingNetwork),
+        33 => Some(UnlockNode::SmallAirstrips),
+        34 => Some(UnlockNode::PostalService),
+        35 => Some(UnlockNode::WaterInfrastructure),
+        36 => Some(UnlockNode::RegionalAirports),
+        37 => Some(UnlockNode::InternationalAirports),
+        _ => None,
     }
 }
 
@@ -232,6 +425,17 @@ pub struct SaveData {
     pub service_buildings: Vec<SaveServiceBuilding>,
     #[serde(default)]
     pub road_segments: Option<SaveRoadSegmentStore>,
+    // --- V2 fields (backward-compatible via serde defaults) ---
+    #[serde(default)]
+    pub policies: Option<SavePolicies>,
+    #[serde(default)]
+    pub weather: Option<SaveWeather>,
+    #[serde(default)]
+    pub unlock_state: Option<SaveUnlockState>,
+    #[serde(default)]
+    pub extended_budget: Option<SaveExtendedBudget>,
+    #[serde(default)]
+    pub loan_book: Option<SaveLoanBook>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -316,6 +520,100 @@ pub struct SaveServiceBuilding {
     pub radius_cells: u32,
 }
 
+// ---------------------------------------------------------------------------
+// V2 save structs: Policies, Weather, UnlockState, ExtendedBudget, LoanBook
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SavePolicies {
+    /// Active policy discriminants
+    pub active: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode)]
+pub struct SaveWeather {
+    pub season: u8,
+    pub temperature: f32,
+    pub current_event: u8,
+    pub event_days_remaining: u32,
+    pub last_update_day: u32,
+    pub disasters_enabled: bool,
+}
+
+impl Default for SaveWeather {
+    fn default() -> Self {
+        Self {
+            season: 0,         // Spring
+            temperature: 15.0,
+            current_event: 0,  // Clear
+            event_days_remaining: 0,
+            last_update_day: 0,
+            disasters_enabled: true,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveUnlockState {
+    pub development_points: u32,
+    pub spent_points: u32,
+    pub unlocked_nodes: Vec<u8>,
+    pub last_milestone_pop: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode)]
+pub struct SaveExtendedBudget {
+    // Zone tax rates
+    pub residential_tax: f32,
+    pub commercial_tax: f32,
+    pub industrial_tax: f32,
+    pub office_tax: f32,
+    // Service budgets
+    pub fire_budget: f32,
+    pub police_budget: f32,
+    pub healthcare_budget: f32,
+    pub education_budget: f32,
+    pub sanitation_budget: f32,
+    pub transport_budget: f32,
+}
+
+impl Default for SaveExtendedBudget {
+    fn default() -> Self {
+        Self {
+            residential_tax: 0.10,
+            commercial_tax: 0.10,
+            industrial_tax: 0.10,
+            office_tax: 0.10,
+            fire_budget: 1.0,
+            police_budget: 1.0,
+            healthcare_budget: 1.0,
+            education_budget: 1.0,
+            sanitation_budget: 1.0,
+            transport_budget: 1.0,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveLoanBook {
+    pub loans: Vec<SaveLoan>,
+    pub max_loans: u32,
+    pub credit_rating: f64,
+    pub last_payment_day: u32,
+    pub consecutive_solvent_days: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode)]
+pub struct SaveLoan {
+    pub name: String,
+    pub amount: f64,
+    pub interest_rate: f64,
+    pub monthly_payment: f64,
+    pub remaining_balance: f64,
+    pub term_months: u32,
+    pub months_paid: u32,
+}
+
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {
         bitcode::encode(self)
@@ -338,6 +636,11 @@ pub fn create_save_data(
     utility_sources: &[UtilitySource],
     service_buildings: &[(ServiceBuilding,)],
     segment_store: Option<&RoadSegmentStore>,
+    policies: Option<&Policies>,
+    weather: Option<&Weather>,
+    unlock_state: Option<&UnlockState>,
+    extended_budget: Option<&ExtendedBudget>,
+    loan_book: Option<&LoanBook>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -468,6 +771,50 @@ pub fn create_save_data(
                 })
                 .collect(),
         }),
+        policies: policies.map(|p| SavePolicies {
+            active: p.active.iter().map(|&pol| policy_to_u8(pol)).collect(),
+        }),
+        weather: weather.map(|w| SaveWeather {
+            season: season_to_u8(w.season),
+            temperature: w.temperature,
+            current_event: weather_event_to_u8(w.current_event),
+            event_days_remaining: w.event_days_remaining,
+            last_update_day: w.last_update_day,
+            disasters_enabled: w.disasters_enabled,
+        }),
+        unlock_state: unlock_state.map(|u| SaveUnlockState {
+            development_points: u.development_points,
+            spent_points: u.spent_points,
+            unlocked_nodes: u.unlocked_nodes.iter().map(|&n| unlock_node_to_u8(n)).collect(),
+            last_milestone_pop: u.last_milestone_pop,
+        }),
+        extended_budget: extended_budget.map(|eb| SaveExtendedBudget {
+            residential_tax: eb.zone_taxes.residential,
+            commercial_tax: eb.zone_taxes.commercial,
+            industrial_tax: eb.zone_taxes.industrial,
+            office_tax: eb.zone_taxes.office,
+            fire_budget: eb.service_budgets.fire,
+            police_budget: eb.service_budgets.police,
+            healthcare_budget: eb.service_budgets.healthcare,
+            education_budget: eb.service_budgets.education,
+            sanitation_budget: eb.service_budgets.sanitation,
+            transport_budget: eb.service_budgets.transport,
+        }),
+        loan_book: loan_book.map(|lb| SaveLoanBook {
+            loans: lb.active_loans.iter().map(|l| SaveLoan {
+                name: l.name.clone(),
+                amount: l.amount,
+                interest_rate: l.interest_rate,
+                monthly_payment: l.monthly_payment,
+                remaining_balance: l.remaining_balance,
+                term_months: l.term_months,
+                months_paid: l.months_paid,
+            }).collect(),
+            max_loans: lb.max_loans as u32,
+            credit_rating: lb.credit_rating,
+            last_payment_day: lb.last_payment_day,
+            consecutive_solvent_days: lb.consecutive_solvent_days,
+        }),
     }
 }
 
@@ -506,6 +853,92 @@ pub fn restore_road_segment_store(save: &SaveRoadSegmentStore) -> RoadSegmentSto
     RoadSegmentStore::from_parts(nodes, segments)
 }
 
+/// Restore a `Policies` resource from saved data.
+pub fn restore_policies(save: &SavePolicies) -> Policies {
+    let active = save
+        .active
+        .iter()
+        .filter_map(|&v| u8_to_policy(v))
+        .collect();
+    Policies { active }
+}
+
+/// Restore a `Weather` resource from saved data.
+pub fn restore_weather(save: &SaveWeather) -> Weather {
+    Weather {
+        season: u8_to_season(save.season),
+        temperature: save.temperature,
+        current_event: u8_to_weather_event(save.current_event),
+        event_days_remaining: save.event_days_remaining,
+        last_update_day: save.last_update_day,
+        disasters_enabled: save.disasters_enabled,
+    }
+}
+
+/// Restore an `UnlockState` resource from saved data.
+pub fn restore_unlock_state(save: &SaveUnlockState) -> UnlockState {
+    let unlocked_nodes = save
+        .unlocked_nodes
+        .iter()
+        .filter_map(|&v| u8_to_unlock_node(v))
+        .collect();
+    UnlockState {
+        development_points: save.development_points,
+        spent_points: save.spent_points,
+        unlocked_nodes,
+        last_milestone_pop: save.last_milestone_pop,
+    }
+}
+
+/// Restore an `ExtendedBudget` resource from saved data.
+pub fn restore_extended_budget(save: &SaveExtendedBudget) -> ExtendedBudget {
+    ExtendedBudget {
+        zone_taxes: ZoneTaxRates {
+            residential: save.residential_tax,
+            commercial: save.commercial_tax,
+            industrial: save.industrial_tax,
+            office: save.office_tax,
+        },
+        service_budgets: ServiceBudgets {
+            fire: save.fire_budget,
+            police: save.police_budget,
+            healthcare: save.healthcare_budget,
+            education: save.education_budget,
+            sanitation: save.sanitation_budget,
+            transport: save.transport_budget,
+        },
+        // Loans are stored separately in the LoanBook (budget.rs loans are legacy);
+        // leave the ExtendedBudget.loans empty.
+        loans: Vec::new(),
+        income_breakdown: Default::default(),
+        expense_breakdown: Default::default(),
+    }
+}
+
+/// Restore a `LoanBook` resource from saved data.
+pub fn restore_loan_book(save: &SaveLoanBook) -> LoanBook {
+    let active_loans = save
+        .loans
+        .iter()
+        .map(|sl| loans::Loan {
+            name: sl.name.clone(),
+            amount: sl.amount,
+            interest_rate: sl.interest_rate,
+            monthly_payment: sl.monthly_payment,
+            remaining_balance: sl.remaining_balance,
+            term_months: sl.term_months,
+            months_paid: sl.months_paid,
+        })
+        .collect();
+    LoanBook {
+        active_loans,
+        max_loans: save.max_loans as usize,
+        credit_rating: save.credit_rating,
+        last_payment_day: save.last_payment_day,
+        consecutive_solvent_days: save.consecutive_solvent_days,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -527,7 +960,10 @@ mod tests {
         let budget = CityBudget::default();
         let demand = ZoneDemand::default();
 
-        let save = create_save_data(&grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None);
+        let save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None,
+        );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
 
@@ -548,6 +984,13 @@ mod tests {
         assert_eq!(restored.grid.cells[idx88].zone, 4); // CommercialHigh
         let idx99 = 9 * 16 + 9;
         assert_eq!(restored.grid.cells[idx99].zone, 6); // Office
+
+        // V2 fields should be None when not provided
+        assert!(restored.policies.is_none());
+        assert!(restored.weather.is_none());
+        assert!(restored.unlock_state.is_none());
+        assert!(restored.extended_budget.is_none());
+        assert!(restored.loan_book.is_none());
     }
 
     #[test]
@@ -587,11 +1030,276 @@ mod tests {
 
     #[test]
     fn test_service_type_roundtrip() {
-        for i in 0..40u8 {
+        for i in 0..=49u8 {
             let st = u8_to_service_type(i).expect("valid service type");
             let encoded = service_type_to_u8(st);
             assert_eq!(i, encoded);
         }
-        assert!(u8_to_service_type(40).is_none());
+        assert!(u8_to_service_type(50).is_none());
+    }
+
+    #[test]
+    fn test_policy_roundtrip() {
+        for &p in Policy::all() {
+            let encoded = policy_to_u8(p);
+            let decoded = u8_to_policy(encoded).expect("valid policy");
+            assert_eq!(p, decoded);
+        }
+        assert!(u8_to_policy(255).is_none());
+    }
+
+    #[test]
+    fn test_weather_roundtrip() {
+        let weather = Weather {
+            season: Season::Winter,
+            temperature: -5.0,
+            current_event: WeatherEvent::ColdSnap,
+            event_days_remaining: 3,
+            last_update_day: 42,
+            disasters_enabled: false,
+        };
+
+        let save = SaveWeather {
+            season: season_to_u8(weather.season),
+            temperature: weather.temperature,
+            current_event: weather_event_to_u8(weather.current_event),
+            event_days_remaining: weather.event_days_remaining,
+            last_update_day: weather.last_update_day,
+            disasters_enabled: weather.disasters_enabled,
+        };
+
+        let restored = restore_weather(&save);
+        assert_eq!(restored.season, Season::Winter);
+        assert!((restored.temperature - (-5.0)).abs() < 0.001);
+        assert_eq!(restored.current_event, WeatherEvent::ColdSnap);
+        assert_eq!(restored.event_days_remaining, 3);
+        assert_eq!(restored.last_update_day, 42);
+        assert!(!restored.disasters_enabled);
+    }
+
+    #[test]
+    fn test_unlock_state_roundtrip() {
+        let mut state = UnlockState::default();
+        state.development_points = 10;
+        state.spent_points = 3;
+        state.last_milestone_pop = 2000;
+        // Default already has BasicRoads, etc. Add another
+        state.unlocked_nodes.push(UnlockNode::FireService);
+
+        let save = SaveUnlockState {
+            development_points: state.development_points,
+            spent_points: state.spent_points,
+            unlocked_nodes: state.unlocked_nodes.iter().map(|&n| unlock_node_to_u8(n)).collect(),
+            last_milestone_pop: state.last_milestone_pop,
+        };
+
+        let restored = restore_unlock_state(&save);
+        assert_eq!(restored.development_points, 10);
+        assert_eq!(restored.spent_points, 3);
+        assert_eq!(restored.last_milestone_pop, 2000);
+        assert!(restored.is_unlocked(UnlockNode::BasicRoads));
+        assert!(restored.is_unlocked(UnlockNode::FireService));
+        assert!(!restored.is_unlocked(UnlockNode::NuclearPower));
+    }
+
+    #[test]
+    fn test_unlock_node_roundtrip() {
+        for &n in UnlockNode::all() {
+            let encoded = unlock_node_to_u8(n);
+            let decoded = u8_to_unlock_node(encoded).expect("valid unlock node");
+            assert_eq!(n, decoded);
+        }
+        assert!(u8_to_unlock_node(255).is_none());
+    }
+
+    #[test]
+    fn test_policies_serialize_roundtrip() {
+        let policies = Policies {
+            active: vec![
+                Policy::FreePublicTransport,
+                Policy::RecyclingProgram,
+                Policy::HighRiseBan,
+            ],
+        };
+
+        let save = SavePolicies {
+            active: policies.active.iter().map(|&p| policy_to_u8(p)).collect(),
+        };
+
+        let restored = restore_policies(&save);
+        assert_eq!(restored.active.len(), 3);
+        assert!(restored.is_active(Policy::FreePublicTransport));
+        assert!(restored.is_active(Policy::RecyclingProgram));
+        assert!(restored.is_active(Policy::HighRiseBan));
+        assert!(!restored.is_active(Policy::EducationPush));
+    }
+
+    #[test]
+    fn test_extended_budget_roundtrip() {
+        let save = SaveExtendedBudget {
+            residential_tax: 0.12,
+            commercial_tax: 0.08,
+            industrial_tax: 0.15,
+            office_tax: 0.11,
+            fire_budget: 1.2,
+            police_budget: 0.8,
+            healthcare_budget: 1.0,
+            education_budget: 1.5,
+            sanitation_budget: 0.5,
+            transport_budget: 1.1,
+        };
+
+        let restored = restore_extended_budget(&save);
+        assert!((restored.zone_taxes.residential - 0.12).abs() < 0.001);
+        assert!((restored.zone_taxes.commercial - 0.08).abs() < 0.001);
+        assert!((restored.zone_taxes.industrial - 0.15).abs() < 0.001);
+        assert!((restored.zone_taxes.office - 0.11).abs() < 0.001);
+        assert!((restored.service_budgets.fire - 1.2).abs() < 0.001);
+        assert!((restored.service_budgets.police - 0.8).abs() < 0.001);
+        assert!((restored.service_budgets.education - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_loan_book_roundtrip() {
+        let save = SaveLoanBook {
+            loans: vec![
+                SaveLoan {
+                    name: "Small Loan".into(),
+                    amount: 10_000.0,
+                    interest_rate: 0.05,
+                    monthly_payment: 856.07,
+                    remaining_balance: 8_500.0,
+                    term_months: 12,
+                    months_paid: 2,
+                },
+            ],
+            max_loans: 3,
+            credit_rating: 1.5,
+            last_payment_day: 60,
+            consecutive_solvent_days: 45,
+        };
+
+        let restored = restore_loan_book(&save);
+        assert_eq!(restored.active_loans.len(), 1);
+        assert_eq!(restored.active_loans[0].name, "Small Loan");
+        assert!((restored.active_loans[0].amount - 10_000.0).abs() < 0.01);
+        assert!((restored.active_loans[0].remaining_balance - 8_500.0).abs() < 0.01);
+        assert_eq!(restored.active_loans[0].months_paid, 2);
+        assert_eq!(restored.max_loans, 3);
+        assert!((restored.credit_rating - 1.5).abs() < 0.001);
+        assert_eq!(restored.last_payment_day, 60);
+        assert_eq!(restored.consecutive_solvent_days, 45);
+    }
+
+    #[test]
+    fn test_v2_full_roundtrip() {
+        // Test that all V2 fields survive a full encode/decode cycle
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let policies = Policies {
+            active: vec![Policy::EducationPush, Policy::WaterConservation],
+        };
+        let weather = Weather {
+            season: Season::Summer,
+            temperature: 32.0,
+            current_event: WeatherEvent::HeatWave,
+            event_days_remaining: 4,
+            last_update_day: 100,
+            disasters_enabled: true,
+        };
+        let mut unlock = UnlockState::default();
+        unlock.development_points = 15;
+        unlock.spent_points = 5;
+        unlock.unlocked_nodes.push(UnlockNode::HealthCare);
+        unlock.last_milestone_pop = 5000;
+
+        let ext_budget = ExtendedBudget {
+            zone_taxes: ZoneTaxRates {
+                residential: 0.12,
+                commercial: 0.09,
+                industrial: 0.14,
+                office: 0.11,
+            },
+            service_budgets: ServiceBudgets {
+                fire: 1.3,
+                police: 0.9,
+                healthcare: 1.0,
+                education: 1.2,
+                sanitation: 0.7,
+                transport: 1.1,
+            },
+            loans: Vec::new(),
+            income_breakdown: Default::default(),
+            expense_breakdown: Default::default(),
+        };
+
+        let mut loan_book = LoanBook::default();
+        let mut treasury = 0.0;
+        loan_book.take_loan(loans::LoanTier::Small, &mut treasury);
+
+        let save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            Some(&policies), Some(&weather), Some(&unlock), Some(&ext_budget), Some(&loan_book),
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode v2 should succeed");
+
+        // Policies
+        let rp = restored.policies.as_ref().expect("policies present");
+        assert_eq!(rp.active.len(), 2);
+
+        // Weather
+        let rw = restored.weather.as_ref().expect("weather present");
+        assert_eq!(rw.season, season_to_u8(Season::Summer));
+        assert!((rw.temperature - 32.0).abs() < 0.001);
+        assert_eq!(rw.current_event, weather_event_to_u8(WeatherEvent::HeatWave));
+
+        // Unlock state
+        let ru = restored.unlock_state.as_ref().expect("unlock_state present");
+        assert_eq!(ru.development_points, 15);
+        assert_eq!(ru.spent_points, 5);
+        assert_eq!(ru.last_milestone_pop, 5000);
+
+        // Extended budget
+        let reb = restored.extended_budget.as_ref().expect("extended_budget present");
+        assert!((reb.fire_budget - 1.3).abs() < 0.001);
+        assert!((reb.residential_tax - 0.12).abs() < 0.001);
+
+        // Loan book
+        let rlb = restored.loan_book.as_ref().expect("loan_book present");
+        assert_eq!(rlb.loans.len(), 1);
+        assert_eq!(rlb.loans[0].name, "Small Loan");
+    }
+
+    #[test]
+    fn test_backward_compat_v1_defaults() {
+        // Simulate a V1 save that has no V2 fields: create a SaveData with
+        // all V2 fields set to None, encode it, decode it, and verify defaults work.
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
+            None, None, None, None, None,
+        );
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
+
+        // V2 fields should be None
+        assert!(restored.policies.is_none());
+        assert!(restored.weather.is_none());
+        assert!(restored.unlock_state.is_none());
+        assert!(restored.extended_budget.is_none());
+        assert!(restored.loan_book.is_none());
     }
 }

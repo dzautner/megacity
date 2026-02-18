@@ -43,11 +43,21 @@ pub enum ServiceType {
     SubwayStation,
     TramDepot,
     FerryPier,
-    SmallAirport,
+    SmallAirstrip,
+    RegionalAirport,
     InternationalAirport,
     TransferStation,
     CellTower,
     DataCenter,
+    HomelessShelter,
+    WelfareOffice,
+    PostOffice,
+    MailSortingCenter,
+    HeatingBoiler,
+    DistrictHeatingPlant,
+    GeothermalPlant,
+    WaterTreatmentPlant,
+    WellPump,
 }
 
 impl ServiceType {
@@ -89,10 +99,20 @@ impl ServiceType {
             ServiceType::SubwayStation => "Subway Station",
             ServiceType::TramDepot => "Tram Depot",
             ServiceType::FerryPier => "Ferry Pier",
-            ServiceType::SmallAirport => "Small Airport",
+            ServiceType::SmallAirstrip => "Small Airstrip",
+            ServiceType::RegionalAirport => "Regional Airport",
             ServiceType::InternationalAirport => "International Airport",
             ServiceType::CellTower => "Cell Tower",
             ServiceType::DataCenter => "Data Center",
+            ServiceType::HomelessShelter => "Homeless Shelter",
+            ServiceType::WelfareOffice => "Welfare Office",
+            ServiceType::PostOffice => "Post Office",
+            ServiceType::MailSortingCenter => "Mail Sorting Center",
+            ServiceType::WaterTreatmentPlant => "Water Treatment Plant",
+            ServiceType::WellPump => "Well Pump",
+            ServiceType::HeatingBoiler => "Heating Boiler",
+            ServiceType::DistrictHeatingPlant => "District Heating Plant",
+            ServiceType::GeothermalPlant => "Geothermal Heating Plant",
         }
     }
 }
@@ -133,8 +153,8 @@ impl ServiceBuilding {
             ServiceType::RecyclingCenter => 25.0 * CELL_SIZE,
             ServiceType::Incinerator => 30.0 * CELL_SIZE,
             ServiceType::TransferStation => 15.0 * CELL_SIZE,
-            ServiceType::Cemetery => 10.0 * CELL_SIZE,
-            ServiceType::Crematorium => 15.0 * CELL_SIZE,
+            ServiceType::Cemetery => 120.0,
+            ServiceType::Crematorium => 80.0,
             ServiceType::CityHall => 40.0 * CELL_SIZE,
             ServiceType::Museum => 20.0 * CELL_SIZE,
             ServiceType::Cathedral => 25.0 * CELL_SIZE,
@@ -144,10 +164,20 @@ impl ServiceBuilding {
             ServiceType::SubwayStation => 25.0 * CELL_SIZE,
             ServiceType::TramDepot => 18.0 * CELL_SIZE,
             ServiceType::FerryPier => 15.0 * CELL_SIZE,
-            ServiceType::SmallAirport => 40.0 * CELL_SIZE,
+            ServiceType::SmallAirstrip => 40.0 * CELL_SIZE,
+            ServiceType::RegionalAirport => 50.0 * CELL_SIZE,
             ServiceType::InternationalAirport => 60.0 * CELL_SIZE,
             ServiceType::CellTower => 15.0 * CELL_SIZE,
             ServiceType::DataCenter => 40.0 * CELL_SIZE,
+            ServiceType::HomelessShelter => 15.0 * CELL_SIZE,
+            ServiceType::WelfareOffice => 20.0 * CELL_SIZE,
+            ServiceType::PostOffice => 12.0 * CELL_SIZE,
+            ServiceType::MailSortingCenter => 30.0 * CELL_SIZE,
+            ServiceType::WaterTreatmentPlant => 25.0 * CELL_SIZE,
+            ServiceType::WellPump => 10.0 * CELL_SIZE,
+            ServiceType::HeatingBoiler => 15.0 * CELL_SIZE,
+            ServiceType::DistrictHeatingPlant => 40.0 * CELL_SIZE,
+            ServiceType::GeothermalPlant => 60.0 * CELL_SIZE,
         }
     }
 
@@ -189,10 +219,20 @@ impl ServiceBuilding {
             ServiceType::SubwayStation => 3000.0,
             ServiceType::TramDepot => 1500.0,
             ServiceType::FerryPier => 800.0,
-            ServiceType::SmallAirport => 5000.0,
+            ServiceType::SmallAirstrip => 5000.0,
+            ServiceType::RegionalAirport => 10000.0,
             ServiceType::InternationalAirport => 15000.0,
             ServiceType::CellTower => 300.0,
             ServiceType::DataCenter => 2000.0,
+            ServiceType::HomelessShelter => 400.0,
+            ServiceType::WelfareOffice => 600.0,
+            ServiceType::PostOffice => 300.0,
+            ServiceType::MailSortingCenter => 1200.0,
+            ServiceType::WaterTreatmentPlant => 800.0,
+            ServiceType::WellPump => 200.0,
+            ServiceType::HeatingBoiler => 400.0,
+            ServiceType::DistrictHeatingPlant => 2000.0,
+            ServiceType::GeothermalPlant => 5000.0,
         }
     }
 
@@ -223,8 +263,8 @@ impl ServiceBuilding {
             ServiceType::RecyclingCenter => 20.0,
             ServiceType::Incinerator => 25.0,
             ServiceType::TransferStation => 12.0,
-            ServiceType::Cemetery => 5.0,
-            ServiceType::Crematorium => 10.0,
+            ServiceType::Cemetery => 200.0,
+            ServiceType::Crematorium => 150.0,
             ServiceType::CityHall => 30.0,
             ServiceType::Museum => 20.0,
             ServiceType::Cathedral => 15.0,
@@ -234,10 +274,20 @@ impl ServiceBuilding {
             ServiceType::SubwayStation => 40.0,
             ServiceType::TramDepot => 20.0,
             ServiceType::FerryPier => 10.0,
-            ServiceType::SmallAirport => 60.0,
+            ServiceType::SmallAirstrip => 60.0,
+            ServiceType::RegionalAirport => 100.0,
             ServiceType::InternationalAirport => 150.0,
             ServiceType::CellTower => 8.0,
             ServiceType::DataCenter => 40.0,
+            ServiceType::HomelessShelter => 15.0,
+            ServiceType::WelfareOffice => 20.0,
+            ServiceType::PostOffice => 10.0,
+            ServiceType::MailSortingCenter => 35.0,
+            ServiceType::WaterTreatmentPlant => 25.0,
+            ServiceType::WellPump => 8.0,
+            ServiceType::HeatingBoiler => 15.0,
+            ServiceType::DistrictHeatingPlant => 50.0,
+            ServiceType::GeothermalPlant => 80.0,
         }
     }
 
@@ -283,7 +333,8 @@ impl ServiceBuilding {
                 | ServiceType::SubwayStation
                 | ServiceType::TramDepot
                 | ServiceType::FerryPier
-                | ServiceType::SmallAirport
+                | ServiceType::SmallAirstrip
+                | ServiceType::RegionalAirport
                 | ServiceType::InternationalAirport
         )
     }
@@ -309,6 +360,48 @@ impl ServiceBuilding {
         )
     }
 
+    pub fn is_airport(service_type: ServiceType) -> bool {
+        matches!(
+            service_type,
+            ServiceType::SmallAirstrip | ServiceType::RegionalAirport | ServiceType::InternationalAirport
+        )
+    }
+
+    pub fn is_postal(service_type: ServiceType) -> bool {
+        matches!(
+            service_type,
+            ServiceType::PostOffice | ServiceType::MailSortingCenter
+        )
+    }
+
+    pub fn is_heating(service_type: ServiceType) -> bool {
+        matches!(
+            service_type,
+            ServiceType::HeatingBoiler | ServiceType::DistrictHeatingPlant | ServiceType::GeothermalPlant
+        )
+    }
+
+    pub fn is_water_service(service_type: ServiceType) -> bool {
+        matches!(
+            service_type,
+            ServiceType::WaterTreatmentPlant | ServiceType::WellPump
+        )
+    }
+
+    pub fn is_death_care(service_type: ServiceType) -> bool {
+        matches!(
+            service_type,
+            ServiceType::Cemetery | ServiceType::Crematorium
+        )
+    }
+
+    pub fn is_welfare(service_type: ServiceType) -> bool {
+        matches!(
+            service_type,
+            ServiceType::WelfareOffice | ServiceType::HomelessShelter
+        )
+    }
+
     pub fn education_level(service_type: ServiceType) -> u8 {
         match service_type {
             ServiceType::Kindergarten => 1,
@@ -323,9 +416,12 @@ impl ServiceBuilding {
     pub fn footprint(service_type: ServiceType) -> (usize, usize) {
         match service_type {
             ServiceType::FireHQ | ServiceType::PoliceHQ | ServiceType::MedicalCenter
-            | ServiceType::SmallAirport => (3, 3),
+            | ServiceType::SmallAirstrip => (3, 3),
+            ServiceType::RegionalAirport => (4, 3),
             ServiceType::Prison | ServiceType::InternationalAirport => (4, 4),
-            ServiceType::SubwayStation | ServiceType::TramDepot | ServiceType::DataCenter => (2, 2),
+            ServiceType::SubwayStation | ServiceType::TramDepot | ServiceType::DataCenter
+            | ServiceType::DistrictHeatingPlant => (2, 2),
+            ServiceType::GeothermalPlant => (3, 3),
             _ => (1, 1),
         }
     }

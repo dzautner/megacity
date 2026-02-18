@@ -13,11 +13,12 @@ pub enum Season {
 
 impl Season {
     pub fn from_day(day: u32) -> Season {
-        let day_of_year = day % 365;
+        // 360-day year: 90 days per season (30 days/month, 3 months/season)
+        let day_of_year = ((day.saturating_sub(1)) % 360) + 1;
         match day_of_year {
-            0..=90 => Season::Spring,
-            91..=181 => Season::Summer,
-            182..=272 => Season::Autumn,
+            1..=90 => Season::Spring,
+            91..=180 => Season::Summer,
+            181..=270 => Season::Autumn,
             _ => Season::Winter,
         }
     }
@@ -28,6 +29,26 @@ impl Season {
             Season::Summer => "Summer",
             Season::Autumn => "Autumn",
             Season::Winter => "Winter",
+        }
+    }
+
+    /// Seasonal happiness modifier: Summer +2, Spring +1, Autumn 0, Winter -2.
+    pub fn happiness_modifier(self) -> f32 {
+        match self {
+            Season::Spring => 1.0,
+            Season::Summer => 2.0,
+            Season::Autumn => 0.0,
+            Season::Winter => -2.0,
+        }
+    }
+
+    /// Base grass color tint for terrain rendering, varying by season.
+    pub fn grass_color(self) -> [f32; 3] {
+        match self {
+            Season::Spring => [0.35, 0.65, 0.15],   // Bright green with slight yellow tint
+            Season::Summer => [0.25, 0.55, 0.12],   // Lush deep green
+            Season::Autumn => [0.55, 0.40, 0.15],   // Orange/brown
+            Season::Winter => [0.75, 0.78, 0.82],   // Grey/white with slight blue tint
         }
     }
 }
@@ -48,6 +69,8 @@ pub struct Weather {
     pub current_event: WeatherEvent,
     pub event_days_remaining: u32,
     pub last_update_day: u32,
+    /// Whether natural disasters (tornado, earthquake, flood) can occur.
+    pub disasters_enabled: bool,
 }
 
 impl Default for Weather {
@@ -58,6 +81,7 @@ impl Default for Weather {
             current_event: WeatherEvent::Clear,
             event_days_remaining: 0,
             last_update_day: 0,
+            disasters_enabled: true,
         }
     }
 }
@@ -114,9 +138,9 @@ impl Weather {
         }
     }
 
-    /// Happiness modifier from weather
+    /// Happiness modifier from weather (events + seasonal baseline)
     pub fn happiness_modifier(&self) -> f32 {
-        let mut modifier = 0.0;
+        let mut modifier = self.season.happiness_modifier();
         match self.current_event {
             WeatherEvent::HeatWave => modifier -= 5.0,
             WeatherEvent::ColdSnap => modifier -= 8.0,
@@ -216,10 +240,22 @@ mod tests {
     #[test]
     fn test_season_from_day() {
         assert_eq!(Season::from_day(1), Season::Spring);
+        assert_eq!(Season::from_day(90), Season::Spring);
         assert_eq!(Season::from_day(91), Season::Summer);
-        assert_eq!(Season::from_day(182), Season::Autumn);
-        assert_eq!(Season::from_day(273), Season::Winter);
-        assert_eq!(Season::from_day(365), Season::Spring); // wraps
+        assert_eq!(Season::from_day(180), Season::Summer);
+        assert_eq!(Season::from_day(181), Season::Autumn);
+        assert_eq!(Season::from_day(270), Season::Autumn);
+        assert_eq!(Season::from_day(271), Season::Winter);
+        assert_eq!(Season::from_day(360), Season::Winter);
+        assert_eq!(Season::from_day(361), Season::Spring); // wraps
+    }
+
+    #[test]
+    fn test_season_happiness_modifiers() {
+        assert_eq!(Season::Spring.happiness_modifier(), 1.0);
+        assert_eq!(Season::Summer.happiness_modifier(), 2.0);
+        assert_eq!(Season::Autumn.happiness_modifier(), 0.0);
+        assert_eq!(Season::Winter.happiness_modifier(), -2.0);
     }
 
     #[test]
@@ -235,10 +271,17 @@ mod tests {
     fn test_weather_event_modifiers() {
         let mut w = Weather::default();
         w.current_event = WeatherEvent::HeatWave;
+        // HeatWave: seasonal(Spring=+1) + event(-5) = -4
         assert!(w.happiness_modifier() < 0.0);
 
         w.current_event = WeatherEvent::Clear;
         w.season = Season::Summer;
+        // Clear+Summer: seasonal(+2) + clear_bonus(+2) = +4
         assert!(w.happiness_modifier() > 0.0);
+
+        w.season = Season::Winter;
+        w.current_event = WeatherEvent::ColdSnap;
+        // ColdSnap+Winter: seasonal(-2) + event(-8) = -10
+        assert!(w.happiness_modifier() < -5.0);
     }
 }

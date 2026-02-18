@@ -70,9 +70,9 @@ pub fn spawn_tree_props(
                 });
 
                 if has_non_road {
-                    // Every 2nd road-edge cell gets a street tree
+                    // ~75% of road-edge cells get a street tree
                     let tree_hash = gx.wrapping_mul(41).wrapping_add(gy.wrapping_mul(53)) % 100;
-                    if tree_hash < 50 {
+                    if tree_hash < 75 {
                         let (wx, _) = WorldGrid::grid_to_world(gx, gy);
                         let wz = gy as f32 * CELL_SIZE + CELL_SIZE * 0.5;
 
@@ -108,20 +108,20 @@ pub fn spawn_tree_props(
                 continue;
             }
 
-            // --- Nature trees: on unzoned grass cells ---
+            // --- Nature/urban trees: on grass cells (zoned or unzoned, without buildings) ---
             if cell.cell_type != CellType::Grass {
-                continue;
-            }
-            if cell.zone != ZoneType::None {
                 continue;
             }
             if cell.building_id.is_some() {
                 continue;
             }
 
-            // ~15% of grass cells get a tree
             let tree_hash = gx.wrapping_mul(31).wrapping_add(gy.wrapping_mul(37)) % 100;
-            if tree_hash >= 15 {
+
+            // Zoned cells without buildings: ~25% get small urban trees (fill empty blocks)
+            // Unzoned cells: ~15% get nature trees
+            let threshold = if cell.zone != ZoneType::None { 25 } else { 15 };
+            if tree_hash >= threshold {
                 continue;
             }
 
@@ -194,9 +194,9 @@ pub fn spawn_road_props(
                 continue;
             }
 
-            // Only spawn lamp on ~30% of road-edge cells
+            // ~50% of road-edge cells get a street lamp
             let lamp_hash = gx.wrapping_mul(43).wrapping_add(gy.wrapping_mul(59)) % 100;
-            if lamp_hash >= 30 {
+            if lamp_hash >= 50 {
                 continue;
             }
 

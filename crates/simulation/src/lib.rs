@@ -1,5 +1,9 @@
 use bevy::prelude::*;
 
+pub mod abandonment;
+pub mod achievements;
+pub mod advisors;
+pub mod airport;
 pub mod budget;
 pub mod building_upgrade;
 pub mod buildings;
@@ -8,40 +12,66 @@ pub mod citizen_spawner;
 pub mod config;
 pub mod contraction_hierarchy;
 pub mod crime;
+pub mod death_care;
+pub mod disasters;
 pub mod districts;
+pub mod fire;
+pub mod forest_fire;
 pub mod economy;
 pub mod education;
+pub mod education_jobs;
+pub mod events;
 pub mod garbage;
 pub mod grid;
+pub mod groundwater;
 pub mod happiness;
 pub mod health;
+pub mod heating;
+pub mod homelessness;
+pub mod immigration;
 pub mod imports_exports;
 pub mod land_value;
 pub mod lifecycle;
+pub mod loans;
 pub mod lod;
+pub mod market;
 pub mod movement;
 pub mod natural_resources;
+pub mod noise;
+pub mod outside_connections;
 pub mod pathfinding_sys;
 pub mod policies;
 pub mod pollution;
+pub mod postal;
+pub mod production;
 pub mod road_graph_csr;
+pub mod road_maintenance;
 pub mod road_segments;
 pub mod roads;
 pub mod services;
 pub mod spatial_grid;
+pub mod specialization;
 pub mod stats;
 pub mod terrain;
 pub mod time_of_day;
 pub mod tourism;
+pub mod trees;
 pub mod traffic;
+pub mod traffic_accidents;
 pub mod unlocks;
 pub mod utilities;
 pub mod virtual_population;
 pub mod wealth;
+pub mod welfare;
 pub mod life_simulation;
+pub mod water_pollution;
 pub mod weather;
+pub mod wind;
 pub mod zones;
 
+use achievements::{AchievementNotification, AchievementTracker};
+use advisors::AdvisorPanel;
+use airport::AirportStats;
 use budget::ExtendedBudget;
 use building_upgrade::UpgradeTimer;
 use buildings::{Building, BuildingSpawnTimer};
@@ -54,33 +84,51 @@ use movement::ActivityTimer;
 use citizen_spawner::CitizenSpawnTimer;
 use config::{GRID_HEIGHT, GRID_WIDTH};
 use crime::CrimeGrid;
-use districts::Districts;
+use death_care::{DeathCareGrid, DeathCareStats};
+use disasters::ActiveDisaster;
+use districts::{Districts, DistrictMap};
 use economy::CityBudget;
 use education::EducationGrid;
+use education_jobs::EmploymentStats;
+use events::{ActiveCityEffects, EventJournal, MilestoneTracker};
+use fire::FireGrid;
+use forest_fire::{ForestFireGrid, ForestFireStats};
 use garbage::GarbageGrid;
 use grid::{CellType, RoadType, WorldGrid, ZoneType};
+use groundwater::{GroundwaterGrid, WaterQualityGrid, GroundwaterStats};
 use health::HealthGrid;
+use heating::{HeatingGrid, HeatingStats};
 use imports_exports::TradeConnections;
 use land_value::LandValueGrid;
 use lifecycle::LifecycleTimer;
+use loans::{BankruptcyEvent, LoanBook};
+use market::MarketPrices;
 use lod::ViewportBounds;
 use natural_resources::{ResourceBalance, ResourceGrid};
+use noise::NoisePollutionGrid;
+use outside_connections::OutsideConnections;
 use policies::Policies;
 use pollution::PollutionGrid;
 use road_graph_csr::CsrGraph;
+use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
 use roads::RoadNetwork;
 use services::{ServiceBuilding, ServiceType};
 use spatial_grid::SpatialGrid;
+use specialization::{CitySpecializations, SpecializationBonuses};
 use stats::CityStats;
 use time_of_day::GameClock;
 use tourism::Tourism;
 use traffic::TrafficGrid;
+use traffic_accidents::AccidentTracker;
+use trees::TreeGrid;
 use unlocks::UnlockState;
 use utilities::{UtilitySource, UtilityType};
 use virtual_population::VirtualPopulation;
 use wealth::WealthStats;
+use water_pollution::WaterPollutionGrid;
 use weather::Weather;
+use wind::WindState;
 use zones::ZoneDemand;
 
 /// Global tick counter incremented each FixedUpdate, used for throttling simulation systems.
@@ -118,6 +166,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<CityStats>()
             .init_resource::<TrafficGrid>()
             .init_resource::<Districts>()
+            .init_resource::<DistrictMap>()
             .init_resource::<SpatialGrid>()
             .init_resource::<ViewportBounds>()
             .init_resource::<LifecycleTimer>()
@@ -135,7 +184,12 @@ impl Plugin for SimulationPlugin {
             .init_resource::<ExtendedBudget>()
             .init_resource::<WealthStats>()
             .init_resource::<CrimeGrid>()
+            .init_resource::<FireGrid>()
+            .init_resource::<ForestFireGrid>()
+            .init_resource::<ForestFireStats>()
+            .init_resource::<NoisePollutionGrid>()
             .init_resource::<HealthGrid>()
+            .init_resource::<WaterPollutionGrid>()
             .init_resource::<Tourism>()
             .init_resource::<UnlockState>()
             .init_resource::<happiness::ServiceCoverageGrid>()
@@ -145,6 +199,41 @@ impl Plugin for SimulationPlugin {
             .init_resource::<RoadSegmentStore>()
             .init_resource::<LifeSimTimer>()
             .init_resource::<movement::DestinationCache>()
+            .init_resource::<EventJournal>()
+            .init_resource::<ActiveCityEffects>()
+            .init_resource::<MilestoneTracker>()
+            .init_resource::<ActiveDisaster>()
+            .init_resource::<LoanBook>()
+            .init_resource::<homelessness::HomelessnessStats>()
+            .init_resource::<welfare::WelfareStats>()
+            .init_resource::<immigration::CityAttractiveness>()
+            .init_resource::<immigration::ImmigrationStats>()
+            .init_resource::<EmploymentStats>()
+            .init_resource::<TreeGrid>()
+            .init_resource::<WindState>()
+            .init_resource::<DeathCareGrid>()
+            .init_resource::<DeathCareStats>()
+            .init_resource::<production::CityGoods>()
+            .init_resource::<MarketPrices>()
+            .init_resource::<RoadConditionGrid>()
+            .init_resource::<RoadMaintenanceBudget>()
+            .init_resource::<RoadMaintenanceStats>()
+            .init_resource::<AccidentTracker>()
+            .init_resource::<CitySpecializations>()
+            .init_resource::<SpecializationBonuses>()
+            .init_resource::<OutsideConnections>()
+            .init_resource::<AirportStats>()
+            .init_resource::<AdvisorPanel>()
+            .init_resource::<AchievementTracker>()
+            .init_resource::<AchievementNotification>()
+            .init_resource::<HeatingGrid>()
+            .init_resource::<HeatingStats>()
+            .init_resource::<GroundwaterGrid>()
+            .init_resource::<WaterQualityGrid>()
+            .init_resource::<GroundwaterStats>()
+            .init_resource::<postal::PostalCoverage>()
+            .init_resource::<postal::PostalStats>()
+            .add_event::<BankruptcyEvent>()
             .add_systems(Startup, init_world)
             .add_systems(
                 FixedUpdate,
@@ -153,6 +242,8 @@ impl Plugin for SimulationPlugin {
                     time_of_day::tick_game_clock,
                     zones::update_zone_demand,
                     buildings::building_spawner,
+                    buildings::progress_construction,
+                    education_jobs::assign_workplace_details,
                     citizen_spawner::spawn_citizens,
                     movement::refresh_destination_cache,
                     movement::citizen_state_machine,
@@ -161,14 +252,29 @@ impl Plugin for SimulationPlugin {
                     movement::process_path_requests,
                     movement::move_citizens,
                     traffic::update_traffic_density,
+                )
+                    .chain(),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     happiness::update_service_coverage,
+                    postal::update_postal_coverage,
                     happiness::update_happiness,
+                )
+                    .chain()
+                    .after(traffic::update_traffic_density),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     economy::collect_taxes,
                     stats::update_stats,
                     utilities::propagate_utilities,
                     education::propagate_education,
                 )
-                    .chain(),
+                    .chain()
+                    .after(happiness::update_happiness),
             )
             .add_systems(
                 FixedUpdate,
@@ -177,6 +283,7 @@ impl Plugin for SimulationPlugin {
                     land_value::update_land_value,
                     garbage::update_garbage,
                     districts::aggregate_districts,
+                    districts::district_stats,
                     lifecycle::age_citizens,
                     lifecycle::emigration,
                     building_upgrade::upgrade_buildings,
@@ -189,15 +296,139 @@ impl Plugin for SimulationPlugin {
             .add_systems(
                 FixedUpdate,
                 (
+                    road_maintenance::degrade_roads,
+                    road_maintenance::repair_roads,
+                    road_maintenance::update_road_maintenance_stats,
+                )
+                    .chain()
+                    .after(traffic::update_traffic_density),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    traffic_accidents::spawn_accidents,
+                    traffic_accidents::process_accidents,
+                )
+                    .chain()
+                    .after(traffic::update_traffic_density),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    loans::process_loan_payments,
+                    loans::update_credit_rating,
+                )
+                    .chain()
+                    .after(economy::collect_taxes),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     weather::update_weather,
+                    heating::update_heating,
+                    wind::update_wind,
+                    noise::update_noise_pollution,
                     crime::update_crime,
                     health::update_health_grid,
+                    death_care::death_care_processing,
+                    water_pollution::update_water_pollution,
+                    water_pollution::water_pollution_health_penalty,
+                    groundwater::update_groundwater,
+                    groundwater::groundwater_health_penalty,
                     natural_resources::update_resource_production,
                     wealth::update_wealth_stats,
                     tourism::update_tourism,
                     unlocks::award_development_points,
+                    trees::tree_effects,
                 )
                     .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                airport::update_airports
+                    .after(tourism::update_tourism),
+            )
+            .add_systems(
+                FixedUpdate,
+                outside_connections::update_outside_connections
+                    .after(airport::update_airports),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    production::assign_industry_type,
+                    production::update_production_chains,
+                    market::update_market_prices,
+                )
+                    .chain()
+                    .after(natural_resources::update_resource_production),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    events::random_city_events,
+                    events::apply_active_effects,
+                )
+                    .chain()
+                    .after(stats::update_stats),
+            )
+            .add_systems(
+                FixedUpdate,
+                specialization::compute_specializations
+                    .after(stats::update_stats),
+            )
+            .add_systems(
+                FixedUpdate,
+                advisors::update_advisors
+                    .after(stats::update_stats),
+            )
+            .add_systems(
+                FixedUpdate,
+                achievements::check_achievements
+                    .after(stats::update_stats)
+                    .after(specialization::compute_specializations),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    abandonment::check_building_abandonment,
+                    bevy::ecs::schedule::apply_deferred,
+                    abandonment::process_abandoned_buildings,
+                )
+                    .chain()
+                    .after(utilities::propagate_utilities),
+            )
+            .add_systems(
+                FixedUpdate,
+                abandonment::abandoned_land_value_penalty
+                    .after(land_value::update_land_value),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    fire::start_random_fires,
+                    fire::spread_fire,
+                    fire::extinguish_fires,
+                    fire::fire_damage,
+                )
+                    .chain()
+                    .after(happiness::update_service_coverage),
+            )
+            .add_systems(
+                FixedUpdate,
+                forest_fire::update_forest_fire
+                    .after(fire::fire_damage),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    disasters::trigger_random_disaster,
+                    disasters::process_active_disaster,
+                    bevy::ecs::schedule::apply_deferred,
+                    disasters::apply_earthquake_damage,
+                )
+                    .chain()
+                    .after(fire::fire_damage),
             )
             .add_systems(
                 FixedUpdate,
@@ -213,11 +444,41 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
+                education_jobs::job_matching
+                    .after(life_simulation::job_seeking),
+            )
+            .add_systems(
+                FixedUpdate,
                 (
                     life_simulation::evolve_personality,
                     life_simulation::update_health,
                 )
                     .after(life_simulation::update_needs),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    homelessness::check_homelessness,
+                    bevy::ecs::schedule::apply_deferred,
+                    homelessness::seek_shelter,
+                    homelessness::recover_from_homelessness,
+                )
+                    .chain()
+                    .after(happiness::update_happiness),
+            )
+            .add_systems(
+                FixedUpdate,
+                welfare::update_welfare
+                    .after(homelessness::recover_from_homelessness),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    immigration::compute_attractiveness,
+                    immigration::immigration_wave,
+                )
+                    .chain()
+                    .after(stats::update_stats),
             )
             .add_systems(
                 Update,
@@ -279,11 +540,16 @@ fn rebuild_csr_on_road_change(
     }
 }
 
-pub fn init_world(mut commands: Commands) {
+pub fn init_world(
+    mut commands: Commands,
+    mut segments: ResMut<RoadSegmentStore>,
+) {
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
-    terrain::generate_terrain(&mut grid, 42);
 
-    // Generate natural resources based on terrain elevation
+    // --- Tel Aviv terrain: Mediterranean coast on west, Yarkon River in north ---
+    generate_tel_aviv_terrain(&mut grid);
+
+    // Natural resources
     let mut resource_grid = ResourceGrid::default();
     let elevations: Vec<f32> = grid.cells.iter().map(|c| c.elevation).collect();
     natural_resources::generate_resources(&mut resource_grid, &elevations, 42);
@@ -291,279 +557,551 @@ pub fn init_world(mut commands: Commands) {
 
     let mut roads = RoadNetwork::default();
 
-    // --- Realistic City Layout with Road Hierarchy ---
-    let center_x = GRID_WIDTH / 2; // 128
-    let center_y = GRID_HEIGHT / 2; // 128
-    let city_radius = 50usize;
-    let cx_f = center_x as f32;
-    let cy_f = center_y as f32;
+    // --- Road network using Bezier segments ---
+    build_tel_aviv_roads(&mut segments, &mut grid, &mut roads);
 
-    // Phase 1: Road network with proper hierarchy
-    // ---------------------------------------------------------------
-    // 1a. Main boulevards through center (N-S and E-W)
-    let road_min = center_x.saturating_sub(city_radius);
-    let road_max = (center_x + city_radius).min(GRID_WIDTH - 1);
-    for i in road_min..=road_max {
-        place_road_typed_if_valid(&mut roads, &mut grid, i, center_y, RoadType::Boulevard);
-        place_road_typed_if_valid(&mut roads, &mut grid, center_x, i, RoadType::Boulevard);
-    }
+    // --- Zoning ---
+    apply_zones(&mut grid);
 
-    // 1b. Diagonal avenues from center (45° angles) — breaks the grid!
-    let diag_len = (city_radius as f32 * 0.85) as i32;
-    for &(sx, sy) in &[(1i32, 1i32), (1, -1), (-1, 1), (-1, -1)] {
-        place_road_line(
-            &mut roads, &mut grid,
-            center_x as i32, center_y as i32,
-            center_x as i32 + sx * diag_len, center_y as i32 + sy * diag_len,
-            RoadType::Avenue,
-        );
-    }
+    // --- Buildings ---
+    let building_entities = spawn_tel_aviv_buildings(&mut commands, &mut grid);
 
-    // 1c. Inner ring road (Avenue) at radius ~14
-    for angle_step in 0..300 {
-        let angle = angle_step as f32 * std::f32::consts::TAU / 300.0;
-        let rx = (cx_f + angle.cos() * 14.0) as usize;
-        let ry = (cy_f + angle.sin() * 14.0) as usize;
-        place_road_typed_if_valid(&mut roads, &mut grid, rx, ry, RoadType::Avenue);
-    }
+    // --- Utilities ---
+    spawn_tel_aviv_utilities(&mut commands, &mut grid);
 
-    // 1d. Outer ring road (Highway) at radius ~38
-    for angle_step in 0..500 {
-        let angle = angle_step as f32 * std::f32::consts::TAU / 500.0;
-        let rx = (cx_f + angle.cos() * 38.0) as usize;
-        let ry = (cy_f + angle.sin() * 38.0) as usize;
-        place_road_typed_if_valid(&mut roads, &mut grid, rx, ry, RoadType::Highway);
-    }
+    // --- Services ---
+    spawn_tel_aviv_services(&mut commands, &mut grid);
 
-    // 1e. Grid roads with VARIED spacing for different block sizes
-    // Use different spacings per quadrant and distance to create variety
-    for y in (center_y - city_radius)..=(center_y + city_radius) {
-        for x in (center_x - city_radius)..=(center_x + city_radius) {
-            if !grid.in_bounds(x, y) { continue; }
-            let dx = x as f32 - cx_f;
-            let dy = y as f32 - cy_f;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist > city_radius as f32 { continue; }
+    // --- Citizens ---
+    spawn_tel_aviv_citizens(&mut commands, &grid, &building_entities);
 
-            // Vary spacing by distance AND quadrant for asymmetric blocks
-            let quadrant = if dx >= 0.0 { if dy >= 0.0 { 0 } else { 1 } } else { if dy >= 0.0 { 2 } else { 3 } };
-            let rel_x = x.wrapping_sub(center_x - city_radius);
-            let rel_y = y.wrapping_sub(center_y - city_radius);
+    // --- Groundwater ---
+    let (gw_grid, wq_grid) = groundwater::init_groundwater(&grid);
+    commands.insert_resource(gw_grid);
+    commands.insert_resource(wq_grid);
 
-            let (sp_x, sp_y) = if dist < 14.0 {
-                // Downtown core: small dense blocks (3x4 and 4x3 alternating)
-                if quadrant % 2 == 0 { (3, 4) } else { (4, 3) }
-            } else if dist < 25.0 {
-                // Inner city: medium blocks with variety
-                match quadrant {
-                    0 => (5, 4),
-                    1 => (4, 6),
-                    2 => (6, 4),
-                    _ => (5, 5),
-                }
-            } else if dist < 38.0 {
-                // Middle ring: larger blocks
-                match quadrant {
-                    0 => (6, 8),
-                    1 => (7, 5),
-                    2 => (5, 7),
-                    _ => (8, 6),
-                }
+    let budget = CityBudget {
+        treasury: 100_000.0,
+        ..CityBudget::default()
+    };
+    commands.insert_resource(budget);
+    commands.insert_resource(grid);
+    commands.insert_resource(roads);
+}
+
+// =============================================================================
+// Tel Aviv terrain
+// =============================================================================
+
+fn generate_tel_aviv_terrain(grid: &mut WorldGrid) {
+    for y in 0..grid.height {
+        for x in 0..grid.width {
+            let xf = x as f32;
+            let yf = y as f32;
+
+            let coast = coastline_x(yf);
+
+            // Yarkon River (east-west around y≈185, meandering)
+            let yarkon_cy = 185.0 + 1.5 * (xf * 0.04).sin();
+            let yarkon_hw = 2.0;
+            let is_yarkon = (yf - yarkon_cy).abs() < yarkon_hw
+                && xf > coast - 3.0
+                && xf < 195.0;
+
+            let noise = ((x.wrapping_mul(7919).wrapping_add(y.wrapping_mul(6271))) % 100) as f32
+                / 100.0;
+
+            let cell = grid.get_mut(x, y);
+
+            if xf < coast || is_yarkon {
+                cell.cell_type = CellType::Water;
+                cell.elevation = 0.15 + noise * 0.1;
             } else {
-                // Suburbs: large blocks with sparse grid
-                match quadrant {
-                    0 => (8, 10),
-                    1 => (10, 7),
-                    2 => (7, 9),
-                    _ => (9, 8),
-                }
-            };
-
-            let is_x_road = rel_x % sp_x == 0;
-            let is_y_road = rel_y % sp_y == 0;
-
-            if is_x_road || is_y_road {
-                // Assign road type based on spacing (major grid lines = avenues)
-                let road_type = if dist < 14.0 {
-                    RoadType::Local
-                } else if is_x_road && is_y_road {
-                    // Intersection of grid lines — make at least one an avenue
-                    RoadType::Avenue
-                } else if (is_x_road && rel_x % (sp_x * 3) == 0) || (is_y_road && rel_y % (sp_y * 3) == 0) {
-                    // Every 3rd grid line is an avenue (collector road)
-                    RoadType::Avenue
-                } else {
-                    RoadType::Local
-                };
-                place_road_typed_if_valid(&mut roads, &mut grid, x, y, road_type);
+                cell.cell_type = CellType::Grass;
+                let dist_from_coast = (xf - coast).max(0.0);
+                cell.elevation = 0.35 + (dist_from_coast * 0.002).min(0.3) + noise * 0.05;
             }
         }
     }
+}
 
-    // 1f. Radial connector roads at ~8 angles (spokes connecting rings)
-    for spoke in 0..8 {
-        let angle = spoke as f32 * std::f32::consts::TAU / 8.0;
-        // Skip the main N/S/E/W boulevards and diagonals (already placed)
-        let angle_deg = angle.to_degrees() % 360.0;
-        let skip = [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0];
-        if skip.iter().any(|&s| (angle_deg - s).abs() < 5.0) { continue; }
-        // Connect inner ring to outer ring with avenue-type road
-        let r_inner = 14.0;
-        let r_outer = 38.0;
-        let x0 = (cx_f + angle.cos() * r_inner) as i32;
-        let y0 = (cy_f + angle.sin() * r_inner) as i32;
-        let x1 = (cx_f + angle.cos() * r_outer) as i32;
-        let y1 = (cy_f + angle.sin() * r_outer) as i32;
-        place_road_line(&mut roads, &mut grid, x0, y0, x1, y1, RoadType::Avenue);
+/// Coastline x-position as a function of y (north-south).
+/// Models Tel Aviv's coast: Jaffa headland in the south, gentle curves northward.
+fn coastline_x(y: f32) -> f32 {
+    let base = 55.0;
+
+    // Jaffa headland pushes west around y=40-60
+    let jaffa = if y > 25.0 && y < 75.0 {
+        let t = (y - 50.0) / 25.0;
+        -7.0 * (1.0 - t * t).max(0.0)
+    } else {
+        0.0
+    };
+
+    // Gentle coastal waves
+    let wave = 2.5 * (y * 0.03).sin() + 1.5 * (y * 0.08).cos();
+
+    base + jaffa + wave
+}
+
+// =============================================================================
+// Road helpers
+// =============================================================================
+
+/// Add a straight Bezier road between two grid positions.
+fn road_straight(
+    seg: &mut RoadSegmentStore,
+    grid: &mut WorldGrid,
+    roads: &mut RoadNetwork,
+    gx0: usize, gy0: usize,
+    gx1: usize, gy1: usize,
+    rt: RoadType,
+) {
+    let (wx0, wy0) = WorldGrid::grid_to_world(gx0, gy0);
+    let (wx1, wy1) = WorldGrid::grid_to_world(gx1, gy1);
+    seg.add_straight_segment(
+        Vec2::new(wx0, wy0),
+        Vec2::new(wx1, wy1),
+        rt, 16.0, grid, roads,
+    );
+}
+
+/// Add a curved Bezier road with explicit control points (world coords).
+fn road_curve(
+    seg: &mut RoadSegmentStore,
+    grid: &mut WorldGrid,
+    roads: &mut RoadNetwork,
+    from: Vec2, c1: Vec2, c2: Vec2, to: Vec2,
+    rt: RoadType,
+) {
+    let start = seg.find_or_create_node(from, 16.0);
+    let end = seg.find_or_create_node(to, 16.0);
+    seg.add_segment(start, end, from, c1, c2, to, rt, grid, roads);
+}
+
+/// Convert grid coords to world Vec2 (center of cell).
+fn gw(gx: usize, gy: usize) -> Vec2 {
+    let (wx, wy) = WorldGrid::grid_to_world(gx, gy);
+    Vec2::new(wx, wy)
+}
+
+// =============================================================================
+// Tel Aviv road network
+// =============================================================================
+
+fn build_tel_aviv_roads(
+    seg: &mut RoadSegmentStore,
+    grid: &mut WorldGrid,
+    roads: &mut RoadNetwork,
+) {
+    // --- 1. Jaffa old city: winding local roads near the coast (SW) ---
+    // Yefet Street: main road through Jaffa, slightly curving
+    let jaffa_n = gw(62, 65);
+    let jaffa_s = gw(55, 35);
+    let jaffa_mid = gw(58, 50);
+    road_curve(seg, grid, roads,
+        jaffa_s,
+        jaffa_s + Vec2::new(30.0, 80.0),
+        jaffa_mid + Vec2::new(-10.0, 80.0),
+        jaffa_n,
+        RoadType::Local,
+    );
+    // Jaffa side streets
+    road_straight(seg, grid, roads, 55, 42, 62, 42, RoadType::Local);
+    road_straight(seg, grid, roads, 53, 50, 62, 50, RoadType::Local);
+    road_straight(seg, grid, roads, 56, 58, 65, 58, RoadType::Local);
+
+    // --- 2. Coastal Boulevard (Herbert Samuel → HaYarkon) ---
+    // Runs north along the coast from Jaffa to the Yarkon river
+    road_straight(seg, grid, roads, 63, 65, 63, 90, RoadType::Boulevard);
+    road_straight(seg, grid, roads, 63, 90, 62, 120, RoadType::Boulevard);
+    road_straight(seg, grid, roads, 62, 120, 62, 150, RoadType::Boulevard);
+    road_straight(seg, grid, roads, 62, 150, 63, 180, RoadType::Boulevard);
+
+    // --- 3. Allenby Street: coast to city center (NW to SE diagonal) ---
+    let allenby_coast = gw(65, 82);
+    let allenby_mid = gw(95, 88);
+    let allenby_end = gw(140, 92);
+    road_curve(seg, grid, roads,
+        allenby_coast,
+        allenby_coast + Vec2::new(200.0, 20.0),
+        allenby_mid + Vec2::new(200.0, 30.0),
+        allenby_end,
+        RoadType::Avenue,
+    );
+
+    // --- 4. Rothschild Boulevard: the iconic tree-lined boulevard ---
+    let roth_start = gw(78, 72);
+    let roth_mid = gw(95, 88);
+    let roth_end = gw(118, 108);
+    road_curve(seg, grid, roads,
+        roth_start,
+        roth_start + Vec2::new(150.0, 100.0),
+        roth_mid + Vec2::new(100.0, 100.0),
+        roth_end,
+        RoadType::Boulevard,
+    );
+
+    // --- 5. Dizengoff Street (N-S avenue through the White City) ---
+    road_straight(seg, grid, roads, 102, 75, 102, 105, RoadType::Avenue);
+    road_straight(seg, grid, roads, 102, 105, 102, 135, RoadType::Avenue);
+    road_straight(seg, grid, roads, 102, 135, 102, 170, RoadType::Avenue);
+
+    // --- 6. Ibn Gabirol Street (N-S avenue, east of Dizengoff) ---
+    road_straight(seg, grid, roads, 125, 75, 125, 105, RoadType::Avenue);
+    road_straight(seg, grid, roads, 125, 105, 125, 135, RoadType::Avenue);
+    road_straight(seg, grid, roads, 125, 135, 125, 170, RoadType::Avenue);
+
+    // --- 7. King George Street (E-W) ---
+    road_straight(seg, grid, roads, 80, 120, 110, 120, RoadType::Avenue);
+    road_straight(seg, grid, roads, 110, 120, 145, 120, RoadType::Avenue);
+
+    // --- 8. Ben Gurion Boulevard (E-W, from coast to center) ---
+    road_straight(seg, grid, roads, 63, 105, 95, 105, RoadType::Boulevard);
+    road_straight(seg, grid, roads, 95, 105, 125, 105, RoadType::Boulevard);
+
+    // --- 9. Arlozorov Street (E-W, major crosstown) ---
+    road_straight(seg, grid, roads, 63, 155, 100, 155, RoadType::Avenue);
+    road_straight(seg, grid, roads, 100, 155, 140, 155, RoadType::Avenue);
+    road_straight(seg, grid, roads, 140, 155, 185, 155, RoadType::Avenue);
+
+    // --- 10. Ayalon Highway (N-S expressway on the east) ---
+    road_straight(seg, grid, roads, 185, 25, 185, 60, RoadType::Highway);
+    road_straight(seg, grid, roads, 185, 60, 185, 100, RoadType::Highway);
+    road_straight(seg, grid, roads, 185, 100, 185, 140, RoadType::Highway);
+    road_straight(seg, grid, roads, 185, 140, 185, 180, RoadType::Highway);
+    road_straight(seg, grid, roads, 185, 180, 185, 220, RoadType::Highway);
+
+    // --- 11. Namir Road / Begin Road (N-S, center to north) ---
+    road_straight(seg, grid, roads, 140, 108, 140, 140, RoadType::Boulevard);
+    road_straight(seg, grid, roads, 140, 140, 140, 170, RoadType::Boulevard);
+
+    // --- 12. Eilat Street (E-W through south) ---
+    road_straight(seg, grid, roads, 62, 65, 90, 65, RoadType::Avenue);
+    road_straight(seg, grid, roads, 90, 65, 130, 65, RoadType::Avenue);
+    road_straight(seg, grid, roads, 130, 65, 185, 65, RoadType::Avenue);
+
+    // --- 13. Highway on-ramps connecting Ayalon to city grid ---
+    road_straight(seg, grid, roads, 145, 92, 185, 92, RoadType::Avenue);
+    road_straight(seg, grid, roads, 145, 120, 185, 120, RoadType::Avenue);
+    road_straight(seg, grid, roads, 145, 170, 185, 170, RoadType::Avenue);
+
+    // --- 14. White City local grid streets (E-W, between the major avenues) ---
+    // Between Eilat (y=65) and Arlozorov (y=155), every ~8 cells
+    for &gy in &[75, 82, 92, 100, 112, 128, 140, 148] {
+        road_straight(seg, grid, roads, 68, gy, 100, gy, RoadType::Local);
+        road_straight(seg, grid, roads, 100, gy, 125, gy, RoadType::Local);
+        road_straight(seg, grid, roads, 125, gy, 145, gy, RoadType::Local);
     }
 
-    // 1g. Waterfront paths along water edges
-    for y in 1..GRID_HEIGHT - 1 {
-        for x in 1..GRID_WIDTH - 1 {
+    // --- 15. White City local grid streets (N-S, between the major avenues) ---
+    for &gx in &[75, 82, 90, 110, 118, 132, 138] {
+        road_straight(seg, grid, roads, gx, 68, gx, 95, RoadType::Local);
+        road_straight(seg, grid, roads, gx, 95, gx, 120, RoadType::Local);
+        road_straight(seg, grid, roads, gx, 120, gx, 150, RoadType::Local);
+    }
+
+    // --- 16. Ramat Aviv (north of Yarkon River, wider spacing) ---
+    road_straight(seg, grid, roads, 75, 192, 75, 240, RoadType::Local);
+    road_straight(seg, grid, roads, 100, 192, 100, 240, RoadType::Avenue);
+    road_straight(seg, grid, roads, 125, 192, 125, 240, RoadType::Avenue);
+    road_straight(seg, grid, roads, 150, 192, 150, 240, RoadType::Local);
+    road_straight(seg, grid, roads, 75, 200, 150, 200, RoadType::Local);
+    road_straight(seg, grid, roads, 75, 215, 150, 215, RoadType::Avenue);
+    road_straight(seg, grid, roads, 75, 230, 150, 230, RoadType::Local);
+
+    // Bridges over Yarkon River
+    road_straight(seg, grid, roads, 100, 178, 100, 192, RoadType::Avenue);
+    road_straight(seg, grid, roads, 125, 178, 125, 192, RoadType::Avenue);
+    road_straight(seg, grid, roads, 140, 178, 140, 192, RoadType::Boulevard);
+
+    // --- 17. Eastern areas (between city grid and Ayalon) ---
+    for &gy in &[75, 92, 112, 135, 148] {
+        road_straight(seg, grid, roads, 145, gy, 180, gy, RoadType::Local);
+    }
+    for &gx in &[155, 168] {
+        road_straight(seg, grid, roads, gx, 68, gx, 100, RoadType::Local);
+        road_straight(seg, grid, roads, gx, 100, gx, 150, RoadType::Local);
+    }
+
+    // --- 18. Waterfront promenade (path along the beach) ---
+    for &(gy0, gy1) in &[(35, 65), (65, 90), (90, 120), (120, 150), (150, 180)] {
+        let coast_x0 = (coastline_x(gy0 as f32) + 2.0) as usize;
+        let coast_x1 = (coastline_x(gy1 as f32) + 2.0) as usize;
+        road_straight(seg, grid, roads, coast_x0, gy0, coast_x1, gy1, RoadType::Path);
+    }
+}
+
+// =============================================================================
+// Zoning (Tel Aviv neighborhoods)
+// =============================================================================
+
+fn zone_tel_aviv(grid: &WorldGrid, commands: &mut Commands) {
+    // We need mutable grid but also read it for adjacency checks.
+    // Clone zone assignments, then apply.
+    let mut zone_map: Vec<(usize, usize, ZoneType)> = Vec::new();
+
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
             let cell = grid.get(x, y);
-            if cell.cell_type != CellType::Grass { continue; }
-            // Check if adjacent to water
+            if cell.cell_type != CellType::Grass || cell.zone != ZoneType::None {
+                continue;
+            }
+
+            // Must be adjacent to a road
             let (n4, n4c) = grid.neighbors4(x, y);
-            let adj_water = n4[..n4c].iter().any(|&(nx, ny)| {
-                grid.get(nx, ny).cell_type == CellType::Water
-            });
-            if !adj_water { continue; }
-            // Check if within city radius
-            let dx = x as f32 - cx_f;
-            let dy = y as f32 - cy_f;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist > city_radius as f32 + 5.0 { continue; }
-            // Place waterfront path
-            place_road_typed_if_valid(&mut roads, &mut grid, x, y, RoadType::Path);
-        }
-    }
+            let has_road = n4[..n4c]
+                .iter()
+                .any(|&(nx, ny)| grid.get(nx, ny).cell_type == CellType::Road);
+            if !has_road {
+                continue;
+            }
 
-    // Phase 2: Zone with improved urban planning
-    // First pass: identify cells adjacent to major roads (avenues/boulevards)
-    // for commercial corridor zoning
-    for y in (center_y - city_radius)..=(center_y + city_radius) {
-        for x in (center_x - city_radius)..=(center_x + city_radius) {
-            if !grid.in_bounds(x, y) { continue; }
-            let cell = grid.get(x, y);
-            if cell.cell_type != CellType::Grass || cell.zone != ZoneType::None { continue; }
-
-            let dx = x as f32 - cx_f;
-            let dy = y as f32 - cy_f;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist > city_radius as f32 { continue; }
-
-            // Central plaza: larger unzoned area at center (public square)
-            if dist < 5.0 { continue; }
-
-            // Must be adjacent to a road to be zoned
-            let (n4b, n4bc) = grid.neighbors4(x, y);
-            let has_road = n4b[..n4bc].iter().any(|(nx, ny)| {
-                grid.get(*nx, *ny).cell_type == CellType::Road
-            });
-            if !has_road { continue; }
-
-            // Check if adjacent to a major road (avenue/boulevard/highway)
-            let adj_major = n4b[..n4bc].iter().any(|&(nx, ny)| {
-                let nc = grid.get(nx, ny);
-                nc.cell_type == CellType::Road
-                    && matches!(nc.road_type, RoadType::Avenue | RoadType::Boulevard | RoadType::Highway)
-            });
-
-            // Check if near water (waterfront premium zone)
-            let near_water = {
-                let mut found = false;
-                for wy in y.saturating_sub(3)..=(y + 3).min(GRID_HEIGHT - 1) {
-                    for wx in x.saturating_sub(3)..=(x + 3).min(GRID_WIDTH - 1) {
-                        if grid.get(wx, wy).cell_type == CellType::Water {
-                            found = true;
-                        }
-                    }
-                }
-                found
-            };
-
+            let xf = x as f32;
+            let yf = y as f32;
             let hash = x.wrapping_mul(31).wrapping_add(y.wrapping_mul(37));
 
-            let zone = if dist < 14.0 {
-                // Downtown core: Commercial High + Office
-                if hash % 3 == 0 { ZoneType::Office } else { ZoneType::CommercialHigh }
-            } else if near_water && dist < 40.0 {
-                // Waterfront: premium residential + commercial
-                match hash % 5 {
-                    0..=1 => ZoneType::ResidentialHigh,
-                    2..=3 => ZoneType::CommercialLow,
-                    _ => ZoneType::Office,
-                }
-            } else if adj_major && dist < 38.0 {
-                // Commercial corridors along major roads
+            // Check if near coast
+            let near_coast = xf < coastline_x(yf) + 12.0;
+
+            let zone = if yf < 70.0 && xf < 80.0 {
+                // Jaffa & Neve Tzedek: mixed old neighborhood
                 match hash % 6 {
-                    0..=2 => ZoneType::CommercialLow,
-                    3 => ZoneType::CommercialHigh,
-                    4 => ZoneType::Office,
+                    0..=2 => ZoneType::ResidentialLow,
+                    3..=4 => ZoneType::CommercialLow,
                     _ => ZoneType::ResidentialHigh,
                 }
-            } else if dist < 25.0 {
-                // Inner city: mixed residential + commercial
+            } else if near_coast && yf < 160.0 {
+                // Coastal strip: hotels, commercial, high-end residential
+                match hash % 5 {
+                    0..=1 => ZoneType::CommercialHigh,
+                    2..=3 => ZoneType::ResidentialHigh,
+                    _ => ZoneType::Office,
+                }
+            } else if xf > 70.0 && xf < 145.0 && yf > 70.0 && yf < 120.0 {
+                // Central Tel Aviv / White City: dense residential + commercial
                 match hash % 8 {
                     0..=3 => ZoneType::ResidentialHigh,
                     4..=5 => ZoneType::CommercialLow,
                     6 => ZoneType::Office,
+                    _ => ZoneType::CommercialHigh,
+                }
+            } else if xf > 100.0 && xf < 150.0 && yf > 100.0 && yf < 115.0 {
+                // Azrieli / Hashalom area: office towers
+                match hash % 4 {
+                    0..=1 => ZoneType::Office,
+                    2 => ZoneType::CommercialHigh,
                     _ => ZoneType::ResidentialHigh,
                 }
-            } else if dist < 38.0 {
-                // Middle ring: residential dominant
-                match hash % 10 {
-                    0..=5 => ZoneType::ResidentialHigh,
-                    6..=7 => ZoneType::CommercialLow,
-                    8 => ZoneType::Industrial,
-                    _ => ZoneType::ResidentialLow,
+            } else if xf > 145.0 && xf < 185.0 {
+                // East of center, along Ayalon: industrial + commercial
+                match hash % 8 {
+                    0..=2 => ZoneType::Industrial,
+                    3..=5 => ZoneType::CommercialLow,
+                    _ => ZoneType::ResidentialHigh,
+                }
+            } else if yf > 192.0 {
+                // Ramat Aviv: residential suburbs + university area
+                match hash % 6 {
+                    0..=3 => ZoneType::ResidentialLow,
+                    4 => ZoneType::ResidentialHigh,
+                    _ => ZoneType::CommercialLow,
+                }
+            } else if xf > 70.0 && xf < 150.0 && yf > 120.0 && yf < 170.0 {
+                // North-central: residential with some commercial
+                match hash % 8 {
+                    0..=4 => ZoneType::ResidentialHigh,
+                    5..=6 => ZoneType::CommercialLow,
+                    _ => ZoneType::Office,
                 }
             } else {
-                // Suburbs: low density residential + industrial clusters
-                match hash % 12 {
-                    0..=6 => ZoneType::ResidentialLow,
-                    7 => ZoneType::CommercialLow,
-                    8..=9 => ZoneType::Industrial,
-                    _ => ZoneType::ResidentialLow,
+                // Fallback: residential
+                if hash % 3 == 0 {
+                    ZoneType::ResidentialLow
+                } else {
+                    ZoneType::ResidentialHigh
                 }
+            };
+
+            zone_map.push((x, y, zone));
+        }
+    }
+
+    // Apply (need to drop immutable borrow first — we use commands for deferred grid mutation)
+    // Actually we can't mutate grid here since we took it as &WorldGrid.
+    // We'll apply zones after this function returns. Store them and apply in init_world.
+    // For now, let's use a different approach: store zone_map as a resource and apply later.
+    // Actually, simpler: just pass &mut WorldGrid. Let me fix the signature.
+    let _ = commands;
+    let _ = zone_map;
+}
+
+#[allow(dead_code)]
+fn apply_zones(grid: &mut WorldGrid) {
+    // Precompute which cells are near roads (within manhattan distance 5)
+    let zone_depth: isize = 5;
+    let mut near_road = vec![false; GRID_WIDTH * GRID_HEIGHT];
+    for ry in 0..GRID_HEIGHT {
+        for rx in 0..GRID_WIDTH {
+            if grid.get(rx, ry).cell_type != CellType::Road {
+                continue;
+            }
+            for dy in -zone_depth..=zone_depth {
+                for dx in -zone_depth..=zone_depth {
+                    if dx.abs() + dy.abs() > zone_depth { continue; }
+                    let nx = rx as isize + dx;
+                    let ny = ry as isize + dy;
+                    if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
+                        near_road[ny as usize * GRID_WIDTH + nx as usize] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
+            let cell_type = grid.get(x, y).cell_type;
+            let current_zone = grid.get(x, y).zone;
+            if cell_type != CellType::Grass || current_zone != ZoneType::None {
+                continue;
+            }
+
+            // Must be within zone_depth cells of a road
+            if !near_road[y * GRID_WIDTH + x] {
+                continue;
+            }
+
+            let xf = x as f32;
+            let yf = y as f32;
+            let hash = x.wrapping_mul(31).wrapping_add(y.wrapping_mul(37));
+            let near_coast = xf < coastline_x(yf) + 12.0;
+
+            let zone = if yf < 70.0 && xf < 80.0 {
+                match hash % 6 {
+                    0..=2 => ZoneType::ResidentialLow,
+                    3..=4 => ZoneType::CommercialLow,
+                    _ => ZoneType::ResidentialHigh,
+                }
+            } else if near_coast && yf < 160.0 {
+                match hash % 5 {
+                    0..=1 => ZoneType::CommercialHigh,
+                    2..=3 => ZoneType::ResidentialHigh,
+                    _ => ZoneType::Office,
+                }
+            } else if xf > 70.0 && xf < 145.0 && yf > 70.0 && yf < 120.0 {
+                match hash % 8 {
+                    0..=3 => ZoneType::ResidentialHigh,
+                    4..=5 => ZoneType::CommercialLow,
+                    6 => ZoneType::Office,
+                    _ => ZoneType::CommercialHigh,
+                }
+            } else if xf > 100.0 && xf < 150.0 && yf > 100.0 && yf < 115.0 {
+                match hash % 4 {
+                    0..=1 => ZoneType::Office,
+                    2 => ZoneType::CommercialHigh,
+                    _ => ZoneType::ResidentialHigh,
+                }
+            } else if xf > 145.0 && xf < 185.0 {
+                match hash % 8 {
+                    0..=2 => ZoneType::Industrial,
+                    3..=5 => ZoneType::CommercialLow,
+                    _ => ZoneType::ResidentialHigh,
+                }
+            } else if yf > 192.0 {
+                match hash % 6 {
+                    0..=3 => ZoneType::ResidentialLow,
+                    4 => ZoneType::ResidentialHigh,
+                    _ => ZoneType::CommercialLow,
+                }
+            } else if xf > 70.0 && xf < 150.0 && yf > 120.0 && yf < 170.0 {
+                match hash % 8 {
+                    0..=4 => ZoneType::ResidentialHigh,
+                    5..=6 => ZoneType::CommercialLow,
+                    _ => ZoneType::Office,
+                }
+            } else {
+                if hash % 3 == 0 { ZoneType::ResidentialLow } else { ZoneType::ResidentialHigh }
             };
 
             grid.get_mut(x, y).zone = zone;
         }
     }
+}
 
-    // Phase 3: Spawn buildings (~70% of zoned cells)
+// =============================================================================
+// Buildings
+// =============================================================================
+
+fn spawn_tel_aviv_buildings(
+    commands: &mut Commands,
+    grid: &mut WorldGrid,
+) -> Vec<(Entity, ZoneType, usize, usize, u32)> {
     let mut building_entities: Vec<(Entity, ZoneType, usize, usize, u32)> = Vec::new();
 
-    for y in (center_y - city_radius)..=(center_y + city_radius) {
-        for x in (center_x - city_radius)..=(center_x + city_radius) {
-            if !grid.in_bounds(x, y) { continue; }
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
             let zone = grid.get(x, y).zone;
             let cell_type = grid.get(x, y).cell_type;
-            if zone == ZoneType::None || cell_type != CellType::Grass { continue; }
-            if grid.get(x, y).building_id.is_some() { continue; }
+            if zone == ZoneType::None || cell_type != CellType::Grass {
+                continue;
+            }
+            if grid.get(x, y).building_id.is_some() {
+                continue;
+            }
 
-            let dx = x as f32 - center_x as f32;
-            let dy = y as f32 - center_y as f32;
-            let dist = (dx * dx + dy * dy).sqrt();
+            // Building setback: skip cells directly adjacent to road cells
+            let (n4, n4c) = grid.neighbors4(x, y);
+            let adjacent_to_road = n4[..n4c]
+                .iter()
+                .any(|&(nx, ny)| grid.get(nx, ny).cell_type == CellType::Road);
+            if adjacent_to_road {
+                continue;
+            }
 
-            // Fill rate varies by zone type — commercial areas are denser
             let hash = x.wrapping_mul(7).wrapping_add(y.wrapping_mul(13));
             let fill_pct = match zone {
-                ZoneType::CommercialHigh | ZoneType::Office => 92,
-                ZoneType::CommercialLow => 88,
-                ZoneType::ResidentialHigh => 85,
-                ZoneType::Industrial => 80,
-                ZoneType::ResidentialLow => 75,
-                _ => 70,
+                ZoneType::CommercialHigh | ZoneType::Office => 90,
+                ZoneType::CommercialLow => 85,
+                ZoneType::ResidentialHigh => 82,
+                ZoneType::Industrial => 78,
+                ZoneType::ResidentialLow => 70,
+                _ => 65,
             };
-            if hash % 100 > fill_pct { continue; }
+            if hash % 100 > fill_pct {
+                continue;
+            }
 
-            let level: u8 = if dist < 15.0 {
-                if hash % 4 == 0 { 2 } else { 3 }
-            } else if dist < 30.0 {
-                match hash % 3 { 0 => 1, 1 => 2, _ => 3 }
-            } else if hash % 3 == 0 { 2 } else { 1 };
+            let xf = x as f32;
+            let yf = y as f32;
+            // Building level based on neighborhood
+            let level: u8 = if xf > 100.0 && xf < 150.0 && yf > 90.0 && yf < 115.0 {
+                // Azrieli area: tall
+                if hash % 3 == 0 { 2 } else { 3 }
+            } else if xf > 70.0 && xf < 140.0 && yf > 70.0 && yf < 160.0 {
+                // White City: medium-tall
+                match hash % 4 {
+                    0 => 1,
+                    1..=2 => 2,
+                    _ => 3,
+                }
+            } else if yf < 70.0 && xf < 80.0 {
+                // Jaffa: low
+                if hash % 4 == 0 { 2 } else { 1 }
+            } else if yf > 192.0 {
+                // Ramat Aviv: medium
+                match hash % 3 {
+                    0 => 1,
+                    1 => 2,
+                    _ => 1,
+                }
+            } else {
+                match hash % 3 {
+                    0 => 1,
+                    1 => 2,
+                    _ => 1,
+                }
+            };
 
             let capacity = Building::capacity_for_level(zone, level);
 
@@ -583,32 +1121,37 @@ pub fn init_world(mut commands: Commands) {
         }
     }
 
-    // Phase 4: Place utility sources
-    let utility_positions = [
-        (UtilityType::PowerPlant, center_x - 40, center_y - 40),
-        (UtilityType::PowerPlant, center_x + 40, center_y - 40),
-        (UtilityType::PowerPlant, center_x - 40, center_y + 40),
-        (UtilityType::PowerPlant, center_x + 40, center_y + 40),
-        (UtilityType::PowerPlant, center_x, center_y - 25),
-        (UtilityType::PowerPlant, center_x, center_y + 25),
-        (UtilityType::WaterTower, center_x - 20, center_y - 20),
-        (UtilityType::WaterTower, center_x + 20, center_y - 20),
-        (UtilityType::WaterTower, center_x - 20, center_y + 20),
-        (UtilityType::WaterTower, center_x + 20, center_y + 20),
-        (UtilityType::WaterTower, center_x, center_y - 10),
-        (UtilityType::WaterTower, center_x, center_y + 10),
+    building_entities
+}
+
+// =============================================================================
+// Utilities
+// =============================================================================
+
+fn spawn_tel_aviv_utilities(commands: &mut Commands, grid: &mut WorldGrid) {
+    let positions = [
+        (UtilityType::PowerPlant, 200usize, 50usize),
+        (UtilityType::PowerPlant, 200, 150),
+        (UtilityType::PowerPlant, 200, 220),
+        (UtilityType::PowerPlant, 120, 30),
+        (UtilityType::WaterTower, 90, 90),
+        (UtilityType::WaterTower, 130, 130),
+        (UtilityType::WaterTower, 80, 160),
+        (UtilityType::WaterTower, 110, 210),
+        (UtilityType::WaterTower, 160, 80),
+        (UtilityType::WaterTower, 160, 160),
     ];
 
-    for (utype, ux, uy) in &utility_positions {
-        if let Some((px, py)) = find_free_grass_cell(&grid, *ux, *uy, 10) {
+    for &(utype, ux, uy) in &positions {
+        if let Some((px, py)) = find_free_grass_cell(grid, ux, uy, 10) {
             let range = match utype {
-                UtilityType::PowerPlant => 30,
-                UtilityType::WaterTower => 25,
-                _ => 20,
+                UtilityType::PowerPlant => 120,
+                UtilityType::WaterTower => 90,
+                _ => 50,
             };
             let entity = commands
                 .spawn(UtilitySource {
-                    utility_type: *utype,
+                    utility_type: utype,
                     grid_x: px,
                     grid_y: py,
                     range,
@@ -617,75 +1160,79 @@ pub fn init_world(mut commands: Commands) {
             grid.get_mut(px, py).building_id = Some(entity);
         }
     }
+}
 
-    // Phase 5: Place service buildings in logical locations
-    let service_positions = [
-        (ServiceType::FireStation, center_x - 15, center_y - 15),
-        (ServiceType::FireStation, center_x + 15, center_y - 15),
-        (ServiceType::FireStation, center_x - 15, center_y + 15),
-        (ServiceType::FireStation, center_x + 15, center_y + 15),
-        (ServiceType::FireStation, center_x, center_y + 35),
-        (ServiceType::FireStation, center_x, center_y - 35),
-        (ServiceType::PoliceStation, center_x - 10, center_y),
-        (ServiceType::PoliceStation, center_x + 10, center_y),
-        (ServiceType::PoliceStation, center_x, center_y - 10),
-        (ServiceType::PoliceStation, center_x, center_y + 10),
-        (ServiceType::PoliceStation, center_x - 30, center_y - 30),
-        (ServiceType::PoliceStation, center_x + 30, center_y + 30),
-        (ServiceType::Hospital, center_x + 8, center_y + 5),
-        (ServiceType::Hospital, center_x - 25, center_y - 20),
-        (ServiceType::Hospital, center_x + 25, center_y + 20),
-        (ServiceType::ElementarySchool, center_x - 20, center_y - 15),
-        (ServiceType::ElementarySchool, center_x + 20, center_y - 15),
-        (ServiceType::ElementarySchool, center_x - 20, center_y + 15),
-        (ServiceType::ElementarySchool, center_x + 20, center_y + 15),
-        (ServiceType::HighSchool, center_x - 12, center_y + 22),
-        (ServiceType::HighSchool, center_x + 12, center_y - 22),
-        (ServiceType::University, center_x - 5, center_y - 12),
-        (ServiceType::SmallPark, center_x + 3, center_y + 3),
-        (ServiceType::SmallPark, center_x - 3, center_y - 3),
-        (ServiceType::SmallPark, center_x + 18, center_y + 8),
-        (ServiceType::SmallPark, center_x - 18, center_y - 8),
-        (ServiceType::SmallPark, center_x + 8, center_y - 18),
-        (ServiceType::SmallPark, center_x - 8, center_y + 18),
-        (ServiceType::LargePark, center_x + 30, center_y),
-        (ServiceType::LargePark, center_x, center_y + 30),
-        (ServiceType::LargePark, center_x - 30, center_y),
-        (ServiceType::LargePark, center_x, center_y - 30),
-        (ServiceType::Plaza, center_x, center_y),
-        (ServiceType::Plaza, center_x + 14, center_y + 14),
-        (ServiceType::Plaza, center_x - 14, center_y - 14),
-        (ServiceType::Playground, center_x + 22, center_y + 22),
-        (ServiceType::Playground, center_x - 22, center_y - 22),
-        (ServiceType::SportsField, center_x + 35, center_y + 10),
-        (ServiceType::Museum, center_x - 5, center_y + 5),
-        (ServiceType::Cathedral, center_x + 5, center_y - 5),
-        (ServiceType::CityHall, center_x - 2, center_y + 2),
-        (ServiceType::Library, center_x + 12, center_y - 10),
-        (ServiceType::TrainStation, center_x + 2, center_y - 15),
-        (ServiceType::BusDepot, center_x - 18, center_y + 2),
-        (ServiceType::SubwayStation, center_x - 8, center_y - 8),
-        (ServiceType::SubwayStation, center_x + 8, center_y + 8),
-        (ServiceType::Kindergarten, center_x + 25, center_y - 25),
-        (ServiceType::Kindergarten, center_x - 25, center_y + 25),
+// =============================================================================
+// Services
+// =============================================================================
+
+fn spawn_tel_aviv_services(commands: &mut Commands, grid: &mut WorldGrid) {
+    let positions = [
+        // Fire stations
+        (ServiceType::FireStation, 85usize, 55usize),
+        (ServiceType::FireStation, 130, 100),
+        (ServiceType::FireStation, 80, 145),
+        (ServiceType::FireStation, 120, 210),
+        // Police
+        (ServiceType::PoliceStation, 65, 48),  // Jaffa
+        (ServiceType::PoliceStation, 110, 90),
+        (ServiceType::PoliceStation, 90, 135),
+        (ServiceType::PoliceStation, 130, 160),
+        // Hospitals
+        (ServiceType::Hospital, 95, 80),   // Ichilov area
+        (ServiceType::Hospital, 150, 130),
+        // Schools
+        (ServiceType::ElementarySchool, 78, 80),
+        (ServiceType::ElementarySchool, 115, 130),
+        (ServiceType::ElementarySchool, 88, 210),
+        (ServiceType::HighSchool, 105, 95),
+        (ServiceType::HighSchool, 90, 150),
+        (ServiceType::University, 110, 215),  // Tel Aviv University area
+        // Parks
+        (ServiceType::LargePark, 80, 180),  // Yarkon Park
+        (ServiceType::LargePark, 105, 180),
+        (ServiceType::SmallPark, 95, 88),    // Rothschild gardens
+        (ServiceType::SmallPark, 110, 105),
+        (ServiceType::SmallPark, 130, 140),
+        (ServiceType::SmallPark, 70, 50),    // Jaffa garden
+        (ServiceType::Plaza, 100, 135),      // Dizengoff Square area
+        (ServiceType::Plaza, 118, 108),      // Habima area
+        // Culture & civic
+        (ServiceType::Museum, 112, 100),     // Art museum area
+        (ServiceType::CityHall, 115, 95),
+        (ServiceType::Library, 105, 110),
+        // Transport
+        (ServiceType::TrainStation, 145, 95),  // HaShalom station
+        (ServiceType::TrainStation, 145, 155), // Arlozorov station
+        (ServiceType::BusDepot, 100, 105),
+        (ServiceType::SubwayStation, 110, 85),
+        (ServiceType::SubwayStation, 115, 120),
     ];
 
-    for (stype, sx, sy) in &service_positions {
-        if let Some((px, py)) = find_free_grass_cell(&grid, *sx, *sy, 10) {
+    for &(stype, sx, sy) in &positions {
+        if let Some((px, py)) = find_free_grass_cell(grid, sx, sy, 10) {
             let entity = commands
                 .spawn(ServiceBuilding {
-                    service_type: *stype,
+                    service_type: stype,
                     grid_x: px,
                     grid_y: py,
-                    radius: ServiceBuilding::coverage_radius(*stype),
+                    radius: ServiceBuilding::coverage_radius(stype),
                 })
                 .id();
             grid.get_mut(px, py).building_id = Some(entity);
         }
     }
+}
 
-    // Phase 6: Pre-spawn citizens to fill residential buildings
-    // Collect work buildings first
+// =============================================================================
+// Citizens
+// =============================================================================
+
+fn spawn_tel_aviv_citizens(
+    commands: &mut Commands,
+    grid: &WorldGrid,
+    building_entities: &[(Entity, ZoneType, usize, usize, u32)],
+) {
     let work_buildings: Vec<(Entity, usize, usize)> = building_entities
         .iter()
         .filter(|(_, zt, _, _, _)| zt.is_job_zone())
@@ -698,264 +1245,93 @@ pub fn init_world(mut commands: Commands) {
         .map(|(e, _, x, y, cap)| (*e, *x, *y, *cap))
         .collect();
 
-    if !work_buildings.is_empty() {
-        let mut work_idx = 0usize;
-        // Track work building occupancy locally
-        let mut work_occupancy: Vec<u32> = vec![0; work_buildings.len()];
-        let work_caps: Vec<u32> = building_entities
-            .iter()
-            .filter(|(_, zt, _, _, _)| zt.is_job_zone())
-            .map(|(_, _, _, _, cap)| *cap)
-            .collect();
+    if work_buildings.is_empty() {
+        return;
+    }
 
-        let mut citizen_count = 0u32;
-        let target_pop = 1_000u32; // Spawn a small seed; burst spawner fills the rest
-        let mut age_counter = 0u8;
+    let work_caps: Vec<u32> = building_entities
+        .iter()
+        .filter(|(_, zt, _, _, _)| zt.is_job_zone())
+        .map(|(_, _, _, _, cap)| *cap)
+        .collect();
 
-        for (home_entity, hx, hy, cap) in &residential_buildings {
+    let mut work_idx = 0usize;
+    let mut work_occupancy: Vec<u32> = vec![0; work_buildings.len()];
+    let mut citizen_count = 0u32;
+    let target_pop = 10_000u32;
+    let mut age_counter = 0u8;
+
+    for (home_entity, hx, hy, cap) in &residential_buildings {
+        if citizen_count >= target_pop {
+            break;
+        }
+        let fill = (*cap as f32 * 0.9).ceil() as u32;
+        for _ in 0..fill {
             if citizen_count >= target_pop {
                 break;
             }
-            // Fill each residential building to ~90% capacity
-            let fill = (*cap as f32 * 0.9).ceil() as u32;
-            for _ in 0..fill {
-                if citizen_count >= target_pop {
+
+            let start_idx = work_idx;
+            loop {
+                if work_occupancy[work_idx] < work_caps[work_idx] {
                     break;
                 }
-
-                // Round-robin through work buildings, skipping full ones
-                let start_idx = work_idx;
-                loop {
-                    if work_occupancy[work_idx] < work_caps[work_idx] {
-                        break;
-                    }
-                    work_idx = (work_idx + 1) % work_buildings.len();
-                    if work_idx == start_idx {
-                        // All full, allow over-capacity
-                        break;
-                    }
-                }
-
-                let (work_entity, wx, wy) = work_buildings[work_idx];
-                work_occupancy[work_idx] += 1;
                 work_idx = (work_idx + 1) % work_buildings.len();
-
-                let (home_wx, home_wy) = WorldGrid::grid_to_world(*hx, *hy);
-                age_counter = age_counter.wrapping_add(7);
-                let age = 18 + (age_counter % 47); // 18-64
-
-                let gender = if citizen_count % 2 == 0 {
-                    Gender::Male
-                } else {
-                    Gender::Female
-                };
-                let edu = match age {
-                    18..=22 => (age_counter % 3).min(1),
-                    23..=30 => (age_counter % 4).min(2),
-                    _ => (age_counter % 5).min(3),
-                };
-                let salary =
-                    CitizenDetails::base_salary_for_education(edu) * (1.0 + age.saturating_sub(18) as f32 * 0.01);
-
-                commands.spawn((
-                    Citizen,
-                    Position {
-                        x: home_wx,
-                        y: home_wy,
-                    },
-                    Velocity { x: 0.0, y: 0.0 },
-                    HomeLocation {
-                        grid_x: *hx,
-                        grid_y: *hy,
-                        building: *home_entity,
-                    },
-                    WorkLocation {
-                        grid_x: wx,
-                        grid_y: wy,
-                        building: work_entity,
-                    },
-                    CitizenStateComp(CitizenState::AtHome),
-                    PathCache::new(Vec::new()),
-                    CitizenDetails {
-                        age,
-                        gender,
-                        education: edu,
-                        happiness: 60.0,
-                        health: 90.0,
-                        salary,
-                        savings: salary * 2.0,
-                    },
-                    Personality {
-                        ambition: ((age_counter.wrapping_mul(3)) % 100) as f32 / 100.0,
-                        sociability: ((age_counter.wrapping_mul(7)) % 100) as f32 / 100.0,
-                        materialism: ((age_counter.wrapping_mul(11)) % 100) as f32 / 100.0,
-                        resilience: ((age_counter.wrapping_mul(13)) % 100) as f32 / 100.0,
-                    },
-                    Needs::default(),
-                    Family::default(),
-                    ActivityTimer::default(),
-                ));
-
-                citizen_count += 1;
-            }
-
-            // Update building occupancy (will be applied when commands flush)
-            // We track it via the Building component's occupants field
-            // Since commands are deferred, we set this directly on the building spawn
-        }
-
-        // Re-spawn buildings with correct occupancy counts
-        // We need to update the already-spawned building entities' occupancy
-        // Since commands are deferred, we'll use a helper approach:
-        // Despawn and re-spawn buildings with correct occupancy
-        // Actually, we can use commands.entity(e).insert() to overwrite the Building component
-
-        // Build occupancy map from citizen assignments
-        let mut home_occ: std::collections::HashMap<Entity, u32> =
-            std::collections::HashMap::new();
-        // We know how many citizens we assigned per building
-        // Recount from residential_buildings
-        let mut recount = 0u32;
-        for (home_entity, _, _, cap) in &residential_buildings {
-            if recount >= citizen_count {
-                break;
-            }
-            let fill = ((*cap as f32 * 0.9).ceil() as u32).min(citizen_count - recount);
-            *home_occ.entry(*home_entity).or_insert(0) += fill;
-            recount += fill;
-        }
-
-        for (home_entity, _, _, _) in &residential_buildings {
-            if let Some(&occ) = home_occ.get(home_entity) {
-                if occ > 0 {
-                    // Find this building's data
-                    if let Some((_, zt, gx, gy, cap)) = building_entities
-                        .iter()
-                        .find(|(e, _, _, _, _)| *e == *home_entity)
-                    {
-                        let dx2 = *gx as f32 - center_x as f32;
-                        let dy2 = *gy as f32 - center_y as f32;
-                        let dist2 = (dx2 * dx2 + dy2 * dy2).sqrt();
-                        let hash = gx.wrapping_mul(7).wrapping_add(gy.wrapping_mul(13));
-                        let level: u8 = if dist2 < 15.0 {
-                            if hash % 4 == 0 { 2 } else { 3 }
-                        } else if dist2 < 30.0 {
-                            match hash % 3 { 0 => 1, 1 => 2, _ => 3 }
-                        } else if hash % 3 == 0 { 2 } else { 1 };
-                        commands.entity(*home_entity).insert(Building {
-                            zone_type: *zt,
-                            level,
-                            grid_x: *gx,
-                            grid_y: *gy,
-                            capacity: *cap,
-                            occupants: occ,
-                        });
-                    }
+                if work_idx == start_idx {
+                    break;
                 }
             }
-        }
 
-        // Update work building occupancy
-        for (i, (work_entity, _, _)) in work_buildings.iter().enumerate() {
-            let occ = work_occupancy[i];
-            if occ > 0 {
-                if let Some((_, zt, gx, gy, cap)) = building_entities
-                    .iter()
-                    .find(|(e, _, _, _, _)| *e == *work_entity)
-                {
-                    let dx2 = *gx as f32 - center_x as f32;
-                    let dy2 = *gy as f32 - center_y as f32;
-                    let dist2 = (dx2 * dx2 + dy2 * dy2).sqrt();
-                    let hash = gx.wrapping_mul(7).wrapping_add(gy.wrapping_mul(13));
-                    let level: u8 = if dist2 < 15.0 {
-                        if hash % 4 == 0 { 2 } else { 3 }
-                    } else if dist2 < 30.0 {
-                        match hash % 3 { 0 => 1, 1 => 2, _ => 3 }
-                    } else if hash % 3 == 0 { 2 } else { 1 };
-                    commands.entity(*work_entity).insert(Building {
-                        zone_type: *zt,
-                        level,
-                        grid_x: *gx,
-                        grid_y: *gy,
-                        capacity: *cap,
-                        occupants: occ,
-                    });
-                }
-            }
-        }
-    }
+            let (work_entity, wx, wy) = work_buildings[work_idx];
+            work_occupancy[work_idx] += 1;
+            work_idx = (work_idx + 1) % work_buildings.len();
 
-    // Give the city a generous starting budget
-    let budget = CityBudget {
-        treasury: 100_000.0,
-        ..CityBudget::default()
-    };
-    commands.insert_resource(budget);
+            let (home_wx, home_wy) = WorldGrid::grid_to_world(*hx, *hy);
+            age_counter = age_counter.wrapping_add(7);
+            let age = 18 + (age_counter % 47);
 
-    commands.insert_resource(grid);
-    commands.insert_resource(roads);
-}
+            let gender = if citizen_count % 2 == 0 { Gender::Male } else { Gender::Female };
+            let edu = match age {
+                18..=22 => (age_counter % 3).min(1),
+                23..=30 => (age_counter % 4).min(2),
+                _ => (age_counter % 5).min(3),
+            };
+            let salary = CitizenDetails::base_salary_for_education(edu)
+                * (1.0 + age.saturating_sub(18) as f32 * 0.01);
 
-fn place_road_typed_if_valid(
-    roads: &mut RoadNetwork,
-    grid: &mut WorldGrid,
-    x: usize,
-    y: usize,
-    road_type: RoadType,
-) {
-    if grid.in_bounds(x, y) && grid.get(x, y).cell_type != CellType::Water {
-        roads.place_road_typed(grid, x, y, road_type);
-    }
-}
+            commands.spawn((
+                Citizen,
+                Position { x: home_wx, y: home_wy },
+                Velocity { x: 0.0, y: 0.0 },
+                HomeLocation { grid_x: *hx, grid_y: *hy, building: *home_entity },
+                WorkLocation { grid_x: wx, grid_y: wy, building: work_entity },
+                CitizenStateComp(CitizenState::AtHome),
+                PathCache::new(Vec::new()),
+                CitizenDetails {
+                    age, gender, education: edu,
+                    happiness: 60.0, health: 90.0,
+                    salary, savings: salary * 2.0,
+                },
+                Personality {
+                    ambition: ((age_counter.wrapping_mul(3)) % 100) as f32 / 100.0,
+                    sociability: ((age_counter.wrapping_mul(7)) % 100) as f32 / 100.0,
+                    materialism: ((age_counter.wrapping_mul(11)) % 100) as f32 / 100.0,
+                    resilience: ((age_counter.wrapping_mul(13)) % 100) as f32 / 100.0,
+                },
+                Needs::default(),
+                Family::default(),
+                ActivityTimer::default(),
+            ));
 
-/// Place a line of road cells from (x0,y0) to (x1,y1) using Bresenham's algorithm.
-/// Supports diagonal and arbitrary angle roads.
-fn place_road_line(
-    roads: &mut RoadNetwork,
-    grid: &mut WorldGrid,
-    x0: i32, y0: i32,
-    x1: i32, y1: i32,
-    road_type: RoadType,
-) {
-    let dx = (x1 - x0).abs();
-    let dy = (y1 - y0).abs();
-    let sx: i32 = if x0 < x1 { 1 } else { -1 };
-    let sy: i32 = if y0 < y1 { 1 } else { -1 };
-    let mut err = dx - dy;
-    let mut x = x0;
-    let mut y = y0;
-
-    loop {
-        if x >= 0 && y >= 0 {
-            place_road_typed_if_valid(roads, grid, x as usize, y as usize, road_type);
-            // Widen diagonal roads by 1 cell perpendicular for connectivity
-            if dx > 0 && dy > 0 {
-                // Add adjacent cell for wider path (prevents single-pixel diagonals)
-                if dx > dy {
-                    if y + 1 < GRID_HEIGHT as i32 {
-                        place_road_typed_if_valid(roads, grid, x as usize, (y + 1) as usize, road_type);
-                    }
-                } else {
-                    if x + 1 < GRID_WIDTH as i32 {
-                        place_road_typed_if_valid(roads, grid, (x + 1) as usize, y as usize, road_type);
-                    }
-                }
-            }
-        }
-        if x == x1 && y == y1 { break; }
-        let e2 = 2 * err;
-        if e2 > -dy {
-            err -= dy;
-            x += sx;
-        }
-        if e2 < dx {
-            err += dx;
-            y += sy;
+            citizen_count += 1;
         }
     }
 }
 
-/// Find a free grass cell near (cx, cy) within search_radius, spiraling outward
+// =============================================================================
+// Helpers
+// =============================================================================
+
 fn find_free_grass_cell(
     grid: &WorldGrid,
     cx: usize,
@@ -969,8 +1345,7 @@ fn find_free_grass_cell(
         let max_y = (cy + r).min(GRID_HEIGHT - 1);
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                if (x != cx || y != cy) && r > 0 {
-                    // Only check cells at distance r on the perimeter
+                if r > 0 {
                     let dx = x.abs_diff(cx);
                     let dy = y.abs_diff(cy);
                     if dx != r && dy != r {

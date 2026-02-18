@@ -5,12 +5,26 @@ use crate::services::{ServiceBuilding, ServiceType};
 use crate::stats::CityStats;
 
 /// Tourism tracking
-#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct Tourism {
     pub attractiveness: f32,      // 0-100 score
     pub monthly_visitors: u32,
     pub monthly_tourism_income: f64,
     pub last_update_day: u32,
+    /// Multiplier from airport system (1.0 = no airports, >1.0 = airports boost tourism).
+    pub airport_multiplier: f32,
+}
+
+impl Default for Tourism {
+    fn default() -> Self {
+        Self {
+            attractiveness: 0.0,
+            monthly_visitors: 0,
+            monthly_tourism_income: 0.0,
+            last_update_day: 0,
+            airport_multiplier: 1.0,
+        }
+    }
 }
 
 impl Tourism {
@@ -52,9 +66,12 @@ pub fn update_tourism(
     let pop_factor = (stats.population as f32 / 10000.0).min(5.0);
     tourism.attractiveness = (total_draw as f32 * 0.1 + pop_factor * 10.0).min(100.0);
 
-    // Visitors based on attractiveness
-    tourism.monthly_visitors = (tourism.attractiveness * 50.0) as u32;
+    // Visitors based on attractiveness, boosted by airport multiplier
+    let base_visitors = (tourism.attractiveness * 50.0) as u32;
+    tourism.monthly_visitors = (base_visitors as f32 * tourism.airport_multiplier) as u32;
 
     // Tourism income: visitors spend money at commercial buildings
-    tourism.monthly_tourism_income = tourism.monthly_visitors as f64 * 2.0;
+    // Airport multiplier also boosts per-visitor spending (international travelers spend more)
+    let spending_per_visitor = 2.0 * tourism.airport_multiplier as f64;
+    tourism.monthly_tourism_income = tourism.monthly_visitors as f64 * spending_per_visitor;
 }

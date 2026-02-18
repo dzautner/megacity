@@ -16,10 +16,10 @@ pub enum CitizenMeshKind {
 }
 
 /// Scale for character GLB models (Kenney mini-characters are ~1.5 units tall, already human-sized)
-const CHARACTER_SCALE: f32 = 1.0;
+const CHARACTER_SCALE: f32 = 2.0;
 
 /// Scale for vehicle GLB models (Kenney car-kit models are ~4 units long, already car-sized)
-const VEHICLE_SCALE: f32 = 1.0;
+const VEHICLE_SCALE: f32 = 3.0;
 
 pub fn spawn_citizen_sprites(
     mut commands: Commands,

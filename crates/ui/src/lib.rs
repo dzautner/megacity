@@ -15,6 +15,7 @@ impl Plugin for UiPlugin {
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
             .init_resource::<toolbar::OpenCategory>()
+            .init_resource::<info_panel::JournalVisible>()
             .add_systems(Startup, theme::apply_cute_theme)
             .add_systems(
                 Update,
@@ -24,11 +25,17 @@ impl Plugin for UiPlugin {
                     toolbar::toolbar_ui,
                     info_panel::info_panel_ui,
                     info_panel::building_inspection_ui,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
                     milestones::milestones_ui,
                     graphs::graphs_ui,
                     info_panel::policies_ui,
-                )
-                    .chain(),
+                    info_panel::toggle_journal_visibility,
+                    info_panel::event_journal_ui,
+                ),
             );
     }
 }

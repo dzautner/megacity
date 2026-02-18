@@ -3,6 +3,7 @@ use rand::Rng;
 
 use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
 use crate::buildings::Building;
+use crate::death_care::{DeathCareGrid, DeathCareStats};
 use crate::time_of_day::GameClock;
 use crate::virtual_population::VirtualPopulation;
 
@@ -21,11 +22,17 @@ pub fn age_citizens(
     mut citizens: Query<(Entity, &mut CitizenDetails, &HomeLocation), With<Citizen>>,
     mut buildings: Query<&mut Building>,
     mut virtual_pop: ResMut<VirtualPopulation>,
+    mut death_grid: ResMut<DeathCareGrid>,
+    mut death_stats: ResMut<DeathCareStats>,
 ) {
     if clock.day < timer.last_aging_day + AGING_INTERVAL_DAYS {
         return;
     }
     timer.last_aging_day = clock.day;
+
+    // Reset monthly death stats on aging tick (approximates monthly)
+    death_stats.total_deaths_this_month = 0;
+    death_stats.processed_this_month = 0;
 
     let mut rng = rand::thread_rng();
 
@@ -50,6 +57,9 @@ pub fn age_citizens(
                     building.occupants = building.occupants.saturating_sub(1);
                 }
                 virtual_pop.total_virtual = virtual_pop.total_virtual.saturating_sub(1);
+                // Record death on the home cell for death care processing
+                death_grid.record_death(home.grid_x, home.grid_y);
+                death_stats.total_deaths_this_month += 1;
                 commands.entity(entity).despawn();
                 continue;
             }
@@ -61,6 +71,9 @@ pub fn age_citizens(
                 building.occupants = building.occupants.saturating_sub(1);
             }
             virtual_pop.total_virtual = virtual_pop.total_virtual.saturating_sub(1);
+            // Record death on the home cell for death care processing
+            death_grid.record_death(home.grid_x, home.grid_y);
+            death_stats.total_deaths_this_month += 1;
             commands.entity(entity).despawn();
         }
     }

@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 
-use simulation::buildings::Building;
+use simulation::buildings::{Building, UnderConstruction};
 use simulation::config::CELL_SIZE;
 use simulation::grid::{CellType, WorldGrid};
 use simulation::services::ServiceBuilding;
+use simulation::trees::PlantedTree;
 use simulation::utilities::UtilitySource;
 
 use crate::building_meshes::{BuildingModelCache, building_scale};
@@ -50,6 +51,7 @@ fn building_facing_road(grid: &WorldGrid, gx: usize, gy: usize, hash: usize) -> 
 pub fn spawn_building_meshes(
     mut commands: Commands,
     buildings: Query<(Entity, &Building), Without<BuildingMesh3d>>,
+    under_construction: Query<&UnderConstruction>,
     services: Query<(Entity, &ServiceBuilding), Without<BuildingMesh3d>>,
     utilities: Query<(Entity, &UtilitySource), Without<BuildingMesh3d>>,
     existing: Query<&BuildingMesh3d>,
@@ -84,13 +86,27 @@ pub fn spawn_building_meshes(
         // Minimal scale variation to avoid monotony
         let scale_var = 0.98 + (hash % 5) as f32 / 100.0; // 0.98 - 1.02
 
+        // If under construction, start at 30% y-scale for a "being built" look
+        let base_scale = scale * scale_var;
+        let build_scale = if let Ok(uc) = under_construction.get(entity) {
+            let progress = if uc.total_ticks > 0 {
+                1.0 - (uc.ticks_remaining as f32 / uc.total_ticks as f32)
+            } else {
+                1.0
+            };
+            let y_factor = 0.3 + progress * 0.7; // lerp from 0.3 to 1.0
+            Vec3::new(base_scale, base_scale * y_factor, base_scale)
+        } else {
+            Vec3::splat(base_scale)
+        };
+
         commands.spawn((
             BuildingMesh3d { tracked_entity: entity },
             ZoneBuilding,
             SceneRoot(scene_handle),
             Transform::from_xyz(wx, 0.0, wz)
                 .with_rotation(Quat::from_rotation_y(yaw))
-                .with_scale(Vec3::splat(scale * scale_var)),
+                .with_scale(build_scale),
             Visibility::default(),
         ));
     }
@@ -185,6 +201,45 @@ pub fn update_building_meshes(
     }
 }
 
+/// Gradually increases the y-scale of buildings under construction as they
+/// progress toward completion. When construction finishes (UnderConstruction
+/// removed), snaps scale to the full target.
+pub fn update_construction_visuals(
+    sim_buildings: Query<(&Building, Option<&UnderConstruction>)>,
+    mut mesh_query: Query<(&BuildingMesh3d, &mut Transform), With<ZoneBuilding>>,
+) {
+    for (bm, mut transform) in &mut mesh_query {
+        let Ok((building, maybe_uc)) = sim_buildings.get(bm.tracked_entity) else {
+            continue;
+        };
+
+        let hash = building
+            .grid_x
+            .wrapping_mul(7)
+            .wrapping_add(building.grid_y.wrapping_mul(13));
+        let base_scale = building_scale(building.zone_type, building.level);
+        let scale_var = 0.98 + (hash % 5) as f32 / 100.0;
+        let full_scale = base_scale * scale_var;
+
+        if let Some(uc) = maybe_uc {
+            // Building is still under construction: lerp y-scale from 0.3 to 1.0
+            let progress = if uc.total_ticks > 0 {
+                1.0 - (uc.ticks_remaining as f32 / uc.total_ticks as f32)
+            } else {
+                1.0
+            };
+            let y_factor = 0.3 + progress * 0.7;
+            transform.scale = Vec3::new(full_scale, full_scale * y_factor, full_scale);
+        } else {
+            // Construction complete: ensure full scale (handles the frame when
+            // UnderConstruction is removed).
+            if (transform.scale.y - full_scale).abs() > 0.01 {
+                transform.scale = Vec3::splat(full_scale);
+            }
+        }
+    }
+}
+
 pub fn cleanup_orphan_building_meshes(
     mut commands: Commands,
     sprites: Query<(Entity, &BuildingMesh3d)>,
@@ -199,6 +254,129 @@ pub fn cleanup_orphan_building_meshes(
 
         if !exists {
             commands.entity(sprite_entity).despawn();
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Planted tree mesh rendering
+// ---------------------------------------------------------------------------
+
+/// Marker for the 3D mesh of a player-planted tree.
+#[derive(Component)]
+pub struct PlantedTreeMesh {
+    pub tracked_entity: Entity,
+}
+
+/// Resource that caches the procedural tree mesh + material so we only create them once.
+#[derive(Resource)]
+pub struct PlantedTreeAssets {
+    pub trunk_mesh: Handle<Mesh>,
+    pub canopy_mesh: Handle<Mesh>,
+    pub trunk_material: Handle<StandardMaterial>,
+    pub canopy_material: Handle<StandardMaterial>,
+}
+
+/// Spawn 3D meshes for newly planted trees (PlantedTree entities without a
+/// corresponding PlantedTreeMesh).
+pub fn spawn_planted_tree_meshes(
+    mut commands: Commands,
+    new_trees: Query<(Entity, &PlantedTree), Without<PlantedTreeMesh>>,
+    existing_meshes: Query<&PlantedTreeMesh>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    tree_assets: Option<Res<PlantedTreeAssets>>,
+) {
+    if new_trees.is_empty() {
+        return;
+    }
+
+    let tracked: std::collections::HashSet<Entity> =
+        existing_meshes.iter().map(|m| m.tracked_entity).collect();
+
+    // Lazily create the shared mesh/material handles on first use
+    let assets = if let Some(a) = tree_assets {
+        a.clone() // Res deref -> clone the handles
+    } else {
+        // Build procedural meshes: a brown cylinder trunk + green sphere canopy
+        let trunk = meshes.add(Cylinder::new(0.8, 6.0));
+        let canopy = meshes.add(Sphere::new(3.5));
+
+        let trunk_mat = materials.add(StandardMaterial {
+            base_color: Color::srgb(0.45, 0.28, 0.12),
+            perceptual_roughness: 0.9,
+            ..default()
+        });
+        let canopy_mat = materials.add(StandardMaterial {
+            base_color: Color::srgb(0.15, 0.55, 0.15),
+            perceptual_roughness: 0.8,
+            ..default()
+        });
+
+        let a = PlantedTreeAssets {
+            trunk_mesh: trunk,
+            canopy_mesh: canopy,
+            trunk_material: trunk_mat,
+            canopy_material: canopy_mat,
+        };
+        commands.insert_resource(a.clone());
+        a
+    };
+
+    for (entity, tree) in &new_trees {
+        if tracked.contains(&entity) {
+            continue;
+        }
+
+        let (wx, _wy) = WorldGrid::grid_to_world(tree.grid_x, tree.grid_y);
+        let wz = tree.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
+
+        // Slight position and scale variation based on grid coords
+        let hash = tree.grid_x.wrapping_mul(41).wrapping_add(tree.grid_y.wrapping_mul(53));
+        let scale_var = 0.85 + (hash % 30) as f32 / 100.0; // 0.85 - 1.14
+
+        // Trunk (brown cylinder)
+        let trunk_entity = commands
+            .spawn((
+                PlantedTreeMesh { tracked_entity: entity },
+                Mesh3d(assets.trunk_mesh.clone()),
+                MeshMaterial3d(assets.trunk_material.clone()),
+                Transform::from_xyz(wx, 3.0 * scale_var, wz)
+                    .with_scale(Vec3::splat(scale_var)),
+                Visibility::default(),
+            ))
+            .id();
+
+        // Canopy (green sphere), child of trunk for easier despawn
+        commands.spawn((
+            Mesh3d(assets.canopy_mesh.clone()),
+            MeshMaterial3d(assets.canopy_material.clone()),
+            Transform::from_xyz(0.0, 4.5, 0.0),
+            Visibility::default(),
+        )).set_parent(trunk_entity);
+    }
+}
+
+/// Clean up planted tree meshes whose PlantedTree entity was despawned.
+pub fn cleanup_planted_tree_meshes(
+    mut commands: Commands,
+    mesh_entities: Query<(Entity, &PlantedTreeMesh)>,
+    trees: Query<Entity, With<PlantedTree>>,
+) {
+    for (mesh_entity, ptm) in &mesh_entities {
+        if trees.get(ptm.tracked_entity).is_err() {
+            commands.entity(mesh_entity).despawn();
+        }
+    }
+}
+
+impl Clone for PlantedTreeAssets {
+    fn clone(&self) -> Self {
+        Self {
+            trunk_mesh: self.trunk_mesh.clone(),
+            canopy_mesh: self.canopy_mesh.clone(),
+            trunk_material: self.trunk_material.clone(),
+            canopy_material: self.canopy_material.clone(),
         }
     }
 }

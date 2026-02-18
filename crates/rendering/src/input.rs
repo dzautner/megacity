@@ -72,10 +72,22 @@ pub enum ActiveTool {
     PlaceSubwayStation,
     PlaceTramDepot,
     PlaceFerryPier,
-    PlaceSmallAirport,
+    PlaceSmallAirstrip,
+    PlaceRegionalAirport,
     PlaceInternationalAirport,
     PlaceCellTower,
     PlaceDataCenter,
+    // Terrain tools
+    TerrainRaise,
+    TerrainLower,
+    TerrainLevel,
+    TerrainWater,
+    // District tools
+    DistrictPaint(usize),
+    DistrictErase,
+    // Environment tools
+    TreePlant,
+    TreeRemove,
 }
 
 impl ActiveTool {
@@ -88,7 +100,12 @@ impl ActiveTool {
             ActiveTool::RoadHighway => Some(RoadType::Highway.cost()),
             ActiveTool::RoadOneWay => Some(RoadType::OneWay.cost()),
             ActiveTool::RoadPath => Some(RoadType::Path.cost()),
-            ActiveTool::Bulldoze | ActiveTool::Inspect => None,
+            ActiveTool::Bulldoze | ActiveTool::Inspect
+            | ActiveTool::TerrainRaise | ActiveTool::TerrainLower
+            | ActiveTool::TerrainLevel | ActiveTool::TerrainWater
+            | ActiveTool::DistrictPaint(_) | ActiveTool::DistrictErase
+            | ActiveTool::TreeRemove => None,
+            ActiveTool::TreePlant => Some(simulation::trees::TREE_PLANT_COST),
             ActiveTool::ZoneResidentialLow | ActiveTool::ZoneResidentialHigh
             | ActiveTool::ZoneCommercialLow | ActiveTool::ZoneCommercialHigh
             | ActiveTool::ZoneIndustrial | ActiveTool::ZoneOffice => None,
@@ -146,7 +163,8 @@ impl ActiveTool {
             ActiveTool::PlaceSubwayStation => Some(ServiceType::SubwayStation),
             ActiveTool::PlaceTramDepot => Some(ServiceType::TramDepot),
             ActiveTool::PlaceFerryPier => Some(ServiceType::FerryPier),
-            ActiveTool::PlaceSmallAirport => Some(ServiceType::SmallAirport),
+            ActiveTool::PlaceSmallAirstrip => Some(ServiceType::SmallAirstrip),
+            ActiveTool::PlaceRegionalAirport => Some(ServiceType::RegionalAirport),
             ActiveTool::PlaceInternationalAirport => Some(ServiceType::InternationalAirport),
             ActiveTool::PlaceCellTower => Some(ServiceType::CellTower),
             ActiveTool::PlaceDataCenter => Some(ServiceType::DataCenter),
@@ -215,10 +233,19 @@ impl ActiveTool {
             ActiveTool::PlaceSubwayStation => "Subway Station",
             ActiveTool::PlaceTramDepot => "Tram Depot",
             ActiveTool::PlaceFerryPier => "Ferry Pier",
-            ActiveTool::PlaceSmallAirport => "Small Airport",
+            ActiveTool::PlaceSmallAirstrip => "Small Airstrip",
+            ActiveTool::PlaceRegionalAirport => "Regional Airport",
             ActiveTool::PlaceInternationalAirport => "Int'l Airport",
             ActiveTool::PlaceCellTower => "Cell Tower",
             ActiveTool::PlaceDataCenter => "Data Center",
+            ActiveTool::TerrainRaise => "Raise Terrain",
+            ActiveTool::TerrainLower => "Lower Terrain",
+            ActiveTool::TerrainLevel => "Level Terrain",
+            ActiveTool::TerrainWater => "Place Water",
+            ActiveTool::DistrictPaint(_) => "Paint District",
+            ActiveTool::DistrictErase => "Erase District",
+            ActiveTool::TreePlant => "Plant Tree",
+            ActiveTool::TreeRemove => "Remove Tree",
         }
     }
 }
@@ -336,6 +363,7 @@ pub fn handle_tool_input(
     mut commands: Commands,
     service_q: Query<&ServiceBuilding>,
     left_drag: Res<crate::camera::LeftClickDrag>,
+    mut district_map: ResMut<simulation::districts::DistrictMap>,
 ) {
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
@@ -511,6 +539,100 @@ pub fn handle_tool_input(
         ActiveTool::PlaceGeothermal => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::Geothermal, gx, gy),
         ActiveTool::PlacePumpingStation => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::PumpingStation, gx, gy),
         ActiveTool::PlaceWaterTreatment => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::WaterTreatment, gx, gy),
+
+        // --- Terrain tools ---
+        ActiveTool::TerrainRaise => {
+            let radius = 3i32;
+            for dy in -radius..=radius {
+                for dx in -radius..=radius {
+                    let nx = gx as i32 + dx;
+                    let ny = gy as i32 + dy;
+                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                        let dist = ((dx * dx + dy * dy) as f32).sqrt();
+                        if dist <= radius as f32 {
+                            let strength = 0.01 * (1.0 - dist / radius as f32);
+                            let cell = grid.get_mut(nx as usize, ny as usize);
+                            cell.elevation = (cell.elevation + strength).min(1.0);
+                            if cell.elevation > 0.35 && cell.cell_type == simulation::grid::CellType::Water {
+                                cell.cell_type = simulation::grid::CellType::Grass;
+                            }
+                            mark_chunk_dirty_at(nx as usize, ny as usize, &chunks, &mut commands);
+                        }
+                    }
+                }
+            }
+            true
+        }
+        ActiveTool::TerrainLower => {
+            let radius = 3i32;
+            for dy in -radius..=radius {
+                for dx in -radius..=radius {
+                    let nx = gx as i32 + dx;
+                    let ny = gy as i32 + dy;
+                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                        let dist = ((dx * dx + dy * dy) as f32).sqrt();
+                        if dist <= radius as f32 {
+                            let strength = 0.01 * (1.0 - dist / radius as f32);
+                            let cell = grid.get_mut(nx as usize, ny as usize);
+                            cell.elevation = (cell.elevation - strength).max(0.0);
+                            mark_chunk_dirty_at(nx as usize, ny as usize, &chunks, &mut commands);
+                        }
+                    }
+                }
+            }
+            true
+        }
+        ActiveTool::TerrainLevel => {
+            let target_elev = grid.get(gx, gy).elevation;
+            let radius = 3i32;
+            for dy in -radius..=radius {
+                for dx in -radius..=radius {
+                    let nx = gx as i32 + dx;
+                    let ny = gy as i32 + dy;
+                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                        let dist = ((dx * dx + dy * dy) as f32).sqrt();
+                        if dist <= radius as f32 {
+                            let cell = grid.get_mut(nx as usize, ny as usize);
+                            cell.elevation += (target_elev - cell.elevation) * 0.3;
+                            mark_chunk_dirty_at(nx as usize, ny as usize, &chunks, &mut commands);
+                        }
+                    }
+                }
+            }
+            true
+        }
+        ActiveTool::TerrainWater => {
+            let radius = 2i32;
+            for dy in -radius..=radius {
+                for dx in -radius..=radius {
+                    let nx = gx as i32 + dx;
+                    let ny = gy as i32 + dy;
+                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                        let dist = ((dx * dx + dy * dy) as f32).sqrt();
+                        if dist <= radius as f32 {
+                            let cell = grid.get_mut(nx as usize, ny as usize);
+                            cell.cell_type = simulation::grid::CellType::Water;
+                            cell.elevation = 0.3;
+                            mark_chunk_dirty_at(nx as usize, ny as usize, &chunks, &mut commands);
+                        }
+                    }
+                }
+            }
+            true
+        }
+
+        // --- Trees (handled by separate system to stay within param limit) ---
+        ActiveTool::TreePlant | ActiveTool::TreeRemove => false,
+
+        // --- Districts ---
+        ActiveTool::DistrictPaint(di) => {
+            district_map.assign_cell_to_district(gx, gy, di);
+            false
+        }
+        ActiveTool::DistrictErase => {
+            district_map.remove_cell_from_district(gx, gy);
+            false
+        }
 
         // --- Services (use service_type() helper) ---
         _ => {
@@ -707,5 +829,83 @@ pub fn keyboard_tool_switch(
     }
     if keys.just_pressed(KeyCode::Digit9) {
         *tool = ActiveTool::Inspect;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tree tool system (separate from handle_tool_input to stay within param limit)
+// ---------------------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+pub fn handle_tree_tool(
+    buttons: Res<ButtonInput<MouseButton>>,
+    cursor: Res<CursorGridPos>,
+    tool: Res<ActiveTool>,
+    grid: Res<WorldGrid>,
+    mut budget: ResMut<CityBudget>,
+    mut status: ResMut<StatusMessage>,
+    mut tree_grid: ResMut<simulation::trees::TreeGrid>,
+    planted_trees: Query<(Entity, &simulation::trees::PlantedTree)>,
+    mut commands: Commands,
+    left_drag: Res<crate::camera::LeftClickDrag>,
+    chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
+) {
+    if left_drag.is_dragging {
+        return;
+    }
+
+    let is_tree_tool = matches!(*tool, ActiveTool::TreePlant | ActiveTool::TreeRemove);
+    if !is_tree_tool {
+        return;
+    }
+
+    if !buttons.just_pressed(MouseButton::Left) || !cursor.valid {
+        return;
+    }
+
+    let gx = cursor.grid_x as usize;
+    let gy = cursor.grid_y as usize;
+
+    let changed = match *tool {
+        ActiveTool::TreePlant => {
+            if tree_grid.has_tree(gx, gy) {
+                status.set("Tree already here", true);
+                false
+            } else if grid.get(gx, gy).cell_type != simulation::grid::CellType::Grass {
+                status.set("Can only plant trees on grass", true);
+                false
+            } else if grid.get(gx, gy).building_id.is_some() {
+                status.set("Cell occupied by a building", true);
+                false
+            } else if budget.treasury < simulation::trees::TREE_PLANT_COST {
+                status.set("Not enough money", true);
+                false
+            } else {
+                budget.treasury -= simulation::trees::TREE_PLANT_COST;
+                tree_grid.set(gx, gy, true);
+                commands.spawn(simulation::trees::PlantedTree { grid_x: gx, grid_y: gy });
+                true
+            }
+        }
+        ActiveTool::TreeRemove => {
+            if !tree_grid.has_tree(gx, gy) {
+                status.set("No tree here", true);
+                false
+            } else {
+                tree_grid.set(gx, gy, false);
+                for (entity, planted) in &planted_trees {
+                    if planted.grid_x == gx && planted.grid_y == gy {
+                        commands.entity(entity).despawn();
+                        break;
+                    }
+                }
+                true
+            }
+        }
+        _ => false,
+    };
+
+    if changed {
+        mark_chunk_dirty_at(gx, gy, &chunks, &mut commands);
     }
 }

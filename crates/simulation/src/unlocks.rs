@@ -50,6 +50,7 @@ pub enum UnlockNode {
     BasicSanitation,  // Landfill
 
     // Tier 2 (2 DP each, unlock at 2000 pop)
+    BasicHeating,     // HeatingBoiler
     HealthCare,       // Hospital
     HighSchoolEducation,
     HighDensityResidential,
@@ -58,6 +59,8 @@ pub enum UnlockNode {
     SewagePlant,
     AdvancedParks,    // Large parks, playground, sports
     DeathCare,        // Cemetery, Crematorium
+
+    DistrictHeatingNetwork, // DistrictHeatingPlant, GeothermalPlant
 
     // Tier 3 (3 DP each, unlock at 10000 pop)
     OfficeZoning,
@@ -68,12 +71,19 @@ pub enum UnlockNode {
     Entertainment,      // Stadium, Plaza
     AdvancedEmergency,  // FireHQ, PoliceHQ, Prison, MedicalCenter
     Telecom,            // CellTower, DataCenter
-    AdvancedTransport,  // Subway, Tram, Ferry, Airports
+    AdvancedTransport,  // Subway, Tram, Ferry
+    SmallAirstrips,     // SmallAirstrip (5K pop)
+    PostalService,      // PostOffice, MailSortingCenter
+    WaterInfrastructure, // WaterTreatmentPlant, WellPump
 
     // Tier 4 (5 DP each, unlock at 50000 pop)
     Landmarks,        // CityHall, Museum, Cathedral, TVStation
     PolicySystem,     // Enables policies
     NuclearPower,     // NuclearPlant
+    RegionalAirports,   // RegionalAirport (20K pop)
+
+    // Tier 5 (7 DP, unlock at 100000 pop)
+    InternationalAirports, // InternationalAirport (100K pop)
 }
 
 impl UnlockNode {
@@ -87,19 +97,27 @@ impl UnlockNode {
             UnlockNode::ElementaryEducation | UnlockNode::SmallParks |
             UnlockNode::BasicSanitation => 1,
 
+            UnlockNode::BasicHeating |
             UnlockNode::HealthCare | UnlockNode::HighSchoolEducation |
             UnlockNode::HighDensityResidential | UnlockNode::HighDensityCommercial |
             UnlockNode::SolarPower | UnlockNode::SewagePlant |
             UnlockNode::AdvancedParks | UnlockNode::DeathCare => 2,
 
+            UnlockNode::DistrictHeatingNetwork |
             UnlockNode::OfficeZoning | UnlockNode::UniversityEducation |
             UnlockNode::WindPower | UnlockNode::AdvancedSanitation |
             UnlockNode::PublicTransport | UnlockNode::Entertainment |
             UnlockNode::AdvancedEmergency | UnlockNode::Telecom |
-            UnlockNode::AdvancedTransport => 3,
+            UnlockNode::AdvancedTransport |
+            UnlockNode::SmallAirstrips |
+            UnlockNode::PostalService |
+            UnlockNode::WaterInfrastructure => 3,
 
             UnlockNode::Landmarks | UnlockNode::PolicySystem |
-            UnlockNode::NuclearPower => 5,
+            UnlockNode::NuclearPower |
+            UnlockNode::RegionalAirports => 5,
+
+            UnlockNode::InternationalAirports => 7,
         }
     }
 
@@ -113,19 +131,28 @@ impl UnlockNode {
             UnlockNode::ElementaryEducation | UnlockNode::SmallParks |
             UnlockNode::BasicSanitation => 500,
 
+            UnlockNode::BasicHeating |
             UnlockNode::HealthCare | UnlockNode::HighSchoolEducation |
             UnlockNode::HighDensityResidential | UnlockNode::HighDensityCommercial |
             UnlockNode::SolarPower | UnlockNode::SewagePlant |
             UnlockNode::AdvancedParks | UnlockNode::DeathCare => 2_000,
 
+            UnlockNode::DistrictHeatingNetwork |
             UnlockNode::OfficeZoning | UnlockNode::UniversityEducation |
             UnlockNode::WindPower | UnlockNode::AdvancedSanitation |
             UnlockNode::PublicTransport | UnlockNode::Entertainment |
             UnlockNode::AdvancedEmergency | UnlockNode::Telecom |
-            UnlockNode::AdvancedTransport => 10_000,
+            UnlockNode::AdvancedTransport |
+            UnlockNode::SmallAirstrips |
+            UnlockNode::PostalService |
+            UnlockNode::WaterInfrastructure => 5_000,
+
+            UnlockNode::RegionalAirports => 20_000,
 
             UnlockNode::Landmarks | UnlockNode::PolicySystem |
             UnlockNode::NuclearPower => 50_000,
+
+            UnlockNode::InternationalAirports => 100_000,
         }
     }
 
@@ -150,6 +177,8 @@ impl UnlockNode {
             UnlockNode::SewagePlant => "Sewage Plant",
             UnlockNode::AdvancedParks => "Advanced Parks",
             UnlockNode::DeathCare => "Death Care",
+            UnlockNode::BasicHeating => "Basic Heating",
+            UnlockNode::DistrictHeatingNetwork => "District Heating",
             UnlockNode::OfficeZoning => "Office Zoning",
             UnlockNode::UniversityEducation => "University",
             UnlockNode::WindPower => "Wind Power",
@@ -159,6 +188,11 @@ impl UnlockNode {
             UnlockNode::AdvancedEmergency => "Advanced Emergency",
             UnlockNode::Telecom => "Telecommunications",
             UnlockNode::AdvancedTransport => "Advanced Transport",
+            UnlockNode::SmallAirstrips => "Small Airstrips",
+            UnlockNode::PostalService => "Postal Service",
+            UnlockNode::WaterInfrastructure => "Water Infrastructure",
+            UnlockNode::RegionalAirports => "Regional Airports",
+            UnlockNode::InternationalAirports => "International Airports",
             UnlockNode::Landmarks => "Landmarks",
             UnlockNode::PolicySystem => "City Policies",
             UnlockNode::NuclearPower => "Nuclear Power",
@@ -177,13 +211,19 @@ impl UnlockNode {
             UnlockNode::HighDensityResidential, UnlockNode::HighDensityCommercial,
             UnlockNode::SolarPower, UnlockNode::SewagePlant,
             UnlockNode::AdvancedParks, UnlockNode::DeathCare,
+            UnlockNode::BasicHeating, UnlockNode::DistrictHeatingNetwork,
             UnlockNode::OfficeZoning, UnlockNode::UniversityEducation,
             UnlockNode::WindPower, UnlockNode::AdvancedSanitation,
             UnlockNode::PublicTransport, UnlockNode::Entertainment,
             UnlockNode::AdvancedEmergency, UnlockNode::Telecom,
             UnlockNode::AdvancedTransport,
+            UnlockNode::SmallAirstrips,
+            UnlockNode::PostalService,
+            UnlockNode::WaterInfrastructure,
             UnlockNode::Landmarks, UnlockNode::PolicySystem,
             UnlockNode::NuclearPower,
+            UnlockNode::RegionalAirports,
+            UnlockNode::InternationalAirports,
         ]
     }
 }
@@ -238,9 +278,18 @@ impl UnlockState {
             ServiceType::Cathedral | ServiceType::TVStation => self.is_unlocked(UnlockNode::Landmarks),
             ServiceType::BusDepot | ServiceType::TrainStation => self.is_unlocked(UnlockNode::PublicTransport),
             ServiceType::SubwayStation | ServiceType::TramDepot |
-            ServiceType::FerryPier | ServiceType::SmallAirport |
-            ServiceType::InternationalAirport => self.is_unlocked(UnlockNode::AdvancedTransport),
+            ServiceType::FerryPier => self.is_unlocked(UnlockNode::AdvancedTransport),
+            ServiceType::SmallAirstrip => self.is_unlocked(UnlockNode::SmallAirstrips),
+            ServiceType::RegionalAirport => self.is_unlocked(UnlockNode::RegionalAirports),
+            ServiceType::InternationalAirport => self.is_unlocked(UnlockNode::InternationalAirports),
             ServiceType::CellTower | ServiceType::DataCenter => self.is_unlocked(UnlockNode::Telecom),
+            ServiceType::HomelessShelter => self.is_unlocked(UnlockNode::HealthCare),
+            ServiceType::PostOffice | ServiceType::MailSortingCenter => self.is_unlocked(UnlockNode::PostalService),
+            ServiceType::WaterTreatmentPlant | ServiceType::WellPump => self.is_unlocked(UnlockNode::WaterInfrastructure),
+            ServiceType::WelfareOffice => self.is_unlocked(UnlockNode::HealthCare),
+            ServiceType::HeatingBoiler => self.is_unlocked(UnlockNode::BasicHeating),
+            ServiceType::DistrictHeatingPlant |
+            ServiceType::GeothermalPlant => self.is_unlocked(UnlockNode::DistrictHeatingNetwork),
         }
     }
 

@@ -6,12 +6,14 @@ pub mod building_render;
 pub mod camera;
 pub mod citizen_render;
 pub mod cursor_preview;
+pub mod day_night;
 pub mod input;
 pub mod overlay;
 pub mod props;
 pub mod terrain_render;
 
 pub mod road_render;
+pub mod status_icons;
 
 use camera::{CameraDrag, LeftClickDrag};
 use input::{ActiveTool, CursorGridPos, RoadDrawState, SelectedBuilding, StatusMessage};
@@ -52,16 +54,28 @@ impl Plugin for RenderingPlugin {
                     camera::camera_orbit_drag,
                     camera::camera_zoom,
                     camera::apply_orbit_camera,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
                     input::update_cursor_grid_pos,
                     input::handle_tool_input,
+                    input::handle_tree_tool,
                     input::keyboard_tool_switch,
                     input::tick_status_message,
                     overlay::toggle_overlay_keys,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
                     terrain_render::dirty_chunks_on_overlay_change,
                     terrain_render::rebuild_dirty_chunks,
                     cursor_preview::update_cursor_preview,
                     cursor_preview::draw_bezier_preview,
                     road_render::sync_road_segment_meshes,
+                    day_night::update_day_night_cycle,
                 ),
             )
             .add_systems(
@@ -69,6 +83,7 @@ impl Plugin for RenderingPlugin {
                 (
                     building_render::spawn_building_meshes,
                     building_render::update_building_meshes,
+                    building_render::update_construction_visuals,
                     building_render::cleanup_orphan_building_meshes
                         .run_if(on_timer(std::time::Duration::from_secs(1))),
                     citizen_render::spawn_citizen_sprites,
@@ -77,6 +92,16 @@ impl Plugin for RenderingPlugin {
                     props::spawn_tree_props,
                     props::spawn_road_props,
                     props::spawn_parked_cars,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    building_render::spawn_planted_tree_meshes,
+                    building_render::cleanup_planted_tree_meshes
+                        .run_if(on_timer(std::time::Duration::from_secs(1))),
+                    status_icons::update_building_status_icons
+                        .run_if(on_timer(std::time::Duration::from_secs(2))),
                 ),
             );
     }
