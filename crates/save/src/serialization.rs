@@ -11,7 +11,7 @@ pub use crate::save_types::*;
 use simulation::buildings::{Building, MixedUseBuilding};
 use simulation::citizen::CitizenState;
 use simulation::economy::CityBudget;
-use simulation::grid::{RoadType, WorldGrid};
+use simulation::grid::WorldGrid;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
