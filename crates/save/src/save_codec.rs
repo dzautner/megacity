@@ -492,3 +492,24 @@ pub fn u8_to_drought_tier(v: u8) -> simulation::drought::DroughtTier {
         _ => DroughtTier::Normal, // fallback
     }
 }
+
+pub fn heat_wave_severity_to_u8(s: simulation::heat_wave::HeatWaveSeverity) -> u8 {
+    use simulation::heat_wave::HeatWaveSeverity;
+    match s {
+        HeatWaveSeverity::None => 0,
+        HeatWaveSeverity::Moderate => 1,
+        HeatWaveSeverity::Severe => 2,
+        HeatWaveSeverity::Extreme => 3,
+    }
+}
+
+pub fn u8_to_heat_wave_severity(v: u8) -> simulation::heat_wave::HeatWaveSeverity {
+    use simulation::heat_wave::HeatWaveSeverity;
+    match v {
+        0 => HeatWaveSeverity::None,
+        1 => HeatWaveSeverity::Moderate,
+        2 => HeatWaveSeverity::Severe,
+        3 => HeatWaveSeverity::Extreme,
+        _ => HeatWaveSeverity::None, // fallback
+    }
+}

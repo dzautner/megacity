@@ -13,6 +13,7 @@ use simulation::citizen::CitizenState;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
+use simulation::heat_wave::HeatWaveState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
@@ -64,6 +65,7 @@ pub fn create_save_data(
     wind_damage_state: Option<&WindDamageState>,
     uhi_grid: Option<&UhiGrid>,
     drought_state: Option<&DroughtState>,
+    heat_wave_state: Option<&HeatWaveState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -367,6 +369,19 @@ pub fn create_save_data(
             happiness_modifier: ds.happiness_modifier,
             last_record_day: ds.last_record_day,
         }),
+        heat_wave_state: heat_wave_state.map(|hw| SaveHeatWaveState {
+            consecutive_hot_days: hw.consecutive_hot_days,
+            severity: heat_wave_severity_to_u8(hw.severity),
+            excess_mortality_per_100k: hw.excess_mortality_per_100k,
+            energy_demand_multiplier: hw.energy_demand_multiplier,
+            water_demand_multiplier: hw.water_demand_multiplier,
+            road_damage_active: hw.road_damage_active,
+            fire_risk_multiplier: hw.fire_risk_multiplier,
+            blackout_risk: hw.blackout_risk,
+            heat_threshold_c: hw.heat_threshold_c,
+            consecutive_extreme_days: hw.consecutive_extreme_days,
+            last_check_day: hw.last_check_day,
+        }),
     }
 }
 
@@ -440,6 +455,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -477,6 +493,7 @@ mod tests {
         assert!(restored.wind_damage_state.is_none());
         assert!(restored.uhi_grid.is_none());
         assert!(restored.drought_state.is_none());
+        assert!(restored.heat_wave_state.is_none());
     }
 
     #[test]
@@ -786,6 +803,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -866,6 +884,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -887,6 +906,7 @@ mod tests {
         assert!(restored.wind_damage_state.is_none());
         assert!(restored.uhi_grid.is_none());
         assert!(restored.drought_state.is_none());
+        assert!(restored.heat_wave_state.is_none());
     }
 
     #[test]
@@ -947,6 +967,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -971,6 +992,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1034,6 +1056,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1061,6 +1084,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1123,6 +1147,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1150,6 +1175,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1302,6 +1328,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1344,6 +1371,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1470,6 +1498,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1526,6 +1555,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1552,6 +1582,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1647,6 +1678,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1779,6 +1811,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1806,6 +1839,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1856,6 +1890,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1925,6 +1960,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1964,6 +2000,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2071,6 +2108,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2127,6 +2165,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2138,6 +2177,7 @@ mod tests {
         assert!(restored.wind_damage_state.is_none());
         assert!(restored.uhi_grid.is_none());
         assert!(restored.drought_state.is_none());
+        assert!(restored.heat_wave_state.is_none());
     }
 
     #[test]
@@ -2168,6 +2208,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

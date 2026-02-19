@@ -11,12 +11,12 @@ pub mod serialization;
 use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
     create_save_data, migrate_save, restore_climate_zone, restore_construction_modifiers,
-    restore_degree_days, restore_drought, restore_extended_budget, restore_life_sim_timer,
-    restore_lifecycle_timer, restore_loan_book, restore_policies, restore_recycling,
-    restore_road_segment_store, restore_stormwater_grid, restore_uhi_grid, restore_unlock_state,
-    restore_virtual_population, restore_water_source, restore_weather, restore_wind_damage_state,
-    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
-    SaveData, CURRENT_SAVE_VERSION,
+    restore_degree_days, restore_drought, restore_extended_budget, restore_heat_wave,
+    restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
+    restore_recycling, restore_road_segment_store, restore_stormwater_grid, restore_uhi_grid,
+    restore_unlock_state, restore_virtual_population, restore_water_source, restore_weather,
+    restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
+    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -28,6 +28,7 @@ use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
+use simulation::heat_wave::HeatWaveState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
@@ -176,6 +177,7 @@ fn handle_save(
             Some(&v2.wind_damage_state),
             Some(&v2.uhi_grid),
             Some(&v2.drought_state),
+            Some(&v2.heat_wave_state),
         );
 
         let bytes = save.encode();
@@ -627,6 +629,13 @@ fn handle_load(
         } else {
             *v2.drought_state = DroughtState::default();
         }
+
+        // Restore heat wave state
+        if let Some(ref saved_hw) = save.heat_wave_state {
+            *v2.heat_wave_state = restore_heat_wave(saved_hw);
+        } else {
+            *v2.heat_wave_state = HeatWaveState::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -709,6 +718,7 @@ fn handle_new_game(
         *v2.wind_damage_state = WindDamageState::default();
         *v2.uhi_grid = UhiGrid::default();
         *v2.drought_state = DroughtState::default();
+        *v2.heat_wave_state = HeatWaveState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
