@@ -842,8 +842,7 @@ pub fn update_weather(
                 // No event: drift toward seasonal baseline
                 _ => {
                     let seasonal_baseline_cloud = zone.baseline_cloud_cover(weather.season);
-                    weather.cloud_cover +=
-                        (seasonal_baseline_cloud - weather.cloud_cover) * 0.2;
+                    weather.cloud_cover += (seasonal_baseline_cloud - weather.cloud_cover) * 0.2;
                     weather.precipitation_intensity *= 0.5; // decay precipitation
                     let seasonal_humidity = zone.baseline_humidity(weather.season);
                     weather.humidity += (seasonal_humidity - weather.humidity) * 0.2;
@@ -1439,7 +1438,12 @@ mod tests {
             "Tropical zone should have snow disabled"
         );
         // Verify no snow in any season for tropical
-        for &season in &[Season::Spring, Season::Summer, Season::Autumn, Season::Winter] {
+        for &season in &[
+            Season::Spring,
+            Season::Summer,
+            Season::Autumn,
+            Season::Winter,
+        ] {
             let p = ClimateZone::Tropical.season_params(season);
             assert!(
                 !p.snow_enabled,
@@ -1473,7 +1477,12 @@ mod tests {
     #[test]
     fn test_arid_very_low_precipitation() {
         // Issue requirement: Arid zone has very low precipitation chance
-        for &season in &[Season::Spring, Season::Summer, Season::Autumn, Season::Winter] {
+        for &season in &[
+            Season::Spring,
+            Season::Summer,
+            Season::Autumn,
+            Season::Winter,
+        ] {
             let params = ClimateZone::Arid.season_params(season);
             assert!(
                 params.precipitation_chance <= 0.05,
@@ -1515,7 +1524,12 @@ mod tests {
     #[test]
     fn test_all_zones_have_valid_temperature_ranges() {
         for &zone in ClimateZone::all() {
-            for &season in &[Season::Spring, Season::Summer, Season::Autumn, Season::Winter] {
+            for &season in &[
+                Season::Spring,
+                Season::Summer,
+                Season::Autumn,
+                Season::Winter,
+            ] {
                 let params = zone.season_params(season);
                 assert!(
                     params.t_max > params.t_min,
