@@ -332,12 +332,9 @@ pub fn update_zone_demand(
     let zs = gather_zone_stats(&grid, &buildings);
 
     // Update tracked vacancy rates.
-    demand.vacancy_residential =
-        vacancy_rate(zs.residential_capacity, zs.residential_occupants);
-    demand.vacancy_commercial =
-        vacancy_rate(zs.commercial_capacity, zs.commercial_occupants);
-    demand.vacancy_industrial =
-        vacancy_rate(zs.industrial_capacity, zs.industrial_occupants);
+    demand.vacancy_residential = vacancy_rate(zs.residential_capacity, zs.residential_occupants);
+    demand.vacancy_commercial = vacancy_rate(zs.commercial_capacity, zs.commercial_occupants);
+    demand.vacancy_industrial = vacancy_rate(zs.industrial_capacity, zs.industrial_occupants);
     demand.vacancy_office = vacancy_rate(zs.office_capacity, zs.office_occupants);
 
     // Compute raw target demand values.
@@ -531,8 +528,7 @@ mod tests {
         // Jobs exist (meaning employment is available IF vacancy is 0 the jobs
         // are full, so employment_availability is 0 -- but vacancy signal is strong).
         let zs = make_stats(
-            true,
-            1000, 1000, // residential: 100% occupied
+            true, 1000, 1000, // residential: 100% occupied
             500, 500, // commercial: 100% occupied
             300, 300, // industrial: 100% occupied
             200, 200, // office: 100% occupied
@@ -568,8 +564,7 @@ mod tests {
     fn test_high_vacancy_demand_low() {
         // 80% vacancy (only 20% occupied): massive oversupply.
         let zs = make_stats(
-            true,
-            1000, 200, // residential: 80% vacant
+            true, 1000, 200, // residential: 80% vacant
             500, 100, // commercial: 80% vacant
             300, 60, // industrial: 80% vacant
             200, 40, // office: 80% vacant
@@ -625,10 +620,10 @@ mod tests {
 
     #[test]
     fn test_adding_jobs_raises_residential_demand() {
-        // Scenario A: few jobs, moderate residential occupancy.
+        // Scenario A: few jobs, residential nearly full (low vacancy so the
+        // vacancy signal doesn't overwhelm the employment-availability term).
         let zs_few_jobs = make_stats(
-            true,
-            500, 400, // residential: 80% occupied
+            true, 500, 475, // residential: 5% vacancy (within natural range)
             50, 50, // commercial: full
             50, 50, // industrial: full
             50, 50, // office: full
@@ -637,8 +632,7 @@ mod tests {
 
         // Scenario B: many unfilled jobs, same residential occupancy.
         let zs_many_jobs = make_stats(
-            true,
-            500, 400, // residential: 80% occupied
+            true, 500, 475, // residential: 5% vacancy (within natural range)
             500, 50, // commercial: mostly empty (= lots of job openings)
             500, 50, // industrial: mostly empty
             500, 50, // office: mostly empty
@@ -658,8 +652,7 @@ mod tests {
     fn test_excess_residential_lowers_demand() {
         // Lots of residential capacity, few occupants (high vacancy).
         let zs_excess = make_stats(
-            true,
-            2000, 200, // residential: 90% vacant
+            true, 2000, 200, // residential: 90% vacant
             200, 180, // commercial: near full
             200, 180, // industrial: near full
             100, 90, // office: near full
