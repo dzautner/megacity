@@ -90,7 +90,7 @@ use education_jobs::EmploymentStats;
 use events::{ActiveCityEffects, EventJournal, MilestoneTracker};
 use fire::FireGrid;
 use forest_fire::{ForestFireGrid, ForestFireStats};
-use garbage::GarbageGrid;
+use garbage::{GarbageGrid, WasteSystem};
 use grid::{CellType, RoadType, WorldGrid, ZoneType};
 use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
 use health::HealthGrid;
@@ -176,6 +176,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<PollutionGrid>()
             .init_resource::<LandValueGrid>()
             .init_resource::<GarbageGrid>()
+            .init_resource::<WasteSystem>()
             .init_resource::<VirtualPopulation>()
             .init_resource::<Policies>()
             .init_resource::<Weather>()
@@ -282,7 +283,11 @@ impl Plugin for SimulationPlugin {
                 (
                     pollution::update_pollution,
                     land_value::update_land_value,
+                    garbage::attach_waste_producers,
+                    bevy::ecs::schedule::apply_deferred,
+                    garbage::sync_recycling_policy,
                     garbage::update_garbage,
+                    garbage::update_waste_generation,
                     districts::aggregate_districts,
                     districts::district_stats,
                     lifecycle::age_citizens,
