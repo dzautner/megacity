@@ -1,8 +1,14 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+mod save_codec;
+mod save_helpers;
+mod save_migrate;
+mod save_restore;
+mod save_types;
 pub mod serialization;
 
+use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
     create_save_data, migrate_save, restore_climate_zone, restore_construction_modifiers,
     restore_degree_days, restore_extended_budget, restore_life_sim_timer, restore_lifecycle_timer,
@@ -40,42 +46,6 @@ use simulation::zones::ZoneDemand;
 
 use rendering::building_render::BuildingMesh3d;
 use rendering::citizen_render::CitizenSprite;
-
-// ---------------------------------------------------------------------------
-// SystemParam bundles to keep system parameter counts under Bevy's 16 limit
-// ---------------------------------------------------------------------------
-
-/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer, stormwater, degree days, climate zone, construction modifiers).
-#[derive(SystemParam)]
-struct V2ResourcesRead<'w> {
-    policies: Res<'w, Policies>,
-    weather: Res<'w, Weather>,
-    unlock_state: Res<'w, UnlockState>,
-    extended_budget: Res<'w, ExtendedBudget>,
-    loan_book: Res<'w, LoanBook>,
-    virtual_population: Res<'w, VirtualPopulation>,
-    life_sim_timer: Res<'w, LifeSimTimer>,
-    stormwater_grid: Res<'w, StormwaterGrid>,
-    degree_days: Res<'w, DegreeDays>,
-    climate_zone: Res<'w, ClimateZone>,
-    construction_modifiers: Res<'w, ConstructionModifiers>,
-}
-
-/// Mutable access to the V2+ resources.
-#[derive(SystemParam)]
-struct V2ResourcesWrite<'w> {
-    policies: ResMut<'w, Policies>,
-    weather: ResMut<'w, Weather>,
-    unlock_state: ResMut<'w, UnlockState>,
-    extended_budget: ResMut<'w, ExtendedBudget>,
-    loan_book: ResMut<'w, LoanBook>,
-    virtual_population: ResMut<'w, VirtualPopulation>,
-    life_sim_timer: ResMut<'w, LifeSimTimer>,
-    stormwater_grid: ResMut<'w, StormwaterGrid>,
-    degree_days: ResMut<'w, DegreeDays>,
-    climate_zone: ResMut<'w, ClimateZone>,
-    construction_modifiers: ResMut<'w, ConstructionModifiers>,
-}
 
 /// Bundles entity queries for despawning existing game entities during load/new-game.
 #[derive(SystemParam)]
