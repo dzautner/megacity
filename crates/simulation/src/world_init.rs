@@ -16,12 +16,12 @@ use crate::economy::CityBudget;
 use crate::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use crate::groundwater;
 use crate::movement::ActivityTimer;
+use crate::natural_resources;
 use crate::natural_resources::ResourceGrid;
 use crate::road_segments::RoadSegmentStore;
 use crate::roads::RoadNetwork;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::utilities::{UtilitySource, UtilityType};
-use crate::natural_resources;
 
 pub fn init_world(mut commands: Commands, mut segments: ResMut<RoadSegmentStore>) {
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
