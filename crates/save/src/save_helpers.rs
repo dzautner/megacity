@@ -13,6 +13,7 @@ use simulation::policies::Policies;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
+use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
@@ -34,6 +35,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub recycling_state: Res<'w, RecyclingState>,
     pub recycling_economics: Res<'w, RecyclingEconomics>,
     pub wind_damage_state: Res<'w, WindDamageState>,
+    pub uhi_grid: Res<'w, UhiGrid>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -53,4 +55,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub recycling_state: ResMut<'w, RecyclingState>,
     pub recycling_economics: ResMut<'w, RecyclingEconomics>,
     pub wind_damage_state: ResMut<'w, WindDamageState>,
+    pub uhi_grid: ResMut<'w, UhiGrid>,
 }

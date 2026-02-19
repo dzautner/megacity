@@ -62,6 +62,7 @@ pub mod traffic;
 pub mod traffic_accidents;
 pub mod trees;
 pub mod unlocks;
+pub mod urban_heat_island;
 pub mod utilities;
 pub mod virtual_population;
 pub mod waste_composition;
@@ -126,6 +127,7 @@ use traffic::TrafficGrid;
 use traffic_accidents::AccidentTracker;
 use trees::TreeGrid;
 use unlocks::UnlockState;
+use urban_heat_island::UhiGrid;
 use virtual_population::VirtualPopulation;
 use waste_effects::{WasteAccumulation, WasteCrisisEvent};
 use water_demand::WaterSupply;
@@ -250,6 +252,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<RecyclingEconomics>()
             .init_resource::<RecyclingState>()
             .init_resource::<WindDamageState>()
+            .init_resource::<UhiGrid>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -368,6 +371,7 @@ impl Plugin for SimulationPlugin {
                     heating::update_heating,
                     wind::update_wind,
                     wind_damage::update_wind_damage,
+                    urban_heat_island::update_uhi_grid,
                     noise::update_noise_pollution,
                     crime::update_crime,
                     health::update_health_grid,

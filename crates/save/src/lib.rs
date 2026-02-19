@@ -13,7 +13,7 @@ use serialization::{
     create_save_data, migrate_save, restore_climate_zone, restore_construction_modifiers,
     restore_degree_days, restore_extended_budget, restore_life_sim_timer, restore_lifecycle_timer,
     restore_loan_book, restore_policies, restore_recycling, restore_road_segment_store,
-    restore_stormwater_grid, restore_unlock_state, restore_virtual_population,
+    restore_stormwater_grid, restore_uhi_grid, restore_unlock_state, restore_virtual_population,
     restore_water_source, restore_weather, restore_wind_damage_state, u8_to_road_type,
     u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
     CURRENT_SAVE_VERSION,
@@ -40,6 +40,7 @@ use simulation::services::ServiceBuilding;
 use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
+use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
@@ -172,6 +173,7 @@ fn handle_save(
             Some(&v2.construction_modifiers),
             Some((&v2.recycling_state, &v2.recycling_economics)),
             Some(&v2.wind_damage_state),
+            Some(&v2.uhi_grid),
         );
 
         let bytes = save.encode();
@@ -610,6 +612,12 @@ fn handle_load(
             *v2.wind_damage_state = WindDamageState::default();
         }
 
+        // Restore UHI grid
+        if let Some(ref saved_uhi) = save.uhi_grid {
+            *v2.uhi_grid = restore_uhi_grid(saved_uhi);
+        } else {
+            *v2.uhi_grid = UhiGrid::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -690,6 +698,7 @@ fn handle_new_game(
         *v2.recycling_state = RecyclingState::default();
         *v2.recycling_economics = RecyclingEconomics::default();
         *v2.wind_damage_state = WindDamageState::default();
+        *v2.uhi_grid = UhiGrid::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

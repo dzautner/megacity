@@ -23,7 +23,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
 /// v10 = recycling_state (RecyclingState + RecyclingEconomics serialization)
 /// v11 = wind_damage_state (WindDamageState serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 11;
+/// v12 = uhi_grid (UhiGrid serialization for urban heat island)
+pub const CURRENT_SAVE_VERSION: u32 = 12;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -104,6 +105,8 @@ pub struct SaveData {
     pub recycling_state: Option<SaveRecyclingState>,
     #[serde(default)]
     pub wind_damage_state: Option<SaveWindDamageState>,
+    #[serde(default)]
+    pub uhi_grid: Option<SaveUhiGrid>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -435,6 +438,13 @@ pub struct SaveWindDamageState {
     pub accumulated_building_damage: f32,
     pub trees_knocked_down: u32,
     pub power_outage_active: bool,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveUhiGrid {
+    pub cells: Vec<f32>,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl SaveData {
