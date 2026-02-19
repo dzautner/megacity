@@ -79,6 +79,7 @@ pub fn restore_weather(save: &SaveWeather) -> Weather {
         precipitation_intensity: save.precipitation_intensity,
         last_update_hour: save.last_update_hour,
         prev_extreme: false,
+        ..Default::default()
     }
 }
 

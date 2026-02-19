@@ -3,6 +3,65 @@ use serde::{Deserialize, Serialize};
 
 use crate::time_of_day::GameClock;
 
+/// Precipitation intensity categories based on inches per hour.
+///
+/// Maps the continuous `Weather.precipitation_intensity` (in/hr) to discrete
+/// categories for gameplay logic (UI display, threshold checks, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PrecipitationCategory {
+    /// No precipitation (0.0 in/hr).
+    None,
+    /// Very light rain (0.01 - 0.1 in/hr).
+    Drizzle,
+    /// Light rain (0.1 - 0.25 in/hr).
+    Light,
+    /// Moderate rain (0.25 - 1.0 in/hr).
+    Moderate,
+    /// Heavy rain (1.0 - 2.0 in/hr).
+    Heavy,
+    /// Torrential rain (2.0 - 4.0 in/hr).
+    Torrential,
+    /// Extreme rainfall (4.0+ in/hr).
+    Extreme,
+}
+
+impl PrecipitationCategory {
+    /// Classify a precipitation intensity (inches per hour) into a category.
+    pub fn from_intensity(intensity: f32) -> Self {
+        if intensity < 0.01 {
+            PrecipitationCategory::None
+        } else if intensity < 0.1 {
+            PrecipitationCategory::Drizzle
+        } else if intensity < 0.25 {
+            PrecipitationCategory::Light
+        } else if intensity < 1.0 {
+            PrecipitationCategory::Moderate
+        } else if intensity < 2.0 {
+            PrecipitationCategory::Heavy
+        } else if intensity < 4.0 {
+            PrecipitationCategory::Torrential
+        } else {
+            PrecipitationCategory::Extreme
+        }
+    }
+
+    /// Human-readable name for display in the UI.
+    pub fn name(self) -> &'static str {
+        match self {
+            PrecipitationCategory::None => "None",
+            PrecipitationCategory::Drizzle => "Drizzle",
+            PrecipitationCategory::Light => "Light",
+            PrecipitationCategory::Moderate => "Moderate",
+            PrecipitationCategory::Heavy => "Heavy",
+            PrecipitationCategory::Torrential => "Torrential",
+            PrecipitationCategory::Extreme => "Extreme",
+        }
+    }
+}
+
+/// Number of days in the rolling rainfall window for drought calculation.
+const ROLLING_RAINFALL_DAYS: usize = 30;
+
 /// Lightweight event fired whenever weather conditions change.
 ///
 /// Consumers can listen for this with `EventReader<WeatherChangeEvent>` instead of
@@ -582,19 +641,41 @@ pub struct Weather {
     /// Cloud cover fraction (0.0 = clear sky, 1.0 = fully overcast).
     #[serde(default)]
     pub cloud_cover: f32,
-    /// Precipitation intensity (0.0 = none, 1.0 = torrential).
+    /// Precipitation intensity in inches per hour (0.0 = none, 4.0+ = extreme).
+    ///
+    /// Set each hour based on the derived weather condition and season.
+    /// Use `precipitation_category()` to classify into discrete buckets.
     #[serde(default)]
     pub precipitation_intensity: f32,
+    /// Internal atmospheric precipitation signal (0.0 - 1.0) used by the weather
+    /// model to derive weather conditions. Not intended for external consumption;
+    /// use `precipitation_intensity` (in/hr) instead.
+    #[serde(default)]
+    pub(crate) atmo_precipitation: f32,
     /// Last hour that triggered a weather update (used for hourly boundary detection).
     #[serde(default)]
     pub last_update_hour: u32,
     /// Whether the previous tick ended in an extreme weather state (for change detection).
     #[serde(default)]
     pub prev_extreme: bool,
+    /// Accumulated rainfall for the current day (inches).
+    #[serde(default)]
+    pub daily_rainfall: f32,
+    /// Rolling 30-day rainfall total (inches) for drought calculation.
+    #[serde(default)]
+    pub rolling_30day_rainfall: f32,
+    /// Ring buffer of daily rainfall totals for the last 30 days.
+    /// Index 0 corresponds to the oldest day in the window.
+    #[serde(default = "default_rainfall_history")]
+    pub rainfall_history: Vec<f32>,
 }
 
 fn default_humidity() -> f32 {
     0.5
+}
+
+fn default_rainfall_history() -> Vec<f32> {
+    vec![0.0; ROLLING_RAINFALL_DAYS]
 }
 
 impl Default for Weather {
@@ -609,8 +690,12 @@ impl Default for Weather {
             humidity: 0.5,
             cloud_cover: 0.1,
             precipitation_intensity: 0.0,
+            atmo_precipitation: 0.0,
             last_update_hour: 0,
             prev_extreme: false,
+            daily_rainfall: 0.0,
+            rolling_30day_rainfall: 0.0,
+            rainfall_history: vec![0.0; ROLLING_RAINFALL_DAYS],
         }
     }
 }
@@ -632,9 +717,14 @@ impl Weather {
     pub fn condition(&self) -> WeatherCondition {
         WeatherCondition::from_atmosphere(
             self.cloud_cover,
-            self.precipitation_intensity,
+            self.atmo_precipitation,
             self.temperature,
         )
+    }
+
+    /// Return the current precipitation intensity category.
+    pub fn precipitation_category(&self) -> PrecipitationCategory {
+        PrecipitationCategory::from_intensity(self.precipitation_intensity)
     }
 
     /// Power consumption multiplier (heating in winter, cooling in summer)
@@ -835,6 +925,11 @@ pub fn update_weather(
     weather.last_update_hour = current_hour;
     weather.last_update_day = clock.day;
 
+    // Roll daily rainfall into history on day boundary (before resetting for new day)
+    if day_changed {
+        roll_daily_rainfall(&mut weather);
+    }
+
     // Update season
     weather.season = Season::from_day(clock.day);
 
@@ -863,7 +958,7 @@ pub fn update_weather(
             if weather.event_days_remaining == 0 {
                 // Event ended: reset atmospheric state toward clear
                 weather.cloud_cover *= 0.5;
-                weather.precipitation_intensity = 0.0;
+                weather.atmo_precipitation = 0.0;
                 weather.humidity *= 0.7;
             }
         }
@@ -886,7 +981,7 @@ pub fn update_weather(
                 // Summer heat wave (only if extreme day, any climate)
                 (Season::Summer, true, _) => {
                     weather.cloud_cover = 0.05;
-                    weather.precipitation_intensity = 0.0;
+                    weather.atmo_precipitation = 0.0;
                     weather.humidity = 0.3;
                     weather.event_days_remaining = 3 + (hash % 4);
                     weather.temperature = t_max + 8.0;
@@ -894,7 +989,7 @@ pub fn update_weather(
                 // Winter cold snap (only if extreme day and snow is enabled)
                 (Season::Winter, true, _) if climate_params.snow_enabled => {
                     weather.cloud_cover = 0.2;
-                    weather.precipitation_intensity = 0.0;
+                    weather.atmo_precipitation = 0.0;
                     weather.humidity = 0.4;
                     weather.event_days_remaining = 3 + (hash % 5);
                     weather.temperature = t_min - 10.0;
@@ -905,13 +1000,13 @@ pub fn update_weather(
                     if is_storm {
                         // Storm / heavy precipitation
                         weather.cloud_cover = 0.9;
-                        weather.precipitation_intensity = 0.7 + (hash % 20) as f32 * 0.01;
+                        weather.atmo_precipitation = 0.7 + (hash % 20) as f32 * 0.01;
                         weather.humidity = 0.9 + (hash % 10) as f32 * 0.005;
                         weather.event_days_remaining = 1 + (hash % 3);
                     } else {
                         // Normal rain/snow
                         weather.cloud_cover = 0.7 + (hash % 20) as f32 * 0.01;
-                        weather.precipitation_intensity = 0.2 + (hash % 15) as f32 * 0.02;
+                        weather.atmo_precipitation = 0.2 + (hash % 15) as f32 * 0.02;
                         weather.humidity = 0.8;
                         weather.event_days_remaining = 2 + (hash % 4);
                     }
@@ -920,7 +1015,7 @@ pub fn update_weather(
                 _ => {
                     let seasonal_baseline_cloud = zone.baseline_cloud_cover(weather.season);
                     weather.cloud_cover += (seasonal_baseline_cloud - weather.cloud_cover) * 0.2;
-                    weather.precipitation_intensity *= 0.5; // decay precipitation
+                    weather.atmo_precipitation *= 0.5; // decay precipitation
                     let seasonal_humidity = zone.baseline_humidity(weather.season);
                     weather.humidity += (seasonal_humidity - weather.humidity) * 0.2;
                 }
@@ -936,7 +1031,8 @@ pub fn update_weather(
 
     // Clamp all atmospheric values
     weather.humidity = weather.humidity.clamp(0.0, 1.0);
-    weather.precipitation_intensity = weather.precipitation_intensity.clamp(0.0, 1.0);
+    let atmo_precip = weather.atmo_precipitation.clamp(0.0, 1.0);
+    weather.atmo_precipitation = atmo_precip;
 
     // If snow is disabled for this zone/season, convert snow to rain
     let snow_enabled = zone.season_params(weather.season).snow_enabled;
@@ -947,12 +1043,22 @@ pub fn update_weather(
         weather.temperature
     };
 
-    // Derive weather condition from atmospheric state
-    weather.current_event = WeatherCondition::from_atmosphere(
-        weather.cloud_cover,
-        weather.precipitation_intensity,
-        effective_temp,
-    );
+    // Derive weather condition from atmospheric state (using 0-1 atmospheric signal)
+    weather.current_event =
+        WeatherCondition::from_atmosphere(weather.cloud_cover, atmo_precip, effective_temp);
+
+    // --- Set physical precipitation intensity (inches per hour) ---
+    let day_hash = (clock.day.wrapping_mul(2654435761)) % 100;
+    let physical_intensity =
+        precipitation_intensity_for_event(weather.current_event, weather.season, day_hash);
+    weather.precipitation_intensity = physical_intensity;
+
+    // Accumulate hourly rainfall (each hour boundary adds one hour of rainfall)
+    weather.daily_rainfall += physical_intensity;
+
+    // Recompute rolling 30-day total
+    weather.rolling_30day_rainfall =
+        weather.rainfall_history.iter().sum::<f32>() + weather.daily_rainfall;
 
     // --- Fire WeatherChangeEvent if anything meaningful changed ---
     let new_condition = weather.current_event;
@@ -975,6 +1081,102 @@ pub fn update_weather(
             is_extreme: new_is_extreme,
         });
     }
+}
+
+/// Compute precipitation intensity (inches per hour) for a given weather condition
+/// and season. Summer storms tend to be heavier; winter precipitation is lighter.
+///
+/// The returned value is in inches/hr and drives the `PrecipitationCategory` scale:
+/// - Clear/Sunny/PartlyCloudy/Overcast: 0.0
+/// - Rain: 0.1 - 1.0 (varies by season; summer storms heavier)
+/// - HeavyRain: 1.0 - 2.5
+/// - Storm: 2.0 - 4.0+
+/// - Snow: 0.05 - 0.3 (water equivalent)
+///
+/// A deterministic `day_hash` (0..99) is used for variation within each range.
+pub fn precipitation_intensity_for_event(
+    condition: WeatherCondition,
+    season: Season,
+    day_hash: u32,
+) -> f32 {
+    // day_hash is expected to be in 0..99; clamp just in case
+    let h = (day_hash % 100) as f32 / 100.0; // 0.0 .. 0.99
+
+    match condition {
+        WeatherCondition::Sunny | WeatherCondition::PartlyCloudy | WeatherCondition::Overcast => {
+            0.0
+        }
+
+        WeatherCondition::Rain => {
+            // Base: 0.1 - 0.7, with seasonal modifier
+            let base = 0.1 + h * 0.6; // 0.1 .. 0.7
+            let seasonal = match season {
+                Season::Summer => 1.3, // summer storms heavier
+                Season::Spring => 1.0,
+                Season::Autumn => 1.1,
+                Season::Winter => 0.7, // lighter winter rain
+            };
+            (base * seasonal).clamp(0.1, 1.0)
+        }
+
+        WeatherCondition::HeavyRain => {
+            // Base: 1.0 - 2.0, with seasonal modifier
+            let base = 1.0 + h * 1.0; // 1.0 .. 2.0
+            let seasonal = match season {
+                Season::Summer => 1.25,
+                Season::Spring => 1.0,
+                Season::Autumn => 1.1,
+                Season::Winter => 0.85,
+            };
+            (base * seasonal).clamp(1.0, 2.5)
+        }
+
+        WeatherCondition::Storm => {
+            // Base: 2.0 - 3.5, with seasonal modifier
+            let base = 2.0 + h * 1.5; // 2.0 .. 3.5
+            let seasonal = match season {
+                Season::Summer => 1.3, // tropical-style downpours
+                Season::Spring => 1.0,
+                Season::Autumn => 1.1,
+                Season::Winter => 0.9,
+            };
+            (base * seasonal).max(2.0) // no upper clamp; Extreme (4.0+) is valid
+        }
+
+        WeatherCondition::Snow => {
+            // Water equivalent: 0.05 - 0.3
+            let base = 0.05 + h * 0.25; // 0.05 .. 0.30
+            base
+        }
+    }
+}
+
+/// Precipitation tracking ordering anchor.
+///
+/// All precipitation intensity setting, accumulation, and rolling-window
+/// computation is performed inline in `update_weather`. This system exists
+/// as a public ordering label so downstream systems (stormwater, fire, solar)
+/// can schedule `.after(update_precipitation)` to ensure weather data is fresh.
+pub fn update_precipitation(weather: Res<Weather>) {
+    // All work is done in update_weather. This system reads weather to
+    // establish a scheduling dependency.
+    let _ = weather.precipitation_intensity;
+}
+
+/// Roll the daily rainfall into the 30-day history buffer.
+/// Called from `update_weather` when a new day starts.
+fn roll_daily_rainfall(weather: &mut Weather) {
+    // Ensure history buffer is the right size
+    if weather.rainfall_history.len() != ROLLING_RAINFALL_DAYS {
+        weather.rainfall_history = vec![0.0; ROLLING_RAINFALL_DAYS];
+    }
+
+    // Shift history: drop oldest day, append yesterday's total
+    weather.rainfall_history.remove(0);
+    weather.rainfall_history.push(weather.daily_rainfall);
+
+    // Reset daily accumulator for the new day
+    weather.daily_rainfall = 0.0;
 }
 
 #[cfg(test)]
@@ -1200,12 +1402,12 @@ mod tests {
     fn test_weather_condition_method() {
         let mut w = Weather::default();
         w.cloud_cover = 0.1;
-        w.precipitation_intensity = 0.0;
+        w.atmo_precipitation = 0.0;
         w.temperature = 20.0;
         assert_eq!(w.condition(), WeatherCondition::Sunny);
 
         w.cloud_cover = 0.9;
-        w.precipitation_intensity = 0.8;
+        w.atmo_precipitation = 0.8;
         w.temperature = 20.0;
         assert_eq!(w.condition(), WeatherCondition::Storm);
     }
@@ -1257,7 +1459,7 @@ mod tests {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.1;
-            weather.precipitation_intensity = 0.0;
+            weather.atmo_precipitation = 0.0;
             weather.temperature = 20.0;
             weather.last_update_day = 1;
             weather.last_update_hour = 5;
@@ -1274,7 +1476,7 @@ mod tests {
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.cloud_cover = 0.8;
-            weather.precipitation_intensity = 0.3;
+            weather.atmo_precipitation = 0.3;
         }
 
         app.update();
@@ -1302,7 +1504,7 @@ mod tests {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.1;
-            weather.precipitation_intensity = 0.0;
+            weather.atmo_precipitation = 0.0;
             weather.temperature = 20.0;
             weather.last_update_day = 1;
             weather.last_update_hour = 5;
@@ -1318,7 +1520,7 @@ mod tests {
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.cloud_cover = 0.95;
-            weather.precipitation_intensity = 0.85;
+            weather.atmo_precipitation = 0.85;
         }
 
         app.update();
@@ -1342,7 +1544,7 @@ mod tests {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.05;
-            weather.precipitation_intensity = 0.0;
+            weather.atmo_precipitation = 0.0;
             weather.temperature = 50.0; // will smooth but stay > 35C
             weather.last_update_day = 120;
             weather.last_update_hour = 14;
@@ -1379,7 +1581,7 @@ mod tests {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.2;
-            weather.precipitation_intensity = 0.0;
+            weather.atmo_precipitation = 0.0;
             weather.temperature = -25.0; // will smooth but stay < -5C
             weather.last_update_day = 300;
             weather.last_update_hour = 5;
@@ -1416,7 +1618,7 @@ mod tests {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.1;
-            weather.precipitation_intensity = 0.0;
+            weather.atmo_precipitation = 0.0;
             weather.temperature = 20.0;
             weather.last_update_day = 90;
             weather.last_update_hour = 11;
@@ -1449,7 +1651,7 @@ mod tests {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.1;
-            weather.precipitation_intensity = 0.0;
+            weather.atmo_precipitation = 0.0;
             weather.temperature = 15.0;
             weather.last_update_day = 1;
             weather.last_update_hour = 5;
@@ -1814,5 +2016,385 @@ mod tests {
         let cm = ConstructionModifiers::default();
         assert!((cm.speed_factor - 1.0).abs() < f32::EPSILON);
         assert!((cm.cost_factor - 1.0).abs() < f32::EPSILON);
+    }
+
+    // -----------------------------------------------------------------------
+    // Precipitation category tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_precipitation_category_none() {
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.0),
+            PrecipitationCategory::None
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.005),
+            PrecipitationCategory::None
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_drizzle() {
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.01),
+            PrecipitationCategory::Drizzle
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.05),
+            PrecipitationCategory::Drizzle
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.099),
+            PrecipitationCategory::Drizzle
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_light() {
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.1),
+            PrecipitationCategory::Light
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.2),
+            PrecipitationCategory::Light
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.249),
+            PrecipitationCategory::Light
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_moderate() {
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.25),
+            PrecipitationCategory::Moderate
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.5),
+            PrecipitationCategory::Moderate
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(0.99),
+            PrecipitationCategory::Moderate
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_heavy() {
+        assert_eq!(
+            PrecipitationCategory::from_intensity(1.0),
+            PrecipitationCategory::Heavy
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(1.5),
+            PrecipitationCategory::Heavy
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(1.99),
+            PrecipitationCategory::Heavy
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_torrential() {
+        assert_eq!(
+            PrecipitationCategory::from_intensity(2.0),
+            PrecipitationCategory::Torrential
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(3.0),
+            PrecipitationCategory::Torrential
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(3.99),
+            PrecipitationCategory::Torrential
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_extreme() {
+        assert_eq!(
+            PrecipitationCategory::from_intensity(4.0),
+            PrecipitationCategory::Extreme
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(5.0),
+            PrecipitationCategory::Extreme
+        );
+        assert_eq!(
+            PrecipitationCategory::from_intensity(10.0),
+            PrecipitationCategory::Extreme
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_names() {
+        assert_eq!(PrecipitationCategory::None.name(), "None");
+        assert_eq!(PrecipitationCategory::Drizzle.name(), "Drizzle");
+        assert_eq!(PrecipitationCategory::Light.name(), "Light");
+        assert_eq!(PrecipitationCategory::Moderate.name(), "Moderate");
+        assert_eq!(PrecipitationCategory::Heavy.name(), "Heavy");
+        assert_eq!(PrecipitationCategory::Torrential.name(), "Torrential");
+        assert_eq!(PrecipitationCategory::Extreme.name(), "Extreme");
+    }
+
+    // -----------------------------------------------------------------------
+    // Precipitation intensity by event tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_clear_conditions_produce_zero_intensity() {
+        for condition in [
+            WeatherCondition::Sunny,
+            WeatherCondition::PartlyCloudy,
+            WeatherCondition::Overcast,
+        ] {
+            let intensity = precipitation_intensity_for_event(condition, Season::Summer, 50);
+            assert!(
+                intensity.abs() < f32::EPSILON,
+                "{:?} should produce 0.0 intensity, got {}",
+                condition,
+                intensity,
+            );
+        }
+    }
+
+    #[test]
+    fn test_rain_intensity_range() {
+        // Rain should produce 0.1 - 1.0 in/hr
+        for hash in [0, 25, 50, 75, 99] {
+            for season in [
+                Season::Spring,
+                Season::Summer,
+                Season::Autumn,
+                Season::Winter,
+            ] {
+                let intensity =
+                    precipitation_intensity_for_event(WeatherCondition::Rain, season, hash);
+                assert!(
+                    intensity >= 0.1 && intensity <= 1.0,
+                    "Rain intensity for {:?} hash={} should be in [0.1, 1.0], got {}",
+                    season,
+                    hash,
+                    intensity,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_heavy_rain_intensity_range() {
+        // HeavyRain should produce 1.0 - 2.5 in/hr
+        for hash in [0, 25, 50, 75, 99] {
+            for season in [
+                Season::Spring,
+                Season::Summer,
+                Season::Autumn,
+                Season::Winter,
+            ] {
+                let intensity =
+                    precipitation_intensity_for_event(WeatherCondition::HeavyRain, season, hash);
+                assert!(
+                    intensity >= 1.0 && intensity <= 2.5,
+                    "HeavyRain intensity for {:?} hash={} should be in [1.0, 2.5], got {}",
+                    season,
+                    hash,
+                    intensity,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_storm_intensity_minimum() {
+        // Storm should produce >= 2.0 in/hr
+        for hash in [0, 25, 50, 75, 99] {
+            for season in [
+                Season::Spring,
+                Season::Summer,
+                Season::Autumn,
+                Season::Winter,
+            ] {
+                let intensity =
+                    precipitation_intensity_for_event(WeatherCondition::Storm, season, hash);
+                assert!(
+                    intensity >= 2.0,
+                    "Storm intensity for {:?} hash={} should be >= 2.0, got {}",
+                    season,
+                    hash,
+                    intensity,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_storm_produces_higher_intensity_than_rain() {
+        let hash = 50;
+        for season in [
+            Season::Spring,
+            Season::Summer,
+            Season::Autumn,
+            Season::Winter,
+        ] {
+            let rain = precipitation_intensity_for_event(WeatherCondition::Rain, season, hash);
+            let storm = precipitation_intensity_for_event(WeatherCondition::Storm, season, hash);
+            assert!(
+                storm > rain,
+                "Storm ({}) should produce higher intensity than Rain ({}) in {:?}",
+                storm,
+                rain,
+                season,
+            );
+        }
+    }
+
+    #[test]
+    fn test_summer_rain_heavier_than_winter() {
+        let hash = 50;
+        let summer =
+            precipitation_intensity_for_event(WeatherCondition::Rain, Season::Summer, hash);
+        let winter =
+            precipitation_intensity_for_event(WeatherCondition::Rain, Season::Winter, hash);
+        assert!(
+            summer > winter,
+            "Summer rain ({}) should be heavier than winter rain ({})",
+            summer,
+            winter,
+        );
+    }
+
+    #[test]
+    fn test_snow_water_equivalent_range() {
+        // Snow should produce 0.05 - 0.3 in/hr water equivalent
+        for hash in [0, 50, 99] {
+            let intensity =
+                precipitation_intensity_for_event(WeatherCondition::Snow, Season::Winter, hash);
+            assert!(
+                intensity >= 0.05 && intensity <= 0.30,
+                "Snow water equivalent should be in [0.05, 0.30], got {}",
+                intensity,
+            );
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Daily accumulation and rolling window tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_daily_rainfall_accumulation() {
+        let mut w = Weather::default();
+        assert_eq!(w.daily_rainfall, 0.0);
+
+        // Simulate accumulating 3 hours of 1.0 in/hr rainfall
+        w.daily_rainfall += 1.0;
+        w.daily_rainfall += 1.0;
+        w.daily_rainfall += 1.0;
+        assert!((w.daily_rainfall - 3.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_roll_daily_rainfall() {
+        let mut w = Weather::default();
+        w.daily_rainfall = 2.5;
+
+        roll_daily_rainfall(&mut w);
+
+        // After rolling, daily_rainfall should be reset
+        assert_eq!(w.daily_rainfall, 0.0);
+        // The last entry in history should be 2.5
+        assert!((w.rainfall_history[ROLLING_RAINFALL_DAYS - 1] - 2.5).abs() < f32::EPSILON);
+        // History should still be 30 entries
+        assert_eq!(w.rainfall_history.len(), ROLLING_RAINFALL_DAYS);
+    }
+
+    #[test]
+    fn test_rolling_30day_total() {
+        let mut w = Weather::default();
+
+        // Simulate 5 days of 1.0 inches each
+        for _ in 0..5 {
+            w.daily_rainfall = 1.0;
+            roll_daily_rainfall(&mut w);
+        }
+
+        let total: f32 = w.rainfall_history.iter().sum();
+        assert!(
+            (total - 5.0).abs() < f32::EPSILON,
+            "Rolling total should be 5.0 after 5 days of 1.0 in, got {}",
+            total,
+        );
+    }
+
+    #[test]
+    fn test_rolling_window_drops_oldest() {
+        let mut w = Weather::default();
+
+        // Fill all 30 days with 1.0
+        for _ in 0..ROLLING_RAINFALL_DAYS {
+            w.daily_rainfall = 1.0;
+            roll_daily_rainfall(&mut w);
+        }
+
+        let total: f32 = w.rainfall_history.iter().sum();
+        assert!(
+            (total - ROLLING_RAINFALL_DAYS as f32).abs() < f32::EPSILON,
+            "All 30 days filled with 1.0 should total 30.0, got {}",
+            total,
+        );
+
+        // Add one more day with 0.0 -- should drop the oldest 1.0
+        w.daily_rainfall = 0.0;
+        roll_daily_rainfall(&mut w);
+
+        let total: f32 = w.rainfall_history.iter().sum();
+        assert!(
+            (total - (ROLLING_RAINFALL_DAYS as f32 - 1.0)).abs() < f32::EPSILON,
+            "After adding 0.0 day, total should be 29.0, got {}",
+            total,
+        );
+    }
+
+    #[test]
+    fn test_precipitation_category_from_weather() {
+        let mut w = Weather::default();
+        w.precipitation_intensity = 0.0;
+        assert_eq!(w.precipitation_category(), PrecipitationCategory::None);
+
+        w.precipitation_intensity = 0.5;
+        assert_eq!(w.precipitation_category(), PrecipitationCategory::Moderate);
+
+        w.precipitation_intensity = 3.0;
+        assert_eq!(
+            w.precipitation_category(),
+            PrecipitationCategory::Torrential
+        );
+    }
+
+    #[test]
+    fn test_default_weather_has_precipitation_fields() {
+        let w = Weather::default();
+        assert_eq!(w.daily_rainfall, 0.0);
+        assert_eq!(w.rolling_30day_rainfall, 0.0);
+        assert_eq!(w.rainfall_history.len(), ROLLING_RAINFALL_DAYS);
+        assert!(w.rainfall_history.iter().all(|&v| v == 0.0));
+        assert_eq!(w.atmo_precipitation, 0.0);
+    }
+
+    #[test]
+    fn test_rainfall_history_repairs_wrong_size() {
+        let mut w = Weather::default();
+        // Corrupt the history buffer
+        w.rainfall_history = vec![1.0; 5];
+        w.daily_rainfall = 2.0;
+
+        roll_daily_rainfall(&mut w);
+
+        // Should have been repaired to correct size
+        assert_eq!(w.rainfall_history.len(), ROLLING_RAINFALL_DAYS);
     }
 }
