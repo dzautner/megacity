@@ -21,7 +21,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v7 = degree_days (HDD/CDD tracking for HVAC energy demand)
 /// v8 = climate_zone in SaveWeather (ClimateZone resource)
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 9;
+/// v10 = wind_damage_state (WindDamageState serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 10;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -98,6 +99,8 @@ pub struct SaveData {
     pub degree_days: Option<SaveDegreeDays>,
     #[serde(default)]
     pub construction_modifiers: Option<SaveConstructionModifiers>,
+    #[serde(default)]
+    pub wind_damage_state: Option<SaveWindDamageState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -360,6 +363,19 @@ pub struct SaveDegreeDays {
 pub struct SaveConstructionModifiers {
     pub speed_factor: f32,
     pub cost_factor: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveWindDamageState {
+    /// Wind damage tier discriminant (0=Calm, 1=Breezy, 2=Strong, 3=Gale, 4=Storm, 5=Severe, 6=HurricaneForce, 7=Extreme).
+    #[serde(default)]
+    pub current_tier: u8,
+    #[serde(default)]
+    pub accumulated_building_damage: f32,
+    #[serde(default)]
+    pub trees_knocked_down: u32,
+    #[serde(default)]
+    pub power_outage_active: bool,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]

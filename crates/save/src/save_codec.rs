@@ -9,6 +9,7 @@ use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
 use simulation::water_sources::WaterSourceType;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
+use simulation::wind_damage::WindDamageTier;
 
 pub fn zone_type_to_u8(z: ZoneType) -> u8 {
     match z {
@@ -414,5 +415,32 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
         36 => Some(UnlockNode::RegionalAirports),
         37 => Some(UnlockNode::InternationalAirports),
         _ => None,
+    }
+}
+
+pub fn wind_damage_tier_to_u8(t: WindDamageTier) -> u8 {
+    match t {
+        WindDamageTier::Calm => 0,
+        WindDamageTier::Breezy => 1,
+        WindDamageTier::Strong => 2,
+        WindDamageTier::Gale => 3,
+        WindDamageTier::Storm => 4,
+        WindDamageTier::Severe => 5,
+        WindDamageTier::HurricaneForce => 6,
+        WindDamageTier::Extreme => 7,
+    }
+}
+
+pub fn u8_to_wind_damage_tier(v: u8) -> WindDamageTier {
+    match v {
+        0 => WindDamageTier::Calm,
+        1 => WindDamageTier::Breezy,
+        2 => WindDamageTier::Strong,
+        3 => WindDamageTier::Gale,
+        4 => WindDamageTier::Storm,
+        5 => WindDamageTier::Severe,
+        6 => WindDamageTier::HurricaneForce,
+        7 => WindDamageTier::Extreme,
+        _ => WindDamageTier::Calm, // fallback
     }
 }

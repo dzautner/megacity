@@ -73,6 +73,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 9;
     }
 
+    // v9 -> v10: Added wind_damage_state (WindDamageState serialization).
+    // Uses `#[serde(default)]` so it deserializes as None from a v9 save.
+    if save.version == 9 {
+        save.version = 10;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 

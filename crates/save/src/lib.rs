@@ -14,8 +14,8 @@ use serialization::{
     restore_degree_days, restore_extended_budget, restore_life_sim_timer, restore_lifecycle_timer,
     restore_loan_book, restore_policies, restore_road_segment_store, restore_stormwater_grid,
     restore_unlock_state, restore_virtual_population, restore_water_source, restore_weather,
-    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
-    SaveData, CURRENT_SAVE_VERSION,
+    restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
+    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -42,6 +42,7 @@ use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
+use simulation::wind_damage::WindDamageState;
 use simulation::zones::ZoneDemand;
 
 use rendering::building_render::BuildingMesh3d;
@@ -167,6 +168,7 @@ fn handle_save(
             Some(&v2.degree_days),
             Some(&v2.climate_zone),
             Some(&v2.construction_modifiers),
+            Some(&v2.wind_damage_state),
         );
 
         let bytes = save.encode();
@@ -588,6 +590,13 @@ fn handle_load(
             *v2.construction_modifiers = ConstructionModifiers::default();
         }
 
+        // Restore wind damage state
+        if let Some(ref saved_wds) = save.wind_damage_state {
+            *v2.wind_damage_state = restore_wind_damage_state(saved_wds);
+        } else {
+            *v2.wind_damage_state = WindDamageState::default();
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -665,6 +674,7 @@ fn handle_new_game(
         *v2.stormwater_grid = StormwaterGrid::default();
         *v2.degree_days = DegreeDays::default();
         *v2.construction_modifiers = ConstructionModifiers::default();
+        *v2.wind_damage_state = WindDamageState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
