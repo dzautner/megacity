@@ -286,7 +286,7 @@ pub fn progress_construction(
                 // Use tick counter to distribute progress evenly.
                 // E.g., speed=0.5 -> progress every 2nd tick; speed=0.3 -> every ~3rd tick.
                 let period = (1.0 / speed).round() as u64;
-                period > 0 && tick.0 % period == 0
+                period > 0 && tick.0.is_multiple_of(period)
             };
 
             if should_progress {
