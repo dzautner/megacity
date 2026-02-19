@@ -2,6 +2,7 @@
 // Encoding helpers
 // ---------------------------------------------------------------------------
 
+use simulation::composting::CompostMethod;
 use simulation::grid::{RoadType, ZoneType};
 use simulation::policies::Policy;
 use simulation::services::ServiceType;
@@ -414,5 +415,24 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
         36 => Some(UnlockNode::RegionalAirports),
         37 => Some(UnlockNode::InternationalAirports),
         _ => None,
+    }
+}
+
+pub fn compost_method_to_u8(m: CompostMethod) -> u8 {
+    match m {
+        CompostMethod::Windrow => 0,
+        CompostMethod::AeratedStaticPile => 1,
+        CompostMethod::InVessel => 2,
+        CompostMethod::AnaerobicDigestion => 3,
+    }
+}
+
+pub fn u8_to_compost_method(v: u8) -> CompostMethod {
+    match v {
+        0 => CompostMethod::Windrow,
+        1 => CompostMethod::AeratedStaticPile,
+        2 => CompostMethod::InVessel,
+        3 => CompostMethod::AnaerobicDigestion,
+        _ => CompostMethod::Windrow, // fallback
     }
 }
