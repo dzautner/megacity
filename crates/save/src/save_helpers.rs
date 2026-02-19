@@ -15,6 +15,7 @@ use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
+use simulation::wind_damage::WindDamageState;
 
 /// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer, stormwater, degree days, climate zone, construction modifiers).
 #[derive(SystemParam)]
@@ -32,6 +33,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub construction_modifiers: Res<'w, ConstructionModifiers>,
     pub recycling_state: Res<'w, RecyclingState>,
     pub recycling_economics: Res<'w, RecyclingEconomics>,
+    pub wind_damage_state: Res<'w, WindDamageState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -50,4 +52,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub construction_modifiers: ResMut<'w, ConstructionModifiers>,
     pub recycling_state: ResMut<'w, RecyclingState>,
     pub recycling_economics: ResMut<'w, RecyclingEconomics>,
+    pub wind_damage_state: ResMut<'w, WindDamageState>,
 }

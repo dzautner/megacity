@@ -20,6 +20,7 @@ use simulation::unlocks::UnlockState;
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
 use simulation::water_sources::WaterSource;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
+use simulation::wind_damage::WindDamageState;
 
 /// Reconstruct a `RoadSegmentStore` from saved data.
 /// After calling this, call `store.rasterize_all(grid, roads)` to rebuild grid cells.
@@ -243,6 +244,16 @@ pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopula
         district_stats,
         save.max_real_citizens,
     )
+}
+
+/// Restore a `WindDamageState` resource from saved data.
+pub fn restore_wind_damage_state(save: &SaveWindDamageState) -> WindDamageState {
+    WindDamageState {
+        current_tier: u8_to_wind_damage_tier(save.current_tier),
+        accumulated_building_damage: save.accumulated_building_damage,
+        trees_knocked_down: save.trees_knocked_down,
+        power_outage_active: save.power_outage_active,
+    }
 }
 
 /// Restore `RecyclingState` and `RecyclingEconomics` from saved data.

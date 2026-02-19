@@ -22,7 +22,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v8 = climate_zone in SaveWeather (ClimateZone resource)
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
 /// v10 = recycling_state (RecyclingState + RecyclingEconomics serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 10;
+/// v11 = wind_damage_state (WindDamageState serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 11;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -101,6 +102,8 @@ pub struct SaveData {
     pub construction_modifiers: Option<SaveConstructionModifiers>,
     #[serde(default)]
     pub recycling_state: Option<SaveRecyclingState>,
+    #[serde(default)]
+    pub wind_damage_state: Option<SaveWindDamageState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -424,6 +427,14 @@ pub struct SaveRecyclingState {
     pub price_organic: f64,
     pub market_cycle_position: f64,
     pub economics_last_update_day: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveWindDamageState {
+    pub current_tier: u8,
+    pub accumulated_building_damage: f32,
+    pub trees_knocked_down: u32,
+    pub power_outage_active: bool,
 }
 
 impl SaveData {
