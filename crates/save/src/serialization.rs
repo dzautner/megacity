@@ -327,24 +327,26 @@ pub fn create_save_data(
 mod tests {
     use super::*;
 
+    use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
     use simulation::citizen::{CitizenDetails, PathCache, Position, Velocity};
-    use simulation::grid::WorldGrid;
-    use simulation::roads::RoadNetwork;
-    use simulation::time_of_day::GameClock;
-    use simulation::economy::CityBudget;
-    use simulation::zones::ZoneDemand;
-    use simulation::utilities::UtilityType;
-    use simulation::policies::{Policies, Policy};
-    use simulation::weather::{Weather, WeatherCondition, Season, ClimateZone, ConstructionModifiers};
-    use simulation::unlocks::{UnlockState, UnlockNode};
-    use simulation::budget::{ExtendedBudget, ZoneTaxRates, ServiceBudgets};
-    use simulation::loans::{self, LoanBook};
-    use simulation::lifecycle::LifecycleTimer;
-    use simulation::life_simulation::LifeSimTimer;
-    use simulation::virtual_population::VirtualPopulation;
-    use simulation::stormwater::StormwaterGrid;
     use simulation::degree_days::DegreeDays;
+    use simulation::economy::CityBudget;
+    use simulation::grid::WorldGrid;
+    use simulation::life_simulation::LifeSimTimer;
+    use simulation::lifecycle::LifecycleTimer;
+    use simulation::loans::{self, LoanBook};
+    use simulation::policies::{Policies, Policy};
+    use simulation::roads::RoadNetwork;
+    use simulation::stormwater::StormwaterGrid;
+    use simulation::time_of_day::GameClock;
+    use simulation::unlocks::{UnlockNode, UnlockState};
+    use simulation::utilities::UtilityType;
+    use simulation::virtual_population::VirtualPopulation;
     use simulation::water_sources::{WaterSource, WaterSourceType};
+    use simulation::weather::{
+        ClimateZone, ConstructionModifiers, Season, Weather, WeatherCondition,
+    };
+    use simulation::zones::ZoneDemand;
 
     #[test]
     fn test_roundtrip_serialization() {

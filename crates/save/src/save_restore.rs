@@ -11,7 +11,9 @@ use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
 use simulation::policies::Policies;
-use simulation::road_segments::{RoadSegment, RoadSegmentStore, SegmentId, SegmentNode, SegmentNodeId};
+use simulation::road_segments::{
+    RoadSegment, RoadSegmentStore, SegmentId, SegmentNode, SegmentNodeId,
+};
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
