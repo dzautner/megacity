@@ -97,6 +97,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 13;
     }
 
+    // v13 -> v14: Added heat_wave_state (HeatWaveState serialization for heat wave effects).
+    // Uses `#[serde(default)]` so it deserializes as None from a v13 save.
+    if save.version == 13 {
+        save.version = 14;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 

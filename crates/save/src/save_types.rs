@@ -25,7 +25,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v11 = wind_damage_state (WindDamageState serialization)
 /// v12 = uhi_grid (UhiGrid serialization for urban heat island)
 /// v13 = drought_state (DroughtState serialization for drought index)
-pub const CURRENT_SAVE_VERSION: u32 = 13;
+/// v14 = heat_wave_state (HeatWaveState serialization for heat wave effects)
+pub const CURRENT_SAVE_VERSION: u32 = 14;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -110,6 +111,8 @@ pub struct SaveData {
     pub uhi_grid: Option<SaveUhiGrid>,
     #[serde(default)]
     pub drought_state: Option<SaveDroughtState>,
+    #[serde(default)]
+    pub heat_wave_state: Option<SaveHeatWaveState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -461,6 +464,21 @@ pub struct SaveDroughtState {
     pub fire_risk_multiplier: f32,
     pub happiness_modifier: f32,
     pub last_record_day: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveHeatWaveState {
+    pub consecutive_hot_days: u32,
+    pub severity: u8,
+    pub excess_mortality_per_100k: f32,
+    pub energy_demand_multiplier: f32,
+    pub water_demand_multiplier: f32,
+    pub road_damage_active: bool,
+    pub fire_risk_multiplier: f32,
+    pub blackout_risk: f32,
+    pub heat_threshold_c: f32,
+    pub consecutive_extreme_days: u32,
+    pub last_check_day: u32,
 }
 
 impl SaveData {

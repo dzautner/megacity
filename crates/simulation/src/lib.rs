@@ -27,6 +27,7 @@ pub mod grid;
 pub mod groundwater;
 pub mod happiness;
 pub mod health;
+pub mod heat_wave;
 pub mod heating;
 pub mod homelessness;
 pub mod immigration;
@@ -101,6 +102,7 @@ use forest_fire::{ForestFireGrid, ForestFireStats};
 use garbage::{GarbageGrid, WasteCollectionGrid, WasteSystem};
 use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
 use health::HealthGrid;
+use heat_wave::HeatWaveState;
 use heating::{HeatingGrid, HeatingStats};
 use imports_exports::TradeConnections;
 use land_value::LandValueGrid;
@@ -256,6 +258,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<WindDamageState>()
             .init_resource::<UhiGrid>()
             .init_resource::<DroughtState>()
+            .init_resource::<HeatWaveState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -376,6 +379,7 @@ impl Plugin for SimulationPlugin {
                     wind_damage::update_wind_damage,
                     urban_heat_island::update_uhi_grid,
                     drought::update_drought_index,
+                    heat_wave::update_heat_wave,
                     noise::update_noise_pollution,
                     crime::update_crime,
                     health::update_health_grid,

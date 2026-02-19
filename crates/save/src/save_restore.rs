@@ -305,3 +305,20 @@ pub fn restore_drought(save: &SaveDroughtState) -> simulation::drought::DroughtS
         last_record_day: save.last_record_day,
     }
 }
+
+/// Restore a `HeatWaveState` resource from saved data.
+pub fn restore_heat_wave(save: &SaveHeatWaveState) -> simulation::heat_wave::HeatWaveState {
+    simulation::heat_wave::HeatWaveState {
+        consecutive_hot_days: save.consecutive_hot_days,
+        severity: u8_to_heat_wave_severity(save.severity),
+        excess_mortality_per_100k: save.excess_mortality_per_100k,
+        energy_demand_multiplier: save.energy_demand_multiplier,
+        water_demand_multiplier: save.water_demand_multiplier,
+        road_damage_active: save.road_damage_active,
+        fire_risk_multiplier: save.fire_risk_multiplier,
+        blackout_risk: save.blackout_risk,
+        heat_threshold_c: save.heat_threshold_c,
+        consecutive_extreme_days: save.consecutive_extreme_days,
+        last_check_day: save.last_check_day,
+    }
+}
