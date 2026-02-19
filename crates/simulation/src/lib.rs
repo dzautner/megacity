@@ -72,6 +72,7 @@ pub mod wealth;
 pub mod weather;
 pub mod welfare;
 pub mod wind;
+pub mod wind_damage;
 pub mod world_init;
 pub mod zones;
 
@@ -130,6 +131,7 @@ use water_pollution::WaterPollutionGrid;
 use wealth::WealthStats;
 use weather::{ClimateZone, ConstructionModifiers, Weather, WeatherChangeEvent};
 use wind::WindState;
+use wind_damage::{WindDamageEvent, WindDamageState};
 use zones::ZoneDemand;
 
 /// Global tick counter incremented each FixedUpdate, used for throttling simulation systems.
@@ -242,10 +244,12 @@ impl Plugin for SimulationPlugin {
             .init_resource::<StormwaterGrid>()
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
+            .init_resource::<WindDamageState>()
             .init_resource::<WasteAccumulation>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
+            .add_event::<WindDamageEvent>()
             .add_systems(Startup, world_init::init_world)
             .add_systems(
                 FixedUpdate,
@@ -381,6 +385,10 @@ impl Plugin for SimulationPlugin {
                     unlocks::award_development_points,
                 )
                     .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                wind_damage::update_wind_damage.after(wind::update_wind),
             )
             .add_systems(
                 FixedUpdate,

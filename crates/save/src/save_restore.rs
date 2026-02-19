@@ -19,6 +19,7 @@ use simulation::unlocks::UnlockState;
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
 use simulation::water_sources::WaterSource;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
+use simulation::wind_damage::{WindDamageState, WindDamageTier};
 
 /// Reconstruct a `RoadSegmentStore` from saved data.
 /// After calling this, call `store.rasterize_all(grid, roads)` to rebuild grid cells.
@@ -216,6 +217,26 @@ pub fn restore_construction_modifiers(save: &SaveConstructionModifiers) -> Const
     ConstructionModifiers {
         speed_factor: save.speed_factor,
         cost_factor: save.cost_factor,
+    }
+}
+
+/// Restore a `WindDamageState` resource from saved data.
+pub fn restore_wind_damage_state(save: &SaveWindDamageState) -> WindDamageState {
+    let tier = match save.current_tier {
+        1 => WindDamageTier::Breezy,
+        2 => WindDamageTier::Strong,
+        3 => WindDamageTier::Gale,
+        4 => WindDamageTier::Storm,
+        5 => WindDamageTier::Severe,
+        6 => WindDamageTier::HurricaneForce,
+        7 => WindDamageTier::Extreme,
+        _ => WindDamageTier::Calm,
+    };
+    WindDamageState {
+        current_tier: tier,
+        accumulated_building_damage: save.accumulated_building_damage,
+        trees_knocked_down: save.trees_knocked_down,
+        power_outage_active: save.power_outage_active,
     }
 }
 
