@@ -22,7 +22,6 @@ pub enum LodTier {
               // Tier 3 (Statistical) is NOT stored in ECS; see Districts resource
 }
 
-
 /// Compressed representation for Tier 2 citizens (12 bytes)
 #[derive(Component, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CompressedCitizen {
