@@ -6,9 +6,9 @@ pub mod serialization;
 use serialization::{
     create_save_data, migrate_save, restore_extended_budget, restore_life_sim_timer,
     restore_lifecycle_timer, restore_loan_book, restore_policies, restore_road_segment_store,
-    restore_unlock_state, restore_virtual_population, restore_weather, u8_to_road_type,
-    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
-    CURRENT_SAVE_VERSION,
+    restore_unlock_state, restore_virtual_population, restore_water_source, restore_weather,
+    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
+    SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
@@ -31,6 +31,7 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
+use simulation::water_sources::WaterSource;
 use simulation::weather::Weather;
 use simulation::zones::ZoneDemand;
 
@@ -109,6 +110,7 @@ fn handle_save(
     >,
     utility_sources: Query<&UtilitySource>,
     service_buildings: Query<&ServiceBuilding>,
+    water_sources: Query<&WaterSource>,
     v2: V2ResourcesRead,
     lifecycle_timer: Res<LifecycleTimer>,
 ) {
@@ -133,6 +135,7 @@ fn handle_save(
         let utility_data: Vec<_> = utility_sources.iter().cloned().collect();
         let service_data: Vec<(ServiceBuilding,)> =
             service_buildings.iter().map(|sb| (sb.clone(),)).collect();
+        let water_source_data: Vec<WaterSource> = water_sources.iter().cloned().collect();
 
         let segment_ref = if segments.segments.is_empty() {
             None
@@ -159,6 +162,11 @@ fn handle_save(
             Some(&lifecycle_timer),
             Some(&v2.virtual_population),
             Some(&v2.life_sim_timer),
+            if water_source_data.is_empty() {
+                None
+            } else {
+                Some(&water_source_data)
+            },
         );
 
         let bytes = save.encode();
@@ -187,6 +195,7 @@ fn handle_load(
     existing_citizens: Query<Entity, With<Citizen>>,
     existing_utilities: Query<Entity, With<UtilitySource>>,
     existing_services: Query<Entity, With<ServiceBuilding>>,
+    existing_water_sources: Query<Entity, With<WaterSource>>,
     existing_meshes: Query<Entity, With<BuildingMesh3d>>,
     existing_sprites: Query<Entity, With<CitizenSprite>>,
     mut v2: V2ResourcesWrite,
@@ -236,6 +245,9 @@ fn handle_load(
             commands.entity(entity).despawn();
         }
         for entity in &existing_services {
+            commands.entity(entity).despawn();
+        }
+        for entity in &existing_water_sources {
             commands.entity(entity).despawn();
         }
 
@@ -350,6 +362,18 @@ fn handle_load(
                     .id();
                 if grid.in_bounds(ss.grid_x, ss.grid_y) {
                     grid.get_mut(ss.grid_x, ss.grid_y).building_id = Some(entity);
+                }
+            }
+        }
+
+        // Restore water sources
+        if let Some(ref saved_water_sources) = save.water_sources {
+            for sws in saved_water_sources {
+                if let Some(ws) = restore_water_source(sws) {
+                    let entity = commands.spawn(ws).id();
+                    if grid.in_bounds(sws.grid_x, sws.grid_y) {
+                        grid.get_mut(sws.grid_x, sws.grid_y).building_id = Some(entity);
+                    }
                 }
             }
         }
@@ -534,6 +558,7 @@ fn handle_new_game(
     existing_citizens: Query<Entity, With<Citizen>>,
     existing_utilities: Query<Entity, With<UtilitySource>>,
     existing_services: Query<Entity, With<ServiceBuilding>>,
+    existing_water_sources: Query<Entity, With<WaterSource>>,
     existing_meshes: Query<Entity, With<BuildingMesh3d>>,
     existing_sprites: Query<Entity, With<CitizenSprite>>,
     mut grid: ResMut<WorldGrid>,
@@ -563,6 +588,9 @@ fn handle_new_game(
             commands.entity(entity).despawn();
         }
         for entity in &existing_services {
+            commands.entity(entity).despawn();
+        }
+        for entity in &existing_water_sources {
             commands.entity(entity).despawn();
         }
 

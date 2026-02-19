@@ -63,6 +63,7 @@ pub mod utilities;
 pub mod virtual_population;
 pub mod water_demand;
 pub mod water_pollution;
+pub mod water_sources;
 pub mod wealth;
 pub mod weather;
 pub mod welfare;
@@ -345,6 +346,9 @@ impl Plugin for SimulationPlugin {
                     groundwater::groundwater_health_penalty,
                     water_demand::calculate_building_water_demand,
                     water_demand::aggregate_water_supply,
+                    water_sources::update_water_sources,
+                    water_sources::aggregate_water_source_supply,
+                    water_sources::replenish_reservoirs,
                     water_demand::water_service_happiness_penalty,
                     natural_resources::update_resource_production,
                     wealth::update_wealth_stats,

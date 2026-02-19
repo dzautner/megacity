@@ -21,6 +21,7 @@ use simulation::utilities::{UtilitySource, UtilityType};
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
 use simulation::weather::{Season, Weather, WeatherCondition, WeatherEvent};
 // Note: WeatherEvent is a type alias for WeatherCondition (kept for backward compat)
+use simulation::water_sources::{WaterSource, WaterSourceType};
 use simulation::zones::ZoneDemand;
 
 // ---------------------------------------------------------------------------
@@ -301,6 +302,25 @@ pub fn u8_to_season(v: u8) -> Season {
     }
 }
 
+pub fn water_source_type_to_u8(w: WaterSourceType) -> u8 {
+    match w {
+        WaterSourceType::Well => 0,
+        WaterSourceType::SurfaceIntake => 1,
+        WaterSourceType::Reservoir => 2,
+        WaterSourceType::Desalination => 3,
+    }
+}
+
+pub fn u8_to_water_source_type(v: u8) -> Option<WaterSourceType> {
+    match v {
+        0 => Some(WaterSourceType::Well),
+        1 => Some(WaterSourceType::SurfaceIntake),
+        2 => Some(WaterSourceType::Reservoir),
+        3 => Some(WaterSourceType::Desalination),
+        _ => None,
+    }
+}
+
 pub fn unlock_node_to_u8(n: UnlockNode) -> u8 {
     match n {
         UnlockNode::BasicRoads => 0,
@@ -397,7 +417,8 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 /// v2 = policies, weather, unlock_state, extended_budget, loans
 /// v3 = lifecycle_timer, path_cache, velocity per citizen
 /// v4 = life_sim_timer (LifeSimTimer serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 4;
+/// v5 = water_sources (WaterSource component serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 5;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -466,6 +487,8 @@ pub struct SaveData {
     pub virtual_population: Option<SaveVirtualPopulation>,
     #[serde(default)]
     pub life_sim_timer: Option<SaveLifeSimTimer>,
+    #[serde(default)]
+    pub water_sources: Option<Vec<SaveWaterSource>>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -561,6 +584,18 @@ pub struct SaveServiceBuilding {
     pub grid_x: usize,
     pub grid_y: usize,
     pub radius_cells: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode)]
+pub struct SaveWaterSource {
+    pub source_type: u8,
+    pub grid_x: usize,
+    pub grid_y: usize,
+    pub capacity_mgd: f32,
+    pub quality: f32,
+    pub operating_cost: f64,
+    pub stored_gallons: f32,
+    pub storage_capacity: f32,
 }
 
 // ---------------------------------------------------------------------------
@@ -757,6 +792,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 4;
     }
 
+    // v4 -> v5: Added water_sources (WaterSource component serialization).
+    // Uses `#[serde(default)]` so it deserializes as None from a v4 save.
+    if save.version == 4 {
+        save.version = 5;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
@@ -796,6 +837,7 @@ pub fn create_save_data(
     lifecycle_timer: Option<&LifecycleTimer>,
     virtual_population: Option<&VirtualPopulation>,
     life_sim_timer: Option<&LifeSimTimer>,
+    water_sources: Option<&[WaterSource]>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -1017,6 +1059,20 @@ pub fn create_save_data(
             personality_tick: lst.personality_tick,
             health_tick: lst.health_tick,
         }),
+        water_sources: water_sources.map(|ws| {
+            ws.iter()
+                .map(|s| SaveWaterSource {
+                    source_type: water_source_type_to_u8(s.source_type),
+                    grid_x: s.grid_x,
+                    grid_y: s.grid_y,
+                    capacity_mgd: s.capacity_mgd,
+                    quality: s.quality,
+                    operating_cost: s.operating_cost,
+                    stored_gallons: s.stored_gallons,
+                    storage_capacity: s.storage_capacity,
+                })
+                .collect()
+        }),
     }
 }
 
@@ -1166,6 +1222,21 @@ pub fn restore_life_sim_timer(save: &SaveLifeSimTimer) -> LifeSimTimer {
     }
 }
 
+/// Restore a `WaterSource` component from saved data.
+pub fn restore_water_source(save: &SaveWaterSource) -> Option<WaterSource> {
+    let source_type = u8_to_water_source_type(save.source_type)?;
+    Some(WaterSource {
+        source_type,
+        capacity_mgd: save.capacity_mgd,
+        quality: save.quality,
+        operating_cost: save.operating_cost,
+        grid_x: save.grid_x,
+        grid_y: save.grid_y,
+        stored_gallons: save.stored_gallons,
+        storage_capacity: save.storage_capacity,
+    })
+}
+
 /// Restore a `VirtualPopulation` resource from saved data.
 pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
     let district_stats = save
@@ -1221,6 +1292,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1553,6 +1625,7 @@ mod tests {
             Some(&lifecycle_timer),
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1615,6 +1688,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1688,6 +1762,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1712,6 +1787,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1757,6 +1833,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1784,6 +1861,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1828,6 +1906,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1855,6 +1934,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1989,6 +2069,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -2031,6 +2112,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2139,6 +2221,7 @@ mod tests {
             None,
             None,
             Some(&life_sim_timer),
+            None,
         );
 
         let bytes = save.encode();
@@ -2186,6 +2269,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2221,11 +2305,205 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 3;
 
         let old = migrate_save(&mut save);
         assert_eq!(old, 3);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_water_source_type_roundtrip() {
+        let types = [
+            WaterSourceType::Well,
+            WaterSourceType::SurfaceIntake,
+            WaterSourceType::Reservoir,
+            WaterSourceType::Desalination,
+        ];
+        for wt in &types {
+            let encoded = water_source_type_to_u8(*wt);
+            let decoded = u8_to_water_source_type(encoded).expect("valid water source type");
+            assert_eq!(*wt, decoded);
+        }
+        assert!(u8_to_water_source_type(255).is_none());
+    }
+
+    #[test]
+    fn test_water_source_save_roundtrip() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let water_sources = vec![
+            WaterSource {
+                source_type: WaterSourceType::Well,
+                capacity_mgd: 0.5,
+                quality: 0.7,
+                operating_cost: 15.0,
+                grid_x: 2,
+                grid_y: 2,
+                stored_gallons: 0.0,
+                storage_capacity: 0.0,
+            },
+            WaterSource {
+                source_type: WaterSourceType::Reservoir,
+                capacity_mgd: 20.0,
+                quality: 0.8,
+                operating_cost: 200.0,
+                grid_x: 1,
+                grid_y: 1,
+                stored_gallons: 1_800_000_000.0,
+                storage_capacity: 1_800_000_000.0,
+            },
+        ];
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&water_sources),
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        let rws = restored
+            .water_sources
+            .as_ref()
+            .expect("water_sources present");
+        assert_eq!(rws.len(), 2);
+
+        let w0 = &rws[0];
+        assert_eq!(
+            u8_to_water_source_type(w0.source_type),
+            Some(WaterSourceType::Well)
+        );
+        assert!((w0.capacity_mgd - 0.5).abs() < 0.001);
+        assert!((w0.quality - 0.7).abs() < 0.001);
+        assert_eq!(w0.grid_x, 2);
+        assert_eq!(w0.grid_y, 2);
+
+        let w1 = &rws[1];
+        assert_eq!(
+            u8_to_water_source_type(w1.source_type),
+            Some(WaterSourceType::Reservoir)
+        );
+        assert!((w1.capacity_mgd - 20.0).abs() < 0.001);
+        assert!(w1.stored_gallons > 0.0);
+    }
+
+    #[test]
+    fn test_water_source_restore() {
+        let save = SaveWaterSource {
+            source_type: water_source_type_to_u8(WaterSourceType::Desalination),
+            grid_x: 5,
+            grid_y: 5,
+            capacity_mgd: 10.0,
+            quality: 0.95,
+            operating_cost: 500.0,
+            stored_gallons: 0.0,
+            storage_capacity: 0.0,
+        };
+
+        let ws = restore_water_source(&save).expect("valid water source");
+        assert_eq!(ws.source_type, WaterSourceType::Desalination);
+        assert!((ws.capacity_mgd - 10.0).abs() < 0.001);
+        assert!((ws.quality - 0.95).abs() < 0.001);
+        assert_eq!(ws.grid_x, 5);
+        assert_eq!(ws.grid_y, 5);
+    }
+
+    #[test]
+    fn test_water_source_backward_compat() {
+        // Saves without water_sources should have it as None
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        assert!(restored.water_sources.is_none());
+    }
+
+    #[test]
+    fn test_migrate_from_v4() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        save.version = 4;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 4);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
 }
