@@ -101,13 +101,13 @@ impl WindState {
 /// - Subarctic: polar easterly (PI rad, blowing west)
 pub fn prevailing_direction_for_zone(zone: ClimateZone) -> f32 {
     match zone {
-        ClimateZone::Temperate => 0.0,                                        // westerly
-        ClimateZone::Tropical => std::f32::consts::PI,                        // trade winds (easterly)
-        ClimateZone::Arid => std::f32::consts::FRAC_PI_2 + 0.3,              // variable northerly
-        ClimateZone::Mediterranean => 0.3,                                    // westerly with slight north
-        ClimateZone::Continental => 0.0,                                      // westerly
-        ClimateZone::Subarctic => std::f32::consts::PI,                       // polar easterly
-        ClimateZone::Oceanic => 0.0,                                          // westerly
+        ClimateZone::Temperate => 0.0,                          // westerly
+        ClimateZone::Tropical => std::f32::consts::PI,          // trade winds (easterly)
+        ClimateZone::Arid => std::f32::consts::FRAC_PI_2 + 0.3, // variable northerly
+        ClimateZone::Mediterranean => 0.3,                      // westerly with slight north
+        ClimateZone::Continental => 0.0,                        // westerly
+        ClimateZone::Subarctic => std::f32::consts::PI,         // polar easterly
+        ClimateZone::Oceanic => 0.0,                            // westerly
     }
 }
 
@@ -192,7 +192,8 @@ pub fn update_wind(
 
     // ---- Direction update ----
     // 1. Revert toward prevailing direction
-    let reversion = angle_diff(wind.direction, wind.prevailing_direction) * PREVAILING_REVERSION_FACTOR;
+    let reversion =
+        angle_diff(wind.direction, wind.prevailing_direction) * PREVAILING_REVERSION_FACTOR;
     wind.direction = (wind.direction + reversion).rem_euclid(std::f32::consts::TAU);
 
     // 2. Random perturbation (+-5 degrees)
@@ -204,21 +205,13 @@ pub fn update_wind(
     let condition = weather.current_event;
     let target_speed = match condition {
         // Storm: high wind speed 0.6-0.9
-        WeatherCondition::Storm => {
-            0.6 + rand_unsigned_f32(spd_seed) * 0.3
-        }
+        WeatherCondition::Storm => 0.6 + rand_unsigned_f32(spd_seed) * 0.3,
         // Heavy rain: moderately elevated wind
-        WeatherCondition::HeavyRain => {
-            0.4 + rand_unsigned_f32(spd_seed) * 0.2
-        }
+        WeatherCondition::HeavyRain => 0.4 + rand_unsigned_f32(spd_seed) * 0.2,
         // Clear/Sunny with low cloud cover (proxy for high pressure): calm winds 0.0-0.1
-        WeatherCondition::Sunny if weather.cloud_cover < 0.15 => {
-            rand_unsigned_f32(spd_seed) * 0.1
-        }
+        WeatherCondition::Sunny if weather.cloud_cover < 0.15 => rand_unsigned_f32(spd_seed) * 0.1,
         // Light/moderate conditions: gentle random walk around 0.2-0.4
-        _ => {
-            0.2 + rand_unsigned_f32(spd_seed) * 0.2
-        }
+        _ => 0.2 + rand_unsigned_f32(spd_seed) * 0.2,
     };
 
     // Smooth transition toward target speed
@@ -382,7 +375,10 @@ mod tests {
         // Temperate should be westerly (0.0)
         assert!((prevailing_direction_for_zone(ClimateZone::Temperate) - 0.0).abs() < f32::EPSILON);
         // Tropical should be trade winds (PI)
-        assert!((prevailing_direction_for_zone(ClimateZone::Tropical) - std::f32::consts::PI).abs() < f32::EPSILON);
+        assert!(
+            (prevailing_direction_for_zone(ClimateZone::Tropical) - std::f32::consts::PI).abs()
+                < f32::EPSILON
+        );
         // Oceanic should be westerly (0.0)
         assert!((prevailing_direction_for_zone(ClimateZone::Oceanic) - 0.0).abs() < f32::EPSILON);
     }
