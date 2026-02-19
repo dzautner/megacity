@@ -10,9 +10,10 @@ use crate::spatial_grid::SpatialGrid;
 
 /// LOD tier for citizens. Stored as a component on ALL citizen entities
 /// to avoid archetype fragmentation.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LodTier {
     /// Full simulation: individual pathfinding, rendered
+    #[default]
     Full, // ~5K
     /// Simplified: pre-computed paths, rendered as pixels
     Simplified, // ~50K
@@ -21,11 +22,6 @@ pub enum LodTier {
               // Tier 3 (Statistical) is NOT stored in ECS; see Districts resource
 }
 
-impl Default for LodTier {
-    fn default() -> Self {
-        Self::Full
-    }
-}
 
 /// Compressed representation for Tier 2 citizens (12 bytes)
 #[derive(Component, Debug, Clone, Copy, Serialize, Deserialize)]
