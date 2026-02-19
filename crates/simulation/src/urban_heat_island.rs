@@ -47,8 +47,6 @@ const SURFACE_ASPHALT: f32 = 2.0;
 const SURFACE_CONCRETE: f32 = 1.5;
 /// Light roof surface heat factor.
 const SURFACE_LIGHT_ROOF: f32 = 0.5;
-/// Green roof surface heat factor (cooling).
-const SURFACE_GREEN_ROOF: f32 = -1.0;
 /// Water surface heat factor (strong cooling).
 const SURFACE_WATER: f32 = -2.0;
 /// Vegetation surface heat factor (cooling).
@@ -173,15 +171,12 @@ fn local_green_fraction(grid: &WorldGrid, tree_grid: &TreeGrid, cx: usize, cy: u
             total += 1;
 
             let cell = grid.get(ux, uy);
-            if tree_grid.has_tree(ux, uy) {
-                green_count += 1;
-            } else if cell.cell_type == CellType::Grass
-                && cell.zone == ZoneType::None
-                && cell.building_id.is_none()
+            if tree_grid.has_tree(ux, uy)
+                || (cell.cell_type == CellType::Grass
+                    && cell.zone == ZoneType::None
+                    && cell.building_id.is_none())
+                || cell.cell_type == CellType::Water
             {
-                green_count += 1;
-            } else if cell.cell_type == CellType::Water {
-                // Water counts as green for vegetation-deficit purposes.
                 green_count += 1;
             }
         }
