@@ -58,12 +58,12 @@ impl WasteProducer {
     /// Level 1 = low-income, Level 2 = middle-income, Level 3+ = high-income.
     pub fn residential_rate(zone: ZoneType, level: u8) -> f32 {
         match (zone, level) {
-            (ZoneType::ResidentialLow, 1) => 3.0,   // low-income
-            (ZoneType::ResidentialLow, 2) => 4.5,   // middle-income
-            (ZoneType::ResidentialLow, _) => 6.0,   // high-income
-            (ZoneType::ResidentialHigh, 1) => 3.0,   // low-income
-            (ZoneType::ResidentialHigh, 2) => 4.5,   // middle-income
-            (ZoneType::ResidentialHigh, _) => 6.0,   // high-income
+            (ZoneType::ResidentialLow, 1) => 3.0,  // low-income
+            (ZoneType::ResidentialLow, 2) => 4.5,  // middle-income
+            (ZoneType::ResidentialLow, _) => 6.0,  // high-income
+            (ZoneType::ResidentialHigh, 1) => 3.0, // low-income
+            (ZoneType::ResidentialHigh, 2) => 4.5, // middle-income
+            (ZoneType::ResidentialHigh, _) => 6.0, // high-income
             _ => 0.0,
         }
     }
@@ -75,9 +75,9 @@ impl WasteProducer {
     /// High-density commercial at level 3+ approximates restaurants (200 lbs/day).
     pub fn commercial_rate(zone: ZoneType, level: u8) -> f32 {
         match (zone, level) {
-            (ZoneType::CommercialLow, _) => 50.0,   // small commercial
+            (ZoneType::CommercialLow, _) => 50.0,       // small commercial
             (ZoneType::CommercialHigh, 1..=2) => 300.0, // large commercial
-            (ZoneType::CommercialHigh, _) => 200.0,  // restaurant-type
+            (ZoneType::CommercialHigh, _) => 200.0,     // restaurant-type
             _ => 0.0,
         }
     }
@@ -88,8 +88,8 @@ impl WasteProducer {
     /// Level 3+ = heavy industry (2000 lbs/day).
     pub fn industrial_rate(level: u8) -> f32 {
         match level {
-            1..=2 => 500.0,   // light industry
-            _ => 2000.0,      // heavy industry
+            1..=2 => 500.0, // light industry
+            _ => 2000.0,    // heavy industry
         }
     }
 
@@ -234,8 +234,7 @@ pub fn update_waste_generation(
     // Zoned buildings (residential, commercial, industrial, office)
     for (building, producer) in &building_producers {
         let is_residential = building.zone_type.is_residential();
-        let daily_waste =
-            producer.effective_daily_waste(building.occupants, is_residential);
+        let daily_waste = producer.effective_daily_waste(building.occupants, is_residential);
         total_waste_lbs += daily_waste as f64;
         producer_count += 1;
         if producer.recycling_participation {
@@ -288,8 +287,7 @@ pub fn update_garbage(
             // Use the detailed waste rate: convert lbs/day to grid units
             // Scale down so the grid u8 stays in a reasonable range
             let is_residential = building.zone_type.is_residential();
-            let daily_lbs =
-                producer.effective_daily_waste(building.occupants, is_residential);
+            let daily_lbs = producer.effective_daily_waste(building.occupants, is_residential);
             // Map ~0-2000 lbs/day range down to 0-10 grid units
             ((daily_lbs / 200.0).min(10.0) * garbage_mult) as u8
         } else {
@@ -337,27 +335,63 @@ mod tests {
     #[test]
     fn test_residential_waste_rates() {
         // Low-income (level 1)
-        assert_eq!(WasteProducer::residential_rate(ZoneType::ResidentialLow, 1), 3.0);
-        assert_eq!(WasteProducer::residential_rate(ZoneType::ResidentialHigh, 1), 3.0);
+        assert_eq!(
+            WasteProducer::residential_rate(ZoneType::ResidentialLow, 1),
+            3.0
+        );
+        assert_eq!(
+            WasteProducer::residential_rate(ZoneType::ResidentialHigh, 1),
+            3.0
+        );
         // Middle-income (level 2)
-        assert_eq!(WasteProducer::residential_rate(ZoneType::ResidentialLow, 2), 4.5);
-        assert_eq!(WasteProducer::residential_rate(ZoneType::ResidentialHigh, 2), 4.5);
+        assert_eq!(
+            WasteProducer::residential_rate(ZoneType::ResidentialLow, 2),
+            4.5
+        );
+        assert_eq!(
+            WasteProducer::residential_rate(ZoneType::ResidentialHigh, 2),
+            4.5
+        );
         // High-income (level 3+)
-        assert_eq!(WasteProducer::residential_rate(ZoneType::ResidentialLow, 3), 6.0);
-        assert_eq!(WasteProducer::residential_rate(ZoneType::ResidentialHigh, 5), 6.0);
+        assert_eq!(
+            WasteProducer::residential_rate(ZoneType::ResidentialLow, 3),
+            6.0
+        );
+        assert_eq!(
+            WasteProducer::residential_rate(ZoneType::ResidentialHigh, 5),
+            6.0
+        );
     }
 
     #[test]
     fn test_commercial_waste_rates() {
         // Small commercial
-        assert_eq!(WasteProducer::commercial_rate(ZoneType::CommercialLow, 1), 50.0);
-        assert_eq!(WasteProducer::commercial_rate(ZoneType::CommercialLow, 3), 50.0);
+        assert_eq!(
+            WasteProducer::commercial_rate(ZoneType::CommercialLow, 1),
+            50.0
+        );
+        assert_eq!(
+            WasteProducer::commercial_rate(ZoneType::CommercialLow, 3),
+            50.0
+        );
         // Large commercial
-        assert_eq!(WasteProducer::commercial_rate(ZoneType::CommercialHigh, 1), 300.0);
-        assert_eq!(WasteProducer::commercial_rate(ZoneType::CommercialHigh, 2), 300.0);
+        assert_eq!(
+            WasteProducer::commercial_rate(ZoneType::CommercialHigh, 1),
+            300.0
+        );
+        assert_eq!(
+            WasteProducer::commercial_rate(ZoneType::CommercialHigh, 2),
+            300.0
+        );
         // Restaurant-type (high-density level 3+)
-        assert_eq!(WasteProducer::commercial_rate(ZoneType::CommercialHigh, 3), 200.0);
-        assert_eq!(WasteProducer::commercial_rate(ZoneType::CommercialHigh, 5), 200.0);
+        assert_eq!(
+            WasteProducer::commercial_rate(ZoneType::CommercialHigh, 3),
+            200.0
+        );
+        assert_eq!(
+            WasteProducer::commercial_rate(ZoneType::CommercialHigh, 5),
+            200.0
+        );
     }
 
     #[test]
@@ -373,8 +407,14 @@ mod tests {
     #[test]
     fn test_service_waste_rates() {
         assert_eq!(WasteProducer::service_rate(ServiceType::Hospital), 1500.0);
-        assert_eq!(WasteProducer::service_rate(ServiceType::MedicalCenter), 1500.0);
-        assert_eq!(WasteProducer::service_rate(ServiceType::ElementarySchool), 100.0);
+        assert_eq!(
+            WasteProducer::service_rate(ServiceType::MedicalCenter),
+            1500.0
+        );
+        assert_eq!(
+            WasteProducer::service_rate(ServiceType::ElementarySchool),
+            100.0
+        );
         assert_eq!(WasteProducer::service_rate(ServiceType::HighSchool), 100.0);
         assert_eq!(WasteProducer::service_rate(ServiceType::University), 200.0);
     }
@@ -451,7 +491,10 @@ mod tests {
 
     #[test]
     fn test_non_residential_zone_returns_zero() {
-        assert_eq!(WasteProducer::residential_rate(ZoneType::Industrial, 1), 0.0);
+        assert_eq!(
+            WasteProducer::residential_rate(ZoneType::Industrial, 1),
+            0.0
+        );
         assert_eq!(WasteProducer::commercial_rate(ZoneType::Industrial, 1), 0.0);
     }
 }
