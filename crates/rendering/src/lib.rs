@@ -46,7 +46,7 @@ impl Plugin for RenderingPlugin {
                     building_meshes::load_building_models,
                 )
                     .chain()
-                    .after(simulation::init_world),
+                    .after(simulation::world_init::init_world),
             )
             .add_systems(
                 Update,
