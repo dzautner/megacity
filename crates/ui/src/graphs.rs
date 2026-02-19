@@ -51,10 +51,19 @@ pub fn record_history(
     }
 }
 
-pub fn graphs_ui(mut contexts: EguiContexts, history: Res<HistoryData>) {
+pub fn graphs_ui(
+    mut contexts: EguiContexts,
+    history: Res<HistoryData>,
+    visible: Res<crate::info_panel::ChartsVisible>,
+) {
+    if !visible.0 {
+        return;
+    }
+
     egui::Window::new("Trends")
-        .default_open(false)
+        .default_open(true)
         .show(contexts.ctx_mut(), |ui| {
+            ui.small("Press [C] to toggle");
             if history.population.is_empty() {
                 ui.label("No data yet...");
                 return;
