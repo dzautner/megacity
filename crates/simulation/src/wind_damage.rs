@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-
+// Storm wind damage thresholds (Beaufort scale)
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::trees::TreeGrid;
 use crate::wind::WindState;
