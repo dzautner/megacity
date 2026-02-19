@@ -166,9 +166,15 @@ mod tests {
 
     /// Helper: assert that composition fractions sum to 1.0 (within tolerance).
     fn assert_sums_to_one(c: &WasteComposition) {
-        let sum =
-            c.paper + c.food + c.yard + c.plastics + c.metals + c.glass + c.wood + c.textiles
-                + c.other;
+        let sum = c.paper
+            + c.food
+            + c.yard
+            + c.plastics
+            + c.metals
+            + c.glass
+            + c.wood
+            + c.textiles
+            + c.other;
         assert!(
             (sum - 1.0).abs() < 0.001,
             "composition fractions sum to {sum}, expected 1.0"
