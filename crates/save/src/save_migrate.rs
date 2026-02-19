@@ -73,7 +73,7 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 9;
     }
 
-    // v9 -> v10: Added recycling_state (RecyclingState + RecyclingEconomics).
+    // v9 -> v10: Added drought_state (DroughtState serialization).
     // Uses `#[serde(default)]` so it deserializes as None from a v9 save.
     if save.version == 9 {
         save.version = 10;

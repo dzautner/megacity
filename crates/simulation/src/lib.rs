@@ -14,6 +14,7 @@ pub mod crime;
 pub mod death_care;
 pub mod degree_days;
 pub mod disasters;
+pub mod drought;
 pub mod districts;
 pub mod economy;
 pub mod education;
@@ -45,7 +46,6 @@ pub mod policies;
 pub mod pollution;
 pub mod postal;
 pub mod production;
-pub mod recycling;
 pub mod road_graph_csr;
 pub mod road_maintenance;
 pub mod road_segments;
@@ -87,6 +87,7 @@ use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
 use degree_days::DegreeDays;
 use disasters::ActiveDisaster;
+use drought::DroughtState;
 use districts::{DistrictMap, Districts};
 use economy::CityBudget;
 use education::EducationGrid;
@@ -110,7 +111,6 @@ use noise::NoisePollutionGrid;
 use outside_connections::OutsideConnections;
 use policies::Policies;
 use pollution::PollutionGrid;
-use recycling::{RecyclingEconomics, RecyclingState};
 use road_graph_csr::CsrGraph;
 use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
@@ -244,9 +244,8 @@ impl Plugin for SimulationPlugin {
             .init_resource::<StormwaterGrid>()
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
+            .init_resource::<DroughtState>()
             .init_resource::<WasteAccumulation>()
-            .init_resource::<RecyclingEconomics>()
-            .init_resource::<RecyclingState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
@@ -327,10 +326,6 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                recycling::update_recycling_economics.after(garbage::update_waste_generation),
-            )
-            .add_systems(
-                FixedUpdate,
                 (
                     road_maintenance::degrade_roads,
                     road_maintenance::repair_roads,
@@ -358,9 +353,9 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     weather::update_weather,
-                    weather::update_precipitation,
                     degree_days::update_degree_days,
                     weather::update_construction_modifiers,
+                    drought::update_drought_index,
                     heating::update_heating,
                     wind::update_wind,
                     noise::update_noise_pollution,
