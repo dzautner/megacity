@@ -4,9 +4,9 @@ use bevy::prelude::*;
 pub mod serialization;
 
 use serialization::{
-    create_save_data, migrate_save, restore_degree_days, restore_extended_budget,
-    restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
-    restore_road_segment_store, restore_stormwater_grid, restore_unlock_state,
+    create_save_data, migrate_save, restore_climate_zone, restore_degree_days,
+    restore_extended_budget, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
+    restore_policies, restore_road_segment_store, restore_stormwater_grid, restore_unlock_state,
     restore_virtual_population, restore_water_source, restore_weather, u8_to_road_type,
     u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
     CURRENT_SAVE_VERSION,
@@ -35,7 +35,7 @@ use simulation::unlocks::UnlockState;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
-use simulation::weather::Weather;
+use simulation::weather::{ClimateZone, Weather};
 use simulation::zones::ZoneDemand;
 
 use rendering::building_render::BuildingMesh3d;
@@ -45,7 +45,7 @@ use rendering::citizen_render::CitizenSprite;
 // SystemParam bundles to keep system parameter counts under Bevy's 16 limit
 // ---------------------------------------------------------------------------
 
-/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer, stormwater, degree days).
+/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer, stormwater, degree days, climate zone).
 #[derive(SystemParam)]
 struct V2ResourcesRead<'w> {
     policies: Res<'w, Policies>,
@@ -57,6 +57,7 @@ struct V2ResourcesRead<'w> {
     life_sim_timer: Res<'w, LifeSimTimer>,
     stormwater_grid: Res<'w, StormwaterGrid>,
     degree_days: Res<'w, DegreeDays>,
+    climate_zone: Res<'w, ClimateZone>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -71,6 +72,7 @@ struct V2ResourcesWrite<'w> {
     life_sim_timer: ResMut<'w, LifeSimTimer>,
     stormwater_grid: ResMut<'w, StormwaterGrid>,
     degree_days: ResMut<'w, DegreeDays>,
+    climate_zone: ResMut<'w, ClimateZone>,
 }
 
 /// Bundles entity queries for despawning existing game entities during load/new-game.
@@ -191,6 +193,7 @@ fn handle_save(
                 Some(&water_source_data)
             },
             Some(&v2.degree_days),
+            Some(&v2.climate_zone),
         );
 
         let bytes = save.encode();
@@ -542,8 +545,10 @@ fn handle_load(
 
         if let Some(ref saved_weather) = save.weather {
             *v2.weather = restore_weather(saved_weather);
+            *v2.climate_zone = restore_climate_zone(saved_weather);
         } else {
             *v2.weather = Weather::default();
+            *v2.climate_zone = ClimateZone::default();
         }
 
         if let Some(ref saved_unlocks) = save.unlock_state {
@@ -669,6 +674,7 @@ fn handle_new_game(
         // Reset V2 resources
         *v2.policies = Policies::default();
         *v2.weather = Weather::default();
+        *v2.climate_zone = ClimateZone::default();
         *v2.unlock_state = UnlockState::default();
         *v2.extended_budget = ExtendedBudget::default();
         *v2.loan_book = LoanBook::default();
