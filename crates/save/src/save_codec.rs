@@ -4,10 +4,10 @@
 
 use simulation::grid::{RoadType, ZoneType};
 use simulation::policies::Policy;
-use simulation::recycling::RecyclingTier;
 use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
+use simulation::heat_wave::HeatWaveSeverity;
 use simulation::water_sources::WaterSourceType;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
 
@@ -418,27 +418,21 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
     }
 }
 
-pub fn recycling_tier_to_u8(t: RecyclingTier) -> u8 {
-    match t {
-        RecyclingTier::None => 0,
-        RecyclingTier::VoluntaryDropoff => 1,
-        RecyclingTier::CurbsideBasic => 2,
-        RecyclingTier::CurbsideSort => 3,
-        RecyclingTier::SingleStream => 4,
-        RecyclingTier::PayAsYouThrow => 5,
-        RecyclingTier::ZeroWaste => 6,
+pub fn heat_wave_severity_to_u8(s: HeatWaveSeverity) -> u8 {
+    match s {
+        HeatWaveSeverity::None => 0,
+        HeatWaveSeverity::Moderate => 1,
+        HeatWaveSeverity::Severe => 2,
+        HeatWaveSeverity::Extreme => 3,
     }
 }
 
-pub fn u8_to_recycling_tier(v: u8) -> RecyclingTier {
+pub fn u8_to_heat_wave_severity(v: u8) -> HeatWaveSeverity {
     match v {
-        0 => RecyclingTier::None,
-        1 => RecyclingTier::VoluntaryDropoff,
-        2 => RecyclingTier::CurbsideBasic,
-        3 => RecyclingTier::CurbsideSort,
-        4 => RecyclingTier::SingleStream,
-        5 => RecyclingTier::PayAsYouThrow,
-        6 => RecyclingTier::ZeroWaste,
-        _ => RecyclingTier::None, // fallback
+        0 => HeatWaveSeverity::None,
+        1 => HeatWaveSeverity::Moderate,
+        2 => HeatWaveSeverity::Severe,
+        3 => HeatWaveSeverity::Extreme,
+        _ => HeatWaveSeverity::None, // fallback
     }
 }

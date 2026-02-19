@@ -26,6 +26,7 @@ pub mod grid;
 pub mod groundwater;
 pub mod happiness;
 pub mod health;
+pub mod heat_wave;
 pub mod heating;
 pub mod homelessness;
 pub mod immigration;
@@ -45,7 +46,6 @@ pub mod policies;
 pub mod pollution;
 pub mod postal;
 pub mod production;
-pub mod recycling;
 pub mod road_graph_csr;
 pub mod road_maintenance;
 pub mod road_segments;
@@ -97,6 +97,7 @@ use forest_fire::{ForestFireGrid, ForestFireStats};
 use garbage::{GarbageGrid, WasteCollectionGrid, WasteSystem};
 use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
 use health::HealthGrid;
+use heat_wave::HeatWaveState;
 use heating::{HeatingGrid, HeatingStats};
 use imports_exports::TradeConnections;
 use land_value::LandValueGrid;
@@ -110,7 +111,6 @@ use noise::NoisePollutionGrid;
 use outside_connections::OutsideConnections;
 use policies::Policies;
 use pollution::PollutionGrid;
-use recycling::{RecyclingEconomics, RecyclingState};
 use road_graph_csr::CsrGraph;
 use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
@@ -244,9 +244,8 @@ impl Plugin for SimulationPlugin {
             .init_resource::<StormwaterGrid>()
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
+            .init_resource::<HeatWaveState>()
             .init_resource::<WasteAccumulation>()
-            .init_resource::<RecyclingEconomics>()
-            .init_resource::<RecyclingState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
@@ -327,10 +326,6 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                recycling::update_recycling_economics.after(garbage::update_waste_generation),
-            )
-            .add_systems(
-                FixedUpdate,
                 (
                     road_maintenance::degrade_roads,
                     road_maintenance::repair_roads,
@@ -358,7 +353,6 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     weather::update_weather,
-                    weather::update_precipitation,
                     degree_days::update_degree_days,
                     weather::update_construction_modifiers,
                     heating::update_heating,
@@ -528,6 +522,9 @@ impl Plugin for SimulationPlugin {
                     rebuild_csr_on_road_change,
                     virtual_population::adjust_real_citizen_cap.run_if(
                         bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(1)),
+                    ),
+                    heat_wave::update_heat_wave.run_if(
+                        bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(2)),
                     ),
                 ),
             )
