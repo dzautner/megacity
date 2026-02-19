@@ -10,6 +10,7 @@ use simulation::degree_days::DegreeDays;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::loans::LoanBook;
 use simulation::policies::Policies;
+use simulation::recycling::{RecyclingEconomics, RecyclingState};
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
 use simulation::virtual_population::VirtualPopulation;
@@ -29,6 +30,8 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub degree_days: Res<'w, DegreeDays>,
     pub climate_zone: Res<'w, ClimateZone>,
     pub construction_modifiers: Res<'w, ConstructionModifiers>,
+    pub recycling_state: Res<'w, RecyclingState>,
+    pub recycling_economics: Res<'w, RecyclingEconomics>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -45,4 +48,6 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub degree_days: ResMut<'w, DegreeDays>,
     pub climate_zone: ResMut<'w, ClimateZone>,
     pub construction_modifiers: ResMut<'w, ConstructionModifiers>,
+    pub recycling_state: ResMut<'w, RecyclingState>,
+    pub recycling_economics: ResMut<'w, RecyclingEconomics>,
 }

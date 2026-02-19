@@ -30,6 +30,7 @@ use simulation::zones::ZoneDemand;
 
 use simulation::budget::ExtendedBudget;
 use simulation::degree_days::DegreeDays;
+use simulation::recycling::{RecyclingEconomics, RecyclingState};
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_save_data(
@@ -56,6 +57,7 @@ pub fn create_save_data(
     degree_days: Option<&DegreeDays>,
     climate_zone: Option<&ClimateZone>,
     construction_modifiers: Option<&ConstructionModifiers>,
+    recycling_state: Option<(&RecyclingState, &RecyclingEconomics)>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -320,6 +322,23 @@ pub fn create_save_data(
             speed_factor: cm.speed_factor,
             cost_factor: cm.cost_factor,
         }),
+        recycling_state: recycling_state.map(|(rs, re)| SaveRecyclingState {
+            tier: recycling_tier_to_u8(rs.tier),
+            daily_tons_diverted: rs.daily_tons_diverted,
+            daily_tons_contaminated: rs.daily_tons_contaminated,
+            daily_revenue: rs.daily_revenue,
+            daily_cost: rs.daily_cost,
+            total_revenue: rs.total_revenue,
+            total_cost: rs.total_cost,
+            participating_households: rs.participating_households,
+            price_paper: re.price_paper,
+            price_plastic: re.price_plastic,
+            price_glass: re.price_glass,
+            price_metal: re.price_metal,
+            price_organic: re.price_organic,
+            market_cycle_position: re.market_cycle_position,
+            economics_last_update_day: re.last_update_day,
+        }),
     }
 }
 
@@ -389,6 +408,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -422,6 +442,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.recycling_state.is_none());
     }
 
     #[test]
@@ -727,6 +748,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -803,6 +825,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -820,6 +843,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.recycling_state.is_none());
     }
 
     #[test]
@@ -876,6 +900,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -900,6 +925,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -955,6 +981,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -982,6 +1009,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1036,6 +1064,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1063,6 +1092,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1207,6 +1237,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1249,6 +1280,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1367,6 +1399,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1419,6 +1452,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1445,6 +1479,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1536,6 +1571,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1660,6 +1696,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1687,6 +1724,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1733,6 +1771,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1794,6 +1833,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1833,6 +1873,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1932,6 +1973,7 @@ mod tests {
             None,
             Some(&climate_zone),
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1984,6 +2026,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1991,6 +2034,7 @@ mod tests {
         assert!(restored.stormwater_grid.is_none());
         // When construction_modifiers is None, the restore uses default
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.recycling_state.is_none());
     }
 
     #[test]
@@ -2021,6 +2065,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
