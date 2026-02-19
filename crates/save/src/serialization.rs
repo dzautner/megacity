@@ -21,7 +21,7 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
-use simulation::weather::{Season, Weather, WeatherCondition, WeatherEvent};
+use simulation::weather::{ClimateZone, Season, Weather, WeatherCondition, WeatherEvent};
 // Note: WeatherEvent is a type alias for WeatherCondition (kept for backward compat)
 use simulation::water_sources::{WaterSource, WaterSourceType};
 use simulation::zones::ZoneDemand;
@@ -325,6 +325,31 @@ pub fn u8_to_water_source_type(v: u8) -> Option<WaterSourceType> {
     }
 }
 
+pub fn climate_zone_to_u8(z: ClimateZone) -> u8 {
+    match z {
+        ClimateZone::Temperate => 0,
+        ClimateZone::Tropical => 1,
+        ClimateZone::Arid => 2,
+        ClimateZone::Mediterranean => 3,
+        ClimateZone::Continental => 4,
+        ClimateZone::Subarctic => 5,
+        ClimateZone::Oceanic => 6,
+    }
+}
+
+pub fn u8_to_climate_zone(v: u8) -> ClimateZone {
+    match v {
+        0 => ClimateZone::Temperate,
+        1 => ClimateZone::Tropical,
+        2 => ClimateZone::Arid,
+        3 => ClimateZone::Mediterranean,
+        4 => ClimateZone::Continental,
+        5 => ClimateZone::Subarctic,
+        6 => ClimateZone::Oceanic,
+        _ => ClimateZone::Temperate, // fallback
+    }
+}
+
 pub fn unlock_node_to_u8(n: UnlockNode) -> u8 {
     match n {
         UnlockNode::BasicRoads => 0,
@@ -424,7 +449,8 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 /// v5 = stormwater_grid (StormwaterGrid serialization)
 /// v6 = water_sources (WaterSource component serialization), market-driven zone demand with vacancy rates
 /// v7 = degree_days (HDD/CDD tracking for HVAC energy demand)
-pub const CURRENT_SAVE_VERSION: u32 = 7;
+/// v8 = climate_zone in SaveWeather (ClimateZone resource)
+pub const CURRENT_SAVE_VERSION: u32 = 8;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -652,6 +678,9 @@ pub struct SaveWeather {
     pub precipitation_intensity: f32,
     #[serde(default)]
     pub last_update_hour: u32,
+    /// Climate zone (0=Temperate default for backward compat).
+    #[serde(default)]
+    pub climate_zone: u8,
 }
 
 fn default_save_humidity() -> f32 {
@@ -671,6 +700,7 @@ impl Default for SaveWeather {
             cloud_cover: 0.0,
             precipitation_intensity: 0.0,
             last_update_hour: 0,
+            climate_zone: 0, // Temperate
         }
     }
 }
@@ -860,6 +890,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 7;
     }
 
+    // v7 -> v8: Added climate_zone to SaveWeather.
+    // Uses `#[serde(default)]` so it deserializes as 0 (Temperate) from a v7 save.
+    if save.version == 7 {
+        save.version = 8;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
@@ -902,6 +938,7 @@ pub fn create_save_data(
     stormwater_grid: Option<&StormwaterGrid>,
     water_sources: Option<&[WaterSource]>,
     degree_days: Option<&DegreeDays>,
+    climate_zone: Option<&ClimateZone>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -1057,6 +1094,9 @@ pub fn create_save_data(
             cloud_cover: w.cloud_cover,
             precipitation_intensity: w.precipitation_intensity,
             last_update_hour: w.last_update_hour,
+            climate_zone: climate_zone
+                .map(|cz| climate_zone_to_u8(*cz))
+                .unwrap_or(0),
         }),
         unlock_state: unlock_state.map(|u| SaveUnlockState {
             development_points: u.development_points,
@@ -1224,6 +1264,11 @@ pub fn restore_weather(save: &SaveWeather) -> Weather {
         last_update_hour: save.last_update_hour,
         prev_extreme: false,
     }
+}
+
+/// Restore a `ClimateZone` resource from saved weather data.
+pub fn restore_climate_zone(save: &SaveWeather) -> ClimateZone {
+    u8_to_climate_zone(save.climate_zone)
 }
 
 /// Restore an `UnlockState` resource from saved data.
@@ -1417,6 +1462,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1534,6 +1580,7 @@ mod tests {
             cloud_cover: weather.cloud_cover,
             precipitation_intensity: weather.precipitation_intensity,
             last_update_hour: weather.last_update_hour,
+            climate_zone: 0,
         };
 
         let restored = restore_weather(&save);
@@ -1748,6 +1795,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1810,6 +1858,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1891,6 +1940,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1915,6 +1965,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1966,6 +2017,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1993,6 +2045,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2043,6 +2096,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -2070,6 +2124,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2210,6 +2265,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -2252,6 +2308,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2366,6 +2423,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2416,6 +2474,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2442,6 +2501,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2531,6 +2591,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
         );
 
@@ -2651,6 +2712,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2678,6 +2740,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2722,6 +2785,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2779,6 +2843,7 @@ mod tests {
             Some(&sw),
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2830,11 +2895,91 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
         assert!(restored.stormwater_grid.is_none());
+    }
+
+    #[test]
+
+    #[test]
+    fn test_climate_zone_roundtrip() {
+        for &zone in ClimateZone::all() {
+            let encoded = climate_zone_to_u8(zone);
+            let decoded = u8_to_climate_zone(encoded);
+            assert_eq!(zone, decoded, "ClimateZone roundtrip failed for {:?}", zone);
+        }
+        // Fallback for unknown values
+        assert_eq!(u8_to_climate_zone(255), ClimateZone::Temperate);
+    }
+
+    #[test]
+    fn test_climate_zone_save_roundtrip() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let weather = Weather {
+            season: Season::Summer,
+            temperature: 32.0,
+            current_event: WeatherCondition::Sunny,
+            event_days_remaining: 4,
+            last_update_day: 100,
+            disasters_enabled: true,
+            humidity: 0.3,
+            cloud_cover: 0.05,
+            precipitation_intensity: 0.0,
+            last_update_hour: 12,
+            prev_extreme: false,
+        };
+
+        let climate_zone = ClimateZone::Tropical;
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            Some(&weather),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&climate_zone),
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        let rw = restored.weather.as_ref().expect("weather present");
+        let restored_zone = restore_climate_zone(rw);
+        assert_eq!(restored_zone, ClimateZone::Tropical);
+    }
+
+    #[test]
+    fn test_climate_zone_backward_compat_defaults_to_temperate() {
+        // Old saves without climate_zone field should default to Temperate (0)
+        let save = SaveWeather::default();
+        let zone = restore_climate_zone(&save);
+        assert_eq!(zone, ClimateZone::Temperate);
     }
 
     #[test]
@@ -2865,6 +3010,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
