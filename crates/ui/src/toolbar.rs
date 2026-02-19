@@ -14,6 +14,42 @@ use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
 use crate::milestones::Milestones;
 
 // ---------------------------------------------------------------------------
+// Simulation speed keybinds (Space / 1 / 2 / 3)
+// ---------------------------------------------------------------------------
+
+/// Handles keyboard shortcuts for simulation speed control:
+/// - Space: toggle pause / unpause
+/// - 1: normal speed (1x)
+/// - 2: fast speed (2x)
+/// - 3: fastest speed (4x)
+pub fn speed_keybinds(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut clock: ResMut<GameClock>,
+    mut contexts: EguiContexts,
+) {
+    // Don't handle speed keys when egui wants keyboard input (e.g. text fields)
+    if contexts.ctx_mut().wants_keyboard_input() {
+        return;
+    }
+
+    if keyboard.just_pressed(KeyCode::Space) {
+        clock.paused = !clock.paused;
+    }
+    if keyboard.just_pressed(KeyCode::Digit1) {
+        clock.speed = 1.0;
+        clock.paused = false;
+    }
+    if keyboard.just_pressed(KeyCode::Digit2) {
+        clock.speed = 2.0;
+        clock.paused = false;
+    }
+    if keyboard.just_pressed(KeyCode::Digit3) {
+        clock.speed = 4.0;
+        clock.paused = false;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Resource: which category popup is open
 // ---------------------------------------------------------------------------
 

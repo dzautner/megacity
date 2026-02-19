@@ -42,6 +42,7 @@ impl Plugin for UiPlugin {
                     info_panel::event_journal_ui,
                     info_panel::advisor_window_ui,
                     info_panel::budget_panel_ui,
+                    toolbar::speed_keybinds,
                 ),
             );
     }
