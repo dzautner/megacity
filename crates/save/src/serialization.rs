@@ -25,6 +25,7 @@ use simulation::unlocks::UnlockState;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
+use simulation::heat_wave::HeatWaveState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::zones::ZoneDemand;
 
@@ -56,6 +57,7 @@ pub fn create_save_data(
     degree_days: Option<&DegreeDays>,
     climate_zone: Option<&ClimateZone>,
     construction_modifiers: Option<&ConstructionModifiers>,
+    heat_wave_state: Option<&HeatWaveState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -320,6 +322,19 @@ pub fn create_save_data(
             speed_factor: cm.speed_factor,
             cost_factor: cm.cost_factor,
         }),
+        heat_wave_state: heat_wave_state.map(|hw| SaveHeatWaveState {
+            consecutive_hot_days: hw.consecutive_hot_days,
+            severity: heat_wave_severity_to_u8(hw.severity),
+            excess_mortality_per_100k: hw.excess_mortality_per_100k,
+            energy_demand_multiplier: hw.energy_demand_multiplier,
+            water_demand_multiplier: hw.water_demand_multiplier,
+            road_damage_active: hw.road_damage_active,
+            fire_risk_multiplier: hw.fire_risk_multiplier,
+            blackout_risk: hw.blackout_risk,
+            heat_threshold_c: hw.heat_threshold_c,
+            consecutive_extreme_days: hw.consecutive_extreme_days,
+            last_check_day: hw.last_check_day,
+        }),
     }
 }
 
@@ -389,6 +404,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -422,6 +438,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.heat_wave_state.is_none());
     }
 
     #[test]
@@ -725,6 +742,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -801,6 +819,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -818,6 +837,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.heat_wave_state.is_none());
     }
 
     #[test]
@@ -874,6 +894,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -898,6 +919,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -953,6 +975,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -980,6 +1003,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1034,6 +1058,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1061,6 +1086,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1205,6 +1231,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1247,6 +1274,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1365,6 +1393,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1417,6 +1446,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1443,6 +1473,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1534,6 +1565,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1658,6 +1690,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1685,6 +1718,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1731,6 +1765,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1792,6 +1827,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1831,6 +1867,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1929,6 +1966,7 @@ mod tests {
             None,
             Some(&climate_zone),
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1981,6 +2019,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1988,6 +2027,7 @@ mod tests {
         assert!(restored.stormwater_grid.is_none());
         // When construction_modifiers is None, the restore uses default
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.heat_wave_state.is_none());
     }
 
     #[test]
@@ -2032,6 +2072,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2045,5 +2086,156 @@ mod tests {
         assert!((restored.demand.vacancy_commercial - 0.12).abs() < 0.001);
         assert!((restored.demand.vacancy_industrial - 0.08).abs() < 0.001);
         assert!((restored.demand.vacancy_office - 0.10).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_migrate_from_v9() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        save.version = 9;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 9);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+        // heat_wave_state should default to None for a migrated v9 save
+        assert!(save.heat_wave_state.is_none());
+    }
+
+    #[test]
+    fn test_heat_wave_state_roundtrip() {
+        use simulation::heat_wave::{HeatWaveState, HeatWaveSeverity};
+
+        let hw = HeatWaveState {
+            consecutive_hot_days: 5,
+            severity: HeatWaveSeverity::Moderate,
+            excess_mortality_per_100k: 1.23,
+            energy_demand_multiplier: 1.4,
+            water_demand_multiplier: 1.3,
+            road_damage_active: false,
+            fire_risk_multiplier: 1.5,
+            blackout_risk: 0.05,
+            heat_threshold_c: 38.0,
+            consecutive_extreme_days: 1,
+            last_check_day: 120,
+        };
+
+        let save = SaveHeatWaveState {
+            consecutive_hot_days: hw.consecutive_hot_days,
+            severity: heat_wave_severity_to_u8(hw.severity),
+            excess_mortality_per_100k: hw.excess_mortality_per_100k,
+            energy_demand_multiplier: hw.energy_demand_multiplier,
+            water_demand_multiplier: hw.water_demand_multiplier,
+            road_damage_active: hw.road_damage_active,
+            fire_risk_multiplier: hw.fire_risk_multiplier,
+            blackout_risk: hw.blackout_risk,
+            heat_threshold_c: hw.heat_threshold_c,
+            consecutive_extreme_days: hw.consecutive_extreme_days,
+            last_check_day: hw.last_check_day,
+        };
+
+        let restored = restore_heat_wave_state(&save);
+        assert_eq!(restored.consecutive_hot_days, 5);
+        assert_eq!(restored.severity, HeatWaveSeverity::Moderate);
+        assert!((restored.excess_mortality_per_100k - 1.23).abs() < 0.001);
+        assert!((restored.energy_demand_multiplier - 1.4).abs() < 0.001);
+        assert!((restored.water_demand_multiplier - 1.3).abs() < 0.001);
+        assert!(!restored.road_damage_active);
+        assert!((restored.fire_risk_multiplier - 1.5).abs() < 0.001);
+        assert!((restored.blackout_risk - 0.05).abs() < 0.001);
+        assert!((restored.heat_threshold_c - 38.0).abs() < 0.001);
+        assert_eq!(restored.consecutive_extreme_days, 1);
+        assert_eq!(restored.last_check_day, 120);
+    }
+
+    #[test]
+    fn test_heat_wave_severity_codec_roundtrip() {
+        use simulation::heat_wave::HeatWaveSeverity;
+
+        let severities = [
+            HeatWaveSeverity::None,
+            HeatWaveSeverity::Moderate,
+            HeatWaveSeverity::Severe,
+            HeatWaveSeverity::Extreme,
+        ];
+        for &s in &severities {
+            let encoded = heat_wave_severity_to_u8(s);
+            let decoded = u8_to_heat_wave_severity(encoded);
+            assert_eq!(s, decoded, "HeatWaveSeverity roundtrip failed for {:?}", s);
+        }
+        // Fallback for unknown values
+        assert_eq!(u8_to_heat_wave_severity(255), HeatWaveSeverity::None);
+    }
+
+    #[test]
+    fn test_heat_wave_state_backward_compat() {
+        // Saves without heat_wave_state should have it as None
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        assert!(restored.heat_wave_state.is_none());
     }
 }

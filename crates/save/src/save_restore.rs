@@ -7,6 +7,7 @@ use crate::save_types::*;
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::degree_days::DegreeDays;
+use simulation::heat_wave::HeatWaveState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
@@ -216,6 +217,23 @@ pub fn restore_construction_modifiers(save: &SaveConstructionModifiers) -> Const
     ConstructionModifiers {
         speed_factor: save.speed_factor,
         cost_factor: save.cost_factor,
+    }
+}
+
+/// Restore a `HeatWaveState` resource from saved data.
+pub fn restore_heat_wave_state(save: &SaveHeatWaveState) -> HeatWaveState {
+    HeatWaveState {
+        consecutive_hot_days: save.consecutive_hot_days,
+        severity: u8_to_heat_wave_severity(save.severity),
+        excess_mortality_per_100k: save.excess_mortality_per_100k,
+        energy_demand_multiplier: save.energy_demand_multiplier,
+        water_demand_multiplier: save.water_demand_multiplier,
+        road_damage_active: save.road_damage_active,
+        fire_risk_multiplier: save.fire_risk_multiplier,
+        blackout_risk: save.blackout_risk,
+        heat_threshold_c: save.heat_threshold_c,
+        consecutive_extreme_days: save.consecutive_extreme_days,
+        last_check_day: save.last_check_day,
     }
 }
 
