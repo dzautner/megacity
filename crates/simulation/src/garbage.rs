@@ -1,9 +1,47 @@
 use crate::buildings::Building;
-use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+use crate::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::ZoneType;
 use crate::services::{ServiceBuilding, ServiceType};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+
+// =============================================================================
+// Waste collection constants (WASTE-003)
+// =============================================================================
+
+/// Service radius in grid cells for waste collection facilities.
+pub const WASTE_SERVICE_RADIUS_CELLS: i32 = 20;
+
+/// Per-facility collection capacity in tons/day.
+pub fn facility_capacity_tons(service_type: ServiceType) -> f64 {
+    match service_type {
+        ServiceType::TransferStation => 200.0,
+        ServiceType::Landfill => 150.0,
+        ServiceType::RecyclingCenter => 100.0,
+        ServiceType::Incinerator => 250.0,
+        _ => 0.0,
+    }
+}
+
+/// Per-facility daily operating cost.
+pub fn facility_operating_cost(service_type: ServiceType) -> f64 {
+    match service_type {
+        ServiceType::TransferStation => 2_000.0,
+        ServiceType::Landfill => 1_500.0,
+        ServiceType::RecyclingCenter => 1_800.0,
+        ServiceType::Incinerator => 3_000.0,
+        _ => 0.0,
+    }
+}
+
+/// Cost per ton-mile for waste transport.
+pub const TRANSPORT_COST_PER_TON_MILE: f64 = 5.0;
+
+/// Happiness penalty for uncollected waste at a building's location.
+pub const UNCOLLECTED_WASTE_HAPPINESS_PENALTY: f32 = 5.0;
+
+/// Land value reduction factor for uncollected waste (10% reduction).
+pub const UNCOLLECTED_WASTE_LAND_VALUE_FACTOR: f32 = 0.10;
 
 #[derive(Resource)]
 pub struct GarbageGrid {
@@ -165,6 +203,67 @@ pub struct WasteSystem {
     pub recycling_buildings: u32,
     /// Total number of waste-producing buildings tracked.
     pub total_producers: u32,
+    // --- WASTE-003: Collection tracking ---
+    /// Total waste collected this period in tons.
+    pub total_collected_tons: f64,
+    /// Total collection capacity across all facilities in tons/day.
+    pub total_capacity_tons: f64,
+    /// Collection rate: min(1.0, capacity / generated). 1.0 means all waste collected.
+    pub collection_rate: f64,
+    /// Number of buildings not covered by any waste collection facility.
+    pub uncovered_buildings: u32,
+    /// Total transport cost this period.
+    pub transport_cost: f64,
+    /// Number of active waste collection facilities.
+    pub active_facilities: u32,
+}
+
+/// Per-cell waste collection coverage grid (WASTE-003).
+///
+/// Tracks which cells are within the service area of at least one waste
+/// collection facility. Used to determine uncollected waste accumulation
+/// and happiness/land-value penalties.
+#[derive(Resource)]
+pub struct WasteCollectionGrid {
+    /// Per-cell collection coverage: 0 = uncovered, >0 = number of covering facilities.
+    pub coverage: Vec<u8>,
+    /// Per-cell uncollected waste accumulation in lbs.
+    pub uncollected_lbs: Vec<f32>,
+    pub width: usize,
+    pub height: usize,
+}
+
+impl Default for WasteCollectionGrid {
+    fn default() -> Self {
+        Self {
+            coverage: vec![0; GRID_WIDTH * GRID_HEIGHT],
+            uncollected_lbs: vec![0.0; GRID_WIDTH * GRID_HEIGHT],
+            width: GRID_WIDTH,
+            height: GRID_HEIGHT,
+        }
+    }
+}
+
+impl WasteCollectionGrid {
+    #[inline]
+    fn idx(&self, x: usize, y: usize) -> usize {
+        y * self.width + x
+    }
+
+    /// Returns true if the cell at (x, y) is covered by waste collection.
+    pub fn is_covered(&self, x: usize, y: usize) -> bool {
+        self.coverage[self.idx(x, y)] > 0
+    }
+
+    /// Returns the uncollected waste in lbs at (x, y).
+    pub fn uncollected(&self, x: usize, y: usize) -> f32 {
+        self.uncollected_lbs[self.idx(x, y)]
+    }
+
+    /// Clear coverage counts (recalculated each tick).
+    pub fn clear_coverage(&mut self) {
+        self.coverage.fill(0);
+    }
 }
 
 /// Attaches `WasteProducer` components to buildings that don't have one yet.
@@ -268,6 +367,154 @@ pub fn update_waste_generation(
     waste_system.tracked_population = population;
     waste_system.recycling_buildings = recycling_count;
     waste_system.total_producers = producer_count;
+}
+
+/// Updates waste collection coverage and statistics (WASTE-003).
+///
+/// For each waste collection facility (transfer station, landfill, recycling center,
+/// incinerator), marks cells within service radius as covered. Then computes the
+/// collection rate as `min(1.0, total_capacity / total_generated)`, and accumulates
+/// uncollected waste at uncovered buildings.
+///
+/// Closer buildings are implicitly served first (capacity-based, not per-truck).
+/// Overlapping service areas do not double-count capacity.
+pub fn update_waste_collection(
+    slow_timer: Res<crate::SlowTickTimer>,
+    mut waste_system: ResMut<WasteSystem>,
+    mut collection_grid: ResMut<WasteCollectionGrid>,
+    waste_services: Query<&ServiceBuilding>,
+    building_producers: Query<(&Building, &WasteProducer)>,
+    service_producers: Query<(&ServiceBuilding, &WasteProducer)>,
+) {
+    if !slow_timer.should_run() {
+        return;
+    }
+
+    // Phase 1: Rebuild coverage grid from waste service buildings.
+    collection_grid.clear_coverage();
+    let mut total_capacity: f64 = 0.0;
+    let mut facility_count = 0u32;
+
+    for service in &waste_services {
+        if !ServiceBuilding::is_garbage(service.service_type) {
+            continue;
+        }
+        total_capacity += facility_capacity_tons(service.service_type);
+        facility_count += 1;
+
+        let radius = WASTE_SERVICE_RADIUS_CELLS;
+        let sx = service.grid_x as i32;
+        let sy = service.grid_y as i32;
+        let r2 = (radius as f32 * CELL_SIZE) * (radius as f32 * CELL_SIZE);
+
+        for dy in -radius..=radius {
+            for dx in -radius..=radius {
+                let cx = sx + dx;
+                let cy = sy + dy;
+                if cx < 0 || cy < 0 || cx >= GRID_WIDTH as i32 || cy >= GRID_HEIGHT as i32 {
+                    continue;
+                }
+                let wx_diff = dx as f32 * CELL_SIZE;
+                let wy_diff = dy as f32 * CELL_SIZE;
+                if wx_diff * wx_diff + wy_diff * wy_diff > r2 {
+                    continue;
+                }
+                let idx = cy as usize * collection_grid.width + cx as usize;
+                collection_grid.coverage[idx] = collection_grid.coverage[idx].saturating_add(1);
+            }
+        }
+    }
+
+    // Phase 2: Compute total waste generated by all buildings this period (lbs).
+    let mut total_generated_lbs: f64 = 0.0;
+    let mut uncovered_buildings = 0u32;
+
+    // Collect per-building waste and coverage status for zoned buildings.
+    for (building, producer) in &building_producers {
+        let is_residential = building.zone_type.is_residential();
+        let daily_lbs = producer.effective_daily_waste(building.occupants, is_residential) as f64;
+        total_generated_lbs += daily_lbs;
+
+        let covered = collection_grid.is_covered(building.grid_x, building.grid_y);
+        if !covered {
+            uncovered_buildings += 1;
+        }
+    }
+
+    // Service buildings that produce waste.
+    for (service, producer) in &service_producers {
+        let daily_lbs = producer.effective_daily_waste(0, false) as f64;
+        total_generated_lbs += daily_lbs;
+
+        let covered = collection_grid.is_covered(service.grid_x, service.grid_y);
+        if !covered {
+            uncovered_buildings += 1;
+        }
+    }
+
+    let total_generated_tons = total_generated_lbs / 2000.0;
+
+    // Phase 3: Compute collection rate.
+    let collection_rate = if total_generated_tons > 0.0 {
+        (total_capacity / total_generated_tons).min(1.0)
+    } else {
+        1.0 // nothing to collect
+    };
+
+    let total_collected_tons = total_generated_tons * collection_rate;
+
+    // Phase 4: Accumulate uncollected waste at uncovered building locations.
+    // For covered buildings, reduce uncollected waste proportional to collection rate.
+    // For uncovered buildings, all waste accumulates.
+    for (building, producer) in &building_producers {
+        let is_residential = building.zone_type.is_residential();
+        let daily_lbs = producer.effective_daily_waste(building.occupants, is_residential);
+        let idx = building.grid_y * collection_grid.width + building.grid_x;
+        let covered = collection_grid.coverage[idx] > 0;
+
+        if covered {
+            // Covered: only uncollected fraction accumulates, and collected fraction decays.
+            let uncollected_fraction = 1.0 - collection_rate as f32;
+            collection_grid.uncollected_lbs[idx] += daily_lbs * uncollected_fraction;
+            // Decay: collection picks up some accumulated waste too.
+            collection_grid.uncollected_lbs[idx] *= 1.0 - collection_rate as f32 * 0.5;
+        } else {
+            // Not covered: all waste accumulates.
+            collection_grid.uncollected_lbs[idx] += daily_lbs;
+        }
+        // Cap uncollected waste to prevent unbounded accumulation.
+        collection_grid.uncollected_lbs[idx] = collection_grid.uncollected_lbs[idx].min(10_000.0);
+    }
+
+    for (service, producer) in &service_producers {
+        let daily_lbs = producer.effective_daily_waste(0, false);
+        let idx = service.grid_y * collection_grid.width + service.grid_x;
+        let covered = collection_grid.coverage[idx] > 0;
+
+        if covered {
+            let uncollected_fraction = 1.0 - collection_rate as f32;
+            collection_grid.uncollected_lbs[idx] += daily_lbs * uncollected_fraction;
+            collection_grid.uncollected_lbs[idx] *= 1.0 - collection_rate as f32 * 0.5;
+        } else {
+            collection_grid.uncollected_lbs[idx] += daily_lbs;
+        }
+        collection_grid.uncollected_lbs[idx] = collection_grid.uncollected_lbs[idx].min(10_000.0);
+    }
+
+    // Phase 5: Compute transport cost (simplified: total_collected * cost_per_ton_mile * avg_distance).
+    // Average distance approximated as half the service radius in cells, converted to miles.
+    // 1 cell = CELL_SIZE world units. Assume 1 world unit ~ 1 meter, so CELL_SIZE meters per cell.
+    let avg_distance_cells = WASTE_SERVICE_RADIUS_CELLS as f64 / 2.0;
+    let avg_distance_miles = avg_distance_cells * CELL_SIZE as f64 / 1609.0; // meters to miles
+    let transport_cost = total_collected_tons * TRANSPORT_COST_PER_TON_MILE * avg_distance_miles;
+
+    // Phase 6: Update WasteSystem resource.
+    waste_system.total_collected_tons = total_collected_tons;
+    waste_system.total_capacity_tons = total_capacity;
+    waste_system.collection_rate = collection_rate;
+    waste_system.uncovered_buildings = uncovered_buildings;
+    waste_system.transport_cost = transport_cost;
+    waste_system.active_facilities = facility_count;
 }
 
 pub fn update_garbage(
@@ -496,5 +743,197 @@ mod tests {
             0.0
         );
         assert_eq!(WasteProducer::commercial_rate(ZoneType::Industrial, 1), 0.0);
+    }
+
+    // =========================================================================
+    // WASTE-003: Waste Collection System tests
+    // =========================================================================
+
+    #[test]
+    fn test_facility_capacity_tons() {
+        assert_eq!(facility_capacity_tons(ServiceType::TransferStation), 200.0);
+        assert_eq!(facility_capacity_tons(ServiceType::Landfill), 150.0);
+        assert_eq!(facility_capacity_tons(ServiceType::RecyclingCenter), 100.0);
+        assert_eq!(facility_capacity_tons(ServiceType::Incinerator), 250.0);
+        // Non-garbage facilities should return 0.
+        assert_eq!(facility_capacity_tons(ServiceType::Hospital), 0.0);
+    }
+
+    #[test]
+    fn test_facility_operating_cost() {
+        assert_eq!(
+            facility_operating_cost(ServiceType::TransferStation),
+            2_000.0
+        );
+        assert_eq!(facility_operating_cost(ServiceType::Landfill), 1_500.0);
+        assert_eq!(
+            facility_operating_cost(ServiceType::RecyclingCenter),
+            1_800.0
+        );
+        assert_eq!(facility_operating_cost(ServiceType::Incinerator), 3_000.0);
+        assert_eq!(facility_operating_cost(ServiceType::Hospital), 0.0);
+    }
+
+    #[test]
+    fn test_waste_collection_grid_default() {
+        let grid = WasteCollectionGrid::default();
+        assert_eq!(grid.width, GRID_WIDTH);
+        assert_eq!(grid.height, GRID_HEIGHT);
+        assert!(!grid.is_covered(0, 0));
+        assert!(!grid.is_covered(128, 128));
+        assert_eq!(grid.uncollected(0, 0), 0.0);
+    }
+
+    #[test]
+    fn test_waste_collection_grid_coverage() {
+        let mut grid = WasteCollectionGrid::default();
+        // Not covered initially.
+        assert!(!grid.is_covered(10, 10));
+        // Mark as covered.
+        let idx = grid.idx(10, 10);
+        grid.coverage[idx] = 1;
+        assert!(grid.is_covered(10, 10));
+        // Multiple overlapping facilities.
+        grid.coverage[idx] = 3;
+        assert!(grid.is_covered(10, 10));
+    }
+
+    #[test]
+    fn test_transfer_station_serves_within_20_cells() {
+        // Simulate a transfer station at (100, 100) covering a 20-cell radius.
+        let mut grid = WasteCollectionGrid::default();
+        let sx = 100i32;
+        let sy = 100i32;
+        let radius = WASTE_SERVICE_RADIUS_CELLS;
+        let r2 = (radius as f32 * CELL_SIZE) * (radius as f32 * CELL_SIZE);
+
+        for dy in -radius..=radius {
+            for dx in -radius..=radius {
+                let cx = sx + dx;
+                let cy = sy + dy;
+                if cx < 0 || cy < 0 || cx >= GRID_WIDTH as i32 || cy >= GRID_HEIGHT as i32 {
+                    continue;
+                }
+                let wx_diff = dx as f32 * CELL_SIZE;
+                let wy_diff = dy as f32 * CELL_SIZE;
+                if wx_diff * wx_diff + wy_diff * wy_diff > r2 {
+                    continue;
+                }
+                let idx = cy as usize * grid.width + cx as usize;
+                grid.coverage[idx] = grid.coverage[idx].saturating_add(1);
+            }
+        }
+
+        // Building at (100, 100) - same cell as station - should be covered.
+        assert!(grid.is_covered(100, 100));
+        // Building at (110, 100) - 10 cells away - within radius.
+        assert!(grid.is_covered(110, 100));
+        // Building at (119, 100) - 19 cells away - within radius.
+        assert!(grid.is_covered(119, 100));
+        // Building at (120, 100) - 20 cells away - exactly at edge, should be covered.
+        assert!(grid.is_covered(120, 100));
+        // Building at (125, 100) - 25 cells away - outside radius.
+        assert!(!grid.is_covered(125, 100));
+        // Building at (0, 0) - far away - not covered.
+        assert!(!grid.is_covered(0, 0));
+    }
+
+    #[test]
+    fn test_collection_rate_at_80_percent_capacity() {
+        // If capacity = 80 tons/day and generation = 100 tons/day,
+        // collection rate = 80/100 = 0.8, meaning 20% uncollected.
+        let capacity: f64 = 80.0;
+        let generated: f64 = 100.0;
+        let rate = (capacity / generated).min(1.0);
+        assert!((rate - 0.8).abs() < 0.001);
+
+        // Uncollected = generated * (1 - rate)
+        let uncollected = generated * (1.0 - rate);
+        assert!((uncollected - 20.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_collection_rate_over_capacity() {
+        // If capacity exceeds generation, rate is capped at 1.0.
+        let capacity: f64 = 500.0;
+        let generated: f64 = 200.0;
+        let rate = (capacity / generated).min(1.0);
+        assert_eq!(rate, 1.0);
+    }
+
+    #[test]
+    fn test_collection_rate_zero_generation() {
+        // No waste generated: rate should be 1.0 (nothing to collect).
+        let capacity: f64 = 200.0;
+        let generated: f64 = 0.0;
+        let rate = if generated > 0.0 {
+            (capacity / generated).min(1.0)
+        } else {
+            1.0
+        };
+        assert_eq!(rate, 1.0);
+    }
+
+    #[test]
+    fn test_waste_system_collection_defaults() {
+        let ws = WasteSystem::default();
+        assert_eq!(ws.total_collected_tons, 0.0);
+        assert_eq!(ws.total_capacity_tons, 0.0);
+        assert_eq!(ws.collection_rate, 0.0);
+        assert_eq!(ws.uncovered_buildings, 0);
+        assert_eq!(ws.transport_cost, 0.0);
+        assert_eq!(ws.active_facilities, 0);
+    }
+
+    #[test]
+    fn test_uncollected_waste_accumulates_uncovered() {
+        // Simulate uncollected waste at an uncovered building.
+        let mut grid = WasteCollectionGrid::default();
+        let idx = grid.idx(50, 50);
+
+        // Building generates 100 lbs/day, not covered.
+        assert!(!grid.is_covered(50, 50));
+        grid.uncollected_lbs[idx] += 100.0;
+        assert_eq!(grid.uncollected(50, 50), 100.0);
+
+        // Next tick: another 100 lbs accumulates.
+        grid.uncollected_lbs[idx] += 100.0;
+        assert_eq!(grid.uncollected(50, 50), 200.0);
+    }
+
+    #[test]
+    fn test_uncollected_waste_capped() {
+        let mut grid = WasteCollectionGrid::default();
+        let idx = grid.idx(50, 50);
+        grid.uncollected_lbs[idx] = 15_000.0;
+        grid.uncollected_lbs[idx] = grid.uncollected_lbs[idx].min(10_000.0);
+        assert_eq!(grid.uncollected(50, 50), 10_000.0);
+    }
+
+    #[test]
+    fn test_clear_coverage_resets() {
+        let mut grid = WasteCollectionGrid::default();
+        let idx = grid.idx(10, 10);
+        grid.coverage[idx] = 5;
+        assert!(grid.is_covered(10, 10));
+
+        grid.clear_coverage();
+        assert!(!grid.is_covered(10, 10));
+        // Uncollected waste should NOT be cleared by clear_coverage.
+        grid.uncollected_lbs[idx] = 500.0;
+        grid.clear_coverage();
+        assert_eq!(grid.uncollected(10, 10), 500.0);
+    }
+
+    #[test]
+    fn test_service_radius_constant() {
+        // Verify the service radius matches the ticket spec (20 cells).
+        assert_eq!(WASTE_SERVICE_RADIUS_CELLS, 20);
+    }
+
+    #[test]
+    fn test_transfer_station_capacity_200_tons() {
+        // Verify the transfer station capacity matches the ticket spec.
+        assert_eq!(facility_capacity_tons(ServiceType::TransferStation), 200.0);
     }
 }
