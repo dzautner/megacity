@@ -13,11 +13,11 @@ use serialization::{
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
-use simulation::degree_days::DegreeDays;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
+use simulation::degree_days::DegreeDays;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::life_simulation::LifeSimTimer;
