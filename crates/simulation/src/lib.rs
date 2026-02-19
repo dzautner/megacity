@@ -368,6 +368,12 @@ impl Plugin for SimulationPlugin {
                     natural_resources::update_resource_production,
                     wealth::update_wealth_stats,
                     tourism::update_tourism,
+                )
+                    .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     unlocks::award_development_points,
                     trees::tree_effects,
                 )
