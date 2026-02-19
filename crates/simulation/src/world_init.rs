@@ -21,7 +21,7 @@ use crate::road_segments::RoadSegmentStore;
 use crate::roads::RoadNetwork;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::utilities::{UtilitySource, UtilityType};
-use crate::{natural_resources, terrain};
+use crate::natural_resources;
 
 pub fn init_world(mut commands: Commands, mut segments: ResMut<RoadSegmentStore>) {
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
