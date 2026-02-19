@@ -152,7 +152,7 @@ impl ServiceBuilding {
             ServiceType::Landfill => 20.0 * CELL_SIZE,
             ServiceType::RecyclingCenter => 25.0 * CELL_SIZE,
             ServiceType::Incinerator => 30.0 * CELL_SIZE,
-            ServiceType::TransferStation => 15.0 * CELL_SIZE,
+            ServiceType::TransferStation => 20.0 * CELL_SIZE,
             ServiceType::Cemetery => 120.0,
             ServiceType::Crematorium => 80.0,
             ServiceType::CityHall => 40.0 * CELL_SIZE,
@@ -437,7 +437,8 @@ impl ServiceBuilding {
             ServiceType::SubwayStation
             | ServiceType::TramDepot
             | ServiceType::DataCenter
-            | ServiceType::DistrictHeatingPlant => (2, 2),
+            | ServiceType::DistrictHeatingPlant
+            | ServiceType::TransferStation => (2, 2),
             ServiceType::GeothermalPlant => (3, 3),
             _ => (1, 1),
         }

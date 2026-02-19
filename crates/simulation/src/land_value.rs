@@ -43,6 +43,7 @@ pub fn update_land_value(
     grid: Res<WorldGrid>,
     pollution: Res<PollutionGrid>,
     services: Query<&ServiceBuilding>,
+    waste_collection: Res<crate::garbage::WasteCollectionGrid>,
 ) {
     if !slow_timer.should_run() {
         return;
@@ -75,6 +76,14 @@ pub fn update_land_value(
             // Pollution reduces value
             let poll = pollution.get(x, y) as i32;
             value -= poll / 3;
+
+            // Uncollected waste reduces land value (WASTE-003: -10% penalty).
+            let uncollected = waste_collection.uncollected(x, y);
+            if uncollected > 100.0 {
+                let penalty =
+                    (value as f32 * crate::garbage::UNCOLLECTED_WASTE_LAND_VALUE_FACTOR) as i32;
+                value -= penalty;
+            }
 
             land_value.set(x, y, value.clamp(0, 255) as u8);
         }
