@@ -50,6 +50,23 @@ impl Default for VirtualPopulation {
 }
 
 impl VirtualPopulation {
+    /// Reconstruct from saved data. The smoothed frame time is reset to a
+    /// neutral default so that the dynamic cap adjustment starts fresh.
+    pub fn from_saved(
+        total_virtual: u32,
+        virtual_employed: u32,
+        district_stats: Vec<DistrictStats>,
+        max_real_citizens: u32,
+    ) -> Self {
+        Self {
+            total_virtual,
+            virtual_employed,
+            district_stats,
+            max_real_citizens,
+            smoothed_frame_time: 0.016,
+        }
+    }
+
     pub fn total_with_real(&self, real_count: u32) -> u32 {
         real_count + self.total_virtual
     }
