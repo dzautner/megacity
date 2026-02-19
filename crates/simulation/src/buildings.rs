@@ -1,4 +1,7 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
+use rand::seq::IteratorRandom;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -71,11 +74,59 @@ const SPAWN_INTERVAL: u32 = 2;
 #[derive(Resource, Default)]
 pub struct BuildingSpawnTimer(pub u32);
 
+/// Maintained set of cells eligible for building placement per zone type.
+/// Rebuilt from the grid whenever it changes (zoning, buildings, roads, infrastructure).
+#[derive(Resource, Default)]
+pub struct EligibleCells {
+    pub cells: Vec<(ZoneType, Vec<(usize, usize)>)>,
+}
+
+/// Rebuild the eligible cell lists from the grid.
+/// Runs only when the grid resource has changed (Bevy change detection).
+pub fn rebuild_eligible_cells(grid: Res<WorldGrid>, mut eligible: ResMut<EligibleCells>) {
+    if !grid.is_changed() {
+        return;
+    }
+
+    let zones = [
+        ZoneType::ResidentialLow,
+        ZoneType::ResidentialHigh,
+        ZoneType::CommercialLow,
+        ZoneType::CommercialHigh,
+        ZoneType::Industrial,
+        ZoneType::Office,
+    ];
+
+    let mut result: Vec<(ZoneType, Vec<(usize, usize)>)> = Vec::with_capacity(zones.len());
+
+    for zone in zones {
+        let mut cells = Vec::new();
+        for y in 0..GRID_HEIGHT {
+            for x in 0..GRID_WIDTH {
+                let cell = grid.get(x, y);
+                if cell.zone == zone
+                    && cell.building_id.is_none()
+                    && cell.cell_type == CellType::Grass
+                    && cell.has_power
+                    && cell.has_water
+                    && is_adjacent_to_road(&grid, x, y)
+                {
+                    cells.push((x, y));
+                }
+            }
+        }
+        result.push((zone, cells));
+    }
+
+    eligible.cells = result;
+}
+
 pub fn building_spawner(
     mut commands: Commands,
     mut grid: ResMut<WorldGrid>,
     demand: Res<ZoneDemand>,
     mut timer: ResMut<BuildingSpawnTimer>,
+    eligible: Res<EligibleCells>,
 ) {
     timer.0 += 1;
     if timer.0 < SPAWN_INTERVAL {
@@ -85,69 +136,53 @@ pub fn building_spawner(
 
     let mut rng = rand::thread_rng();
 
-    // Try to spawn buildings in zoned cells with demand
-    for zone in [
-        ZoneType::ResidentialLow,
-        ZoneType::ResidentialHigh,
-        ZoneType::CommercialLow,
-        ZoneType::CommercialHigh,
-        ZoneType::Industrial,
-        ZoneType::Office,
-    ] {
-        if demand.demand_for(zone) < 0.1 {
+    for (zone, cells) in &eligible.cells {
+        if demand.demand_for(*zone) < 0.1 || cells.is_empty() {
             continue;
         }
 
-        let spawn_chance = demand.demand_for(zone);
-        let mut spawned = 0;
+        let spawn_chance = demand.demand_for(*zone);
         let max_per_tick = 50;
 
-        for y in 0..GRID_HEIGHT {
-            for x in 0..GRID_WIDTH {
-                if spawned >= max_per_tick {
-                    break;
-                }
-                let cell = grid.get(x, y);
-                if cell.zone != zone || cell.building_id.is_some() {
-                    continue;
-                }
-                if cell.cell_type != CellType::Grass {
-                    continue;
-                }
-                if !is_adjacent_to_road(&grid, x, y) {
-                    continue;
-                }
-                // Require power and water infrastructure
-                if !cell.has_power || !cell.has_water {
-                    continue;
-                }
+        // Sample up to max_per_tick cells randomly from eligible list
+        let selected: Vec<(usize, usize)> = cells
+            .iter()
+            .copied()
+            .choose_multiple(&mut rng, max_per_tick.min(cells.len()));
 
-                if rng.gen::<f32>() > spawn_chance {
-                    continue;
-                }
-
-                let capacity = Building::capacity_for_level(zone, 1);
-                let construction_ticks = 100; // ~10 seconds at 10Hz
-                let entity = commands
-                    .spawn((
-                        Building {
-                            zone_type: zone,
-                            level: 1,
-                            grid_x: x,
-                            grid_y: y,
-                            capacity,
-                            occupants: 0,
-                        },
-                        UnderConstruction {
-                            ticks_remaining: construction_ticks,
-                            total_ticks: construction_ticks,
-                        },
-                    ))
-                    .id();
-
-                grid.get_mut(x, y).building_id = Some(entity);
-                spawned += 1;
+        for (x, y) in selected {
+            // Double-check cell is still eligible (could have changed since rebuild)
+            let cell = grid.get(x, y);
+            if cell.zone != *zone || cell.building_id.is_some() {
+                continue;
             }
+
+            if rng.gen::<f32>() > spawn_chance {
+                continue;
+            }
+
+            let capacity = Building::capacity_for_level(*zone, 1);
+            let construction_ticks = 100; // ~10 seconds at 10Hz
+            let entity = commands
+                .spawn((
+                    Building {
+                        zone_type: *zone,
+                        level: 1,
+                        grid_x: x,
+                        grid_y: y,
+                        capacity,
+                        occupants: 0,
+                    },
+                    UnderConstruction {
+                        ticks_remaining: construction_ticks,
+                        total_ticks: construction_ticks,
+                    },
+                ))
+                .id();
+
+            // This grid mutation triggers Bevy change detection,
+            // so rebuild_eligible_cells will re-run next tick
+            grid.get_mut(x, y).building_id = Some(entity);
         }
     }
 }
@@ -207,5 +242,69 @@ mod tests {
             assert!(cell.building_id.is_none());
             assert_eq!(cell.zone, ZoneType::None);
         }
+    }
+
+    #[test]
+    fn test_eligible_cells_finds_zoned_cells() {
+        let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        // Place a road at (10, 10)
+        grid.get_mut(10, 10).cell_type = CellType::Road;
+        // Zone cells adjacent to road
+        for x in 8..=9 {
+            let cell = grid.get_mut(x, 10);
+            cell.zone = ZoneType::ResidentialLow;
+            cell.has_power = true;
+            cell.has_water = true;
+        }
+
+        let mut res_cells = Vec::new();
+        for y in 0..GRID_HEIGHT {
+            for x in 0..GRID_WIDTH {
+                let cell = grid.get(x, y);
+                if cell.zone == ZoneType::ResidentialLow
+                    && cell.building_id.is_none()
+                    && cell.cell_type == CellType::Grass
+                    && cell.has_power
+                    && cell.has_water
+                    && is_adjacent_to_road(&grid, x, y)
+                {
+                    res_cells.push((x, y));
+                }
+            }
+        }
+
+        assert_eq!(res_cells.len(), 2);
+        assert!(res_cells.contains(&(8, 10)));
+        assert!(res_cells.contains(&(9, 10)));
+    }
+
+    #[test]
+    fn test_eligible_cells_excludes_occupied() {
+        let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        grid.get_mut(10, 10).cell_type = CellType::Road;
+        let cell = grid.get_mut(9, 10);
+        cell.zone = ZoneType::Industrial;
+        cell.has_power = true;
+        cell.has_water = true;
+        // Mark as having a building
+        cell.building_id = Some(Entity::from_raw(1));
+
+        let mut eligible_count = 0;
+        for y in 0..GRID_HEIGHT {
+            for x in 0..GRID_WIDTH {
+                let cell = grid.get(x, y);
+                if cell.zone == ZoneType::Industrial
+                    && cell.building_id.is_none()
+                    && cell.cell_type == CellType::Grass
+                    && cell.has_power
+                    && cell.has_water
+                    && is_adjacent_to_road(&grid, x, y)
+                {
+                    eligible_count += 1;
+                }
+            }
+        }
+
+        assert_eq!(eligible_count, 0);
     }
 }

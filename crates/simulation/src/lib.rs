@@ -73,7 +73,7 @@ use advisors::AdvisorPanel;
 use airport::AirportStats;
 use budget::ExtendedBudget;
 use building_upgrade::UpgradeTimer;
-use buildings::{Building, BuildingSpawnTimer};
+use buildings::{Building, BuildingSpawnTimer, EligibleCells};
 use citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
@@ -159,6 +159,7 @@ impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ZoneDemand>()
             .init_resource::<BuildingSpawnTimer>()
+            .init_resource::<EligibleCells>()
             .init_resource::<CitizenSpawnTimer>()
             .init_resource::<GameClock>()
             .init_resource::<CityBudget>()
@@ -240,6 +241,7 @@ impl Plugin for SimulationPlugin {
                     tick_slow_timer,
                     time_of_day::tick_game_clock,
                     zones::update_zone_demand,
+                    buildings::rebuild_eligible_cells,
                     buildings::building_spawner,
                     buildings::progress_construction,
                     education_jobs::assign_workplace_details,
