@@ -1145,8 +1145,8 @@ pub fn precipitation_intensity_for_event(
 
         WeatherCondition::Snow => {
             // Water equivalent: 0.05 - 0.3
-            let base = 0.05 + h * 0.25; // 0.05 .. 0.30
-            base
+            // 0.05 .. 0.30
+            0.05 + h * 0.25
         }
     }
 }
