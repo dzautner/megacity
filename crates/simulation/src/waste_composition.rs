@@ -1,12 +1,12 @@
-/// Waste composition model (WASTE-002).
-///
-/// Breaks municipal solid waste (MSW) into material categories and provides
-/// methods to compute the recyclable fraction, compostable fraction, and
-/// energy content (BTU/lb) of the waste stream.
-///
-/// Default percentages reflect the average US MSW composition (EPA data):
-///   paper/cardboard 25%, food waste 22%, yard waste 12%, plastics 13%,
-///   metals 9%, glass 4%, wood 6%, textiles 6%, other 3%.
+//! Waste composition model (WASTE-002).
+//!
+//! Breaks municipal solid waste (MSW) into material categories and provides
+//! methods to compute the recyclable fraction, compostable fraction, and
+//! energy content (BTU/lb) of the waste stream.
+//!
+//! Default percentages reflect the average US MSW composition (EPA data):
+//!   paper/cardboard 25%, food waste 22%, yard waste 12%, plastics 13%,
+//!   metals 9%, glass 4%, wood 6%, textiles 6%, other 3%.
 
 /// Per-material energy content in BTU per pound (higher heating value).
 /// Sources: EPA / US DOE waste-to-energy reference data.
