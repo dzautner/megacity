@@ -266,6 +266,12 @@ impl ActiveTool {
     }
 }
 
+/// Grid snap mode: when enabled, cursor snaps to cell centers for precise placement.
+#[derive(Resource, Default)]
+pub struct GridSnap {
+    pub enabled: bool,
+}
+
 #[derive(Resource, Default)]
 pub struct CursorGridPos {
     pub grid_x: i32,
@@ -333,6 +339,7 @@ pub fn update_cursor_grid_pos(
     camera_q: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     mut cursor: ResMut<CursorGridPos>,
     grid: Res<WorldGrid>,
+    grid_snap: Res<GridSnap>,
 ) {
     let Ok(window) = windows.get_single() else {
         return;
@@ -350,7 +357,15 @@ pub fn update_cursor_grid_pos(
                     let hit = ray.origin + ray.direction * t;
                     // 3D: hit.x -> grid X, hit.z -> grid Y
                     let (gx, gy) = WorldGrid::world_to_grid(hit.x, hit.z);
-                    cursor.world_pos = Vec2::new(hit.x, hit.z);
+
+                    // When grid snap is enabled, snap world_pos to the cell center
+                    if grid_snap.enabled && gx >= 0 && gy >= 0 {
+                        let (cx, cz) = WorldGrid::grid_to_world(gx as usize, gy as usize);
+                        cursor.world_pos = Vec2::new(cx, cz);
+                    } else {
+                        cursor.world_pos = Vec2::new(hit.x, hit.z);
+                    }
+
                     cursor.grid_x = gx;
                     cursor.grid_y = gy;
                     cursor.valid = gx >= 0 && gy >= 0 && grid.in_bounds(gx as usize, gy as usize);
@@ -1018,6 +1033,13 @@ fn place_service_if_affordable(
 // ---------------------------------------------------------------------------
 // Keyboard shortcuts (core tools only; extended tools via UI toolbar)
 // ---------------------------------------------------------------------------
+
+/// Toggle grid snap mode with the F key.
+pub fn toggle_grid_snap(keys: Res<ButtonInput<KeyCode>>, mut grid_snap: ResMut<GridSnap>) {
+    if keys.just_pressed(KeyCode::KeyF) {
+        grid_snap.enabled = !grid_snap.enabled;
+    }
+}
 
 pub fn keyboard_tool_switch(keys: Res<ButtonInput<KeyCode>>, mut tool: ResMut<ActiveTool>) {
     if keys.just_pressed(KeyCode::Digit1) {

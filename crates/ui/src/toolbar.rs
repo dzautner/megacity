@@ -7,7 +7,7 @@ use simulation::time_of_day::GameClock;
 use simulation::weather::Weather;
 use simulation::zones::ZoneDemand;
 
-use rendering::input::{ActiveTool, StatusMessage};
+use rendering::input::{ActiveTool, GridSnap, StatusMessage};
 use rendering::overlay::{OverlayMode, OverlayState};
 use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
 
@@ -954,6 +954,7 @@ pub fn toolbar_ui(
     mut open_cat: ResMut<OpenCategory>,
     _milestones: Res<Milestones>,
     weather: Res<Weather>,
+    grid_snap: Res<GridSnap>,
 ) {
     let categories = build_categories();
 
@@ -1052,6 +1053,16 @@ pub fn toolbar_ui(
                 } else {
                     ui.separator();
                     ui.label(tool.label());
+                }
+
+                // Grid snap indicator
+                if grid_snap.enabled {
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new("[GRID SNAP]")
+                            .strong()
+                            .color(egui::Color32::from_rgb(100, 255, 100)),
+                    );
                 }
             });
         });

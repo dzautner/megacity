@@ -17,7 +17,7 @@ pub mod road_render;
 pub mod status_icons;
 
 use camera::{CameraDrag, LeftClickDrag};
-use input::{ActiveTool, CursorGridPos, RoadDrawState, SelectedBuilding, StatusMessage};
+use input::{ActiveTool, CursorGridPos, GridSnap, RoadDrawState, SelectedBuilding, StatusMessage};
 use overlay::OverlayState;
 use props::PropsSpawned;
 
@@ -34,6 +34,7 @@ impl Plugin for RenderingPlugin {
             .init_resource::<SelectedBuilding>()
             .init_resource::<PropsSpawned>()
             .init_resource::<RoadDrawState>()
+            .init_resource::<GridSnap>()
             .add_systems(
                 Startup,
                 (
@@ -65,6 +66,7 @@ impl Plugin for RenderingPlugin {
                     input::handle_tool_input,
                     input::handle_tree_tool,
                     input::keyboard_tool_switch,
+                    input::toggle_grid_snap,
                     input::tick_status_message,
                     overlay::toggle_overlay_keys,
                 ),
