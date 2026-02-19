@@ -397,7 +397,8 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 /// v2 = policies, weather, unlock_state, extended_budget, loans
 /// v3 = lifecycle_timer, path_cache, velocity per citizen
 /// v4 = life_sim_timer (LifeSimTimer serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 4;
+/// v5 = market-driven zone demand with vacancy rates
+pub const CURRENT_SAVE_VERSION: u32 = 5;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -510,6 +511,15 @@ pub struct SaveDemand {
     pub commercial: f32,
     pub industrial: f32,
     pub office: f32,
+    /// Vacancy rates per zone type (added in v5).
+    #[serde(default)]
+    pub vacancy_residential: f32,
+    #[serde(default)]
+    pub vacancy_commercial: f32,
+    #[serde(default)]
+    pub vacancy_industrial: f32,
+    #[serde(default)]
+    pub vacancy_office: f32,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -757,6 +767,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 4;
     }
 
+    // v4 -> v5: Added vacancy rate fields to SaveDemand for market-driven zone demand.
+    // Uses `#[serde(default)]` so vacancy fields default to 0.0 from a v4 save.
+    if save.version == 4 {
+        save.version = 5;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
@@ -839,6 +855,10 @@ pub fn create_save_data(
             commercial: demand.commercial,
             industrial: demand.industrial,
             office: demand.office,
+            vacancy_residential: demand.vacancy_residential,
+            vacancy_commercial: demand.vacancy_commercial,
+            vacancy_industrial: demand.vacancy_industrial,
+            vacancy_office: demand.vacancy_office,
         },
         buildings: buildings
             .iter()
@@ -2227,5 +2247,98 @@ mod tests {
         let old = migrate_save(&mut save);
         assert_eq!(old, 3);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_migrate_from_v4() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        save.version = 4;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 4);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+        // Vacancy fields should default to 0.0 for a migrated v4 save.
+        assert!((save.demand.vacancy_residential).abs() < 0.001);
+        assert!((save.demand.vacancy_commercial).abs() < 0.001);
+        assert!((save.demand.vacancy_industrial).abs() < 0.001);
+        assert!((save.demand.vacancy_office).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_vacancy_rates_roundtrip() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand {
+            residential: 0.7,
+            commercial: 0.5,
+            industrial: 0.3,
+            office: 0.2,
+            vacancy_residential: 0.06,
+            vacancy_commercial: 0.12,
+            vacancy_industrial: 0.08,
+            vacancy_office: 0.10,
+        };
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        assert!((restored.demand.residential - 0.7).abs() < 0.001);
+        assert!((restored.demand.commercial - 0.5).abs() < 0.001);
+        assert!((restored.demand.industrial - 0.3).abs() < 0.001);
+        assert!((restored.demand.office - 0.2).abs() < 0.001);
+        assert!((restored.demand.vacancy_residential - 0.06).abs() < 0.001);
+        assert!((restored.demand.vacancy_commercial - 0.12).abs() < 0.001);
+        assert!((restored.demand.vacancy_industrial - 0.08).abs() < 0.001);
+        assert!((restored.demand.vacancy_office - 0.10).abs() < 0.001);
     }
 }
