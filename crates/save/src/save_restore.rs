@@ -11,7 +11,6 @@ use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
 use simulation::policies::Policies;
-use simulation::recycling::{RecyclingEconomics, RecyclingState};
 use simulation::road_segments::{
     RoadSegment, RoadSegmentStore, SegmentId, SegmentNode, SegmentNodeId,
 };
@@ -20,6 +19,7 @@ use simulation::unlocks::UnlockState;
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
 use simulation::water_sources::WaterSource;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
+use simulation::wind_damage::{WindDamageState, WindDamageTier};
 
 /// Reconstruct a `RoadSegmentStore` from saved data.
 /// After calling this, call `store.rasterize_all(grid, roads)` to rebuild grid cells.
@@ -80,7 +80,6 @@ pub fn restore_weather(save: &SaveWeather) -> Weather {
         precipitation_intensity: save.precipitation_intensity,
         last_update_hour: save.last_update_hour,
         prev_extreme: false,
-        ..Default::default()
     }
 }
 
@@ -221,6 +220,26 @@ pub fn restore_construction_modifiers(save: &SaveConstructionModifiers) -> Const
     }
 }
 
+/// Restore a `WindDamageState` resource from saved data.
+pub fn restore_wind_damage_state(save: &SaveWindDamageState) -> WindDamageState {
+    let tier = match save.current_tier {
+        1 => WindDamageTier::Breezy,
+        2 => WindDamageTier::Strong,
+        3 => WindDamageTier::Gale,
+        4 => WindDamageTier::Storm,
+        5 => WindDamageTier::Severe,
+        6 => WindDamageTier::HurricaneForce,
+        7 => WindDamageTier::Extreme,
+        _ => WindDamageTier::Calm,
+    };
+    WindDamageState {
+        current_tier: tier,
+        accumulated_building_damage: save.accumulated_building_damage,
+        trees_knocked_down: save.trees_knocked_down,
+        power_outage_active: save.power_outage_active,
+    }
+}
+
 /// Restore a `VirtualPopulation` resource from saved data.
 pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
     let district_stats = save
@@ -243,29 +262,4 @@ pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopula
         district_stats,
         save.max_real_citizens,
     )
-}
-
-/// Restore `RecyclingState` and `RecyclingEconomics` from saved data.
-pub fn restore_recycling(save: &SaveRecyclingState) -> (RecyclingState, RecyclingEconomics) {
-    let tier = u8_to_recycling_tier(save.tier);
-    let state = RecyclingState {
-        tier,
-        daily_tons_diverted: save.daily_tons_diverted,
-        daily_tons_contaminated: save.daily_tons_contaminated,
-        daily_revenue: save.daily_revenue,
-        daily_cost: save.daily_cost,
-        total_revenue: save.total_revenue,
-        total_cost: save.total_cost,
-        participating_households: save.participating_households,
-    };
-    let economics = RecyclingEconomics {
-        price_paper: save.price_paper,
-        price_plastic: save.price_plastic,
-        price_glass: save.price_glass,
-        price_metal: save.price_metal,
-        price_organic: save.price_organic,
-        market_cycle_position: save.market_cycle_position,
-        last_update_day: save.economics_last_update_day,
-    };
-    (state, economics)
 }
