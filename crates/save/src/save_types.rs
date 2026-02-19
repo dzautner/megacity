@@ -26,7 +26,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v12 = uhi_grid (UhiGrid serialization for urban heat island)
 /// v13 = drought_state (DroughtState serialization for drought index)
 /// v14 = heat_wave_state (HeatWaveState serialization for heat wave effects)
-pub const CURRENT_SAVE_VERSION: u32 = 14;
+/// v15 = composting_state (CompostingState serialization for composting facilities)
+pub const CURRENT_SAVE_VERSION: u32 = 15;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -113,6 +114,8 @@ pub struct SaveData {
     pub drought_state: Option<SaveDroughtState>,
     #[serde(default)]
     pub heat_wave_state: Option<SaveHeatWaveState>,
+    #[serde(default)]
+    pub composting_state: Option<SaveCompostingState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -479,6 +482,27 @@ pub struct SaveHeatWaveState {
     pub heat_threshold_c: f32,
     pub consecutive_extreme_days: u32,
     pub last_check_day: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveCompostFacility {
+    pub method: u8,
+    pub capacity_tons_per_day: f32,
+    pub cost_per_ton: f32,
+    pub tons_processed_today: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveCompostingState {
+    pub facilities: Vec<SaveCompostFacility>,
+    pub participation_rate: f32,
+    pub organic_fraction: f32,
+    pub total_diverted_tons: f32,
+    pub daily_diversion_tons: f32,
+    pub compost_revenue_per_ton: f32,
+    pub daily_revenue: f32,
+    pub biogas_mwh_per_ton: f32,
+    pub daily_biogas_mwh: f32,
 }
 
 impl SaveData {

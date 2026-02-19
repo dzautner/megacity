@@ -66,6 +66,7 @@ pub fn create_save_data(
     uhi_grid: Option<&UhiGrid>,
     drought_state: Option<&DroughtState>,
     heat_wave_state: Option<&HeatWaveState>,
+    composting_state: Option<&simulation::composting::CompostingState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -382,6 +383,26 @@ pub fn create_save_data(
             consecutive_extreme_days: hw.consecutive_extreme_days,
             last_check_day: hw.last_check_day,
         }),
+        composting_state: composting_state.map(|cs| SaveCompostingState {
+            facilities: cs
+                .facilities
+                .iter()
+                .map(|f| SaveCompostFacility {
+                    method: compost_method_to_u8(f.method),
+                    capacity_tons_per_day: f.capacity_tons_per_day,
+                    cost_per_ton: f.cost_per_ton,
+                    tons_processed_today: f.tons_processed_today,
+                })
+                .collect(),
+            participation_rate: cs.participation_rate,
+            organic_fraction: cs.organic_fraction,
+            total_diverted_tons: cs.total_diverted_tons,
+            daily_diversion_tons: cs.daily_diversion_tons,
+            compost_revenue_per_ton: cs.compost_revenue_per_ton,
+            daily_revenue: cs.daily_revenue,
+            biogas_mwh_per_ton: cs.biogas_mwh_per_ton,
+            daily_biogas_mwh: cs.daily_biogas_mwh,
+        }),
     }
 }
 
@@ -456,6 +477,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -494,6 +516,7 @@ mod tests {
         assert!(restored.uhi_grid.is_none());
         assert!(restored.drought_state.is_none());
         assert!(restored.heat_wave_state.is_none());
+        assert!(restored.composting_state.is_none());
     }
 
     #[test]
@@ -804,6 +827,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -885,6 +909,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -907,6 +932,7 @@ mod tests {
         assert!(restored.uhi_grid.is_none());
         assert!(restored.drought_state.is_none());
         assert!(restored.heat_wave_state.is_none());
+        assert!(restored.composting_state.is_none());
     }
 
     #[test]
@@ -968,6 +994,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -992,6 +1019,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1057,6 +1085,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1084,6 +1113,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1148,6 +1178,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1175,6 +1206,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1329,6 +1361,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1371,6 +1404,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1499,6 +1533,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1556,6 +1591,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1582,6 +1618,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1678,6 +1715,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1812,6 +1850,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1839,6 +1878,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1890,6 +1930,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1961,6 +2002,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2000,6 +2042,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2109,6 +2152,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2166,6 +2210,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2178,6 +2223,7 @@ mod tests {
         assert!(restored.uhi_grid.is_none());
         assert!(restored.drought_state.is_none());
         assert!(restored.heat_wave_state.is_none());
+        assert!(restored.composting_state.is_none());
     }
 
     #[test]
@@ -2208,6 +2254,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

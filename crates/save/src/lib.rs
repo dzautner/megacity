@@ -24,6 +24,7 @@ use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
+use simulation::composting::CompostingState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
@@ -178,6 +179,7 @@ fn handle_save(
             Some(&v2.uhi_grid),
             Some(&v2.drought_state),
             Some(&v2.heat_wave_state),
+            Some(&v2.composting_state),
         );
 
         let bytes = save.encode();
@@ -636,6 +638,13 @@ fn handle_load(
         } else {
             *v2.heat_wave_state = HeatWaveState::default();
         }
+
+        // Restore composting state
+        if let Some(ref saved_cs) = save.composting_state {
+            *v2.composting_state = restore_composting(saved_cs);
+        } else {
+            *v2.composting_state = CompostingState::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -719,6 +728,7 @@ fn handle_new_game(
         *v2.uhi_grid = UhiGrid::default();
         *v2.drought_state = DroughtState::default();
         *v2.heat_wave_state = HeatWaveState::default();
+        *v2.composting_state = CompostingState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
