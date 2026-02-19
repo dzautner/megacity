@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::buildings::Building;
+// Urban Heat Island (UHI) temperature grid model
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::time_of_day::GameClock;
