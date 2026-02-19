@@ -22,6 +22,7 @@ use simulation::services::ServiceBuilding;
 use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
+use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
@@ -56,6 +57,7 @@ pub fn create_save_data(
     degree_days: Option<&DegreeDays>,
     climate_zone: Option<&ClimateZone>,
     construction_modifiers: Option<&ConstructionModifiers>,
+    uhi_grid: Option<&UhiGrid>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -320,6 +322,11 @@ pub fn create_save_data(
             speed_factor: cm.speed_factor,
             cost_factor: cm.cost_factor,
         }),
+        uhi_grid: uhi_grid.map(|u| SaveUhiGrid {
+            cells: u.cells.clone(),
+            width: u.width,
+            height: u.height,
+        }),
     }
 }
 
@@ -389,6 +396,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -422,6 +430,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.uhi_grid.is_none());
     }
 
     #[test]
@@ -725,6 +734,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -801,6 +811,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -818,6 +829,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.uhi_grid.is_none());
     }
 
     #[test]
@@ -874,6 +886,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -898,6 +911,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -953,6 +967,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -980,6 +995,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1034,6 +1050,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1061,6 +1078,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1205,6 +1223,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1247,6 +1266,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1365,6 +1385,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1417,6 +1438,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1443,6 +1465,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1534,6 +1557,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1658,6 +1682,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1685,6 +1710,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1731,6 +1757,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1792,6 +1819,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1831,6 +1859,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1929,6 +1958,7 @@ mod tests {
             None,
             Some(&climate_zone),
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1981,6 +2011,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1988,6 +2019,7 @@ mod tests {
         assert!(restored.stormwater_grid.is_none());
         // When construction_modifiers is None, the restore uses default
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.uhi_grid.is_none());
     }
 
     #[test]
@@ -2018,6 +2050,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

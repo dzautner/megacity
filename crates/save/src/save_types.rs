@@ -21,7 +21,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v7 = degree_days (HDD/CDD tracking for HVAC energy demand)
 /// v8 = climate_zone in SaveWeather (ClimateZone resource)
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 9;
+/// v10 = uhi_grid (Urban Heat Island grid serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 10;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -98,6 +99,8 @@ pub struct SaveData {
     pub degree_days: Option<SaveDegreeDays>,
     #[serde(default)]
     pub construction_modifiers: Option<SaveConstructionModifiers>,
+    #[serde(default)]
+    pub uhi_grid: Option<SaveUhiGrid>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -360,6 +363,13 @@ pub struct SaveDegreeDays {
 pub struct SaveConstructionModifiers {
     pub speed_factor: f32,
     pub cost_factor: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveUhiGrid {
+    pub cells: Vec<f32>,
+    pub width: usize,
+    pub height: usize,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]

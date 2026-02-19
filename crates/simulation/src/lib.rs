@@ -61,6 +61,7 @@ pub mod traffic;
 pub mod traffic_accidents;
 pub mod trees;
 pub mod unlocks;
+pub mod urban_heat_island;
 pub mod utilities;
 pub mod virtual_population;
 pub mod waste_composition;
@@ -123,6 +124,7 @@ use traffic::TrafficGrid;
 use traffic_accidents::AccidentTracker;
 use trees::TreeGrid;
 use unlocks::UnlockState;
+use urban_heat_island::UhiGrid;
 use virtual_population::VirtualPopulation;
 use waste_effects::{WasteAccumulation, WasteCrisisEvent};
 use water_demand::WaterSupply;
@@ -242,6 +244,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<StormwaterGrid>()
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
+            .init_resource::<UhiGrid>()
             .init_resource::<WasteAccumulation>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -363,6 +366,7 @@ impl Plugin for SimulationPlugin {
                     groundwater::update_groundwater,
                     groundwater::groundwater_health_penalty,
                     stormwater::update_stormwater,
+                    urban_heat_island::update_uhi_grid,
                     water_demand::calculate_building_water_demand,
                     water_demand::aggregate_water_supply,
                 )
