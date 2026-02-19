@@ -4,12 +4,12 @@
 
 use simulation::grid::{RoadType, ZoneType};
 use simulation::policies::Policy;
+use simulation::recycling::RecyclingTier;
 use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
 use simulation::water_sources::WaterSourceType;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
-use simulation::wind_damage::WindDamageTier;
 
 pub fn zone_type_to_u8(z: ZoneType) -> u8 {
     match z {
@@ -418,29 +418,27 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
     }
 }
 
-pub fn wind_damage_tier_to_u8(t: WindDamageTier) -> u8 {
+pub fn recycling_tier_to_u8(t: RecyclingTier) -> u8 {
     match t {
-        WindDamageTier::Calm => 0,
-        WindDamageTier::Breezy => 1,
-        WindDamageTier::Strong => 2,
-        WindDamageTier::Gale => 3,
-        WindDamageTier::Storm => 4,
-        WindDamageTier::Severe => 5,
-        WindDamageTier::HurricaneForce => 6,
-        WindDamageTier::Extreme => 7,
+        RecyclingTier::None => 0,
+        RecyclingTier::VoluntaryDropoff => 1,
+        RecyclingTier::CurbsideBasic => 2,
+        RecyclingTier::CurbsideSort => 3,
+        RecyclingTier::SingleStream => 4,
+        RecyclingTier::PayAsYouThrow => 5,
+        RecyclingTier::ZeroWaste => 6,
     }
 }
 
-pub fn u8_to_wind_damage_tier(v: u8) -> WindDamageTier {
+pub fn u8_to_recycling_tier(v: u8) -> RecyclingTier {
     match v {
-        0 => WindDamageTier::Calm,
-        1 => WindDamageTier::Breezy,
-        2 => WindDamageTier::Strong,
-        3 => WindDamageTier::Gale,
-        4 => WindDamageTier::Storm,
-        5 => WindDamageTier::Severe,
-        6 => WindDamageTier::HurricaneForce,
-        7 => WindDamageTier::Extreme,
-        _ => WindDamageTier::Calm, // fallback
+        0 => RecyclingTier::None,
+        1 => RecyclingTier::VoluntaryDropoff,
+        2 => RecyclingTier::CurbsideBasic,
+        3 => RecyclingTier::CurbsideSort,
+        4 => RecyclingTier::SingleStream,
+        5 => RecyclingTier::PayAsYouThrow,
+        6 => RecyclingTier::ZeroWaste,
+        _ => RecyclingTier::None, // fallback
     }
 }

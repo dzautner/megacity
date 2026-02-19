@@ -26,11 +26,11 @@ use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
-use simulation::wind_damage::WindDamageState;
 use simulation::zones::ZoneDemand;
 
 use simulation::budget::ExtendedBudget;
 use simulation::degree_days::DegreeDays;
+use simulation::recycling::{RecyclingEconomics, RecyclingState};
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_save_data(
@@ -57,7 +57,7 @@ pub fn create_save_data(
     degree_days: Option<&DegreeDays>,
     climate_zone: Option<&ClimateZone>,
     construction_modifiers: Option<&ConstructionModifiers>,
-    wind_damage_state: Option<&WindDamageState>,
+    recycling_state: Option<(&RecyclingState, &RecyclingEconomics)>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -322,11 +322,22 @@ pub fn create_save_data(
             speed_factor: cm.speed_factor,
             cost_factor: cm.cost_factor,
         }),
-        wind_damage_state: wind_damage_state.map(|wds| SaveWindDamageState {
-            current_tier: wind_damage_tier_to_u8(wds.current_tier),
-            accumulated_building_damage: wds.accumulated_building_damage,
-            trees_knocked_down: wds.trees_knocked_down,
-            power_outage_active: wds.power_outage_active,
+        recycling_state: recycling_state.map(|(rs, re)| SaveRecyclingState {
+            tier: recycling_tier_to_u8(rs.tier),
+            daily_tons_diverted: rs.daily_tons_diverted,
+            daily_tons_contaminated: rs.daily_tons_contaminated,
+            daily_revenue: rs.daily_revenue,
+            daily_cost: rs.daily_cost,
+            total_revenue: rs.total_revenue,
+            total_cost: rs.total_cost,
+            participating_households: rs.participating_households,
+            price_paper: re.price_paper,
+            price_plastic: re.price_plastic,
+            price_glass: re.price_glass,
+            price_metal: re.price_metal,
+            price_organic: re.price_organic,
+            market_cycle_position: re.market_cycle_position,
+            economics_last_update_day: re.last_update_day,
         }),
     }
 }
@@ -431,7 +442,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
-        assert!(restored.wind_damage_state.is_none());
+        assert!(restored.recycling_state.is_none());
     }
 
     #[test]
@@ -505,6 +516,7 @@ mod tests {
             precipitation_intensity: 0.5,
             last_update_hour: 14,
             prev_extreme: false,
+            ..Default::default()
         };
 
         let save = SaveWeather {
@@ -675,6 +687,7 @@ mod tests {
             precipitation_intensity: 0.0,
             last_update_hour: 12,
             prev_extreme: false,
+            ..Default::default()
         };
         let mut unlock = UnlockState::default();
         unlock.development_points = 15;
@@ -830,7 +843,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
-        assert!(restored.wind_damage_state.is_none());
+        assert!(restored.recycling_state.is_none());
     }
 
     #[test]
@@ -1931,6 +1944,7 @@ mod tests {
             precipitation_intensity: 0.0,
             last_update_hour: 12,
             prev_extreme: false,
+            ..Default::default()
         };
 
         let climate_zone = ClimateZone::Tropical;
@@ -2020,6 +2034,7 @@ mod tests {
         assert!(restored.stormwater_grid.is_none());
         // When construction_modifiers is None, the restore uses default
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.recycling_state.is_none());
     }
 
     #[test]
