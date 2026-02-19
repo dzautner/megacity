@@ -890,20 +890,22 @@ mod tests {
             weather.cloud_cover = 0.05;
             weather.precipitation_intensity = 0.0;
             weather.temperature = 30.0; // warm but not extreme yet
-            weather.last_update_day = 1;
-            weather.last_update_hour = 5;
+            weather.last_update_day = 120;
+            weather.last_update_hour = 14;
             weather.season = Season::Summer;
+            weather.event_days_remaining = 5; // prevent random event from changing state
         }
         {
             let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.day = 1;
-            clock.hour = 6.0;
+            clock.day = 120; // Summer day
+            clock.hour = 15.0; // peak heat hour
         }
 
-        // Push temperature above extreme heat threshold
+        // Push temperature well above extreme heat threshold
+        // After smoothing toward seasonal target, must remain > 35C
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
-            weather.temperature = 40.0;
+            weather.temperature = 50.0;
         }
 
         app.update();
@@ -930,20 +932,22 @@ mod tests {
             weather.cloud_cover = 0.2;
             weather.precipitation_intensity = 0.0;
             weather.temperature = 0.0; // cold but not extreme
-            weather.last_update_day = 1;
+            weather.last_update_day = 300;
             weather.last_update_hour = 5;
             weather.season = Season::Winter;
+            weather.event_days_remaining = 5; // prevent random event from changing state
         }
         {
             let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.day = 1;
-            clock.hour = 6.0;
+            clock.day = 300; // Winter day
+            clock.hour = 6.0; // trough temp hour
         }
 
-        // Push temperature below extreme cold threshold
+        // Push temperature well below extreme cold threshold
+        // After smoothing toward seasonal target, must remain < -5C
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
-            weather.temperature = -10.0;
+            weather.temperature = -20.0;
         }
 
         app.update();
@@ -987,10 +991,7 @@ mod tests {
         let mut reader = events.get_cursor();
         let fired: Vec<_> = reader.read(events).collect();
 
-        assert!(
-            !fired.is_empty(),
-            "Event should fire on season transition"
-        );
+        assert!(!fired.is_empty(), "Event should fire on season transition");
         let evt = &fired[0];
         assert_eq!(evt.old_season, Season::Spring);
         assert_eq!(evt.new_season, Season::Summer);
