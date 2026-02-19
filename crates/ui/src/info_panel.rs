@@ -2176,6 +2176,77 @@ pub fn panel_keybinds(
     }
 }
 
+/// Escape key cascade: each press handles one level of cancel/close/deselect.
+///
+/// Priority order:
+/// 1. Cancel active road drawing (DrawPhase != Idle)
+/// 2. Close open toolbar category popup
+/// 3. Close open panels (Journal, Charts, Advisor, Policies)
+/// 4. Deselect selected entity
+/// 5. Deselect active tool (return to Inspect)
+pub fn escape_cascade(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut contexts: EguiContexts,
+    mut draw_state: ResMut<rendering::input::RoadDrawState>,
+    mut open_cat: ResMut<crate::toolbar::OpenCategory>,
+    mut journal: ResMut<JournalVisible>,
+    mut charts: ResMut<ChartsVisible>,
+    mut advisor: ResMut<AdvisorVisible>,
+    mut policies: ResMut<PoliciesVisible>,
+    mut selected: ResMut<SelectedBuilding>,
+    mut tool: ResMut<rendering::input::ActiveTool>,
+) {
+    if !keyboard.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    // Don't handle escape when egui has keyboard focus (e.g. text input)
+    if contexts.ctx_mut().wants_keyboard_input() {
+        return;
+    }
+
+    // Level 1: Cancel active road drawing
+    if draw_state.phase != rendering::input::DrawPhase::Idle {
+        draw_state.phase = rendering::input::DrawPhase::Idle;
+        return;
+    }
+
+    // Level 2: Close open toolbar category popup
+    if open_cat.0.is_some() {
+        open_cat.0 = None;
+        return;
+    }
+
+    // Level 3: Close open panels (close the first one found open)
+    if journal.0 {
+        journal.0 = false;
+        return;
+    }
+    if charts.0 {
+        charts.0 = false;
+        return;
+    }
+    if advisor.0 {
+        advisor.0 = false;
+        return;
+    }
+    if policies.0 {
+        policies.0 = false;
+        return;
+    }
+
+    // Level 4: Deselect selected entity
+    if selected.0.is_some() {
+        selected.0 = None;
+        return;
+    }
+
+    // Level 5: Deselect active tool (return to Inspect)
+    if *tool != rendering::input::ActiveTool::Inspect {
+        *tool = rendering::input::ActiveTool::Inspect;
+    }
+}
+
 /// Displays the Event Journal as a collapsible egui window.
 /// Shows the last 10 events with day/hour and description.
 /// Also shows active effects status.

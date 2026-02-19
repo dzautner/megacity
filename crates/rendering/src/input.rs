@@ -385,11 +385,6 @@ pub fn handle_tool_input(
         return;
     }
 
-    // Cancel freeform road drawing on Escape or tool change
-    if keys.just_pressed(KeyCode::Escape) {
-        draw_state.phase = DrawPhase::Idle;
-    }
-
     // Right click cancels drawing
     if buttons.just_pressed(MouseButton::Right) {
         draw_state.phase = DrawPhase::Idle;
