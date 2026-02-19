@@ -114,13 +114,13 @@ impl CitizenDetails {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Velocity {
     pub x: f32,
     pub y: f32,
@@ -144,10 +144,10 @@ pub struct WorkLocation {
 pub struct CitizenStateComp(pub CitizenState);
 
 // ---------------------------------------------------------------------------
-// Path cache (unchanged)
+// Path cache
 // ---------------------------------------------------------------------------
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct PathCache {
     pub waypoints: Vec<RoadNode>,
     pub current_index: usize,
