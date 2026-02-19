@@ -336,6 +336,10 @@ fn handle_load(
         demand.commercial = save.demand.commercial;
         demand.industrial = save.demand.industrial;
         demand.office = save.demand.office;
+        demand.vacancy_residential = save.demand.vacancy_residential;
+        demand.vacancy_commercial = save.demand.vacancy_commercial;
+        demand.vacancy_industrial = save.demand.vacancy_industrial;
+        demand.vacancy_office = save.demand.vacancy_office;
 
         // Restore buildings
         for sb in &save.buildings {
