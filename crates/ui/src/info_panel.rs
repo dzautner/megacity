@@ -2083,11 +2083,20 @@ fn coverage_bar(ui: &mut egui::Ui, label: &str, value: f32, color: egui::Color32
     });
 }
 
-pub fn policies_ui(mut contexts: EguiContexts, mut policies: ResMut<Policies>) {
+pub fn policies_ui(
+    mut contexts: EguiContexts,
+    mut policies: ResMut<Policies>,
+    visible: Res<PoliciesVisible>,
+) {
+    if !visible.0 {
+        return;
+    }
+
     egui::Window::new("Policies")
-        .default_open(false)
+        .default_open(true)
         .default_width(300.0)
         .show(contexts.ctx_mut(), |ui| {
+            ui.small("Press [P] to toggle");
             ui.label(format!(
                 "Monthly cost: ${:.0}",
                 policies.total_monthly_cost()
@@ -2122,13 +2131,48 @@ pub fn policies_ui(mut contexts: EguiContexts, mut policies: ResMut<Policies>) {
 #[derive(Resource, Default)]
 pub struct JournalVisible(pub bool);
 
-/// Toggles journal visibility when 'J' key is pressed.
-pub fn toggle_journal_visibility(
+/// Resource controlling whether the charts/trends window is visible.
+/// Toggle with 'C' key.
+#[derive(Resource, Default)]
+pub struct ChartsVisible(pub bool);
+
+/// Resource controlling whether the advisor window is visible.
+/// Toggle with 'A' key.
+#[derive(Resource, Default)]
+pub struct AdvisorVisible(pub bool);
+
+/// Resource controlling whether the policies window is visible.
+/// Toggle with 'P' key.
+#[derive(Resource, Default)]
+pub struct PoliciesVisible(pub bool);
+
+/// Toggles UI panel visibility when keybinds are pressed.
+/// J = Event Journal, C = Charts, A = Advisors, P = Policies.
+/// Keys are ignored when egui has keyboard focus (e.g. text input).
+pub fn panel_keybinds(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut visible: ResMut<JournalVisible>,
+    mut journal: ResMut<JournalVisible>,
+    mut charts: ResMut<ChartsVisible>,
+    mut advisor: ResMut<AdvisorVisible>,
+    mut policies: ResMut<PoliciesVisible>,
+    mut contexts: EguiContexts,
 ) {
+    // Don't toggle panels when a text field or other egui widget wants keyboard input
+    if contexts.ctx_mut().wants_keyboard_input() {
+        return;
+    }
+
     if keyboard.just_pressed(KeyCode::KeyJ) {
-        visible.0 = !visible.0;
+        journal.0 = !journal.0;
+    }
+    if keyboard.just_pressed(KeyCode::KeyC) {
+        charts.0 = !charts.0;
+    }
+    if keyboard.just_pressed(KeyCode::KeyA) {
+        advisor.0 = !advisor.0;
+    }
+    if keyboard.just_pressed(KeyCode::KeyP) {
+        policies.0 = !policies.0;
     }
 }
 
@@ -2208,6 +2252,60 @@ pub fn event_journal_ui(
                                 ui.colored_label(event_color, &event.description);
                             });
                             ui.add_space(2.0);
+                        }
+                    });
+            }
+        });
+}
+
+/// Displays the City Advisors as a standalone egui window.
+/// Toggle visibility with the 'A' key.
+pub fn advisor_window_ui(
+    mut contexts: EguiContexts,
+    advisor_panel: Res<AdvisorPanel>,
+    visible: Res<AdvisorVisible>,
+) {
+    if !visible.0 {
+        return;
+    }
+
+    egui::Window::new("City Advisors")
+        .default_open(true)
+        .default_width(350.0)
+        .show(contexts.ctx_mut(), |ui| {
+            ui.small("Press [A] to toggle");
+            ui.separator();
+
+            let messages = &advisor_panel.messages;
+            if messages.is_empty() {
+                ui.label("No advisor messages at this time.");
+            } else {
+                egui::ScrollArea::vertical()
+                    .max_height(400.0)
+                    .show(ui, |ui| {
+                        for msg in messages {
+                            let priority_color = match msg.priority {
+                                5 => egui::Color32::from_rgb(220, 50, 50),   // red
+                                4 => egui::Color32::from_rgb(230, 150, 30),  // orange
+                                3 => egui::Color32::from_rgb(220, 200, 50),  // yellow
+                                2 => egui::Color32::from_rgb(50, 130, 220),  // blue
+                                _ => egui::Color32::from_rgb(150, 150, 150), // grey
+                            };
+
+                            ui.horizontal(|ui| {
+                                let (dot_rect, _) = ui.allocate_exact_size(
+                                    egui::vec2(10.0, 10.0),
+                                    egui::Sense::hover(),
+                                );
+                                let painter = ui.painter_at(dot_rect);
+                                painter.circle_filled(dot_rect.center(), 4.0, priority_color);
+
+                                ui.colored_label(priority_color, msg.advisor_type.name());
+                            });
+
+                            ui.label(&msg.message);
+                            ui.small(&msg.suggestion);
+                            ui.add_space(4.0);
                         }
                     });
             }
