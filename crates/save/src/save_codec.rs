@@ -7,6 +7,7 @@ use simulation::policies::Policy;
 use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
+use simulation::drought::DroughtTier;
 use simulation::water_sources::WaterSourceType;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
 
@@ -414,5 +415,24 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
         36 => Some(UnlockNode::RegionalAirports),
         37 => Some(UnlockNode::InternationalAirports),
         _ => None,
+    }
+}
+
+pub fn drought_tier_to_u8(t: DroughtTier) -> u8 {
+    match t {
+        DroughtTier::Normal => 0,
+        DroughtTier::Moderate => 1,
+        DroughtTier::Severe => 2,
+        DroughtTier::Extreme => 3,
+    }
+}
+
+pub fn u8_to_drought_tier(v: u8) -> DroughtTier {
+    match v {
+        0 => DroughtTier::Normal,
+        1 => DroughtTier::Moderate,
+        2 => DroughtTier::Severe,
+        3 => DroughtTier::Extreme,
+        _ => DroughtTier::Normal, // fallback
     }
 }

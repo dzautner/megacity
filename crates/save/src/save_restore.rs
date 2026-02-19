@@ -7,6 +7,7 @@ use crate::save_types::*;
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::degree_days::DegreeDays;
+use simulation::drought::DroughtState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
@@ -216,6 +217,21 @@ pub fn restore_construction_modifiers(save: &SaveConstructionModifiers) -> Const
     ConstructionModifiers {
         speed_factor: save.speed_factor,
         cost_factor: save.cost_factor,
+    }
+}
+
+/// Restore a `DroughtState` resource from saved data.
+pub fn restore_drought_state(save: &SaveDroughtState) -> DroughtState {
+    DroughtState {
+        rainfall_history: save.rainfall_history.clone(),
+        current_index: save.current_index,
+        current_tier: u8_to_drought_tier(save.current_tier),
+        expected_daily_rainfall: save.expected_daily_rainfall,
+        water_demand_modifier: save.water_demand_modifier,
+        agriculture_modifier: save.agriculture_modifier,
+        fire_risk_multiplier: save.fire_risk_multiplier,
+        happiness_modifier: save.happiness_modifier,
+        last_record_day: save.last_record_day,
     }
 }
 
