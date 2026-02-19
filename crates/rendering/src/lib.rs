@@ -5,6 +5,7 @@ pub mod building_meshes;
 pub mod building_render;
 pub mod camera;
 pub mod citizen_render;
+pub mod color_ramps;
 pub mod cursor_preview;
 pub mod day_night;
 pub mod input;

@@ -14,6 +14,7 @@ use simulation::traffic::TrafficGrid;
 use simulation::water_pollution::WaterPollutionGrid;
 use simulation::weather::{Season, Weather};
 
+use crate::color_ramps::{self, CIVIDIS, INFERNO, VIRIDIS};
 use crate::overlay::OverlayMode;
 
 pub struct OverlayGrids<'a> {
@@ -355,32 +356,25 @@ fn apply_overlay(
             if cell.cell_type == CellType::Water {
                 return base;
             }
-            if cell.has_power {
-                blend_tint(base, Color::srgba(0.9, 0.9, 0.1, 0.4))
-            } else {
-                blend_tint(base, Color::srgba(0.7, 0.1, 0.1, 0.5))
-            }
+            color_ramps::overlay_binary(base, &color_ramps::POWER_PALETTE, cell.has_power)
         }
         OverlayMode::Water => {
             if cell.cell_type == CellType::Water {
                 return base;
             }
-            if cell.has_water {
-                blend_tint(base, Color::srgba(0.1, 0.5, 0.9, 0.4))
-            } else {
-                blend_tint(base, Color::srgba(0.7, 0.1, 0.1, 0.5))
-            }
+            color_ramps::overlay_binary(base, &color_ramps::WATER_PALETTE, cell.has_water)
         }
         OverlayMode::Traffic => {
             if cell.cell_type == CellType::Road {
                 if let Some(traffic) = grids.traffic {
                     let congestion = traffic.congestion_level(gx, gy);
-                    Color::srgba(congestion, 1.0 - congestion, 0.2, 1.0)
+                    // Inferno: black (no traffic) -> red/orange -> yellow (gridlock)
+                    color_ramps::overlay_continuous(&INFERNO, congestion)
                 } else {
                     base
                 }
             } else {
-                darken_color(base, 0.5)
+                color_ramps::darken(base, 0.5)
             }
         }
         OverlayMode::Pollution => {
@@ -389,9 +383,10 @@ fn apply_overlay(
             }
             if let Some(pollution) = grids.pollution {
                 let intensity = (pollution.get(gx, gy) as f32 / 50.0).clamp(0.0, 1.0);
-                Color::srgba(intensity, 1.0 - intensity * 0.5, 0.2, 1.0)
+                // Inferno: dark (clean) -> bright (polluted)
+                color_ramps::overlay_continuous(&INFERNO, intensity)
             } else {
-                darken_color(base, 0.8)
+                color_ramps::darken(base, 0.8)
             }
         }
         OverlayMode::LandValue => {
@@ -400,9 +395,10 @@ fn apply_overlay(
             }
             if let Some(land_value) = grids.land_value {
                 let value = land_value.get(gx, gy) as f32 / 255.0;
-                Color::srgba(0.2 + value * 0.6, 0.3 + value * 0.5, 0.1, 1.0)
+                // Cividis: dark navy (low) -> yellow (high) -- CVD safe
+                color_ramps::overlay_continuous(&CIVIDIS, value)
             } else {
-                darken_color(base, 0.8)
+                color_ramps::darken(base, 0.8)
             }
         }
         OverlayMode::Education => {
@@ -411,9 +407,10 @@ fn apply_overlay(
             }
             if let Some(education) = grids.education {
                 let level = education.get(gx, gy) as f32 / 3.0;
-                Color::srgba(0.3, 0.3 + level * 0.5, 0.5 + level * 0.5, 1.0)
+                // Viridis: purple (uneducated) -> teal -> yellow (highly educated)
+                color_ramps::overlay_continuous(&VIRIDIS, level)
             } else {
-                darken_color(base, 0.8)
+                color_ramps::darken(base, 0.8)
             }
         }
         OverlayMode::Garbage => {
@@ -422,9 +419,10 @@ fn apply_overlay(
             }
             if let Some(garbage) = grids.garbage {
                 let level = (garbage.get(gx, gy) as f32 / 30.0).clamp(0.0, 1.0);
-                Color::srgba(0.3 + level * 0.5, 0.4 - level * 0.2, 0.2, 1.0)
+                // Inferno: dark (clean) -> bright (lots of garbage)
+                color_ramps::overlay_continuous(&INFERNO, level)
             } else {
-                darken_color(base, 0.8)
+                color_ramps::darken(base, 0.8)
             }
         }
         OverlayMode::Noise => {
@@ -433,52 +431,30 @@ fn apply_overlay(
             }
             if let Some(noise) = grids.noise {
                 let level = (noise.get(gx, gy) as f32 / 100.0).clamp(0.0, 1.0);
-                // Purple-orange gradient: quiet=dark purple, loud=bright orange
-                Color::srgba(0.2 + level * 0.7, 0.1 + level * 0.3, 0.4 - level * 0.2, 1.0)
+                // Inferno: black (quiet) -> red/orange -> yellow (loud)
+                color_ramps::overlay_continuous(&INFERNO, level)
             } else {
-                darken_color(base, 0.8)
+                color_ramps::darken(base, 0.8)
             }
         }
         OverlayMode::WaterPollution => {
             if let Some(wp) = grids.water_pollution {
                 let level = (wp.get(gx, gy) as f32 / 255.0).clamp(0.0, 1.0);
                 if cell.cell_type == CellType::Water {
-                    // Blue-to-brown gradient: clean water=blue, polluted=brown
-                    let r = 0.1 + level * 0.5;
-                    let g = 0.3 + level * 0.05 - level * 0.2;
-                    let b = 0.6 - level * 0.45;
-                    Color::srgba(r, g.max(0.1), b.max(0.1), 1.0)
+                    // Viridis reversed: yellow (clean) -> teal -> purple (polluted)
+                    // Reverse t so clean water = bright, polluted = dark
+                    color_ramps::overlay_continuous(&VIRIDIS, 1.0 - level)
                 } else if level > 0.0 {
                     // Land cells near polluted water get a subtle brown tint
-                    blend_tint(base, Color::srgba(0.5, 0.35, 0.15, level * 0.4))
+                    color_ramps::blend_tint(base, Color::srgba(0.5, 0.35, 0.15, level * 0.4))
                 } else {
-                    darken_color(base, 0.7)
+                    color_ramps::darken(base, 0.7)
                 }
             } else {
-                darken_color(base, 0.8)
+                color_ramps::darken(base, 0.8)
             }
         }
     }
-}
-
-fn blend_tint(base: Color, tint: Color) -> Color {
-    let b = base.to_srgba().to_f32_array();
-    let t = tint.to_srgba().to_f32_array();
-    let a = t[3];
-    Color::srgb(
-        b[0] * (1.0 - a) + t[0] * a,
-        b[1] * (1.0 - a) + t[1] * a,
-        b[2] * (1.0 - a) + t[2] * a,
-    )
-}
-
-fn darken_color(base: Color, factor: f32) -> Color {
-    let b = base.to_srgba().to_f32_array();
-    Color::srgb(b[0] * factor, b[1] * factor, b[2] * factor)
-}
-
-fn _darken(c: [f32; 4], factor: f32) -> [f32; 4] {
-    [c[0] * factor, c[1] * factor, c[2] * factor, c[3]]
 }
 
 /// Cheap coastline tint: if a non-water cell borders water (or vice versa),
