@@ -1899,7 +1899,7 @@ mod tests {
         assert!((c0.pos_x - 100.0).abs() < 0.001);
         assert!((c0.pos_y - 200.0).abs() < 0.001);
         assert_eq!(c0.state, 1); // CommutingToWork
-        // Second citizen: idle, empty path
+                                 // Second citizen: idle, empty path
         let c1 = &restored.citizens[1];
         assert!(c1.path_waypoints.is_empty());
         assert_eq!(c1.path_current_index, 0);
