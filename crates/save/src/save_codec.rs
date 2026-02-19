@@ -442,3 +442,32 @@ pub fn u8_to_recycling_tier(v: u8) -> RecyclingTier {
         _ => RecyclingTier::None, // fallback
     }
 }
+
+pub fn wind_damage_tier_to_u8(t: simulation::wind_damage::WindDamageTier) -> u8 {
+    use simulation::wind_damage::WindDamageTier;
+    match t {
+        WindDamageTier::Calm => 0,
+        WindDamageTier::Breezy => 1,
+        WindDamageTier::Strong => 2,
+        WindDamageTier::Gale => 3,
+        WindDamageTier::Storm => 4,
+        WindDamageTier::Severe => 5,
+        WindDamageTier::HurricaneForce => 6,
+        WindDamageTier::Extreme => 7,
+    }
+}
+
+pub fn u8_to_wind_damage_tier(v: u8) -> simulation::wind_damage::WindDamageTier {
+    use simulation::wind_damage::WindDamageTier;
+    match v {
+        0 => WindDamageTier::Calm,
+        1 => WindDamageTier::Breezy,
+        2 => WindDamageTier::Strong,
+        3 => WindDamageTier::Gale,
+        4 => WindDamageTier::Storm,
+        5 => WindDamageTier::Severe,
+        6 => WindDamageTier::HurricaneForce,
+        7 => WindDamageTier::Extreme,
+        _ => WindDamageTier::Calm, // fallback
+    }
+}
