@@ -17,6 +17,7 @@ use simulation::road_segments::{
 };
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
+use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
 use simulation::water_sources::WaterSource;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
@@ -268,4 +269,13 @@ pub fn restore_recycling(save: &SaveRecyclingState) -> (RecyclingState, Recyclin
         last_update_day: save.economics_last_update_day,
     };
     (state, economics)
+}
+
+/// Restore a `UhiGrid` resource from saved data.
+pub fn restore_uhi_grid(save: &SaveUhiGrid) -> UhiGrid {
+    UhiGrid {
+        cells: save.cells.clone(),
+        width: save.width,
+        height: save.height,
+    }
 }

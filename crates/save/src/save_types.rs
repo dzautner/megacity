@@ -22,7 +22,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v8 = climate_zone in SaveWeather (ClimateZone resource)
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
 /// v10 = recycling_state (RecyclingState + RecyclingEconomics serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 10;
+/// v11 = uhi_grid (Urban Heat Island temperature grid)
+pub const CURRENT_SAVE_VERSION: u32 = 11;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -101,6 +102,8 @@ pub struct SaveData {
     pub construction_modifiers: Option<SaveConstructionModifiers>,
     #[serde(default)]
     pub recycling_state: Option<SaveRecyclingState>,
+    #[serde(default)]
+    pub uhi_grid: Option<SaveUhiGrid>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -424,6 +427,13 @@ pub struct SaveRecyclingState {
     pub price_organic: f64,
     pub market_cycle_position: f64,
     pub economics_last_update_day: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveUhiGrid {
+    pub cells: Vec<f32>,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl SaveData {

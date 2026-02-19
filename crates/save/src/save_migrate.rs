@@ -79,6 +79,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 10;
     }
 
+    // v10 -> v11: Added uhi_grid (Urban Heat Island temperature grid).
+    // Uses `#[serde(default)]` so it deserializes as None from a v10 save.
+    if save.version == 10 {
+        save.version = 11;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
