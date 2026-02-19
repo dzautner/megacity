@@ -803,51 +803,102 @@ mod tests {
 
     #[test]
     fn test_season_speed_factors() {
-        assert!((ConstructionModifiers::season_speed_factor(Season::Spring) - 1.0).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::season_speed_factor(Season::Summer) - 1.1).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::season_speed_factor(Season::Autumn) - 0.9).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::season_speed_factor(Season::Winter) - 0.6).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::season_speed_factor(Season::Spring) - 1.0).abs() < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::season_speed_factor(Season::Summer) - 1.1).abs() < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::season_speed_factor(Season::Autumn) - 0.9).abs() < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::season_speed_factor(Season::Winter) - 0.6).abs() < f32::EPSILON
+        );
     }
 
     #[test]
     fn test_weather_speed_factor_clear() {
         // Sunny/PartlyCloudy/Overcast at normal temp = 1.0
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Sunny, 20.0) - 1.0).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::PartlyCloudy, 20.0) - 1.0).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Overcast, 20.0) - 1.0).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::Sunny, 20.0) - 1.0)
+                .abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::PartlyCloudy, 20.0)
+                - 1.0)
+                .abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::Overcast, 20.0) - 1.0)
+                .abs()
+                < f32::EPSILON
+        );
     }
 
     #[test]
     fn test_weather_speed_factor_rain() {
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Rain, 10.0) - 0.5).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::HeavyRain, 10.0) - 0.5).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::Rain, 10.0) - 0.5).abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::HeavyRain, 10.0) - 0.5)
+                .abs()
+                < f32::EPSILON
+        );
     }
 
     #[test]
     fn test_weather_speed_factor_snow() {
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Snow, -2.0) - 0.3).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::Snow, -2.0) - 0.3).abs()
+                < f32::EPSILON
+        );
     }
 
     #[test]
     fn test_storm_halts_construction() {
         // Storm weather factor = 0.0 (construction halted)
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Storm, 15.0) - 0.0).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::Storm, 15.0) - 0.0)
+                .abs()
+                < f32::EPSILON
+        );
     }
 
     #[test]
     fn test_extreme_cold_slows_construction() {
         // Extreme cold (below -5C) = 0.2 regardless of weather condition
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Sunny, -10.0) - 0.2).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Overcast, -6.0) - 0.2).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::Sunny, -10.0) - 0.2)
+                .abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::weather_speed_factor(WeatherCondition::Overcast, -6.0) - 0.2)
+                .abs()
+                < f32::EPSILON
+        );
     }
 
     #[test]
     fn test_season_cost_factors() {
-        assert!((ConstructionModifiers::season_cost_factor(Season::Spring) - 1.0).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::season_cost_factor(Season::Summer) - 1.0).abs() < f32::EPSILON);
-        assert!((ConstructionModifiers::season_cost_factor(Season::Autumn) - 1.05).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::season_cost_factor(Season::Spring) - 1.0).abs() < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::season_cost_factor(Season::Summer) - 1.0).abs() < f32::EPSILON
+        );
+        assert!(
+            (ConstructionModifiers::season_cost_factor(Season::Autumn) - 1.05).abs() < f32::EPSILON
+        );
         // Winter cost modifier = 1.25
-        assert!((ConstructionModifiers::season_cost_factor(Season::Winter) - 1.25).abs() < f32::EPSILON);
+        assert!(
+            (ConstructionModifiers::season_cost_factor(Season::Winter) - 1.25).abs() < f32::EPSILON
+        );
     }
 
     #[test]
