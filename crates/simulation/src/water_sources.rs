@@ -493,7 +493,7 @@ mod tests {
         } else {
             1.0
         };
-        let adjusted_cost = base_cost * penalty;
+        let adjusted_cost = base_cost * penalty as f64;
         assert!(
             adjusted_cost > base_cost,
             "Adjusted cost {} should exceed base cost {}",

@@ -351,6 +351,12 @@ impl Plugin for SimulationPlugin {
                     stormwater::update_stormwater,
                     water_demand::calculate_building_water_demand,
                     water_demand::aggregate_water_supply,
+                )
+                    .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,
