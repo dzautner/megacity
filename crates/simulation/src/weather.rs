@@ -164,7 +164,7 @@ pub fn diurnal_factor(hour: u32) -> f32 {
 
     // Piecewise smooth: nighttime cooling from 15:00 to 06:00 (15 hours),
     // daytime warming from 06:00 to 15:00 (9 hours).
-    if h >= 6.0 && h <= 15.0 {
+    if (6.0..=15.0).contains(&h) {
         // Warming phase: 06:00 to 15:00 (9 hours)
         let t = (h - 6.0) / 9.0; // 0..1
         0.5 - 0.5 * (t * std::f32::consts::PI).cos()
