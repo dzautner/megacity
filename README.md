@@ -1,19 +1,19 @@
 # Megacity
 
-A city builder simulation inspired by Tel Aviv, built with [Bevy](https://bevyengine.org/) (Rust ECS game engine). Simulates a living city with 10,000+ citizens who commute, work, age, marry, and respond to the urban environment you create.
+A city builder simulation built with [Bevy](https://bevyengine.org/) (Rust ECS game engine). Simulates a living city with 10,000+ citizens who commute, work, age, marry, and respond to the urban environment you create.
 
 ![City overview with coastline, road network, and UI panels](screenshots/city-overview.png)
 
 ![Close-up 3D view with building inspector and skyscrapers](screenshots/city-closeup.png)
 
-![Aerial view of the coastline and Yarkon River](screenshots/coastline-aerial.png)
+![Aerial view of the coastline and river](screenshots/coastline-aerial.png)
 
 ![Zoomed-in view showing zone colors and building detail](screenshots/zones-detail.png)
 
 ## Features
 
 ### City Simulation
-- **256x256 grid world** with Mediterranean coastline, the Yarkon River, and neighborhoods modeled after Tel Aviv (Jaffa, White City, Ramat Aviv, Azrieli district)
+- **256x256 grid world** with terrain, coastlines, rivers, and distinct neighborhoods
 - **Zoning system** with 6 zone types: Residential Low/High, Commercial Low/High, Industrial, and Office
 - **Building lifecycle** - construction phase, upgrades (up to level 5), abandonment, and demolition
 - **Districts** with per-district statistics and policy overrides
