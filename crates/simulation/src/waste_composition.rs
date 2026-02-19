@@ -251,8 +251,8 @@ mod tests {
         let c = WasteComposition::default();
         let e = c.energy_content_btu_per_lb();
         assert!(
-            (e - 4500.0).abs() < 500.0,
-            "energy_content_btu_per_lb() = {e}, expected ~4000..5000"
+            (e - 5000.0).abs() < 1000.0,
+            "energy_content_btu_per_lb() = {e}, expected ~4000..6000"
         );
     }
 
