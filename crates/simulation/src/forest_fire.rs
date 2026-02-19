@@ -5,7 +5,7 @@ use crate::fire::FireGrid;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::land_value::LandValueGrid;
 use crate::trees::TreeGrid;
-use crate::weather::{Weather, WeatherEvent};
+use crate::weather::{Weather, WeatherCondition};
 use crate::wind::WindState;
 use crate::TickCounter;
 
@@ -124,8 +124,8 @@ pub fn update_forest_fire(
         return;
     }
 
-    let is_storm = weather.current_event == WeatherEvent::Storm;
-    let is_rain = weather.current_event == WeatherEvent::Rain;
+    let is_storm = weather.current_event == WeatherCondition::Storm;
+    let is_rain = weather.current_event.is_precipitation();
     let is_hot = weather.temperature > 30.0;
 
     // Wind direction vector for spread bias

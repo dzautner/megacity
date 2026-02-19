@@ -7,7 +7,7 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::pollution::PollutionGrid;
 use crate::services::{ServiceBuilding, ServiceType};
-use crate::weather::{Weather, WeatherEvent};
+use crate::weather::{Weather, WeatherCondition};
 
 /// Groundwater table level per cell (0=dry, 255=saturated).
 #[derive(Resource)]
@@ -301,8 +301,10 @@ pub fn update_groundwater(
 
     // --- Phase 7: Rain replenishes groundwater ---
     let rain_amount: u8 = match weather.current_event {
-        WeatherEvent::Rain => 3,
-        WeatherEvent::Storm => 5,
+        WeatherCondition::Rain => 3,
+        WeatherCondition::HeavyRain => 4,
+        WeatherCondition::Storm => 5,
+        WeatherCondition::Snow => 2,
         _ => 0,
     };
     if rain_amount > 0 {

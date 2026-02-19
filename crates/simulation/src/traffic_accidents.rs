@@ -5,7 +5,7 @@ use crate::grid::{CellType, WorldGrid};
 use crate::road_maintenance::RoadConditionGrid;
 use crate::services::ServiceBuilding;
 use crate::traffic::TrafficGrid;
-use crate::weather::{Weather, WeatherEvent};
+use crate::weather::{Weather, WeatherCondition};
 use crate::TickCounter;
 
 /// A single traffic accident on the grid.
@@ -71,14 +71,14 @@ fn road_neighbor_directions(grid: &WorldGrid, x: usize, y: usize) -> u8 {
 }
 
 /// Returns a weather-based accident probability multiplier.
-/// Clear = 1.0, Rain = 1.5, Storm = 2.5, ColdSnap = 1.8, HeatWave = 1.2.
 fn weather_accident_multiplier(weather: &Weather) -> f32 {
     match weather.current_event {
-        WeatherEvent::Storm => 2.5,
-        WeatherEvent::Rain => 1.5,
-        WeatherEvent::ColdSnap => 1.8,
-        WeatherEvent::HeatWave => 1.2,
-        WeatherEvent::Clear => 1.0,
+        WeatherCondition::Storm => 2.5,
+        WeatherCondition::Snow => 2.0,
+        WeatherCondition::HeavyRain => 1.8,
+        WeatherCondition::Rain => 1.5,
+        WeatherCondition::Overcast => 1.1,
+        WeatherCondition::PartlyCloudy | WeatherCondition::Sunny => 1.0,
     }
 }
 
@@ -326,7 +326,7 @@ mod tests {
     use crate::config::{GRID_HEIGHT, GRID_WIDTH};
     use crate::grid::{CellType, WorldGrid};
     use crate::traffic::TrafficGrid;
-    use crate::weather::{Weather, WeatherEvent};
+    use crate::weather::{Weather, WeatherCondition};
 
     fn make_grid_with_roads(positions: &[(usize, usize)]) -> WorldGrid {
         let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
@@ -367,20 +367,20 @@ mod tests {
     fn test_weather_accident_multiplier() {
         let mut weather = Weather::default();
 
-        weather.current_event = WeatherEvent::Clear;
+        weather.current_event = WeatherCondition::Sunny;
         assert_eq!(weather_accident_multiplier(&weather), 1.0);
 
-        weather.current_event = WeatherEvent::Rain;
+        weather.current_event = WeatherCondition::Rain;
         assert_eq!(weather_accident_multiplier(&weather), 1.5);
 
-        weather.current_event = WeatherEvent::Storm;
+        weather.current_event = WeatherCondition::Storm;
         assert_eq!(weather_accident_multiplier(&weather), 2.5);
 
-        weather.current_event = WeatherEvent::ColdSnap;
-        assert_eq!(weather_accident_multiplier(&weather), 1.8);
+        weather.current_event = WeatherCondition::Snow;
+        assert_eq!(weather_accident_multiplier(&weather), 2.0);
 
-        weather.current_event = WeatherEvent::HeatWave;
-        assert_eq!(weather_accident_multiplier(&weather), 1.2);
+        weather.current_event = WeatherCondition::HeavyRain;
+        assert_eq!(weather_accident_multiplier(&weather), 1.8);
     }
 
     #[test]

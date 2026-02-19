@@ -408,28 +408,18 @@ mod tests {
 
     #[test]
     fn test_seasonal_modifier_summer() {
-        let weather = Weather {
-            season: crate::weather::Season::Summer,
-            temperature: 28.0,
-            current_event: crate::weather::WeatherEvent::Clear,
-            event_days_remaining: 0,
-            last_update_day: 0,
-            disasters_enabled: false,
-        };
+        let mut weather = Weather::default();
+        weather.season = crate::weather::Season::Summer;
+        weather.temperature = 28.0;
         let mult = weather.water_multiplier();
         assert_eq!(mult, 1.3);
     }
 
     #[test]
     fn test_seasonal_modifier_winter() {
-        let weather = Weather {
-            season: crate::weather::Season::Winter,
-            temperature: -2.0,
-            current_event: crate::weather::WeatherEvent::Clear,
-            event_days_remaining: 0,
-            last_update_day: 0,
-            disasters_enabled: false,
-        };
+        let mut weather = Weather::default();
+        weather.season = crate::weather::Season::Winter;
+        weather.temperature = -2.0;
         let mult = weather.water_multiplier();
         assert_eq!(mult, 0.9);
     }
