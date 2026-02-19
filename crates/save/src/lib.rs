@@ -69,6 +69,18 @@ struct V2ResourcesWrite<'w> {
     stormwater_grid: ResMut<'w, StormwaterGrid>,
 }
 
+/// Bundles entity queries for despawning existing game entities during load/new-game.
+#[derive(SystemParam)]
+struct ExistingEntities<'w, 's> {
+    buildings: Query<'w, 's, Entity, With<Building>>,
+    citizens: Query<'w, 's, Entity, With<Citizen>>,
+    utilities: Query<'w, 's, Entity, With<UtilitySource>>,
+    services: Query<'w, 's, Entity, With<ServiceBuilding>>,
+    water_sources: Query<'w, 's, Entity, With<WaterSource>>,
+    meshes: Query<'w, 's, Entity, With<BuildingMesh3d>>,
+    sprites: Query<'w, 's, Entity, With<CitizenSprite>>,
+}
+
 pub struct SavePlugin;
 
 impl Plugin for SavePlugin {
@@ -198,13 +210,7 @@ fn handle_load(
     mut clock: ResMut<GameClock>,
     mut budget: ResMut<CityBudget>,
     mut demand: ResMut<ZoneDemand>,
-    existing_buildings: Query<Entity, With<Building>>,
-    existing_citizens: Query<Entity, With<Citizen>>,
-    existing_utilities: Query<Entity, With<UtilitySource>>,
-    existing_services: Query<Entity, With<ServiceBuilding>>,
-    existing_water_sources: Query<Entity, With<WaterSource>>,
-    existing_meshes: Query<Entity, With<BuildingMesh3d>>,
-    existing_sprites: Query<Entity, With<CitizenSprite>>,
+    existing: ExistingEntities,
     mut v2: V2ResourcesWrite,
     mut lifecycle_timer: ResMut<LifecycleTimer>,
 ) {
@@ -236,25 +242,25 @@ fn handle_load(
         }
 
         // Clear existing entities (including 3D mesh representations)
-        for entity in &existing_meshes {
+        for entity in &existing.meshes {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_sprites {
+        for entity in &existing.sprites {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_buildings {
+        for entity in &existing.buildings {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_citizens {
+        for entity in &existing.citizens {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_utilities {
+        for entity in &existing.utilities {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_services {
+        for entity in &existing.services {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_water_sources {
+        for entity in &existing.water_sources {
             commands.entity(entity).despawn();
         }
 
@@ -589,13 +595,7 @@ fn handle_load(
 fn handle_new_game(
     mut events: EventReader<NewGameEvent>,
     mut commands: Commands,
-    existing_buildings: Query<Entity, With<Building>>,
-    existing_citizens: Query<Entity, With<Citizen>>,
-    existing_utilities: Query<Entity, With<UtilitySource>>,
-    existing_services: Query<Entity, With<ServiceBuilding>>,
-    existing_water_sources: Query<Entity, With<WaterSource>>,
-    existing_meshes: Query<Entity, With<BuildingMesh3d>>,
-    existing_sprites: Query<Entity, With<CitizenSprite>>,
+    existing: ExistingEntities,
     mut grid: ResMut<WorldGrid>,
     mut roads: ResMut<RoadNetwork>,
     mut segments: ResMut<RoadSegmentStore>,
@@ -607,25 +607,25 @@ fn handle_new_game(
 ) {
     for _ in events.read() {
         // Despawn all game entities
-        for entity in &existing_meshes {
+        for entity in &existing.meshes {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_sprites {
+        for entity in &existing.sprites {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_buildings {
+        for entity in &existing.buildings {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_citizens {
+        for entity in &existing.citizens {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_utilities {
+        for entity in &existing.utilities {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_services {
+        for entity in &existing.services {
             commands.entity(entity).despawn();
         }
-        for entity in &existing_water_sources {
+        for entity in &existing.water_sources {
             commands.entity(entity).despawn();
         }
 
