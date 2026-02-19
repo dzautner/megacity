@@ -18,7 +18,8 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
-use simulation::weather::{Season, Weather, WeatherEvent};
+use simulation::weather::{Season, Weather, WeatherCondition, WeatherEvent};
+// Note: WeatherEvent is a type alias for WeatherCondition (kept for backward compat)
 use simulation::zones::ZoneDemand;
 
 // ---------------------------------------------------------------------------
@@ -255,22 +256,26 @@ pub fn u8_to_policy(v: u8) -> Option<Policy> {
 
 pub fn weather_event_to_u8(w: WeatherEvent) -> u8 {
     match w {
-        WeatherEvent::Clear => 0,
-        WeatherEvent::Rain => 1,
-        WeatherEvent::HeatWave => 2,
-        WeatherEvent::ColdSnap => 3,
-        WeatherEvent::Storm => 4,
+        WeatherCondition::Sunny => 0,
+        WeatherCondition::Rain => 1,
+        WeatherCondition::PartlyCloudy => 2,
+        WeatherCondition::Overcast => 3,
+        WeatherCondition::Storm => 4,
+        WeatherCondition::HeavyRain => 5,
+        WeatherCondition::Snow => 6,
     }
 }
 
 pub fn u8_to_weather_event(v: u8) -> WeatherEvent {
     match v {
-        0 => WeatherEvent::Clear,
-        1 => WeatherEvent::Rain,
-        2 => WeatherEvent::HeatWave,
-        3 => WeatherEvent::ColdSnap,
-        4 => WeatherEvent::Storm,
-        _ => WeatherEvent::Clear,
+        0 => WeatherCondition::Sunny,
+        1 => WeatherCondition::Rain,
+        2 => WeatherCondition::PartlyCloudy, // was HeatWave, now PartlyCloudy
+        3 => WeatherCondition::Overcast,     // was ColdSnap, now Overcast
+        4 => WeatherCondition::Storm,
+        5 => WeatherCondition::HeavyRain,
+        6 => WeatherCondition::Snow,
+        _ => WeatherCondition::Sunny,
     }
 }
 
@@ -570,6 +575,18 @@ pub struct SaveWeather {
     pub event_days_remaining: u32,
     pub last_update_day: u32,
     pub disasters_enabled: bool,
+    #[serde(default = "default_save_humidity")]
+    pub humidity: f32,
+    #[serde(default)]
+    pub cloud_cover: f32,
+    #[serde(default)]
+    pub precipitation_intensity: f32,
+    #[serde(default)]
+    pub last_update_hour: u32,
+}
+
+fn default_save_humidity() -> f32 {
+    0.5
 }
 
 impl Default for SaveWeather {
@@ -577,10 +594,14 @@ impl Default for SaveWeather {
         Self {
             season: 0, // Spring
             temperature: 15.0,
-            current_event: 0, // Clear
+            current_event: 0, // Sunny
             event_days_remaining: 0,
             last_update_day: 0,
             disasters_enabled: true,
+            humidity: 0.5,
+            cloud_cover: 0.0,
+            precipitation_intensity: 0.0,
+            last_update_hour: 0,
         }
     }
 }
@@ -894,6 +915,10 @@ pub fn create_save_data(
             event_days_remaining: w.event_days_remaining,
             last_update_day: w.last_update_day,
             disasters_enabled: w.disasters_enabled,
+            humidity: w.humidity,
+            cloud_cover: w.cloud_cover,
+            precipitation_intensity: w.precipitation_intensity,
+            last_update_hour: w.last_update_hour,
         }),
         unlock_state: unlock_state.map(|u| SaveUnlockState {
             development_points: u.development_points,
@@ -1016,6 +1041,10 @@ pub fn restore_weather(save: &SaveWeather) -> Weather {
         event_days_remaining: save.event_days_remaining,
         last_update_day: save.last_update_day,
         disasters_enabled: save.disasters_enabled,
+        humidity: save.humidity,
+        cloud_cover: save.cloud_cover,
+        precipitation_intensity: save.precipitation_intensity,
+        last_update_hour: save.last_update_hour,
     }
 }
 
@@ -1245,10 +1274,14 @@ mod tests {
         let weather = Weather {
             season: Season::Winter,
             temperature: -5.0,
-            current_event: WeatherEvent::ColdSnap,
+            current_event: WeatherCondition::Snow,
             event_days_remaining: 3,
             last_update_day: 42,
             disasters_enabled: false,
+            humidity: 0.8,
+            cloud_cover: 0.7,
+            precipitation_intensity: 0.5,
+            last_update_hour: 14,
         };
 
         let save = SaveWeather {
@@ -1258,15 +1291,23 @@ mod tests {
             event_days_remaining: weather.event_days_remaining,
             last_update_day: weather.last_update_day,
             disasters_enabled: weather.disasters_enabled,
+            humidity: weather.humidity,
+            cloud_cover: weather.cloud_cover,
+            precipitation_intensity: weather.precipitation_intensity,
+            last_update_hour: weather.last_update_hour,
         };
 
         let restored = restore_weather(&save);
         assert_eq!(restored.season, Season::Winter);
         assert!((restored.temperature - (-5.0)).abs() < 0.001);
-        assert_eq!(restored.current_event, WeatherEvent::ColdSnap);
+        assert_eq!(restored.current_event, WeatherCondition::Snow);
         assert_eq!(restored.event_days_remaining, 3);
         assert_eq!(restored.last_update_day, 42);
         assert!(!restored.disasters_enabled);
+        assert!((restored.humidity - 0.8).abs() < 0.001);
+        assert!((restored.cloud_cover - 0.7).abs() < 0.001);
+        assert!((restored.precipitation_intensity - 0.5).abs() < 0.001);
+        assert_eq!(restored.last_update_hour, 14);
     }
 
     #[test]
@@ -1401,10 +1442,14 @@ mod tests {
         let weather = Weather {
             season: Season::Summer,
             temperature: 32.0,
-            current_event: WeatherEvent::HeatWave,
+            current_event: WeatherCondition::Sunny,
             event_days_remaining: 4,
             last_update_day: 100,
             disasters_enabled: true,
+            humidity: 0.3,
+            cloud_cover: 0.05,
+            precipitation_intensity: 0.0,
+            last_update_hour: 12,
         };
         let mut unlock = UnlockState::default();
         unlock.development_points = 15;
@@ -1474,7 +1519,7 @@ mod tests {
         assert!((rw.temperature - 32.0).abs() < 0.001);
         assert_eq!(
             rw.current_event,
-            weather_event_to_u8(WeatherEvent::HeatWave)
+            weather_event_to_u8(WeatherCondition::Sunny)
         );
 
         // Unlock state
