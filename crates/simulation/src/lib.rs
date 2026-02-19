@@ -10,7 +10,6 @@ pub mod buildings;
 pub mod citizen;
 pub mod citizen_spawner;
 pub mod config;
-pub mod contraction_hierarchy;
 pub mod crime;
 pub mod death_care;
 pub mod disasters;
