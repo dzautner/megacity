@@ -980,9 +980,7 @@ pub fn create_save_data(
             cloud_cover: w.cloud_cover,
             precipitation_intensity: w.precipitation_intensity,
             last_update_hour: w.last_update_hour,
-            climate_zone: climate_zone
-                .map(|cz| climate_zone_to_u8(*cz))
-                .unwrap_or(0),
+            climate_zone: climate_zone.map(|cz| climate_zone_to_u8(*cz)).unwrap_or(0),
         }),
         unlock_state: unlock_state.map(|u| SaveUnlockState {
             development_points: u.development_points,
@@ -1389,6 +1387,7 @@ mod tests {
             cloud_cover: weather.cloud_cover,
             precipitation_intensity: weather.precipitation_intensity,
             last_update_hour: weather.last_update_hour,
+            climate_zone: 0, // Temperate
         };
 
         let restored = restore_weather(&save);
