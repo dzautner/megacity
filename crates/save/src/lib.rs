@@ -4,14 +4,16 @@ use bevy::prelude::*;
 pub mod serialization;
 
 use serialization::{
-    create_save_data, migrate_save, restore_extended_budget, restore_life_sim_timer,
-    restore_lifecycle_timer, restore_loan_book, restore_policies, restore_road_segment_store,
-    restore_stormwater_grid, restore_unlock_state, restore_virtual_population,
-    restore_water_source, restore_weather, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
-    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    create_save_data, migrate_save, restore_degree_days, restore_extended_budget,
+    restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
+    restore_road_segment_store, restore_stormwater_grid, restore_unlock_state,
+    restore_virtual_population, restore_water_source, restore_weather, u8_to_road_type,
+    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
+    CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
+use simulation::degree_days::DegreeDays;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
@@ -43,7 +45,7 @@ use rendering::citizen_render::CitizenSprite;
 // SystemParam bundles to keep system parameter counts under Bevy's 16 limit
 // ---------------------------------------------------------------------------
 
-/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer, stormwater).
+/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer, stormwater, degree days).
 #[derive(SystemParam)]
 struct V2ResourcesRead<'w> {
     policies: Res<'w, Policies>,
@@ -54,6 +56,7 @@ struct V2ResourcesRead<'w> {
     virtual_population: Res<'w, VirtualPopulation>,
     life_sim_timer: Res<'w, LifeSimTimer>,
     stormwater_grid: Res<'w, StormwaterGrid>,
+    degree_days: Res<'w, DegreeDays>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -67,6 +70,7 @@ struct V2ResourcesWrite<'w> {
     virtual_population: ResMut<'w, VirtualPopulation>,
     life_sim_timer: ResMut<'w, LifeSimTimer>,
     stormwater_grid: ResMut<'w, StormwaterGrid>,
+    degree_days: ResMut<'w, DegreeDays>,
 }
 
 /// Bundles entity queries for despawning existing game entities during load/new-game.
@@ -186,6 +190,7 @@ fn handle_save(
             } else {
                 Some(&water_source_data)
             },
+            Some(&v2.degree_days),
         );
 
         let bytes = save.encode();
@@ -586,6 +591,13 @@ fn handle_load(
             *v2.stormwater_grid = StormwaterGrid::default();
         }
 
+        // Restore degree days (HDD/CDD tracking)
+        if let Some(ref saved_dd) = save.degree_days {
+            *v2.degree_days = restore_degree_days(saved_dd);
+        } else {
+            *v2.degree_days = DegreeDays::default();
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -660,6 +672,7 @@ fn handle_new_game(
         *lifecycle_timer = LifecycleTimer::default();
         *v2.life_sim_timer = LifeSimTimer::default();
         *v2.stormwater_grid = StormwaterGrid::default();
+        *v2.degree_days = DegreeDays::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
