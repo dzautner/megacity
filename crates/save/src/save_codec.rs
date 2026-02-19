@@ -2,12 +2,12 @@
 // Encoding helpers
 // ---------------------------------------------------------------------------
 
+use simulation::drought::DroughtTier;
 use simulation::grid::{RoadType, ZoneType};
 use simulation::policies::Policy;
 use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
-use simulation::drought::DroughtTier;
 use simulation::water_sources::WaterSourceType;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
 

@@ -14,8 +14,8 @@ use serialization::{
     restore_degree_days, restore_drought_state, restore_extended_budget, restore_life_sim_timer,
     restore_lifecycle_timer, restore_loan_book, restore_policies, restore_road_segment_store,
     restore_stormwater_grid, restore_unlock_state, restore_virtual_population,
-    restore_water_source, restore_weather, u8_to_road_type, u8_to_service_type,
-    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    restore_water_source, restore_weather, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
+    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
