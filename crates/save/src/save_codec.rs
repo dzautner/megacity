@@ -7,6 +7,7 @@ use simulation::policies::Policy;
 use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
+use simulation::heat_wave::HeatWaveSeverity;
 use simulation::water_sources::WaterSourceType;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
 
@@ -414,5 +415,24 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
         36 => Some(UnlockNode::RegionalAirports),
         37 => Some(UnlockNode::InternationalAirports),
         _ => None,
+    }
+}
+
+pub fn heat_wave_severity_to_u8(s: HeatWaveSeverity) -> u8 {
+    match s {
+        HeatWaveSeverity::None => 0,
+        HeatWaveSeverity::Moderate => 1,
+        HeatWaveSeverity::Severe => 2,
+        HeatWaveSeverity::Extreme => 3,
+    }
+}
+
+pub fn u8_to_heat_wave_severity(v: u8) -> HeatWaveSeverity {
+    match v {
+        0 => HeatWaveSeverity::None,
+        1 => HeatWaveSeverity::Moderate,
+        2 => HeatWaveSeverity::Severe,
+        3 => HeatWaveSeverity::Extreme,
+        _ => HeatWaveSeverity::None, // fallback
     }
 }

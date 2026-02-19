@@ -26,6 +26,7 @@ pub mod grid;
 pub mod groundwater;
 pub mod happiness;
 pub mod health;
+pub mod heat_wave;
 pub mod heating;
 pub mod homelessness;
 pub mod immigration;
@@ -96,6 +97,7 @@ use forest_fire::{ForestFireGrid, ForestFireStats};
 use garbage::{GarbageGrid, WasteCollectionGrid, WasteSystem};
 use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
 use health::HealthGrid;
+use heat_wave::HeatWaveState;
 use heating::{HeatingGrid, HeatingStats};
 use imports_exports::TradeConnections;
 use land_value::LandValueGrid;
@@ -242,6 +244,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<StormwaterGrid>()
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
+            .init_resource::<HeatWaveState>()
             .init_resource::<WasteAccumulation>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -519,6 +522,9 @@ impl Plugin for SimulationPlugin {
                     rebuild_csr_on_road_change,
                     virtual_population::adjust_real_citizen_cap.run_if(
                         bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(1)),
+                    ),
+                    heat_wave::update_heat_wave.run_if(
+                        bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(2)),
                     ),
                 ),
             )

@@ -21,7 +21,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v7 = degree_days (HDD/CDD tracking for HVAC energy demand)
 /// v8 = climate_zone in SaveWeather (ClimateZone resource)
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 9;
+/// v10 = heat_wave_state (HeatWaveState serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 10;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -98,6 +99,8 @@ pub struct SaveData {
     pub degree_days: Option<SaveDegreeDays>,
     #[serde(default)]
     pub construction_modifiers: Option<SaveConstructionModifiers>,
+    #[serde(default)]
+    pub heat_wave_state: Option<SaveHeatWaveState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -360,6 +363,21 @@ pub struct SaveDegreeDays {
 pub struct SaveConstructionModifiers {
     pub speed_factor: f32,
     pub cost_factor: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveHeatWaveState {
+    pub consecutive_hot_days: u32,
+    pub severity: u8,
+    pub excess_mortality_per_100k: f32,
+    pub energy_demand_multiplier: f32,
+    pub water_demand_multiplier: f32,
+    pub road_damage_active: bool,
+    pub fire_risk_multiplier: f32,
+    pub blackout_risk: f32,
+    pub heat_threshold_c: f32,
+    pub consecutive_extreme_days: u32,
+    pub last_check_day: u32,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
