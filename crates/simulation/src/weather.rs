@@ -543,7 +543,7 @@ mod tests {
     fn test_diurnal_factor_peak_at_15() {
         let peak = diurnal_factor(15);
         assert!(
-            (peak - 1.0).abs() < 0.01,
+            (peak - 1.0_f32).abs() < 0.01,
             "Peak at 15:00 should be ~1.0, got {}",
             peak
         );
@@ -553,7 +553,7 @@ mod tests {
     fn test_diurnal_factor_minimum_at_06() {
         let minimum = diurnal_factor(6);
         assert!(
-            minimum.abs() < 0.01,
+            minimum.abs() < 0.01_f32,
             "Minimum at 06:00 should be ~0.0, got {}",
             minimum
         );
@@ -665,8 +665,8 @@ mod tests {
     #[test]
     fn test_smooth_temperature_transition() {
         // Verify that the smooth transition formula converges
-        let target = 25.0;
-        let mut temp = 10.0;
+        let target: f32 = 25.0;
+        let mut temp: f32 = 10.0;
         for _ in 0..20 {
             temp += (target - temp) * 0.3;
         }
@@ -696,9 +696,9 @@ mod tests {
     #[test]
     fn test_default_weather_has_new_fields() {
         let w = Weather::default();
-        assert!((w.humidity - 0.5).abs() < 0.01);
-        assert!(w.cloud_cover < 0.2);
-        assert!(w.precipitation_intensity < 0.01);
+        assert!((w.humidity - 0.5_f32).abs() < 0.01);
+        assert!(w.cloud_cover < 0.2_f32);
+        assert!(w.precipitation_intensity < 0.01_f32);
         assert_eq!(w.last_update_hour, 0);
     }
 
