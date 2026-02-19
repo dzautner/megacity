@@ -1088,6 +1088,7 @@ fn spawn_tel_aviv_buildings(
                 ZoneType::CommercialHigh | ZoneType::Office => 90,
                 ZoneType::CommercialLow => 85,
                 ZoneType::ResidentialHigh => 82,
+                ZoneType::ResidentialMedium => 80,
                 ZoneType::Industrial => 78,
                 ZoneType::ResidentialLow => 70,
                 _ => 65,

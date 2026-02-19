@@ -1264,6 +1264,7 @@ fn zone_type_name(zone: ZoneType) -> &'static str {
     match zone {
         ZoneType::None => "Unzoned",
         ZoneType::ResidentialLow => "Low-Density Residential",
+        ZoneType::ResidentialMedium => "Medium-Density Residential",
         ZoneType::ResidentialHigh => "High-Density Residential",
         ZoneType::CommercialLow => "Low-Density Commercial",
         ZoneType::CommercialHigh => "High-Density Commercial",

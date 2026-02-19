@@ -72,6 +72,14 @@ impl BuildingModelCache {
     pub fn get_zone_scene(&self, zone: ZoneType, level: u8, hash: usize) -> Handle<Scene> {
         match zone {
             ZoneType::ResidentialLow => self.get_residential(hash),
+            ZoneType::ResidentialMedium => {
+                // Medium-density: use commercial buildings for townhouse/duplex look
+                if !self.commercial.is_empty() {
+                    self.commercial[hash % self.commercial.len()].clone()
+                } else {
+                    self.get_residential(hash)
+                }
+            }
             ZoneType::ResidentialHigh => {
                 if level >= 3 && !self.skyscrapers.is_empty() {
                     self.skyscrapers[hash % self.skyscrapers.len()].clone()
@@ -330,6 +338,12 @@ pub fn building_scale(zone: ZoneType, level: u8) -> f32 {
         (ZoneType::ResidentialLow, 1) => base * 0.65,
         (ZoneType::ResidentialLow, 2) => base * 0.75,
         (ZoneType::ResidentialLow, _) => base * 0.85,
+
+        // Residential medium: townhouses/duplexes (between low and high)
+        (ZoneType::ResidentialMedium, 1) => base * 0.75,
+        (ZoneType::ResidentialMedium, 2) => base * 0.9,
+        (ZoneType::ResidentialMedium, 3) => base * 1.05,
+        (ZoneType::ResidentialMedium, _) => base * 1.2,
 
         // Residential high: apartments/towers (fill cell, grow taller with level)
         (ZoneType::ResidentialHigh, 1) => base * 0.85,
@@ -2621,7 +2635,9 @@ fn generate_utility_mesh(utility_type: UtilityType) -> Mesh {
 
 pub fn zone_base_color(zone: ZoneType, _level: u8) -> Color {
     match zone {
-        ZoneType::ResidentialLow | ZoneType::ResidentialHigh => Color::srgb(0.40, 0.72, 0.35),
+        ZoneType::ResidentialLow | ZoneType::ResidentialMedium | ZoneType::ResidentialHigh => {
+            Color::srgb(0.40, 0.72, 0.35)
+        }
         ZoneType::CommercialLow | ZoneType::CommercialHigh => Color::srgb(0.40, 0.52, 0.78),
         ZoneType::Industrial => Color::srgb(0.72, 0.65, 0.25),
         ZoneType::Office => Color::srgb(0.55, 0.50, 0.68),

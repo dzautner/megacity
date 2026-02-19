@@ -41,7 +41,7 @@ impl WealthTier {
     pub fn preferred_density(self) -> crate::grid::ZoneType {
         match self {
             WealthTier::LowIncome => crate::grid::ZoneType::ResidentialHigh, // apartments
-            WealthTier::MiddleIncome => crate::grid::ZoneType::ResidentialLow, // houses
+            WealthTier::MiddleIncome => crate::grid::ZoneType::ResidentialMedium, // townhouses
             WealthTier::HighIncome => crate::grid::ZoneType::ResidentialLow, // luxury houses
         }
     }

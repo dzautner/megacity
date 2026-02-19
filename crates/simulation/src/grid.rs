@@ -15,6 +15,7 @@ pub enum ZoneType {
     #[default]
     None,
     ResidentialLow,
+    ResidentialMedium,
     ResidentialHigh,
     CommercialLow,
     CommercialHigh,
@@ -100,7 +101,10 @@ impl RoadType {
 
 impl ZoneType {
     pub fn is_residential(self) -> bool {
-        matches!(self, ZoneType::ResidentialLow | ZoneType::ResidentialHigh)
+        matches!(
+            self,
+            ZoneType::ResidentialLow | ZoneType::ResidentialMedium | ZoneType::ResidentialHigh
+        )
     }
     pub fn is_commercial(self) -> bool {
         matches!(self, ZoneType::CommercialLow | ZoneType::CommercialHigh)
@@ -111,6 +115,7 @@ impl ZoneType {
     pub fn max_level(self) -> u8 {
         match self {
             ZoneType::ResidentialLow | ZoneType::CommercialLow => 3,
+            ZoneType::ResidentialMedium => 4,
             ZoneType::ResidentialHigh
             | ZoneType::CommercialHigh
             | ZoneType::Industrial
@@ -250,5 +255,17 @@ mod tests {
         assert_eq!(grid.neighbors4(0, 0).1, 2);
         assert_eq!(grid.neighbors4(128, 128).1, 4);
         assert_eq!(grid.neighbors4(255, 255).1, 2);
+    }
+
+    #[test]
+    fn test_residential_medium_is_residential() {
+        assert!(ZoneType::ResidentialMedium.is_residential());
+        assert!(!ZoneType::ResidentialMedium.is_commercial());
+        assert!(!ZoneType::ResidentialMedium.is_job_zone());
+    }
+
+    #[test]
+    fn test_residential_medium_max_level() {
+        assert_eq!(ZoneType::ResidentialMedium.max_level(), 4);
     }
 }

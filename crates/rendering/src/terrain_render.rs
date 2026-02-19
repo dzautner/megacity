@@ -286,6 +286,8 @@ fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize, season: Se
         let (r, g, b) = match cell.zone {
             // Residential low: mix of lawn patches + driveways + sidewalks
             ZoneType::ResidentialLow => (0.52, 0.56, 0.46),
+            // Residential medium: townhouses, small apartment courtyards
+            ZoneType::ResidentialMedium => (0.57, 0.58, 0.51),
             // Residential high: concrete, narrow alleys, building bases
             ZoneType::ResidentialHigh => (0.62, 0.60, 0.57),
             // Commercial low: parking lots + sidewalks

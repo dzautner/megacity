@@ -15,7 +15,9 @@ pub struct ZoneDemand {
 impl ZoneDemand {
     pub fn demand_for(&self, zone: ZoneType) -> f32 {
         match zone {
-            ZoneType::ResidentialLow | ZoneType::ResidentialHigh => self.residential,
+            ZoneType::ResidentialLow | ZoneType::ResidentialMedium | ZoneType::ResidentialHigh => {
+                self.residential
+            }
             ZoneType::CommercialLow | ZoneType::CommercialHigh => self.commercial,
             ZoneType::Industrial => self.industrial,
             ZoneType::Office => self.office,
@@ -45,7 +47,7 @@ pub fn update_zone_demand(
 
     for cell in &grid.cells {
         match cell.zone {
-            ZoneType::ResidentialLow | ZoneType::ResidentialHigh => {
+            ZoneType::ResidentialLow | ZoneType::ResidentialMedium | ZoneType::ResidentialHigh => {
                 r_zoned += 1;
                 if let Some(entity) = cell.building_id {
                     r_built += 1;
@@ -191,6 +193,7 @@ mod tests {
             office: 0.2,
         };
         assert_eq!(demand.demand_for(ZoneType::ResidentialLow), 0.8);
+        assert_eq!(demand.demand_for(ZoneType::ResidentialMedium), 0.8);
         assert_eq!(demand.demand_for(ZoneType::ResidentialHigh), 0.8);
         assert_eq!(demand.demand_for(ZoneType::CommercialLow), 0.5);
         assert_eq!(demand.demand_for(ZoneType::CommercialHigh), 0.5);

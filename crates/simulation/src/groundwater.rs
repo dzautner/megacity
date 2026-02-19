@@ -251,7 +251,9 @@ pub fn update_groundwater(
         let usage = match building.zone_type {
             ZoneType::Industrial => 3u8,
             ZoneType::CommercialHigh | ZoneType::Office => 2u8,
-            ZoneType::ResidentialHigh | ZoneType::CommercialLow => 1u8,
+            ZoneType::ResidentialMedium | ZoneType::ResidentialHigh | ZoneType::CommercialLow => {
+                1u8
+            }
             _ => 0u8,
         };
         if usage == 0 {

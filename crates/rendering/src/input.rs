@@ -22,6 +22,7 @@ pub enum ActiveTool {
     #[default]
     Inspect,
     ZoneResidentialLow,
+    ZoneResidentialMedium,
     ZoneResidentialHigh,
     ZoneCommercialLow,
     ZoneCommercialHigh,
@@ -111,6 +112,7 @@ impl ActiveTool {
             | ActiveTool::TreeRemove => None,
             ActiveTool::TreePlant => Some(simulation::trees::TREE_PLANT_COST),
             ActiveTool::ZoneResidentialLow
+            | ActiveTool::ZoneResidentialMedium
             | ActiveTool::ZoneResidentialHigh
             | ActiveTool::ZoneCommercialLow
             | ActiveTool::ZoneCommercialHigh
@@ -196,6 +198,7 @@ impl ActiveTool {
             ActiveTool::Bulldoze => "Bulldoze",
             ActiveTool::Inspect => "Inspect",
             ActiveTool::ZoneResidentialLow => "Low-Density Residential",
+            ActiveTool::ZoneResidentialMedium => "Medium-Density Residential",
             ActiveTool::ZoneResidentialHigh => "High-Density Residential",
             ActiveTool::ZoneCommercialLow => "Low-Density Commercial",
             ActiveTool::ZoneCommercialHigh => "High-Density Commercial",
@@ -593,6 +596,14 @@ pub fn handle_tool_input(
             gx,
             gy,
             ZoneType::ResidentialLow,
+        ),
+        ActiveTool::ZoneResidentialMedium => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::ResidentialMedium,
         ),
         ActiveTool::ZoneResidentialHigh => apply_zone(
             &mut grid,
