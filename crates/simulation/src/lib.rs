@@ -1142,16 +1142,39 @@ fn spawn_tel_aviv_buildings(
 
             let capacity = Building::capacity_for_level(zone, level);
 
-            let entity = commands
-                .spawn(Building {
-                    zone_type: zone,
-                    level,
-                    grid_x: x,
-                    grid_y: y,
-                    capacity,
-                    occupants: 0,
-                })
-                .id();
+            let entity = if zone.is_mixed_use() {
+                let (comm_cap, res_cap) =
+                    buildings::MixedUseBuilding::capacities_for_level(level);
+                commands
+                    .spawn((
+                        Building {
+                            zone_type: zone,
+                            level,
+                            grid_x: x,
+                            grid_y: y,
+                            capacity,
+                            occupants: 0,
+                        },
+                        buildings::MixedUseBuilding {
+                            commercial_capacity: comm_cap,
+                            commercial_occupants: 0,
+                            residential_capacity: res_cap,
+                            residential_occupants: 0,
+                        },
+                    ))
+                    .id()
+            } else {
+                commands
+                    .spawn(Building {
+                        zone_type: zone,
+                        level,
+                        grid_x: x,
+                        grid_y: y,
+                        capacity,
+                        occupants: 0,
+                    })
+                    .id()
+            };
 
             grid.get_mut(x, y).building_id = Some(entity);
             building_entities.push((entity, zone, x, y, capacity));
@@ -1276,9 +1299,10 @@ fn spawn_tel_aviv_citizens(
         .map(|(e, _, x, y, _)| (*e, *x, *y))
         .collect();
 
+    // MixedUse buildings also provide residential capacity
     let residential_buildings: Vec<(Entity, usize, usize, u32)> = building_entities
         .iter()
-        .filter(|(_, zt, _, _, _)| zt.is_residential())
+        .filter(|(_, zt, _, _, _)| zt.is_residential() || zt.is_mixed_use())
         .map(|(e, _, x, y, cap)| (*e, *x, *y, *cap))
         .collect();
 

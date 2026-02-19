@@ -150,7 +150,12 @@ impl WasteProducer {
 
     /// Create a WasteProducer for a zoned building based on its type and level.
     pub fn for_building(zone: ZoneType, level: u8) -> Self {
-        let rate = if zone.is_residential() {
+        let rate = if zone.is_mixed_use() {
+            // MixedUse: combination of residential and commercial waste
+            let res_rate = Self::residential_rate(ZoneType::ResidentialHigh, level);
+            let comm_rate = Self::commercial_rate(ZoneType::CommercialLow, level);
+            (res_rate + comm_rate) * 0.5
+        } else if zone.is_residential() {
             Self::residential_rate(zone, level)
         } else if zone.is_commercial() {
             Self::commercial_rate(zone, level)

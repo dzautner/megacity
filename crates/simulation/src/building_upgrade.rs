@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::buildings::Building;
+use crate::buildings::{Building, MixedUseBuilding};
 use crate::stats::CityStats;
 
 const UPGRADE_INTERVAL: u32 = 30; // sim ticks between upgrade checks
@@ -14,7 +14,7 @@ pub struct UpgradeTimer {
 pub fn upgrade_buildings(
     stats: Res<CityStats>,
     mut timer: ResMut<UpgradeTimer>,
-    mut buildings: Query<&mut Building>,
+    mut buildings: Query<(&mut Building, Option<&mut MixedUseBuilding>)>,
     policies: Res<crate::policies::Policies>,
 ) {
     timer.tick += 1;
@@ -28,7 +28,7 @@ pub fn upgrade_buildings(
     let mut upgraded = 0u32;
     let max_upgrades_per_tick = 50;
 
-    for mut building in &mut buildings {
+    for (mut building, mixed_use) in &mut buildings {
         if upgraded >= max_upgrades_per_tick {
             break;
         }
@@ -50,6 +50,13 @@ pub fn upgrade_buildings(
         if should_upgrade {
             building.level += 1;
             building.capacity = Building::capacity_for_level(building.zone_type, building.level);
+            // Update MixedUseBuilding capacities if present
+            if let Some(mut mu) = mixed_use {
+                let (comm_cap, res_cap) =
+                    MixedUseBuilding::capacities_for_level(building.level);
+                mu.commercial_capacity = comm_cap;
+                mu.residential_capacity = res_cap;
+            }
             upgraded += 1;
         }
     }
@@ -59,7 +66,7 @@ pub fn upgrade_buildings(
 pub fn downgrade_buildings(
     stats: Res<CityStats>,
     mut timer: ResMut<UpgradeTimer>,
-    mut buildings: Query<&mut Building>,
+    mut buildings: Query<(&mut Building, Option<&mut MixedUseBuilding>)>,
 ) {
     timer.downgrade_tick += 1;
     if timer.downgrade_tick < UPGRADE_INTERVAL {
@@ -71,7 +78,7 @@ pub fn downgrade_buildings(
         return;
     }
 
-    for mut building in &mut buildings {
+    for (mut building, mixed_use) in &mut buildings {
         if building.level <= 1 {
             continue;
         }
@@ -83,6 +90,19 @@ pub fn downgrade_buildings(
             // Evict excess occupants
             if building.occupants > building.capacity {
                 building.occupants = building.capacity;
+            }
+            // Update MixedUseBuilding capacities if present
+            if let Some(mut mu) = mixed_use {
+                let (comm_cap, res_cap) =
+                    MixedUseBuilding::capacities_for_level(building.level);
+                mu.commercial_capacity = comm_cap;
+                mu.residential_capacity = res_cap;
+                if mu.commercial_occupants > mu.commercial_capacity {
+                    mu.commercial_occupants = mu.commercial_capacity;
+                }
+                if mu.residential_occupants > mu.residential_capacity {
+                    mu.residential_occupants = mu.residential_capacity;
+                }
             }
         }
     }

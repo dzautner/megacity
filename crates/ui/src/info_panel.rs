@@ -1270,6 +1270,7 @@ fn zone_type_name(zone: ZoneType) -> &'static str {
         ZoneType::CommercialHigh => "High-Density Commercial",
         ZoneType::Industrial => "Industrial",
         ZoneType::Office => "Office",
+        ZoneType::MixedUse => "Mixed-Use",
     }
 }
 
@@ -2019,6 +2020,8 @@ fn build_minimap_pixels(grid: &WorldGrid, overlay: &OverlayState) -> Vec<egui::C
                             egui::Color32::from_rgb(200, 170, 40)
                         } else if cell.zone == ZoneType::Office {
                             egui::Color32::from_rgb(150, 120, 210)
+                        } else if cell.zone.is_mixed_use() {
+                            egui::Color32::from_rgb(160, 140, 80)
                         } else {
                             egui::Color32::from_rgb(140, 140, 140)
                         }
@@ -2031,6 +2034,8 @@ fn build_minimap_pixels(grid: &WorldGrid, overlay: &OverlayState) -> Vec<egui::C
                             egui::Color32::from_rgb(140, 120, 30)
                         } else if cell.zone == ZoneType::Office {
                             egui::Color32::from_rgb(100, 80, 160)
+                        } else if cell.zone.is_mixed_use() {
+                            egui::Color32::from_rgb(120, 100, 50)
                         } else {
                             egui::Color32::from_rgb(80, 80, 80)
                         }

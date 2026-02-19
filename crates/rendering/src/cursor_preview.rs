@@ -102,6 +102,10 @@ pub fn update_cursor_preview(
             let ok = cell.cell_type == CellType::Grass;
             (Color::srgba(0.6, 0.5, 0.85, 0.5), ok)
         }
+        ActiveTool::ZoneMixedUse => {
+            let ok = cell.cell_type == CellType::Grass;
+            (Color::srgba(0.65, 0.55, 0.3, 0.5), ok)
+        }
         _ => {
             // Service / utility placement: check all footprint cells
             let ok = check_footprint_valid(&grid, gx, gy, fw, fh);

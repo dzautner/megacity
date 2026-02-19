@@ -141,10 +141,11 @@ pub fn compute_attractiveness(
 
     // --- Housing factor ---
     // Available residential capacity vs current occupancy
+    // MixedUse buildings also provide residential capacity
     let mut total_res_capacity = 0u32;
     let mut total_res_occupants = 0u32;
     for b in &buildings {
-        if b.zone_type.is_residential() {
+        if b.zone_type.is_residential() || b.zone_type.is_mixed_use() {
             total_res_capacity += b.capacity;
             total_res_occupants += b.occupants;
         }
@@ -274,10 +275,13 @@ fn spawn_immigrant_families(
     virtual_pop: &mut ResMut<VirtualPopulation>,
     imm_stats: &mut ResMut<ImmigrationStats>,
 ) {
-    // Collect residential buildings with capacity
+    // Collect residential buildings with capacity (including MixedUse)
     let homes_with_capacity: Vec<Entity> = buildings
         .iter()
-        .filter(|(_, b)| b.zone_type.is_residential() && b.occupants < b.capacity)
+        .filter(|(_, b)| {
+            (b.zone_type.is_residential() || b.zone_type.is_mixed_use())
+                && b.occupants < b.capacity
+        })
         .map(|(e, _)| e)
         .collect();
 

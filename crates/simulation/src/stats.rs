@@ -12,6 +12,7 @@ pub struct CityStats {
     pub commercial_buildings: u32,
     pub industrial_buildings: u32,
     pub office_buildings: u32,
+    pub mixed_use_buildings: u32,
     pub road_cells: u32,
     pub employed: u32,
     pub average_happiness: f32,
@@ -32,6 +33,7 @@ pub fn update_stats(
     let mut c = 0u32;
     let mut i = 0u32;
     let mut o = 0u32;
+    let mut mu = 0u32;
     let mut roads = 0u32;
 
     for cell in &grid.cells {
@@ -48,6 +50,8 @@ pub fn update_stats(
                 i += 1;
             } else if zone == ZoneType::Office {
                 o += 1;
+            } else if zone.is_mixed_use() {
+                mu += 1;
             }
         }
     }
@@ -65,6 +69,7 @@ pub fn update_stats(
     stats.commercial_buildings = c;
     stats.industrial_buildings = i;
     stats.office_buildings = o;
+    stats.mixed_use_buildings = mu;
     stats.road_cells = roads;
     stats.average_happiness = avg_happiness;
 }

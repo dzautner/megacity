@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::buildings::{Building, UnderConstruction};
+use crate::buildings::{Building, MixedUseBuilding, UnderConstruction};
 use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
@@ -21,7 +21,7 @@ pub fn spawn_citizens(
     mut commands: Commands,
     _grid: Res<WorldGrid>,
     mut timer: ResMut<CitizenSpawnTimer>,
-    mut buildings: Query<(Entity, &mut Building)>,
+    mut buildings: Query<(Entity, &mut Building, Option<&mut MixedUseBuilding>)>,
     under_construction: Query<Entity, With<UnderConstruction>>,
     mut virtual_pop: ResMut<VirtualPopulation>,
     citizens: Query<&crate::citizen::Citizen>,
@@ -38,14 +38,15 @@ pub fn spawn_citizens(
 
     // Collect available workplaces (immutable pass)
     // Skip buildings that are still under construction
+    // MixedUse buildings count as job zones
     let available_work: Vec<(Entity, usize, usize)> = buildings
         .iter()
-        .filter(|(e, b)| {
+        .filter(|(e, b, _)| {
             b.zone_type.is_job_zone()
                 && b.occupants < b.capacity
                 && under_construction.get(*e).is_err()
         })
-        .map(|(e, b)| (e, b.grid_x, b.grid_y))
+        .map(|(e, b, _)| (e, b.grid_x, b.grid_y))
         .collect();
 
     if available_work.is_empty() {
@@ -54,22 +55,36 @@ pub fn spawn_citizens(
 
     // Collect residential buildings that need citizens
     // Skip buildings that are still under construction
+    // MixedUse buildings also provide residential capacity
     let homes_to_fill: Vec<Entity> = buildings
         .iter()
-        .filter(|(e, b)| {
-            b.zone_type.is_residential()
-                && b.occupants < b.capacity
-                && under_construction.get(*e).is_err()
+        .filter(|(e, b, mu)| {
+            let has_res_space = if let Some(mu) = mu {
+                mu.residential_occupants < mu.residential_capacity
+            } else {
+                b.zone_type.is_residential() && b.occupants < b.capacity
+            };
+            has_res_space && under_construction.get(*e).is_err()
         })
-        .map(|(e, _)| e)
+        .map(|(e, _, _)| e)
         .collect();
 
     // Use burst mode when population is far below building capacity
     // Only count operational (non-construction) residential capacity
+    // Include MixedUse residential capacity
     let total_res_capacity: u32 = buildings
         .iter()
-        .filter(|(e, b)| b.zone_type.is_residential() && under_construction.get(*e).is_err())
-        .map(|(_, b)| b.capacity)
+        .filter(|(e, b, _)| {
+            (b.zone_type.is_residential() || b.zone_type.is_mixed_use())
+                && under_construction.get(*e).is_err()
+        })
+        .map(|(_, b, mu)| {
+            if let Some(mu) = mu {
+                mu.residential_capacity
+            } else {
+                b.capacity
+            }
+        })
         .sum();
     let target_fill = (total_res_capacity as f32 * 0.5) as u32;
     let current_pop = real_count + virtual_pop.total_virtual;
@@ -87,7 +102,7 @@ pub fn spawn_citizens(
         }
 
         let (home_gx, home_gy) = {
-            let (_, b) = buildings.get(home_entity).unwrap();
+            let (_, b, _) = buildings.get(home_entity).unwrap();
             (b.grid_x, b.grid_y)
         };
 
@@ -100,9 +115,17 @@ pub fn spawn_citizens(
         if real_count + spawned >= virtual_pop.max_real_citizens {
             // Over the real-citizen cap: track virtually instead of spawning an entity
             virtual_pop.total_virtual += 1;
-            buildings.get_mut(home_entity).unwrap().1.occupants += 1;
-            if let Ok((_, mut work_b)) = buildings.get_mut(work_entity) {
+            if let Ok((_, mut home_b, home_mu)) = buildings.get_mut(home_entity) {
+                home_b.occupants += 1;
+                if let Some(mu) = home_mu {
+                    mu.residential_occupants += 1;
+                }
+            }
+            if let Ok((_, mut work_b, work_mu)) = buildings.get_mut(work_entity) {
                 work_b.occupants += 1;
+                if let Some(mu) = work_mu {
+                    mu.commercial_occupants += 1;
+                }
             }
             spawned += 1;
             continue;
@@ -152,9 +175,17 @@ pub fn spawn_citizens(
             ActivityTimer::default(),
         ));
 
-        buildings.get_mut(home_entity).unwrap().1.occupants += 1;
-        if let Ok((_, mut work_b)) = buildings.get_mut(work_entity) {
+        if let Ok((_, mut home_b, home_mu)) = buildings.get_mut(home_entity) {
+            home_b.occupants += 1;
+            if let Some(mu) = home_mu {
+                mu.residential_occupants += 1;
+            }
+        }
+        if let Ok((_, mut work_b, work_mu)) = buildings.get_mut(work_entity) {
             work_b.occupants += 1;
+            if let Some(mu) = work_mu {
+                mu.commercial_occupants += 1;
+            }
         }
         spawned += 1;
     }

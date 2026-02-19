@@ -2,7 +2,7 @@ use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
-use simulation::buildings::Building;
+use simulation::buildings::{Building, MixedUseBuilding};
 use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Velocity};
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid};
@@ -38,6 +38,7 @@ pub fn zone_type_to_u8(z: simulation::grid::ZoneType) -> u8 {
         simulation::grid::ZoneType::Industrial => 5,
         simulation::grid::ZoneType::Office => 6,
         simulation::grid::ZoneType::ResidentialMedium => 7,
+        simulation::grid::ZoneType::MixedUse => 8,
     }
 }
 
@@ -50,6 +51,7 @@ pub fn u8_to_zone_type(v: u8) -> simulation::grid::ZoneType {
         5 => simulation::grid::ZoneType::Industrial,
         6 => simulation::grid::ZoneType::Office,
         7 => simulation::grid::ZoneType::ResidentialMedium,
+        8 => simulation::grid::ZoneType::MixedUse,
         _ => simulation::grid::ZoneType::None,
     }
 }
@@ -524,6 +526,15 @@ pub struct SaveBuilding {
     pub grid_y: usize,
     pub capacity: u32,
     pub occupants: u32,
+    // MixedUse fields (backward-compatible via serde defaults)
+    #[serde(default)]
+    pub commercial_capacity: u32,
+    #[serde(default)]
+    pub commercial_occupants: u32,
+    #[serde(default)]
+    pub residential_capacity: u32,
+    #[serde(default)]
+    pub residential_occupants: u32,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -802,7 +813,7 @@ pub fn create_save_data(
     clock: &GameClock,
     budget: &CityBudget,
     demand: &ZoneDemand,
-    buildings: &[(Building,)],
+    buildings: &[(Building, Option<MixedUseBuilding>)],
     citizens: &[CitizenSaveInput],
     utility_sources: &[UtilitySource],
     service_buildings: &[(ServiceBuilding,)],
@@ -862,13 +873,17 @@ pub fn create_save_data(
         },
         buildings: buildings
             .iter()
-            .map(|(b,)| SaveBuilding {
+            .map(|(b, mu)| SaveBuilding {
                 zone_type: zone_type_to_u8(b.zone_type),
                 level: b.level,
                 grid_x: b.grid_x,
                 grid_y: b.grid_y,
                 capacity: b.capacity,
                 occupants: b.occupants,
+                commercial_capacity: mu.as_ref().map_or(0, |m| m.commercial_capacity),
+                commercial_occupants: mu.as_ref().map_or(0, |m| m.commercial_occupants),
+                residential_capacity: mu.as_ref().map_or(0, |m| m.residential_capacity),
+                residential_occupants: mu.as_ref().map_or(0, |m| m.residential_occupants),
             })
             .collect(),
         citizens: citizens
@@ -1313,6 +1328,7 @@ mod tests {
             ZoneType::CommercialHigh,
             ZoneType::Industrial,
             ZoneType::Office,
+            ZoneType::MixedUse,
         ];
         for zt in &types {
             let encoded = zone_type_to_u8(*zt);

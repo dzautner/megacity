@@ -298,6 +298,8 @@ fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize, season: Se
             ZoneType::Industrial => (0.55, 0.52, 0.47),
             // Office: landscaped plazas, clean concrete
             ZoneType::Office => (0.64, 0.62, 0.58),
+            // MixedUse: blend of commercial and residential tones
+            ZoneType::MixedUse => (0.60, 0.58, 0.52),
             ZoneType::None => unreachable!(),
         };
         return Color::srgb(

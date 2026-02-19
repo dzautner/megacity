@@ -11,7 +11,7 @@ use serialization::{
     SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
-use simulation::buildings::Building;
+use simulation::buildings::{Building, MixedUseBuilding};
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
@@ -97,7 +97,7 @@ fn handle_save(
     clock: Res<GameClock>,
     budget: Res<CityBudget>,
     demand: Res<ZoneDemand>,
-    buildings: Query<&Building>,
+    buildings: Query<(&Building, Option<&MixedUseBuilding>)>,
     citizens: Query<
         (
             &CitizenDetails,
@@ -116,7 +116,10 @@ fn handle_save(
     lifecycle_timer: Res<LifecycleTimer>,
 ) {
     for _ in events.read() {
-        let building_data: Vec<(Building,)> = buildings.iter().map(|b| (b.clone(),)).collect();
+        let building_data: Vec<(Building, Option<MixedUseBuilding>)> = buildings
+            .iter()
+            .map(|(b, mu)| (b.clone(), mu.cloned()))
+            .collect();
 
         let citizen_data: Vec<CitizenSaveInput> = citizens
             .iter()
@@ -314,16 +317,36 @@ fn handle_load(
         // Restore buildings
         for sb in &save.buildings {
             let zone = u8_to_zone_type(sb.zone_type);
-            let entity = commands
-                .spawn(Building {
-                    zone_type: zone,
-                    level: sb.level,
-                    grid_x: sb.grid_x,
-                    grid_y: sb.grid_y,
-                    capacity: sb.capacity,
-                    occupants: sb.occupants,
-                })
-                .id();
+            let building = Building {
+                zone_type: zone,
+                level: sb.level,
+                grid_x: sb.grid_x,
+                grid_y: sb.grid_y,
+                capacity: sb.capacity,
+                occupants: sb.occupants,
+            };
+            let entity = if zone.is_mixed_use() {
+                // Restore MixedUseBuilding component; use saved data if non-zero,
+                // otherwise derive from static capacities for the level.
+                let (comm_cap, res_cap) = if sb.commercial_capacity > 0 || sb.residential_capacity > 0 {
+                    (sb.commercial_capacity, sb.residential_capacity)
+                } else {
+                    MixedUseBuilding::capacities_for_level(sb.level)
+                };
+                commands
+                    .spawn((
+                        building,
+                        MixedUseBuilding {
+                            commercial_capacity: comm_cap,
+                            commercial_occupants: sb.commercial_occupants,
+                            residential_capacity: res_cap,
+                            residential_occupants: sb.residential_occupants,
+                        },
+                    ))
+                    .id()
+            } else {
+                commands.spawn(building).id()
+            };
             if grid.in_bounds(sb.grid_x, sb.grid_y) {
                 grid.get_mut(sb.grid_x, sb.grid_y).building_id = Some(entity);
             }

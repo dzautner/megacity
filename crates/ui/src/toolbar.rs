@@ -178,6 +178,13 @@ fn build_categories() -> Vec<ToolCategory> {
                     cost: None,
                     overlay: None,
                 },
+                ToolItem {
+                    tool: Some(ActiveTool::ZoneMixedUse),
+                    icon: "MU",
+                    name: "Mixed-Use",
+                    cost: None,
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
