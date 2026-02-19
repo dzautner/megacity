@@ -19,6 +19,7 @@ impl Plugin for UiPlugin {
             .init_resource::<info_panel::ChartsVisible>()
             .init_resource::<info_panel::AdvisorVisible>()
             .init_resource::<info_panel::PoliciesVisible>()
+            .init_resource::<info_panel::BulldozeConfirmation>()
             .add_systems(Startup, theme::apply_cute_theme)
             .add_systems(
                 Update,
@@ -39,6 +40,8 @@ impl Plugin for UiPlugin {
                     info_panel::panel_keybinds,
                     info_panel::event_journal_ui,
                     info_panel::advisor_window_ui,
+                    info_panel::delete_key_bulldoze,
+                    info_panel::bulldoze_confirmation_ui,
                 ),
             );
     }

@@ -42,8 +42,9 @@ use simulation::welfare::WelfareStats;
 use simulation::wind::WindState;
 use simulation::zones::ZoneDemand;
 
-use rendering::input::SelectedBuilding;
+use rendering::input::{SelectedBuilding, StatusMessage};
 use rendering::overlay::{OverlayMode, OverlayState};
+use rendering::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
 
 const MINIMAP_SIZE: usize = 128;
 const SAMPLE_STEP: usize = 2; // Sample every Nth cell
@@ -2310,6 +2311,254 @@ pub fn advisor_window_ui(
                     });
             }
         });
+}
+
+// ---------------------------------------------------------------------------
+// Delete-key bulldoze
+// ---------------------------------------------------------------------------
+
+/// Refund percentage when bulldozing a building (50%).
+const BULLDOZE_REFUND_RATE: f64 = 0.5;
+
+/// Pending bulldoze confirmation state. When `Some`, a confirmation dialog is
+/// shown before the entity is actually despawned.
+#[derive(Resource, Default)]
+pub struct BulldozeConfirmation {
+    pub pending: Option<BulldozePending>,
+}
+
+pub struct BulldozePending {
+    pub entity: Entity,
+    pub name: String,
+    pub refund: f64,
+}
+
+/// Estimate the refund value for a zone building based on level.
+fn zone_building_refund(building: &Building) -> f64 {
+    let base = match building.zone_type {
+        ZoneType::ResidentialLow => 50.0,
+        ZoneType::ResidentialHigh => 80.0,
+        ZoneType::CommercialLow => 60.0,
+        ZoneType::CommercialHigh => 100.0,
+        ZoneType::Industrial => 70.0,
+        ZoneType::Office => 90.0,
+        ZoneType::None => 0.0,
+    };
+    base * building.level as f64 * BULLDOZE_REFUND_RATE
+}
+
+/// Handles Delete/Backspace to bulldoze the currently selected building.
+///
+/// * Level-1 zone buildings are demolished immediately.
+/// * Higher-level zone buildings, service buildings and utility sources show a
+///   confirmation dialog first (via [`BulldozeConfirmation`]).
+/// * No-op when nothing is selected or egui has keyboard focus.
+#[allow(clippy::too_many_arguments)]
+pub fn delete_key_bulldoze(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut selected: ResMut<SelectedBuilding>,
+    mut grid: ResMut<WorldGrid>,
+    mut budget: ResMut<CityBudget>,
+    mut status: ResMut<StatusMessage>,
+    mut confirm: ResMut<BulldozeConfirmation>,
+    mut commands: Commands,
+    mut contexts: EguiContexts,
+    buildings: Query<&Building>,
+    service_q: Query<&ServiceBuilding>,
+    utility_q: Query<&UtilitySource>,
+    chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
+) {
+    // Ignore keystrokes when egui wants the keyboard (e.g. text input)
+    if contexts.ctx_mut().wants_keyboard_input() {
+        return;
+    }
+
+    // Don't process delete while a confirmation dialog is already open
+    if confirm.pending.is_some() {
+        return;
+    }
+
+    let delete_pressed =
+        keys.just_pressed(KeyCode::Delete) || keys.just_pressed(KeyCode::Backspace);
+    if !delete_pressed {
+        return;
+    }
+
+    let Some(entity) = selected.0 else {
+        return;
+    };
+
+    // --- Zone building ---
+    if let Ok(building) = buildings.get(entity) {
+        if building.level > 1 {
+            // Needs confirmation
+            let refund = zone_building_refund(building);
+            confirm.pending = Some(BulldozePending {
+                entity,
+                name: format!(
+                    "{} (Lv{})",
+                    zone_type_name(building.zone_type),
+                    building.level
+                ),
+                refund,
+            });
+            return;
+        }
+
+        // Level 1 -- demolish immediately
+        let refund = zone_building_refund(building);
+        grid.get_mut(building.grid_x, building.grid_y).building_id = None;
+        grid.get_mut(building.grid_x, building.grid_y).zone = ZoneType::None;
+        mark_chunk_dirty_at(building.grid_x, building.grid_y, &chunks, &mut commands);
+        commands.entity(entity).despawn();
+        budget.treasury += refund;
+        status.set(format!("Demolished (+${:.0} refund)", refund), false);
+        selected.0 = None;
+        return;
+    }
+
+    // --- Service building ---
+    if let Ok(service) = service_q.get(entity) {
+        let cost = ServiceBuilding::cost(service.service_type);
+        let refund = cost * BULLDOZE_REFUND_RATE;
+        confirm.pending = Some(BulldozePending {
+            entity,
+            name: service.service_type.name().to_string(),
+            refund,
+        });
+        return;
+    }
+
+    // --- Utility building ---
+    if let Ok(utility) = utility_q.get(entity) {
+        let cost = simulation::services::utility_cost(utility.utility_type);
+        let refund = cost * BULLDOZE_REFUND_RATE;
+        confirm.pending = Some(BulldozePending {
+            entity,
+            name: utility.utility_type.name().to_string(),
+            refund,
+        });
+    }
+}
+
+/// Renders the bulldoze-confirmation dialog and executes the demolition when
+/// the player clicks **Confirm**.
+#[allow(clippy::too_many_arguments)]
+pub fn bulldoze_confirmation_ui(
+    mut contexts: EguiContexts,
+    mut confirm: ResMut<BulldozeConfirmation>,
+    mut selected: ResMut<SelectedBuilding>,
+    mut grid: ResMut<WorldGrid>,
+    mut budget: ResMut<CityBudget>,
+    mut status: ResMut<StatusMessage>,
+    mut commands: Commands,
+    buildings: Query<&Building>,
+    service_q: Query<&ServiceBuilding>,
+    utility_q: Query<&UtilitySource>,
+    chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
+) {
+    let Some(ref pending) = confirm.pending else {
+        return;
+    };
+    let entity = pending.entity;
+
+    // If the entity was already despawned (e.g. by another system), close.
+    let entity_exists = buildings.get(entity).is_ok()
+        || service_q.get(entity).is_ok()
+        || utility_q.get(entity).is_ok();
+    if !entity_exists {
+        confirm.pending = None;
+        return;
+    }
+
+    let mut do_bulldoze = false;
+    let mut do_cancel = false;
+
+    egui::Window::new("Confirm Bulldoze")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+        .show(contexts.ctx_mut(), |ui| {
+            ui.label(format!("Demolish {}?", pending.name));
+            ui.label(format!("Treasury refund: ${:.0}", pending.refund));
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button("Confirm").clicked() {
+                    do_bulldoze = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    do_cancel = true;
+                }
+            });
+        });
+
+    if do_cancel {
+        confirm.pending = None;
+        return;
+    }
+
+    if !do_bulldoze {
+        return;
+    }
+
+    let refund = pending.refund;
+    let name = pending.name.clone();
+    confirm.pending = None;
+
+    // Perform the actual demolition, mirroring the Bulldoze tool logic.
+
+    // Zone building
+    if let Ok(building) = buildings.get(entity) {
+        grid.get_mut(building.grid_x, building.grid_y).building_id = None;
+        grid.get_mut(building.grid_x, building.grid_y).zone = ZoneType::None;
+        mark_chunk_dirty_at(building.grid_x, building.grid_y, &chunks, &mut commands);
+        commands.entity(entity).despawn();
+        budget.treasury += refund;
+        status.set(
+            format!("Demolished {} (+${:.0} refund)", name, refund),
+            false,
+        );
+        selected.0 = None;
+        return;
+    }
+
+    // Service building (multi-cell footprint)
+    if let Ok(service) = service_q.get(entity) {
+        let (fw, fh) = ServiceBuilding::footprint(service.service_type);
+        let sx = service.grid_x;
+        let sy = service.grid_y;
+        for fy in sy..sy + fh {
+            for fx in sx..sx + fw {
+                if grid.in_bounds(fx, fy) {
+                    grid.get_mut(fx, fy).building_id = None;
+                    grid.get_mut(fx, fy).zone = ZoneType::None;
+                    mark_chunk_dirty_at(fx, fy, &chunks, &mut commands);
+                }
+            }
+        }
+        commands.entity(entity).despawn();
+        budget.treasury += refund;
+        status.set(
+            format!("Demolished {} (+${:.0} refund)", name, refund),
+            false,
+        );
+        selected.0 = None;
+        return;
+    }
+
+    // Utility source (single cell)
+    if let Ok(utility) = utility_q.get(entity) {
+        grid.get_mut(utility.grid_x, utility.grid_y).building_id = None;
+        grid.get_mut(utility.grid_x, utility.grid_y).zone = ZoneType::None;
+        mark_chunk_dirty_at(utility.grid_x, utility.grid_y, &chunks, &mut commands);
+        commands.entity(entity).despawn();
+        budget.treasury += refund;
+        status.set(
+            format!("Demolished {} (+${:.0} refund)", name, refund),
+            false,
+        );
+        selected.0 = None;
+    }
 }
 
 /// Returns a color associated with a given event type for visual distinction.
