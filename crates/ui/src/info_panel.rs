@@ -2176,6 +2176,35 @@ pub fn panel_keybinds(
     }
 }
 
+/// Keyboard shortcuts for quick save (Ctrl+S), quick load (Ctrl+L), and new game (Ctrl+N).
+/// Skipped when egui wants keyboard input (e.g. a text field is focused).
+pub fn quick_save_load_keybinds(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut contexts: EguiContexts,
+    mut save_events: EventWriter<save::SaveGameEvent>,
+    mut load_events: EventWriter<save::LoadGameEvent>,
+    mut new_game_events: EventWriter<save::NewGameEvent>,
+) {
+    if contexts.ctx_mut().wants_keyboard_input() {
+        return;
+    }
+
+    let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+    if !ctrl {
+        return;
+    }
+
+    if keyboard.just_pressed(KeyCode::KeyS) {
+        save_events.send(save::SaveGameEvent);
+    }
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        load_events.send(save::LoadGameEvent);
+    }
+    if keyboard.just_pressed(KeyCode::KeyN) {
+        new_game_events.send(save::NewGameEvent);
+    }
+}
+
 /// Displays the Event Journal as a collapsible egui window.
 /// Shows the last 10 events with day/hour and description.
 /// Also shows active effects status.
