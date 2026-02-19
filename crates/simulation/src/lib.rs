@@ -64,6 +64,7 @@ pub mod unlocks;
 pub mod utilities;
 pub mod virtual_population;
 pub mod waste_composition;
+pub mod waste_effects;
 pub mod water_demand;
 pub mod water_pollution;
 pub mod water_sources;
@@ -123,6 +124,7 @@ use traffic_accidents::AccidentTracker;
 use trees::TreeGrid;
 use unlocks::UnlockState;
 use virtual_population::VirtualPopulation;
+use waste_effects::{WasteAccumulation, WasteCrisisEvent};
 use water_demand::WaterSupply;
 use water_pollution::WaterPollutionGrid;
 use wealth::WealthStats;
@@ -240,8 +242,10 @@ impl Plugin for SimulationPlugin {
             .init_resource::<StormwaterGrid>()
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
+            .init_resource::<WasteAccumulation>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
+            .add_event::<WasteCrisisEvent>()
             .add_systems(Startup, world_init::init_world)
             .add_systems(
                 FixedUpdate,
@@ -306,6 +310,16 @@ impl Plugin for SimulationPlugin {
                 )
                     .chain()
                     .after(education::propagate_education),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    waste_effects::update_waste_accumulation,
+                    waste_effects::waste_health_penalty,
+                    waste_effects::check_waste_crisis,
+                )
+                    .chain()
+                    .after(garbage::update_waste_collection),
             )
             .add_systems(
                 FixedUpdate,
