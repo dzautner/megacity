@@ -10,6 +10,7 @@ pub use crate::save_types::*;
 
 use simulation::buildings::{Building, MixedUseBuilding};
 use simulation::citizen::CitizenState;
+use simulation::composting::CompostingState;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::life_simulation::LifeSimTimer;
@@ -56,6 +57,7 @@ pub fn create_save_data(
     degree_days: Option<&DegreeDays>,
     climate_zone: Option<&ClimateZone>,
     construction_modifiers: Option<&ConstructionModifiers>,
+    composting_state: Option<&CompostingState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -320,6 +322,26 @@ pub fn create_save_data(
             speed_factor: cm.speed_factor,
             cost_factor: cm.cost_factor,
         }),
+        composting_state: composting_state.map(|cs| SaveCompostingState {
+            facilities: cs
+                .facilities
+                .iter()
+                .map(|f| SaveCompostFacility {
+                    method: compost_method_to_u8(f.method),
+                    capacity_tons_per_day: f.capacity_tons_per_day,
+                    cost_per_ton: f.cost_per_ton,
+                    tons_processed_today: f.tons_processed_today,
+                })
+                .collect(),
+            participation_rate: cs.participation_rate,
+            organic_fraction: cs.organic_fraction,
+            total_diverted_tons: cs.total_diverted_tons,
+            daily_diversion_tons: cs.daily_diversion_tons,
+            compost_revenue_per_ton: cs.compost_revenue_per_ton,
+            daily_revenue: cs.daily_revenue,
+            biogas_mwh_per_ton: cs.biogas_mwh_per_ton,
+            daily_biogas_mwh: cs.daily_biogas_mwh,
+        }),
     }
 }
 
@@ -389,6 +411,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -422,6 +445,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.composting_state.is_none());
     }
 
     #[test]
@@ -725,6 +749,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -801,6 +826,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -818,6 +844,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.composting_state.is_none());
     }
 
     #[test]
@@ -874,6 +901,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -898,6 +926,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -953,6 +982,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -980,6 +1010,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1034,6 +1065,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1061,6 +1093,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1205,6 +1238,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1247,6 +1281,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1365,6 +1400,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1417,6 +1453,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1443,6 +1480,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1534,6 +1572,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1658,6 +1697,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1685,6 +1725,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1731,6 +1772,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1792,6 +1834,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1831,6 +1874,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1929,6 +1973,7 @@ mod tests {
             None,
             Some(&climate_zone),
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1981,6 +2026,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1988,6 +2034,7 @@ mod tests {
         assert!(restored.stormwater_grid.is_none());
         // When construction_modifiers is None, the restore uses default
         assert!(restored.construction_modifiers.is_none());
+        assert!(restored.composting_state.is_none());
     }
 
     #[test]
@@ -2018,6 +2065,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

@@ -9,6 +9,7 @@ pub mod building_upgrade;
 pub mod buildings;
 pub mod citizen;
 pub mod citizen_spawner;
+pub mod composting;
 pub mod config;
 pub mod crime;
 pub mod death_care;
@@ -82,6 +83,7 @@ use budget::ExtendedBudget;
 use building_upgrade::UpgradeTimer;
 use buildings::{BuildingSpawnTimer, EligibleCells};
 use citizen_spawner::CitizenSpawnTimer;
+use composting::CompostingState;
 use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
 use degree_days::DegreeDays;
@@ -243,6 +245,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
             .init_resource::<WasteAccumulation>()
+            .init_resource::<CompostingState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
@@ -540,7 +543,13 @@ impl Plugin for SimulationPlugin {
                 )
                     .after(lod::assign_lod_tiers),
             )
-            .add_systems(Update, tick_lod_frame_counter);
+            .add_systems(Update, tick_lod_frame_counter)
+            .add_systems(
+                Update,
+                composting::update_composting.run_if(
+                    bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(2)),
+                ),
+            );
     }
 }
 

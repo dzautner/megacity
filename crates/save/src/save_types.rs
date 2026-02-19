@@ -21,7 +21,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v7 = degree_days (HDD/CDD tracking for HVAC energy demand)
 /// v8 = climate_zone in SaveWeather (ClimateZone resource)
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 9;
+/// v10 = composting_state (CompostingState serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 10;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -98,6 +99,8 @@ pub struct SaveData {
     pub degree_days: Option<SaveDegreeDays>,
     #[serde(default)]
     pub construction_modifiers: Option<SaveConstructionModifiers>,
+    #[serde(default)]
+    pub composting_state: Option<SaveCompostingState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -400,6 +403,27 @@ pub struct SaveVirtualPopulation {
     pub virtual_employed: u32,
     pub district_stats: Vec<SaveDistrictStats>,
     pub max_real_citizens: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode)]
+pub struct SaveCompostFacility {
+    pub method: u8,
+    pub capacity_tons_per_day: f32,
+    pub cost_per_ton: f32,
+    pub tons_processed_today: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveCompostingState {
+    pub facilities: Vec<SaveCompostFacility>,
+    pub participation_rate: f32,
+    pub organic_fraction: f32,
+    pub total_diverted_tons: f32,
+    pub daily_diversion_tons: f32,
+    pub compost_revenue_per_ton: f32,
+    pub daily_revenue: f32,
+    pub biogas_mwh_per_ton: f32,
+    pub daily_biogas_mwh: f32,
 }
 
 impl SaveData {

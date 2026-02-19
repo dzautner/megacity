@@ -6,6 +6,7 @@ use crate::save_codec::*;
 use crate::save_types::*;
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
+use simulation::composting::{CompostFacility, CompostingState};
 use simulation::degree_days::DegreeDays;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
@@ -216,6 +217,31 @@ pub fn restore_construction_modifiers(save: &SaveConstructionModifiers) -> Const
     ConstructionModifiers {
         speed_factor: save.speed_factor,
         cost_factor: save.cost_factor,
+    }
+}
+
+/// Restore a `CompostingState` resource from saved data.
+pub fn restore_composting(save: &SaveCompostingState) -> CompostingState {
+    let facilities = save
+        .facilities
+        .iter()
+        .map(|sf| CompostFacility {
+            method: u8_to_compost_method(sf.method),
+            capacity_tons_per_day: sf.capacity_tons_per_day,
+            cost_per_ton: sf.cost_per_ton,
+            tons_processed_today: sf.tons_processed_today,
+        })
+        .collect();
+    CompostingState {
+        facilities,
+        participation_rate: save.participation_rate,
+        organic_fraction: save.organic_fraction,
+        total_diverted_tons: save.total_diverted_tons,
+        daily_diversion_tons: save.daily_diversion_tons,
+        compost_revenue_per_ton: save.compost_revenue_per_ton,
+        daily_revenue: save.daily_revenue,
+        biogas_mwh_per_ton: save.biogas_mwh_per_ton,
+        daily_biogas_mwh: save.daily_biogas_mwh,
     }
 }
 
