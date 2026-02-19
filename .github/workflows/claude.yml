@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 1
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev
 
       - uses: dtolnay/rust-toolchain@stable
 
