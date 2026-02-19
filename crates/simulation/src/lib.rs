@@ -350,6 +350,7 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     weather::update_weather,
+                    weather::update_precipitation,
                     degree_days::update_degree_days,
                     weather::update_construction_modifiers,
                     heating::update_heating,

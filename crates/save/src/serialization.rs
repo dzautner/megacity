@@ -495,6 +495,7 @@ mod tests {
             precipitation_intensity: 0.5,
             last_update_hour: 14,
             prev_extreme: false,
+            ..Default::default()
         };
 
         let save = SaveWeather {
@@ -665,6 +666,7 @@ mod tests {
             precipitation_intensity: 0.0,
             last_update_hour: 12,
             prev_extreme: false,
+            ..Default::default()
         };
         let mut unlock = UnlockState::default();
         unlock.development_points = 15;
@@ -1901,6 +1903,7 @@ mod tests {
             precipitation_intensity: 0.0,
             last_update_hour: 12,
             prev_extreme: false,
+            ..Default::default()
         };
 
         let climate_zone = ClimateZone::Tropical;
