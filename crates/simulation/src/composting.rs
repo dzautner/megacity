@@ -136,10 +136,7 @@ impl Default for CompostingState {
 /// Reads the city's total waste generation, calculates the organic fraction
 /// available for composting (adjusted by participation rate), distributes it
 /// among facilities up to their capacity, and computes revenue and biogas output.
-pub fn update_composting(
-    waste_system: Res<WasteSystem>,
-    mut composting: ResMut<CompostingState>,
-) {
+pub fn update_composting(waste_system: Res<WasteSystem>, mut composting: ResMut<CompostingState>) {
     // Read config values before mutable iteration
     let total_waste_tons = waste_system.period_generated_tons as f32;
     let organic_available =
@@ -277,7 +274,9 @@ mod tests {
     fn test_facility_processes_up_to_capacity() {
         // Windrow facility (50 tons/day) with 100 tons available: should process 50
         let mut state = CompostingState::default();
-        state.facilities.push(CompostFacility::new(CompostMethod::Windrow));
+        state
+            .facilities
+            .push(CompostFacility::new(CompostMethod::Windrow));
 
         // Simulate the logic manually
         let organic_available = 100.0_f32;
@@ -297,7 +296,9 @@ mod tests {
     fn test_facility_processes_less_than_capacity() {
         // Windrow facility (50 tons/day) with only 30 tons available: should process 30
         let mut state = CompostingState::default();
-        state.facilities.push(CompostFacility::new(CompostMethod::Windrow));
+        state
+            .facilities
+            .push(CompostFacility::new(CompostMethod::Windrow));
 
         let organic_available = 30.0_f32;
         let mut remaining = organic_available;
@@ -316,8 +317,12 @@ mod tests {
     fn test_multiple_facilities_distribute_waste() {
         // Windrow (50) + InVessel (200) with 180 tons: first gets 50, second gets 130
         let mut state = CompostingState::default();
-        state.facilities.push(CompostFacility::new(CompostMethod::Windrow));
-        state.facilities.push(CompostFacility::new(CompostMethod::InVessel));
+        state
+            .facilities
+            .push(CompostFacility::new(CompostMethod::Windrow));
+        state
+            .facilities
+            .push(CompostFacility::new(CompostMethod::InVessel));
 
         let organic_available = 180.0_f32;
         let mut remaining = organic_available;

@@ -546,9 +546,9 @@ impl Plugin for SimulationPlugin {
             .add_systems(Update, tick_lod_frame_counter)
             .add_systems(
                 Update,
-                composting::update_composting.run_if(
-                    bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(2)),
-                ),
+                composting::update_composting.run_if(bevy::time::common_conditions::on_timer(
+                    std::time::Duration::from_secs(2),
+                )),
             );
     }
 }

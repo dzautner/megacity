@@ -20,11 +20,11 @@ use serialization::{
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
-use simulation::composting::CompostingState;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
+use simulation::composting::CompostingState;
 use simulation::degree_days::DegreeDays;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
