@@ -117,13 +117,13 @@ pub fn spawn_citizens(
             virtual_pop.total_virtual += 1;
             if let Ok((_, mut home_b, home_mu)) = buildings.get_mut(home_entity) {
                 home_b.occupants += 1;
-                if let Some(mu) = home_mu {
+                if let Some(mut mu) = home_mu {
                     mu.residential_occupants += 1;
                 }
             }
             if let Ok((_, mut work_b, work_mu)) = buildings.get_mut(work_entity) {
                 work_b.occupants += 1;
-                if let Some(mu) = work_mu {
+                if let Some(mut mu) = work_mu {
                     mu.commercial_occupants += 1;
                 }
             }
@@ -177,13 +177,13 @@ pub fn spawn_citizens(
 
         if let Ok((_, mut home_b, home_mu)) = buildings.get_mut(home_entity) {
             home_b.occupants += 1;
-            if let Some(mu) = home_mu {
+            if let Some(mut mu) = home_mu {
                 mu.residential_occupants += 1;
             }
         }
         if let Ok((_, mut work_b, work_mu)) = buildings.get_mut(work_entity) {
             work_b.occupants += 1;
-            if let Some(mu) = work_mu {
+            if let Some(mut mu) = work_mu {
                 mu.commercial_occupants += 1;
             }
         }
