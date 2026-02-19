@@ -128,7 +128,7 @@ use virtual_population::VirtualPopulation;
 use water_demand::WaterSupply;
 use water_pollution::WaterPollutionGrid;
 use wealth::WealthStats;
-use weather::Weather;
+use weather::{ConstructionModifiers, Weather};
 use wind::WindState;
 use zones::ZoneDemand;
 
@@ -238,6 +238,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<postal::PostalCoverage>()
             .init_resource::<postal::PostalStats>()
             .init_resource::<WaterSupply>()
+            .init_resource::<ConstructionModifiers>()
             .add_event::<BankruptcyEvent>()
             .add_systems(Startup, init_world)
             .add_systems(
@@ -333,6 +334,7 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     weather::update_weather,
+                    weather::update_construction_modifiers,
                     heating::update_heating,
                     wind::update_wind,
                     noise::update_noise_pollution,

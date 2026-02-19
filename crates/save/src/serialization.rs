@@ -19,7 +19,7 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
-use simulation::weather::{Season, Weather, WeatherCondition, WeatherEvent};
+use simulation::weather::{ConstructionModifiers, Season, Weather, WeatherCondition, WeatherEvent};
 // Note: WeatherEvent is a type alias for WeatherCondition (kept for backward compat)
 use simulation::zones::ZoneDemand;
 
@@ -466,6 +466,8 @@ pub struct SaveData {
     pub virtual_population: Option<SaveVirtualPopulation>,
     #[serde(default)]
     pub life_sim_timer: Option<SaveLifeSimTimer>,
+    #[serde(default)]
+    pub construction_modifiers: Option<SaveConstructionModifiers>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -671,6 +673,12 @@ pub struct SaveLifeSimTimer {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveConstructionModifiers {
+    pub speed_factor: f32,
+    pub cost_factor: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
 pub struct SaveLoanBook {
     pub loans: Vec<SaveLoan>,
     pub max_loans: u32,
@@ -796,6 +804,7 @@ pub fn create_save_data(
     lifecycle_timer: Option<&LifecycleTimer>,
     virtual_population: Option<&VirtualPopulation>,
     life_sim_timer: Option<&LifeSimTimer>,
+    construction_modifiers: Option<&ConstructionModifiers>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -1017,6 +1026,10 @@ pub fn create_save_data(
             personality_tick: lst.personality_tick,
             health_tick: lst.health_tick,
         }),
+        construction_modifiers: construction_modifiers.map(|cm| SaveConstructionModifiers {
+            speed_factor: cm.speed_factor,
+            cost_factor: cm.cost_factor,
+        }),
     }
 }
 
@@ -1166,6 +1179,14 @@ pub fn restore_life_sim_timer(save: &SaveLifeSimTimer) -> LifeSimTimer {
     }
 }
 
+/// Restore a `ConstructionModifiers` resource from saved data.
+pub fn restore_construction_modifiers(save: &SaveConstructionModifiers) -> ConstructionModifiers {
+    ConstructionModifiers {
+        speed_factor: save.speed_factor,
+        cost_factor: save.cost_factor,
+    }
+}
+
 /// Restore a `VirtualPopulation` resource from saved data.
 pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
     let district_stats = save
@@ -1221,6 +1242,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1553,6 +1575,7 @@ mod tests {
             Some(&lifecycle_timer),
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1624,6 +1647,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1637,6 +1661,7 @@ mod tests {
         assert!(restored.lifecycle_timer.is_none());
         assert!(restored.virtual_population.is_none());
         assert!(restored.life_sim_timer.is_none());
+        assert!(restored.construction_modifiers.is_none());
     }
 
     #[test]
@@ -1688,6 +1713,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1712,6 +1738,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1757,6 +1784,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1784,6 +1812,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1828,6 +1857,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1855,6 +1885,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1989,6 +2020,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -2031,6 +2063,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2139,6 +2172,7 @@ mod tests {
             None,
             None,
             Some(&life_sim_timer),
+            None,
         );
 
         let bytes = save.encode();
@@ -2186,6 +2220,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2221,11 +2256,67 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 3;
 
         let old = migrate_save(&mut save);
         assert_eq!(old, 3);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_construction_modifiers_roundtrip() {
+        let cm = ConstructionModifiers {
+            speed_factor: 0.55,
+            cost_factor: 1.25,
+        };
+
+        let save = SaveConstructionModifiers {
+            speed_factor: cm.speed_factor,
+            cost_factor: cm.cost_factor,
+        };
+
+        let restored = restore_construction_modifiers(&save);
+        assert!((restored.speed_factor - 0.55).abs() < 0.001);
+        assert!((restored.cost_factor - 1.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_construction_modifiers_backward_compat() {
+        // Saves without construction_modifiers should have it as None
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        // When construction_modifiers is None, the restore uses default
+        assert!(restored.construction_modifiers.is_none());
     }
 }
