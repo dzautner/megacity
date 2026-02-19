@@ -2902,8 +2902,6 @@ mod tests {
     }
 
     #[test]
-
-    #[test]
     fn test_climate_zone_roundtrip() {
         for &zone in ClimateZone::all() {
             let encoded = climate_zone_to_u8(zone);
