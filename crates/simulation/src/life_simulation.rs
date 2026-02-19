@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::buildings::Building;
 use crate::citizen::{
@@ -14,7 +15,7 @@ use crate::time_of_day::GameClock;
 // Timers
 // ---------------------------------------------------------------------------
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize, Clone, Debug)]
 pub struct LifeSimTimer {
     pub needs_tick: u32,
     pub life_event_tick: u32,
