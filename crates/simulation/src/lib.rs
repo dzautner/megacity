@@ -15,6 +15,7 @@ pub mod death_care;
 pub mod degree_days;
 pub mod disasters;
 pub mod districts;
+pub mod drought;
 pub mod economy;
 pub mod education;
 pub mod education_jobs;
@@ -90,6 +91,7 @@ use death_care::{DeathCareGrid, DeathCareStats};
 use degree_days::DegreeDays;
 use disasters::ActiveDisaster;
 use districts::{DistrictMap, Districts};
+use drought::DroughtState;
 use economy::CityBudget;
 use education::EducationGrid;
 use education_jobs::EmploymentStats;
@@ -253,6 +255,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<RecyclingState>()
             .init_resource::<WindDamageState>()
             .init_resource::<UhiGrid>()
+            .init_resource::<DroughtState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -372,6 +375,7 @@ impl Plugin for SimulationPlugin {
                     wind::update_wind,
                     wind_damage::update_wind_damage,
                     urban_heat_island::update_uhi_grid,
+                    drought::update_drought_index,
                     noise::update_noise_pollution,
                     crime::update_crime,
                     health::update_health_grid,

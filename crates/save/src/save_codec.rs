@@ -471,3 +471,24 @@ pub fn u8_to_wind_damage_tier(v: u8) -> simulation::wind_damage::WindDamageTier 
         _ => WindDamageTier::Calm, // fallback
     }
 }
+
+pub fn drought_tier_to_u8(t: simulation::drought::DroughtTier) -> u8 {
+    use simulation::drought::DroughtTier;
+    match t {
+        DroughtTier::Normal => 0,
+        DroughtTier::Moderate => 1,
+        DroughtTier::Severe => 2,
+        DroughtTier::Extreme => 3,
+    }
+}
+
+pub fn u8_to_drought_tier(v: u8) -> simulation::drought::DroughtTier {
+    use simulation::drought::DroughtTier;
+    match v {
+        0 => DroughtTier::Normal,
+        1 => DroughtTier::Moderate,
+        2 => DroughtTier::Severe,
+        3 => DroughtTier::Extreme,
+        _ => DroughtTier::Normal, // fallback
+    }
+}
