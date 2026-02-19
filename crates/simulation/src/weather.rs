@@ -441,6 +441,7 @@ impl Season {
     }
 
     /// Seasonal min/max temperature range for Temperate (legacy default).
+    #[allow(dead_code)]
     fn temperature_range(self) -> (f32, f32) {
         let params = ClimateZone::Temperate.season_params(self);
         (params.t_min, params.t_max)
@@ -616,11 +617,13 @@ impl Default for Weather {
 
 impl Weather {
     /// Seasonal base temperature range for Temperate (legacy default).
+    #[allow(dead_code)]
     fn seasonal_range(season: Season) -> (f32, f32) {
         season.temperature_range()
     }
 
     /// Seasonal base temperature range for a given climate zone.
+    #[allow(dead_code)]
     fn seasonal_range_for_zone(season: Season, zone: ClimateZone) -> (f32, f32) {
         season.temperature_range_for_zone(zone)
     }
