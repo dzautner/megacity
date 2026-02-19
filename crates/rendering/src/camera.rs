@@ -272,3 +272,18 @@ pub fn camera_zoom(mut scroll_evts: EventReader<MouseWheel>, mut orbit: ResMut<O
         orbit.distance = (orbit.distance * factor).clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 }
+
+/// Numpad +/-: zoom in/out (same step as one scroll line).
+pub fn camera_zoom_keyboard(keys: Res<ButtonInput<KeyCode>>, mut orbit: ResMut<OrbitCamera>) {
+    let mut dy = 0.0;
+    if keys.pressed(KeyCode::NumpadAdd) {
+        dy += 1.0;
+    }
+    if keys.pressed(KeyCode::NumpadSubtract) {
+        dy -= 1.0;
+    }
+    if dy != 0.0 {
+        let factor = 1.0 - dy * ZOOM_SPEED;
+        orbit.distance = (orbit.distance * factor).clamp(MIN_DISTANCE, MAX_DISTANCE);
+    }
+}
