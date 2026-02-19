@@ -132,6 +132,22 @@ impl ZoneType {
             ZoneType::None => 0,
         }
     }
+
+    /// Returns the default Floor Area Ratio (FAR) limit for this zone type.
+    /// FAR = total floor area / lot area. Higher values allow denser buildings.
+    pub fn default_far(self) -> f32 {
+        match self {
+            ZoneType::ResidentialLow => 0.5,
+            ZoneType::ResidentialMedium => 1.5,
+            ZoneType::ResidentialHigh => 3.0,
+            ZoneType::CommercialLow => 1.5,
+            ZoneType::CommercialHigh => 3.0,
+            ZoneType::Industrial => 0.8,
+            ZoneType::Office => 1.5,
+            ZoneType::MixedUse => 3.0,
+            ZoneType::None => 0.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -286,5 +302,23 @@ mod tests {
         assert!(mu.is_mixed_use());
         assert!(mu.is_job_zone());
         assert_eq!(mu.max_level(), 5);
+    }
+
+    #[test]
+    fn test_default_far_values() {
+        assert_eq!(ZoneType::ResidentialLow.default_far(), 0.5);
+        assert_eq!(ZoneType::ResidentialMedium.default_far(), 1.5);
+        assert_eq!(ZoneType::ResidentialHigh.default_far(), 3.0);
+        assert_eq!(ZoneType::CommercialLow.default_far(), 1.5);
+        assert_eq!(ZoneType::CommercialHigh.default_far(), 3.0);
+        assert_eq!(ZoneType::Industrial.default_far(), 0.8);
+        assert_eq!(ZoneType::Office.default_far(), 1.5);
+        assert_eq!(ZoneType::MixedUse.default_far(), 3.0);
+        assert_eq!(ZoneType::None.default_far(), 0.0);
+    }
+
+    #[test]
+    fn test_none_zone_far_is_zero() {
+        assert_eq!(ZoneType::None.default_far(), 0.0);
     }
 }

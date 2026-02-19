@@ -106,6 +106,30 @@ impl Building {
     }
 }
 
+/// Returns the maximum building level allowed by the Floor Area Ratio (FAR)
+/// constraint for the given zone type.
+///
+/// For each candidate level 1..=5, the implied FAR is computed as:
+///   implied_far = (capacity_for_level(level) * 20.0) / 256.0
+///
+/// The highest level where implied_far <= zone.default_far() is returned.
+/// Always returns at least 1 (minimum building level).
+pub fn max_level_for_far(zone: ZoneType) -> u32 {
+    let far_limit = zone.default_far();
+    let mut best = 1u32;
+    for level in 1..=5u8 {
+        let capacity = Building::capacity_for_level(zone, level);
+        if capacity == 0 {
+            break;
+        }
+        let implied_far = (capacity as f32 * 20.0) / 256.0;
+        if implied_far <= far_limit {
+            best = level as u32;
+        }
+    }
+    best
+}
+
 /// Tick interval for building spawner (in sim ticks)
 const SPAWN_INTERVAL: u32 = 2;
 
@@ -201,15 +225,19 @@ pub fn building_spawner(
                 continue;
             }
 
-            let capacity = Building::capacity_for_level(*zone, 1);
+            // Cap initial level by FAR constraint (initial level is 1, but
+            // max_level_for_far is guaranteed >= 1, so this is a safety check)
+            let far_cap = max_level_for_far(*zone) as u8;
+            let initial_level = 1u8.min(far_cap);
+            let capacity = Building::capacity_for_level(*zone, initial_level);
             let construction_ticks = 100; // ~10 seconds at 10Hz
             let entity = if *zone == ZoneType::MixedUse {
-                let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(1);
+                let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(initial_level);
                 commands
                     .spawn((
                         Building {
                             zone_type: *zone,
-                            level: 1,
+                            level: initial_level,
                             grid_x: x,
                             grid_y: y,
                             capacity,
@@ -232,7 +260,7 @@ pub fn building_spawner(
                     .spawn((
                         Building {
                             zone_type: *zone,
-                            level: 1,
+                            level: initial_level,
                             grid_x: x,
                             grid_y: y,
                             capacity,
@@ -443,5 +471,93 @@ mod tests {
         }
 
         assert_eq!(eligible_count, 0);
+    }
+
+    #[test]
+    fn test_far_residential_low_limits_level() {
+        // ResidentialLow FAR=0.5 should constrain building to low levels.
+        // L1: capacity=10, implied_far = 10*20/256 = 0.78 > 0.5
+        // So max_level_for_far should return 1 (the minimum).
+        let max = max_level_for_far(ZoneType::ResidentialLow);
+        assert!(max >= 1, "max_level_for_far must return at least 1");
+        assert!(
+            max <= 3,
+            "ResidentialLow FAR=0.5 should limit to low levels, got {}",
+            max
+        );
+    }
+
+    #[test]
+    fn test_far_residential_high_allows_higher_levels() {
+        // ResidentialHigh FAR=3.0 should allow higher levels than ResidentialLow.
+        let high = max_level_for_far(ZoneType::ResidentialHigh);
+        let low = max_level_for_far(ZoneType::ResidentialLow);
+        assert!(
+            high >= low,
+            "ResidentialHigh should allow at least as many levels as ResidentialLow"
+        );
+    }
+
+    #[test]
+    fn test_far_returns_at_least_one() {
+        // All zone types (except None) should return at least 1.
+        let zones = [
+            ZoneType::ResidentialLow,
+            ZoneType::ResidentialMedium,
+            ZoneType::ResidentialHigh,
+            ZoneType::CommercialLow,
+            ZoneType::CommercialHigh,
+            ZoneType::Industrial,
+            ZoneType::Office,
+            ZoneType::MixedUse,
+        ];
+        for zone in zones {
+            let max = max_level_for_far(zone);
+            assert!(
+                max >= 1,
+                "max_level_for_far({:?}) must be >= 1, got {}",
+                zone,
+                max
+            );
+        }
+    }
+
+    #[test]
+    fn test_far_respects_zone_max_level() {
+        // max_level_for_far should not exceed the zone's max_level.
+        let zones = [
+            ZoneType::ResidentialLow,
+            ZoneType::ResidentialMedium,
+            ZoneType::ResidentialHigh,
+            ZoneType::CommercialLow,
+            ZoneType::CommercialHigh,
+            ZoneType::Industrial,
+            ZoneType::Office,
+            ZoneType::MixedUse,
+        ];
+        for zone in zones {
+            let far_max = max_level_for_far(zone);
+            let zone_max = zone.max_level() as u32;
+            assert!(
+                far_max <= zone_max,
+                "max_level_for_far({:?})={} should not exceed max_level={}",
+                zone,
+                far_max,
+                zone_max
+            );
+        }
+    }
+
+    #[test]
+    fn test_default_far_values() {
+        assert_eq!(ZoneType::ResidentialLow.default_far(), 0.5);
+        assert_eq!(ZoneType::ResidentialMedium.default_far(), 1.5);
+        assert_eq!(ZoneType::ResidentialHigh.default_far(), 3.0);
+        assert_eq!(ZoneType::CommercialLow.default_far(), 1.5);
+        assert_eq!(ZoneType::CommercialHigh.default_far(), 3.0);
+        assert_eq!(ZoneType::Industrial.default_far(), 0.8);
+        assert_eq!(ZoneType::Office.default_far(), 1.5);
+        assert_eq!(ZoneType::MixedUse.default_far(), 3.0);
+        assert_eq!(ZoneType::None.default_far(), 0.0);
     }
 }
