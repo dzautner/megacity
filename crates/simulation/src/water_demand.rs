@@ -75,7 +75,7 @@ pub struct WaterSupply {
 /// Compute the base water demand for a zoned building based on its type and occupancy.
 fn base_demand_for_building(building: &Building) -> f32 {
     match building.zone_type {
-        ZoneType::ResidentialLow | ZoneType::ResidentialHigh => {
+        ZoneType::ResidentialLow | ZoneType::ResidentialMedium | ZoneType::ResidentialHigh => {
             building.occupants as f32 * RESIDENTIAL_GPCD
         }
         ZoneType::CommercialLow | ZoneType::CommercialHigh | ZoneType::Office => {

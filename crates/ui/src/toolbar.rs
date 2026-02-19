@@ -101,6 +101,13 @@ fn build_categories() -> Vec<ToolCategory> {
                     overlay: None,
                 },
                 ToolItem {
+                    tool: Some(ActiveTool::ZoneResidentialMedium),
+                    icon: "RM",
+                    name: "Res Medium",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
                     tool: Some(ActiveTool::ZoneResidentialHigh),
                     icon: "RH",
                     name: "Res High",

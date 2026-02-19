@@ -34,6 +34,7 @@ pub fn zone_type_to_u8(z: simulation::grid::ZoneType) -> u8 {
         simulation::grid::ZoneType::CommercialHigh => 4,
         simulation::grid::ZoneType::Industrial => 5,
         simulation::grid::ZoneType::Office => 6,
+        simulation::grid::ZoneType::ResidentialMedium => 7,
     }
 }
 
@@ -45,6 +46,7 @@ pub fn u8_to_zone_type(v: u8) -> simulation::grid::ZoneType {
         4 => simulation::grid::ZoneType::CommercialHigh,
         5 => simulation::grid::ZoneType::Industrial,
         6 => simulation::grid::ZoneType::Office,
+        7 => simulation::grid::ZoneType::ResidentialMedium,
         _ => simulation::grid::ZoneType::None,
     }
 }
@@ -1191,6 +1193,7 @@ mod tests {
         let types = [
             ZoneType::None,
             ZoneType::ResidentialLow,
+            ZoneType::ResidentialMedium,
             ZoneType::ResidentialHigh,
             ZoneType::CommercialLow,
             ZoneType::CommercialHigh,

@@ -58,12 +58,15 @@ impl WasteProducer {
     /// Level 1 = low-income, Level 2 = middle-income, Level 3+ = high-income.
     pub fn residential_rate(zone: ZoneType, level: u8) -> f32 {
         match (zone, level) {
-            (ZoneType::ResidentialLow, 1) => 3.0,  // low-income
-            (ZoneType::ResidentialLow, 2) => 4.5,  // middle-income
-            (ZoneType::ResidentialLow, _) => 6.0,  // high-income
-            (ZoneType::ResidentialHigh, 1) => 3.0, // low-income
-            (ZoneType::ResidentialHigh, 2) => 4.5, // middle-income
-            (ZoneType::ResidentialHigh, _) => 6.0, // high-income
+            (ZoneType::ResidentialLow, 1) => 3.0,    // low-income
+            (ZoneType::ResidentialLow, 2) => 4.5,    // middle-income
+            (ZoneType::ResidentialLow, _) => 6.0,    // high-income
+            (ZoneType::ResidentialMedium, 1) => 3.0, // low-income
+            (ZoneType::ResidentialMedium, 2) => 4.5, // middle-income
+            (ZoneType::ResidentialMedium, _) => 6.0, // high-income
+            (ZoneType::ResidentialHigh, 1) => 3.0,   // low-income
+            (ZoneType::ResidentialHigh, 2) => 4.5,   // middle-income
+            (ZoneType::ResidentialHigh, _) => 6.0,   // high-income
             _ => 0.0,
         }
     }

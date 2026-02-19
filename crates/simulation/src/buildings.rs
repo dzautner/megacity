@@ -33,6 +33,11 @@ impl Building {
             (ZoneType::ResidentialLow, 1) => 10,
             (ZoneType::ResidentialLow, 2) => 30,
             (ZoneType::ResidentialLow, 3) => 80,
+            // Medium-density residential: townhouses, duplexes, small apartments
+            (ZoneType::ResidentialMedium, 1) => 15,
+            (ZoneType::ResidentialMedium, 2) => 50,
+            (ZoneType::ResidentialMedium, 3) => 120,
+            (ZoneType::ResidentialMedium, 4) => 250,
             // High-density residential: apartment blocks and towers
             (ZoneType::ResidentialHigh, 1) => 50,
             (ZoneType::ResidentialHigh, 2) => 200,
@@ -88,6 +93,7 @@ pub fn rebuild_eligible_cells(grid: Res<WorldGrid>, mut eligible: ResMut<Eligibl
 
     let zones = [
         ZoneType::ResidentialLow,
+        ZoneType::ResidentialMedium,
         ZoneType::ResidentialHigh,
         ZoneType::CommercialLow,
         ZoneType::CommercialHigh,
@@ -227,6 +233,23 @@ mod tests {
         assert_eq!(
             Building::capacity_for_level(ZoneType::ResidentialHigh, 5),
             2000
+        );
+        // Medium-density residential
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialMedium, 1),
+            15
+        );
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialMedium, 2),
+            50
+        );
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialMedium, 3),
+            120
+        );
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialMedium, 4),
+            250
         );
         assert_eq!(Building::capacity_for_level(ZoneType::CommercialLow, 1), 8);
         assert_eq!(Building::capacity_for_level(ZoneType::Industrial, 1), 20);

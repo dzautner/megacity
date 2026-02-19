@@ -84,7 +84,9 @@ pub fn update_cursor_preview(
             (Color::srgba(0.8, 0.2, 0.1, 0.5), ok)
         }
         ActiveTool::Inspect => (Color::srgba(0.3, 0.6, 0.9, 0.4), true),
-        ActiveTool::ZoneResidentialLow | ActiveTool::ZoneResidentialHigh => {
+        ActiveTool::ZoneResidentialLow
+        | ActiveTool::ZoneResidentialMedium
+        | ActiveTool::ZoneResidentialHigh => {
             let ok = cell.cell_type == CellType::Grass;
             (Color::srgba(0.2, 0.7, 0.2, 0.5), ok)
         }

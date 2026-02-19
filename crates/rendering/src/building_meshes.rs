@@ -72,6 +72,14 @@ impl BuildingModelCache {
     pub fn get_zone_scene(&self, zone: ZoneType, level: u8, hash: usize) -> Handle<Scene> {
         match zone {
             ZoneType::ResidentialLow => self.get_residential(hash),
+            ZoneType::ResidentialMedium => {
+                // Medium-density: use commercial buildings for townhouse/duplex look
+                if !self.commercial.is_empty() {
+                    self.commercial[hash % self.commercial.len()].clone()
+                } else {
+                    self.get_residential(hash)
+                }
+            }
             ZoneType::ResidentialHigh => {
                 if level >= 3 && !self.skyscrapers.is_empty() {
                     self.skyscrapers[hash % self.skyscrapers.len()].clone()
