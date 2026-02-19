@@ -264,15 +264,9 @@ impl ActiveTool {
 }
 
 /// Grid snap mode: when enabled, cursor snaps to cell centers for precise placement.
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct GridSnap {
     pub enabled: bool,
-}
-
-impl Default for GridSnap {
-    fn default() -> Self {
-        Self { enabled: false }
-    }
 }
 
 #[derive(Resource, Default)]
