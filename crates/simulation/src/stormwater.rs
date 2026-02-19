@@ -39,6 +39,7 @@ pub fn imperviousness(cell_type: CellType, zone: ZoneType, has_building: bool) -
                 match zone {
                     ZoneType::Industrial => 0.90,
                     ZoneType::CommercialHigh | ZoneType::CommercialLow | ZoneType::Office => 0.85,
+                    ZoneType::MixedUse => 0.85,
                     ZoneType::ResidentialHigh | ZoneType::ResidentialMedium => 0.70,
                     ZoneType::ResidentialLow => 0.40,
                     ZoneType::None => 0.35,
