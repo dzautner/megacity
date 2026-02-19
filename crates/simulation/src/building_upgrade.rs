@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::buildings::{Building, MixedUseBuilding};
+use crate::buildings::{max_level_for_far, Building, MixedUseBuilding};
 use crate::stats::CityStats;
 
 const UPGRADE_INTERVAL: u32 = 30; // sim ticks between upgrade checks
@@ -33,7 +33,8 @@ pub fn upgrade_buildings(
             break;
         }
 
-        let max_level = building.zone_type.max_level().min(policy_max);
+        let far_cap = max_level_for_far(building.zone_type) as u8;
+        let max_level = building.zone_type.max_level().min(policy_max).min(far_cap);
         if building.level >= max_level {
             continue;
         }
