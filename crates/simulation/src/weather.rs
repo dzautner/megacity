@@ -161,17 +161,9 @@ pub fn diurnal_factor(hour: u32) -> f32 {
     // Then clamp and renormalize so min->0, max->1.
 
     let h = (hour % 24) as f32;
-    let angle = (h - 15.0) * std::f32::consts::TAU / 24.0;
-    let raw = 0.5 + 0.5 * angle.cos();
-    // raw ranges from 0.0 (at hour 3) to 1.0 (at hour 15)
-    // At hour 6: cos((-9)*TAU/24) = cos(-3*PI/4) ~ -0.707, so raw ~ 0.146
-    // We renormalize so that the minimum of the curve (hour 3) maps to 0 and peak maps to 1.
-    // But actually, hour 6 isn't the mathematical minimum; hour 3 is.
-    // The spec says minimum at 06:00. Let's use a direct formula:
+
     // Piecewise smooth: nighttime cooling from 15:00 to 06:00 (15 hours),
     // daytime warming from 06:00 to 15:00 (9 hours).
-
-    // Use asymmetric cosine approach:
     if h >= 6.0 && h <= 15.0 {
         // Warming phase: 06:00 to 15:00 (9 hours)
         let t = (h - 6.0) / 9.0; // 0..1
@@ -232,12 +224,6 @@ impl Weather {
     /// Seasonal base temperature range: (T_min, T_max)
     fn seasonal_range(season: Season) -> (f32, f32) {
         season.temperature_range()
-    }
-
-    /// Base temperature for each season (kept for backward compat, returns midpoint).
-    fn base_temperature(season: Season) -> f32 {
-        let (t_min, t_max) = Self::seasonal_range(season);
-        (t_min + t_max) / 2.0
     }
 
     /// Derive the current weather condition from atmospheric state.
@@ -509,12 +495,10 @@ mod tests {
     #[test]
     fn test_multipliers_in_range() {
         let weather = Weather::default();
-        assert!(weather.power_multiplier() >= 0.5 && weather.power_multiplier() <= 2.0);
-        assert!(weather.water_multiplier() >= 0.5 && weather.water_multiplier() <= 2.0);
-        assert!(weather.park_multiplier() >= 0.0 && weather.park_multiplier() <= 2.0);
-        assert!(
-            weather.travel_speed_multiplier() >= 0.3 && weather.travel_speed_multiplier() <= 1.5
-        );
+        assert!((0.5..=2.0).contains(&weather.power_multiplier()));
+        assert!((0.5..=2.0).contains(&weather.water_multiplier()));
+        assert!((0.0..=2.0).contains(&weather.park_multiplier()));
+        assert!((0.3..=1.5).contains(&weather.travel_speed_multiplier()));
     }
 
     #[test]
