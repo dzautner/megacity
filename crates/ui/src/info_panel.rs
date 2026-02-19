@@ -1221,6 +1221,26 @@ pub fn info_panel_ui(
             };
             ui.small(overlay_text);
 
+            // Traffic LOS legend when traffic overlay is active
+            if overlay.mode == OverlayMode::Traffic {
+                ui.separator();
+                ui.small("Traffic Level of Service:");
+                for grade in simulation::traffic::LosGrade::all() {
+                    let c = grade.color();
+                    let color = egui::Color32::from_rgb(
+                        (c[0] * 255.0) as u8,
+                        (c[1] * 255.0) as u8,
+                        (c[2] * 255.0) as u8,
+                    );
+                    ui.horizontal(|ui| {
+                        let (rect, _) =
+                            ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::hover());
+                        ui.painter().rect_filled(rect, 2.0, color);
+                        ui.small(grade.label());
+                    });
+                }
+            }
+
             // Render minimap
             if needs_update {
                 let pixels = build_minimap_pixels(&grid, &overlay);

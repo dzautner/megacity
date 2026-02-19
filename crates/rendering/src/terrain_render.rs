@@ -375,7 +375,8 @@ fn apply_overlay(
             if cell.cell_type == CellType::Road {
                 if let Some(traffic) = grids.traffic {
                     let congestion = traffic.congestion_level(gx, gy);
-                    Color::srgba(congestion, 1.0 - congestion, 0.2, 1.0)
+                    let c = simulation::traffic::LosGrade::interpolated_color(congestion);
+                    Color::srgba(c[0], c[1], c[2], 1.0)
                 } else {
                     base
                 }

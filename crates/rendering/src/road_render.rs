@@ -3,6 +3,9 @@ use bevy::render::mesh::Indices;
 
 use simulation::grid::RoadType;
 use simulation::road_segments::{RoadSegmentStore, SegmentId, SegmentNodeId};
+use simulation::traffic::{LosGrade, TrafficGrid};
+
+use crate::overlay::{OverlayMode, OverlayState};
 
 /// Marker component for road segment mesh entities.
 #[derive(Component)]
@@ -191,6 +194,66 @@ pub fn sync_road_segment_meshes(
     }
 
     local_count.0 = store.segments.len();
+}
+
+/// Update road segment material colors based on traffic LOS when the traffic overlay is active.
+/// When the overlay is off, reset materials to white (vertex colors show through).
+/// When traffic overlay is on, tint each segment's material based on the average LOS
+/// across its rasterized cells.
+pub fn update_road_traffic_overlay(
+    overlay: Res<OverlayState>,
+    traffic: Res<TrafficGrid>,
+    store: Res<RoadSegmentStore>,
+    road_segments: Query<(&RoadSegmentMesh, &MeshMaterial3d<StandardMaterial>)>,
+    intersection_meshes: Query<&MeshMaterial3d<StandardMaterial>, With<RoadIntersectionMesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Only re-evaluate when overlay or traffic data changes
+    if !overlay.is_changed() && !traffic.is_changed() {
+        return;
+    }
+
+    let is_traffic_overlay = overlay.mode == OverlayMode::Traffic;
+
+    for (seg_mesh, mat_handle) in &road_segments {
+        if let Some(material) = materials.get_mut(&mat_handle.0) {
+            if is_traffic_overlay {
+                // Find segment and compute average congestion across its rasterized cells
+                if let Some(segment) = store.get_segment(seg_mesh.segment_id) {
+                    let avg_congestion = if segment.rasterized_cells.is_empty() {
+                        0.0
+                    } else {
+                        let sum: f32 = segment
+                            .rasterized_cells
+                            .iter()
+                            .map(|&(x, y)| traffic.congestion_level(x, y))
+                            .sum();
+                        sum / segment.rasterized_cells.len() as f32
+                    };
+                    let los_color = LosGrade::interpolated_color(avg_congestion);
+                    material.base_color =
+                        Color::srgba(los_color[0], los_color[1], los_color[2], los_color[3]);
+                } else {
+                    material.base_color = Color::srgba(0.5, 0.5, 0.5, 1.0);
+                }
+            } else {
+                // Reset to white so vertex colors show through
+                material.base_color = Color::WHITE;
+            }
+        }
+    }
+
+    // Also tint intersection discs
+    for mat_handle in &intersection_meshes {
+        if let Some(material) = materials.get_mut(&mat_handle.0) {
+            if is_traffic_overlay {
+                // Intersections get a neutral tint; individual coloring is on the terrain grid
+                material.base_color = Color::srgba(0.6, 0.6, 0.6, 1.0);
+            } else {
+                material.base_color = Color::WHITE;
+            }
+        }
+    }
 }
 
 /// Build a disc mesh for an intersection: sidewalk ring + asphalt center.
