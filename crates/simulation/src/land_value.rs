@@ -44,6 +44,7 @@ pub fn update_land_value(
     pollution: Res<PollutionGrid>,
     services: Query<&ServiceBuilding>,
     waste_collection: Res<crate::garbage::WasteCollectionGrid>,
+    waste_accumulation: Res<crate::waste_effects::WasteAccumulation>,
 ) {
     if !slow_timer.should_run() {
         return;
@@ -83,6 +84,13 @@ pub fn update_land_value(
                 let penalty =
                     (value as f32 * crate::garbage::UNCOLLECTED_WASTE_LAND_VALUE_FACTOR) as i32;
                 value -= penalty;
+            }
+
+            // Accumulated waste reduces land value (WASTE-010: -20% if nearby > 500 lbs).
+            let waste_modifier =
+                crate::waste_effects::waste_land_value_modifier(&waste_accumulation, x, y);
+            if waste_modifier < 1.0 {
+                value = (value as f32 * waste_modifier) as i32;
             }
 
             land_value.set(x, y, value.clamp(0, 255) as u8);

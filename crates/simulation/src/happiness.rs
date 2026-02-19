@@ -200,6 +200,7 @@ pub struct HappinessExtras<'w> {
     pub heating_grid: Res<'w, HeatingGrid>,
     pub postal_coverage: Res<'w, PostalCoverage>,
     pub waste_collection: Res<'w, crate::garbage::WasteCollectionGrid>,
+    pub waste_accumulation: Res<'w, crate::waste_effects::WasteAccumulation>,
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -233,6 +234,7 @@ pub fn update_happiness(
     let heating_grid = &extras.heating_grid;
     let postal_coverage = &extras.postal_coverage;
     let waste_collection = &extras.waste_collection;
+    let waste_accumulation = &extras.waste_accumulation;
     if !tick.0.is_multiple_of(10) {
         return;
     }
@@ -323,6 +325,11 @@ pub fn update_happiness(
             if uncollected > 100.0 {
                 happiness -= crate::garbage::UNCOLLECTED_WASTE_HAPPINESS_PENALTY;
             }
+
+            // Accumulated waste happiness penalty (WASTE-010): -5 if cell has
+            // accumulated waste > 0 lbs.
+            let accumulated = waste_accumulation.get(home.grid_x, home.grid_y);
+            happiness += crate::waste_effects::waste_happiness_penalty(accumulated);
 
             // Crime penalty (based on crime level at home cell)
             let crime_level = crime_grid.get(home.grid_x, home.grid_y) as f32;
