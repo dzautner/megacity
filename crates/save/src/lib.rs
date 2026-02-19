@@ -11,12 +11,12 @@ use serialization::{
     SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
-use simulation::degree_days::DegreeDays;
 use simulation::buildings::Building;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
+use simulation::degree_days::DegreeDays;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::life_simulation::LifeSimTimer;

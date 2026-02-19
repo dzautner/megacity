@@ -217,8 +217,11 @@ mod tests {
         // Day 31-60 => month 1
         assert_eq!(DegreeDays::month_index(31), 1);
         assert_eq!(DegreeDays::month_index(60), 1);
+        // Day 301-330 => month 10
+        assert_eq!(DegreeDays::month_index(301), 10);
+        assert_eq!(DegreeDays::month_index(330), 10);
         // Day 331-360 => month 11
-        assert_eq!(DegreeDays::month_index(331), 10);
+        assert_eq!(DegreeDays::month_index(331), 11);
         assert_eq!(DegreeDays::month_index(360), 11);
         // Day 361 wraps => month 0 of next year
         assert_eq!(DegreeDays::month_index(361), 0);

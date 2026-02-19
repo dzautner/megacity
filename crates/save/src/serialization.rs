@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::buildings::Building;
 use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Velocity};
+use simulation::degree_days::DegreeDays;
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid};
 use simulation::life_simulation::LifeSimTimer;
@@ -19,7 +20,6 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
-use simulation::degree_days::DegreeDays;
 use simulation::weather::{Season, Weather, WeatherCondition, WeatherEvent};
 // Note: WeatherEvent is a type alias for WeatherCondition (kept for backward compat)
 use simulation::zones::ZoneDemand;
@@ -2292,8 +2292,12 @@ mod tests {
         let dd = DegreeDays {
             daily_hdd: 15.5,
             daily_cdd: 0.0,
-            monthly_hdd: [10.0, 20.0, 15.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 12.0, 25.0],
-            monthly_cdd: [0.0, 0.0, 0.0, 0.0, 5.0, 15.0, 20.0, 18.0, 10.0, 0.0, 0.0, 0.0],
+            monthly_hdd: [
+                10.0, 20.0, 15.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 12.0, 25.0,
+            ],
+            monthly_cdd: [
+                0.0, 0.0, 0.0, 0.0, 5.0, 15.0, 20.0, 18.0, 10.0, 0.0, 0.0, 0.0,
+            ],
             annual_hdd: 92.5,
             annual_cdd: 68.0,
             last_update_day: 150,
