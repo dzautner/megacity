@@ -63,6 +63,7 @@ pub mod trees;
 pub mod unlocks;
 pub mod utilities;
 pub mod virtual_population;
+pub mod waste_composition;
 pub mod water_demand;
 pub mod water_pollution;
 pub mod water_sources;
