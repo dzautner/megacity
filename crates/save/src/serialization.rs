@@ -1078,6 +1078,7 @@ pub fn restore_weather(save: &SaveWeather) -> Weather {
         cloud_cover: save.cloud_cover,
         precipitation_intensity: save.precipitation_intensity,
         last_update_hour: save.last_update_hour,
+        prev_extreme: false,
     }
 }
 
@@ -1330,6 +1331,7 @@ mod tests {
             cloud_cover: 0.7,
             precipitation_intensity: 0.5,
             last_update_hour: 14,
+            prev_extreme: false,
         };
 
         let save = SaveWeather {
@@ -1498,6 +1500,7 @@ mod tests {
             cloud_cover: 0.05,
             precipitation_intensity: 0.0,
             last_update_hour: 12,
+            prev_extreme: false,
         };
         let mut unlock = UnlockState::default();
         unlock.development_points = 15;

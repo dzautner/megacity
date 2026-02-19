@@ -29,8 +29,7 @@ const EXTREME_COLD_THRESHOLD: f32 = -5.0;
 /// Returns `true` if the weather condition or temperature qualifies as extreme.
 fn is_extreme_weather(condition: WeatherCondition, temperature: f32) -> bool {
     matches!(condition, WeatherCondition::Storm)
-        || temperature > EXTREME_HEAT_THRESHOLD
-        || temperature < EXTREME_COLD_THRESHOLD
+        || !(EXTREME_COLD_THRESHOLD..=EXTREME_HEAT_THRESHOLD).contains(&temperature)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
