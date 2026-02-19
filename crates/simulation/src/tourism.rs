@@ -187,8 +187,7 @@ mod tests {
     fn test_weather_multipliers() {
         assert!((weather_tourism_multiplier(WeatherCondition::Sunny) - 1.2).abs() < f32::EPSILON);
         assert!(
-            (weather_tourism_multiplier(WeatherCondition::PartlyCloudy) - 1.0).abs()
-                < f32::EPSILON
+            (weather_tourism_multiplier(WeatherCondition::PartlyCloudy) - 1.0).abs() < f32::EPSILON
         );
         assert!(
             (weather_tourism_multiplier(WeatherCondition::Overcast) - 0.8).abs() < f32::EPSILON
