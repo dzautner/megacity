@@ -373,10 +373,7 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                (
-                    unlocks::award_development_points,
-                    trees::tree_effects,
-                )
+                (unlocks::award_development_points, trees::tree_effects)
                     .after(imports_exports::process_trade),
             )
             .add_systems(
