@@ -43,7 +43,7 @@ pub fn process_trade(
 
     let commercial_count = buildings
         .iter()
-        .filter(|b| b.zone_type.is_commercial() && b.occupants > 0)
+        .filter(|b| (b.zone_type.is_commercial() || b.zone_type.is_mixed_use()) && b.occupants > 0)
         .count() as f64;
 
     let export_income = industrial_count * trade.export_income_per_industrial;

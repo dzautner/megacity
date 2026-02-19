@@ -100,6 +100,15 @@ impl BuildingModelCache {
                     self.get_commercial(level, hash)
                 }
             }
+            ZoneType::MixedUse => {
+                // MixedUse: commercial ground floor + residential upper floors
+                // Use commercial building models for levels 1-2, skyscrapers for 3+
+                if level >= 3 && !self.skyscrapers.is_empty() {
+                    self.skyscrapers[hash % self.skyscrapers.len()].clone()
+                } else {
+                    self.get_commercial(level, hash)
+                }
+            }
             ZoneType::None => self.get_residential(hash),
         }
     }
@@ -376,6 +385,13 @@ pub fn building_scale(zone: ZoneType, level: u8) -> f32 {
         (ZoneType::Office, 3) => base * 1.3,
         (ZoneType::Office, 4) => base * 1.5,
         (ZoneType::Office, _) => base * 1.8,
+
+        // MixedUse: between commercial and residential high density
+        (ZoneType::MixedUse, 1) => base * 0.8,
+        (ZoneType::MixedUse, 2) => base * 1.0,
+        (ZoneType::MixedUse, 3) => base * 1.2,
+        (ZoneType::MixedUse, 4) => base * 1.4,
+        (ZoneType::MixedUse, _) => base * 1.6,
 
         _ => base,
     }
@@ -2641,6 +2657,7 @@ pub fn zone_base_color(zone: ZoneType, _level: u8) -> Color {
         ZoneType::CommercialLow | ZoneType::CommercialHigh => Color::srgb(0.40, 0.52, 0.78),
         ZoneType::Industrial => Color::srgb(0.72, 0.65, 0.25),
         ZoneType::Office => Color::srgb(0.55, 0.50, 0.68),
+        ZoneType::MixedUse => Color::srgb(0.60, 0.55, 0.35),
         ZoneType::None => Color::srgb(0.7, 0.7, 0.7),
     }
 }

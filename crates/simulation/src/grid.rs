@@ -21,6 +21,7 @@ pub enum ZoneType {
     CommercialHigh,
     Industrial,
     Office,
+    MixedUse,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -109,8 +110,15 @@ impl ZoneType {
     pub fn is_commercial(self) -> bool {
         matches!(self, ZoneType::CommercialLow | ZoneType::CommercialHigh)
     }
+    pub fn is_mixed_use(self) -> bool {
+        matches!(self, ZoneType::MixedUse)
+    }
     pub fn is_job_zone(self) -> bool {
-        self.is_commercial() || matches!(self, ZoneType::Industrial | ZoneType::Office)
+        self.is_commercial()
+            || matches!(
+                self,
+                ZoneType::Industrial | ZoneType::Office | ZoneType::MixedUse
+            )
     }
     pub fn max_level(self) -> u8 {
         match self {
@@ -119,7 +127,8 @@ impl ZoneType {
             ZoneType::ResidentialHigh
             | ZoneType::CommercialHigh
             | ZoneType::Industrial
-            | ZoneType::Office => 5,
+            | ZoneType::Office
+            | ZoneType::MixedUse => 5,
             ZoneType::None => 0,
         }
     }
@@ -267,5 +276,15 @@ mod tests {
     #[test]
     fn test_residential_medium_max_level() {
         assert_eq!(ZoneType::ResidentialMedium.max_level(), 4);
+    }
+
+    #[test]
+    fn test_mixed_use_zone_type() {
+        let mu = ZoneType::MixedUse;
+        assert!(!mu.is_residential());
+        assert!(!mu.is_commercial());
+        assert!(mu.is_mixed_use());
+        assert!(mu.is_job_zone());
+        assert_eq!(mu.max_level(), 5);
     }
 }

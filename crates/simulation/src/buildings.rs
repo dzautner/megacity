@@ -17,6 +17,38 @@ pub struct Building {
     pub occupants: u32,
 }
 
+/// Component for mixed-use buildings that have both commercial ground floors
+/// and residential upper floors. Attached alongside [`Building`] when the
+/// zone is `ZoneType::MixedUse`.
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+pub struct MixedUseBuilding {
+    pub commercial_capacity: u32,
+    pub commercial_occupants: u32,
+    pub residential_capacity: u32,
+    pub residential_occupants: u32,
+}
+
+impl MixedUseBuilding {
+    /// Returns (commercial_capacity, residential_capacity) for a given building level.
+    /// L1=(5,8), L2=(15,30), L3=(20+20 office=40, 80), L4=(40+80=120, 200), L5=(80+200=280, 400)
+    pub fn capacities_for_level(level: u8) -> (u32, u32) {
+        match level {
+            1 => (5, 8),
+            2 => (15, 30),
+            3 => (40, 80),
+            4 => (120, 200),
+            5 => (280, 400),
+            _ => (0, 0),
+        }
+    }
+
+    /// Total capacity (commercial + residential) for a given level.
+    pub fn total_capacity_for_level(level: u8) -> u32 {
+        let (c, r) = Self::capacities_for_level(level);
+        c + r
+    }
+}
+
 /// Marker component for buildings that are still under construction.
 /// While present, the building cannot accept occupants.
 /// Approximately 10 seconds at 10Hz fixed timestep (100 ticks).
@@ -66,6 +98,8 @@ impl Building {
             (ZoneType::Office, 3) => 300,
             (ZoneType::Office, 4) => 700,
             (ZoneType::Office, 5) => 1500,
+            // Mixed-use: total capacity (commercial + residential)
+            (ZoneType::MixedUse, l) => MixedUseBuilding::total_capacity_for_level(l),
             _ => 0,
         }
     }
@@ -99,6 +133,7 @@ pub fn rebuild_eligible_cells(grid: Res<WorldGrid>, mut eligible: ResMut<Eligibl
         ZoneType::CommercialHigh,
         ZoneType::Industrial,
         ZoneType::Office,
+        ZoneType::MixedUse,
     ];
 
     let mut result: Vec<(ZoneType, Vec<(usize, usize)>)> = Vec::with_capacity(zones.len());
@@ -167,22 +202,48 @@ pub fn building_spawner(
 
             let capacity = Building::capacity_for_level(*zone, 1);
             let construction_ticks = 100; // ~10 seconds at 10Hz
-            let entity = commands
-                .spawn((
-                    Building {
-                        zone_type: *zone,
-                        level: 1,
-                        grid_x: x,
-                        grid_y: y,
-                        capacity,
-                        occupants: 0,
-                    },
-                    UnderConstruction {
-                        ticks_remaining: construction_ticks,
-                        total_ticks: construction_ticks,
-                    },
-                ))
-                .id();
+            let entity = if *zone == ZoneType::MixedUse {
+                let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(1);
+                commands
+                    .spawn((
+                        Building {
+                            zone_type: *zone,
+                            level: 1,
+                            grid_x: x,
+                            grid_y: y,
+                            capacity,
+                            occupants: 0,
+                        },
+                        MixedUseBuilding {
+                            commercial_capacity: comm_cap,
+                            commercial_occupants: 0,
+                            residential_capacity: res_cap,
+                            residential_occupants: 0,
+                        },
+                        UnderConstruction {
+                            ticks_remaining: construction_ticks,
+                            total_ticks: construction_ticks,
+                        },
+                    ))
+                    .id()
+            } else {
+                commands
+                    .spawn((
+                        Building {
+                            zone_type: *zone,
+                            level: 1,
+                            grid_x: x,
+                            grid_y: y,
+                            capacity,
+                            occupants: 0,
+                        },
+                        UnderConstruction {
+                            ticks_remaining: construction_ticks,
+                            total_ticks: construction_ticks,
+                        },
+                    ))
+                    .id()
+            };
 
             // This grid mutation triggers Bevy change detection,
             // so rebuild_eligible_cells will re-run next tick
@@ -254,6 +315,34 @@ mod tests {
         assert_eq!(Building::capacity_for_level(ZoneType::CommercialLow, 1), 8);
         assert_eq!(Building::capacity_for_level(ZoneType::Industrial, 1), 20);
         assert_eq!(Building::capacity_for_level(ZoneType::Office, 1), 30);
+    }
+
+    #[test]
+    fn test_mixed_use_capacity_per_level() {
+        // L1=(5 comm, 8 res)
+        assert_eq!(MixedUseBuilding::capacities_for_level(1), (5, 8));
+        assert_eq!(MixedUseBuilding::total_capacity_for_level(1), 13);
+        // L2=(15, 30)
+        assert_eq!(MixedUseBuilding::capacities_for_level(2), (15, 30));
+        assert_eq!(MixedUseBuilding::total_capacity_for_level(2), 45);
+        // L3=(40, 80) — 20 commercial + 20 office = 40 commercial
+        assert_eq!(MixedUseBuilding::capacities_for_level(3), (40, 80));
+        assert_eq!(MixedUseBuilding::total_capacity_for_level(3), 120);
+        // L4=(120, 200) — 40 commercial + 80 office = 120 commercial
+        assert_eq!(MixedUseBuilding::capacities_for_level(4), (120, 200));
+        assert_eq!(MixedUseBuilding::total_capacity_for_level(4), 320);
+        // L5=(280, 400) — 80 commercial + 200 office = 280 commercial
+        assert_eq!(MixedUseBuilding::capacities_for_level(5), (280, 400));
+        assert_eq!(MixedUseBuilding::total_capacity_for_level(5), 680);
+    }
+
+    #[test]
+    fn test_mixed_use_building_capacity_matches_total() {
+        for level in 1..=5 {
+            let total = Building::capacity_for_level(ZoneType::MixedUse, level);
+            let (c, r) = MixedUseBuilding::capacities_for_level(level);
+            assert_eq!(total, c + r, "Level {} total mismatch", level);
+        }
     }
 
     #[test]

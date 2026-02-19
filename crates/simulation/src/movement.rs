@@ -50,7 +50,7 @@ pub fn refresh_destination_cache(
     if cache.shops.is_empty() || !added_buildings.is_empty() || !added_services.is_empty() {
         cache.shops = buildings
             .iter()
-            .filter(|b| b.zone_type.is_commercial())
+            .filter(|b| b.zone_type.is_commercial() || b.zone_type.is_mixed_use())
             .map(|b| (b.grid_x, b.grid_y))
             .collect();
 

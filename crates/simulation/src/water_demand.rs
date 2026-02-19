@@ -82,6 +82,10 @@ fn base_demand_for_building(building: &Building) -> f32 {
             building.occupants as f32 * COMMERCIAL_GPB
         }
         ZoneType::Industrial => building.occupants as f32 * INDUSTRIAL_GPB,
+        ZoneType::MixedUse => {
+            // MixedUse: blend of residential and commercial water demand
+            building.occupants as f32 * (RESIDENTIAL_GPCD + COMMERCIAL_GPB) * 0.5
+        }
         ZoneType::None => 0.0,
     }
 }

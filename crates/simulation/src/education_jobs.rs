@@ -206,6 +206,15 @@ fn generate_slots(zone_type: ZoneType, capacity: u32) -> Option<(JobType, Vec<Jo
                 (JobType::Service, 0.20),
             ],
         ),
+        ZoneType::MixedUse => (
+            JobType::Service,
+            vec![
+                (JobType::Service, 0.45),
+                (JobType::Skilled, 0.25),
+                (JobType::Professional, 0.20),
+                (JobType::Unskilled, 0.10),
+            ],
+        ),
         _ => return None,
     };
 

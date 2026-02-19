@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::buildings::Building;
+use crate::buildings::{Building, MixedUseBuilding};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 
 #[derive(Resource, Default, Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +21,8 @@ impl ZoneDemand {
             ZoneType::CommercialLow | ZoneType::CommercialHigh => self.commercial,
             ZoneType::Industrial => self.industrial,
             ZoneType::Office => self.office,
+            // MixedUse responds to the higher of residential and commercial demand
+            ZoneType::MixedUse => self.residential.max(self.commercial),
             ZoneType::None => 0.0,
         }
     }
@@ -30,6 +32,7 @@ pub fn update_zone_demand(
     slow_tick: Res<crate::SlowTickTimer>,
     grid: Res<WorldGrid>,
     buildings: Query<&Building>,
+    mixed_use_buildings: Query<&MixedUseBuilding>,
     mut demand: ResMut<ZoneDemand>,
 ) {
     if !slow_tick.should_run() {
@@ -72,6 +75,18 @@ pub fn update_zone_demand(
                 o_zoned += 1;
                 if cell.building_id.is_some() {
                     o_built += 1;
+                }
+            }
+            ZoneType::MixedUse => {
+                // MixedUse counts toward both residential and commercial
+                r_zoned += 1;
+                c_zoned += 1;
+                if let Some(entity) = cell.building_id {
+                    r_built += 1;
+                    c_built += 1;
+                    if let Ok(mu) = mixed_use_buildings.get(entity) {
+                        pop += mu.residential_occupants;
+                    }
                 }
             }
             ZoneType::None => {}
@@ -200,5 +215,25 @@ mod tests {
         assert_eq!(demand.demand_for(ZoneType::Industrial), 0.3);
         assert_eq!(demand.demand_for(ZoneType::Office), 0.2);
         assert_eq!(demand.demand_for(ZoneType::None), 0.0);
+    }
+
+    #[test]
+    fn test_mixed_use_demand_uses_max() {
+        // MixedUse should respond to the higher of residential and commercial demand
+        let demand = ZoneDemand {
+            residential: 0.8,
+            commercial: 0.5,
+            industrial: 0.3,
+            office: 0.2,
+        };
+        assert_eq!(demand.demand_for(ZoneType::MixedUse), 0.8);
+
+        let demand2 = ZoneDemand {
+            residential: 0.3,
+            commercial: 0.9,
+            industrial: 0.3,
+            office: 0.2,
+        };
+        assert_eq!(demand2.demand_for(ZoneType::MixedUse), 0.9);
     }
 }

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::buildings::Building;
+use crate::buildings::{Building, MixedUseBuilding};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::services::ServiceBuilding;
 use crate::time_of_day::GameClock;
@@ -67,6 +67,24 @@ pub fn collect_taxes(
         } else {
             50.0 // fallback baseline
         };
+
+        if b.zone_type.is_mixed_use() {
+            // MixedUse buildings generate both residential and commercial tax,
+            // split proportionally based on static capacity ratios for the level.
+            let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(b.level);
+            let total_cap = comm_cap + res_cap;
+            if total_cap > 0 {
+                let res_fraction = res_cap as f64 / total_cap as f64;
+                let comm_fraction = comm_cap as f64 / total_cap as f64;
+                let res_tax =
+                    property_tax_for_building(lv * res_fraction, b.level, zone_rates.residential);
+                let comm_tax =
+                    property_tax_for_building(lv * comm_fraction, b.level, zone_rates.commercial);
+                residential_tax += res_tax;
+                commercial_tax += comm_tax;
+            }
+            continue;
+        }
 
         let rate = if b.zone_type.is_residential() {
             zone_rates.residential

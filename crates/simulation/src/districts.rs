@@ -91,7 +91,22 @@ pub fn aggregate_districts(
         let (dx, dy) = Districts::district_for_grid(building.grid_x, building.grid_y);
         if dx < DISTRICTS_X && dy < DISTRICTS_Y {
             let d = districts.get_mut(dx, dy);
-            if building.zone_type.is_residential() {
+            if building.zone_type.is_mixed_use() {
+                // MixedUse contributes to both residential and commercial
+                let (comm_cap, res_cap) =
+                    crate::buildings::MixedUseBuilding::capacities_for_level(building.level);
+                d.residential_capacity += res_cap;
+                d.commercial_jobs += comm_cap;
+                // Split occupants proportionally
+                let total_cap = comm_cap + res_cap;
+                if total_cap > 0 {
+                    let res_occ =
+                        (building.occupants as f32 * res_cap as f32 / total_cap as f32) as u32;
+                    let comm_occ = building.occupants.saturating_sub(res_occ);
+                    d.population += res_occ;
+                    d.employed += comm_occ;
+                }
+            } else if building.zone_type.is_residential() {
                 d.residential_capacity += building.capacity;
                 d.population += building.occupants;
             } else if building.zone_type.is_commercial() {
@@ -291,11 +306,13 @@ pub fn district_stats(
     let mut crime_sum = vec![0.0f32; num_districts];
     let mut crime_count = vec![0u32; num_districts];
 
-    // Population from buildings
+    // Population from buildings (including MixedUse residential occupants)
     for building in &buildings {
         let idx = DistrictMap::cell_idx(building.grid_x, building.grid_y);
         if let Some(di) = district_map.cell_map.get(idx).copied().flatten() {
-            if di < num_districts && building.zone_type.is_residential() {
+            if di < num_districts
+                && (building.zone_type.is_residential() || building.zone_type.is_mixed_use())
+            {
                 pop[di] += building.occupants;
             }
         }

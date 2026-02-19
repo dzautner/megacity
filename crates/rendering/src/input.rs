@@ -28,6 +28,7 @@ pub enum ActiveTool {
     ZoneCommercialHigh,
     ZoneIndustrial,
     ZoneOffice,
+    ZoneMixedUse,
     PlacePowerPlant,
     PlaceSolarFarm,
     PlaceWindTurbine,
@@ -117,7 +118,8 @@ impl ActiveTool {
             | ActiveTool::ZoneCommercialLow
             | ActiveTool::ZoneCommercialHigh
             | ActiveTool::ZoneIndustrial
-            | ActiveTool::ZoneOffice => None,
+            | ActiveTool::ZoneOffice
+            | ActiveTool::ZoneMixedUse => None,
             // Utilities
             ActiveTool::PlacePowerPlant => Some(services::utility_cost(UtilityType::PowerPlant)),
             ActiveTool::PlaceSolarFarm => Some(services::utility_cost(UtilityType::SolarFarm)),
@@ -204,6 +206,7 @@ impl ActiveTool {
             ActiveTool::ZoneCommercialHigh => "High-Density Commercial",
             ActiveTool::ZoneIndustrial => "Industrial",
             ActiveTool::ZoneOffice => "Office",
+            ActiveTool::ZoneMixedUse => "Mixed-Use",
             ActiveTool::PlacePowerPlant => "Power Plant",
             ActiveTool::PlaceSolarFarm => "Solar Farm",
             ActiveTool::PlaceWindTurbine => "Wind Turbine",
@@ -655,6 +658,9 @@ pub fn handle_tool_input(
         ActiveTool::ZoneOffice => {
             apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::Office)
         }
+        ActiveTool::ZoneMixedUse => {
+            apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::MixedUse)
+        }
 
         // --- Utilities ---
         ActiveTool::PlacePowerPlant => place_utility_if_affordable(
@@ -1068,6 +1074,9 @@ pub fn keyboard_tool_switch(keys: Res<ButtonInput<KeyCode>>, mut tool: ResMut<Ac
     }
     if keys.just_pressed(KeyCode::Digit9) {
         *tool = ActiveTool::Inspect;
+    }
+    if keys.just_pressed(KeyCode::Digit0) {
+        *tool = ActiveTool::ZoneMixedUse;
     }
 }
 
