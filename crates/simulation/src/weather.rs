@@ -651,7 +651,7 @@ pub struct Weather {
     /// model to derive weather conditions. Not intended for external consumption;
     /// use `precipitation_intensity` (in/hr) instead.
     #[serde(default)]
-    pub(crate) atmo_precipitation: f32,
+    pub atmo_precipitation: f32,
     /// Last hour that triggered a weather update (used for hourly boundary detection).
     #[serde(default)]
     pub last_update_hour: u32,
