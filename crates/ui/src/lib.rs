@@ -4,6 +4,7 @@ use bevy_egui::EguiPlugin;
 pub mod graphs;
 pub mod info_panel;
 pub mod milestones;
+pub mod overlay_legend;
 pub mod theme;
 pub mod toolbar;
 
@@ -39,6 +40,7 @@ impl Plugin for UiPlugin {
                     info_panel::panel_keybinds,
                     info_panel::event_journal_ui,
                     info_panel::advisor_window_ui,
+                    overlay_legend::overlay_legend_ui,
                 ),
             );
     }
