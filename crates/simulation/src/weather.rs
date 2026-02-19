@@ -1680,6 +1680,7 @@ mod tests {
     fn test_climate_zone_all_variants() {
         let all = ClimateZone::all();
         assert_eq!(all.len(), 7);
+    }
 
     // ConstructionModifiers tests
     // -----------------------------------------------------------------------

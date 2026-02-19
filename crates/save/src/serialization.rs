@@ -21,7 +21,9 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
-use simulation::weather::{ClimateZone, ConstructionModifiers, Season, Weather, WeatherCondition, WeatherEvent};
+use simulation::weather::{
+    ClimateZone, ConstructionModifiers, Season, Weather, WeatherCondition, WeatherEvent,
+};
 // Note: WeatherEvent is a type alias for WeatherCondition (kept for backward compat)
 use simulation::water_sources::{WaterSource, WaterSourceType};
 use simulation::zones::ZoneDemand;
