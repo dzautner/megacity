@@ -9,6 +9,7 @@ pub mod building_upgrade;
 pub mod buildings;
 pub mod citizen;
 pub mod citizen_spawner;
+pub mod composting;
 pub mod config;
 pub mod crime;
 pub mod death_care;
@@ -45,7 +46,6 @@ pub mod policies;
 pub mod pollution;
 pub mod postal;
 pub mod production;
-pub mod recycling;
 pub mod road_graph_csr;
 pub mod road_maintenance;
 pub mod road_segments;
@@ -83,6 +83,7 @@ use budget::ExtendedBudget;
 use building_upgrade::UpgradeTimer;
 use buildings::{BuildingSpawnTimer, EligibleCells};
 use citizen_spawner::CitizenSpawnTimer;
+use composting::CompostingState;
 use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
 use degree_days::DegreeDays;
@@ -110,7 +111,6 @@ use noise::NoisePollutionGrid;
 use outside_connections::OutsideConnections;
 use policies::Policies;
 use pollution::PollutionGrid;
-use recycling::{RecyclingEconomics, RecyclingState};
 use road_graph_csr::CsrGraph;
 use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
@@ -245,8 +245,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
             .init_resource::<WasteAccumulation>()
-            .init_resource::<RecyclingEconomics>()
-            .init_resource::<RecyclingState>()
+            .init_resource::<CompostingState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
@@ -327,10 +326,6 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                recycling::update_recycling_economics.after(garbage::update_waste_generation),
-            )
-            .add_systems(
-                FixedUpdate,
                 (
                     road_maintenance::degrade_roads,
                     road_maintenance::repair_roads,
@@ -358,7 +353,6 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     weather::update_weather,
-                    weather::update_precipitation,
                     degree_days::update_degree_days,
                     weather::update_construction_modifiers,
                     heating::update_heating,
@@ -549,7 +543,13 @@ impl Plugin for SimulationPlugin {
                 )
                     .after(lod::assign_lod_tiers),
             )
-            .add_systems(Update, tick_lod_frame_counter);
+            .add_systems(Update, tick_lod_frame_counter)
+            .add_systems(
+                Update,
+                composting::update_composting.run_if(
+                    bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(2)),
+                ),
+            );
     }
 }
 

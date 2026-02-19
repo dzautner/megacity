@@ -6,12 +6,12 @@ use crate::save_codec::*;
 use crate::save_types::*;
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
+use simulation::composting::{CompostFacility, CompostingState};
 use simulation::degree_days::DegreeDays;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
 use simulation::policies::Policies;
-use simulation::recycling::{RecyclingEconomics, RecyclingState};
 use simulation::road_segments::{
     RoadSegment, RoadSegmentStore, SegmentId, SegmentNode, SegmentNodeId,
 };
@@ -80,7 +80,6 @@ pub fn restore_weather(save: &SaveWeather) -> Weather {
         precipitation_intensity: save.precipitation_intensity,
         last_update_hour: save.last_update_hour,
         prev_extreme: false,
-        ..Default::default()
     }
 }
 
@@ -221,6 +220,31 @@ pub fn restore_construction_modifiers(save: &SaveConstructionModifiers) -> Const
     }
 }
 
+/// Restore a `CompostingState` resource from saved data.
+pub fn restore_composting(save: &SaveCompostingState) -> CompostingState {
+    let facilities = save
+        .facilities
+        .iter()
+        .map(|sf| CompostFacility {
+            method: u8_to_compost_method(sf.method),
+            capacity_tons_per_day: sf.capacity_tons_per_day,
+            cost_per_ton: sf.cost_per_ton,
+            tons_processed_today: sf.tons_processed_today,
+        })
+        .collect();
+    CompostingState {
+        facilities,
+        participation_rate: save.participation_rate,
+        organic_fraction: save.organic_fraction,
+        total_diverted_tons: save.total_diverted_tons,
+        daily_diversion_tons: save.daily_diversion_tons,
+        compost_revenue_per_ton: save.compost_revenue_per_ton,
+        daily_revenue: save.daily_revenue,
+        biogas_mwh_per_ton: save.biogas_mwh_per_ton,
+        daily_biogas_mwh: save.daily_biogas_mwh,
+    }
+}
+
 /// Restore a `VirtualPopulation` resource from saved data.
 pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
     let district_stats = save
@@ -243,29 +267,4 @@ pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopula
         district_stats,
         save.max_real_citizens,
     )
-}
-
-/// Restore `RecyclingState` and `RecyclingEconomics` from saved data.
-pub fn restore_recycling(save: &SaveRecyclingState) -> (RecyclingState, RecyclingEconomics) {
-    let tier = u8_to_recycling_tier(save.tier);
-    let state = RecyclingState {
-        tier,
-        daily_tons_diverted: save.daily_tons_diverted,
-        daily_tons_contaminated: save.daily_tons_contaminated,
-        daily_revenue: save.daily_revenue,
-        daily_cost: save.daily_cost,
-        total_revenue: save.total_revenue,
-        total_cost: save.total_cost,
-        participating_households: save.participating_households,
-    };
-    let economics = RecyclingEconomics {
-        price_paper: save.price_paper,
-        price_plastic: save.price_plastic,
-        price_glass: save.price_glass,
-        price_metal: save.price_metal,
-        price_organic: save.price_organic,
-        market_cycle_position: save.market_cycle_position,
-        last_update_day: save.economics_last_update_day,
-    };
-    (state, economics)
 }

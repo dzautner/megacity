@@ -21,7 +21,7 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v7 = degree_days (HDD/CDD tracking for HVAC energy demand)
 /// v8 = climate_zone in SaveWeather (ClimateZone resource)
 /// v9 = construction_modifiers (ConstructionModifiers serialization)
-/// v10 = recycling_state (RecyclingState + RecyclingEconomics serialization)
+/// v10 = composting_state (CompostingState serialization)
 pub const CURRENT_SAVE_VERSION: u32 = 10;
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ pub struct SaveData {
     #[serde(default)]
     pub construction_modifiers: Option<SaveConstructionModifiers>,
     #[serde(default)]
-    pub recycling_state: Option<SaveRecyclingState>,
+    pub composting_state: Option<SaveCompostingState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -405,25 +405,25 @@ pub struct SaveVirtualPopulation {
     pub max_real_citizens: u32,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode)]
+pub struct SaveCompostFacility {
+    pub method: u8,
+    pub capacity_tons_per_day: f32,
+    pub cost_per_ton: f32,
+    pub tons_processed_today: f32,
+}
+
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
-pub struct SaveRecyclingState {
-    /// Recycling tier discriminant (0=None, 1=VoluntaryDropoff, ..., 6=ZeroWaste).
-    pub tier: u8,
-    pub daily_tons_diverted: f64,
-    pub daily_tons_contaminated: f64,
-    pub daily_revenue: f64,
-    pub daily_cost: f64,
-    pub total_revenue: f64,
-    pub total_cost: f64,
-    pub participating_households: u32,
-    // Economics
-    pub price_paper: f64,
-    pub price_plastic: f64,
-    pub price_glass: f64,
-    pub price_metal: f64,
-    pub price_organic: f64,
-    pub market_cycle_position: f64,
-    pub economics_last_update_day: u32,
+pub struct SaveCompostingState {
+    pub facilities: Vec<SaveCompostFacility>,
+    pub participation_rate: f32,
+    pub organic_fraction: f32,
+    pub total_diverted_tons: f32,
+    pub daily_diversion_tons: f32,
+    pub compost_revenue_per_ton: f32,
+    pub daily_revenue: f32,
+    pub biogas_mwh_per_ton: f32,
+    pub daily_biogas_mwh: f32,
 }
 
 impl SaveData {
