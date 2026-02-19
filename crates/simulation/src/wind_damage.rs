@@ -11,9 +11,10 @@ use crate::TickCounter;
 // =============================================================================
 
 /// Beaufort-inspired wind damage classification based on normalized wind speed [0, 1].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum WindDamageTier {
     /// Speed 0.0 - 0.15: No damage.
+    #[default]
     Calm,
     /// Speed 0.15 - 0.3: No damage, light wind.
     Breezy,
@@ -142,12 +143,6 @@ impl Default for WindDamageState {
             trees_knocked_down: 0,
             power_outage_active: false,
         }
-    }
-}
-
-impl Default for WindDamageTier {
-    fn default() -> Self {
-        WindDamageTier::Calm
     }
 }
 
