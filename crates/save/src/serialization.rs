@@ -12,6 +12,7 @@ use simulation::buildings::{Building, MixedUseBuilding};
 use simulation::citizen::CitizenState;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
+use simulation::heat_wave::HeatWaveState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
@@ -25,7 +26,6 @@ use simulation::unlocks::UnlockState;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
-use simulation::heat_wave::HeatWaveState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::zones::ZoneDemand;
 
@@ -2134,7 +2134,7 @@ mod tests {
 
     #[test]
     fn test_heat_wave_state_roundtrip() {
-        use simulation::heat_wave::{HeatWaveState, HeatWaveSeverity};
+        use simulation::heat_wave::{HeatWaveSeverity, HeatWaveState};
 
         let hw = HeatWaveState {
             consecutive_hot_days: 5,

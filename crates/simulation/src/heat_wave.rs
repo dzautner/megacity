@@ -182,10 +182,17 @@ mod tests {
     fn test_excess_mortality_at_threshold() {
         // At or below threshold, mortality should be zero
         let result = calculate_excess_mortality(38.0, 38.0);
-        assert!(result.abs() < f32::EPSILON, "Mortality at threshold should be 0, got {}", result);
+        assert!(
+            result.abs() < f32::EPSILON,
+            "Mortality at threshold should be 0, got {}",
+            result
+        );
 
         let result_below = calculate_excess_mortality(35.0, 38.0);
-        assert!(result_below.abs() < f32::EPSILON, "Mortality below threshold should be 0");
+        assert!(
+            result_below.abs() < f32::EPSILON,
+            "Mortality below threshold should be 0"
+        );
     }
 
     #[test]
@@ -193,7 +200,12 @@ mod tests {
         // At 40C with 38C threshold: 0.5 * exp(0.15 * 2) = 0.5 * exp(0.3) ~ 0.675
         let result = calculate_excess_mortality(40.0, 38.0);
         let expected = 0.5 * (0.15_f32 * 2.0).exp();
-        assert!((result - expected).abs() < 0.001, "Expected ~{}, got {}", expected, result);
+        assert!(
+            (result - expected).abs() < 0.001,
+            "Expected ~{}, got {}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -201,7 +213,12 @@ mod tests {
         // Verify the curve is exponential: mortality at 45C >> mortality at 40C
         let m40 = calculate_excess_mortality(40.0, 38.0);
         let m45 = calculate_excess_mortality(45.0, 38.0);
-        assert!(m45 > m40 * 2.0, "Mortality should grow exponentially: 45C={} vs 40C={}", m45, m40);
+        assert!(
+            m45 > m40 * 2.0,
+            "Mortality should grow exponentially: 45C={} vs 40C={}",
+            m45,
+            m40
+        );
     }
 
     #[test]
@@ -209,12 +226,22 @@ mod tests {
         // At 42C with 38C threshold: 0.5 * exp(0.15 * 4) = 0.5 * exp(0.6) ~ 0.911
         let result = calculate_excess_mortality(42.0, 38.0);
         let expected = 0.5 * (0.15_f32 * 4.0).exp();
-        assert!((result - expected).abs() < 0.01, "Expected ~{}, got {}", expected, result);
+        assert!(
+            (result - expected).abs() < 0.01,
+            "Expected ~{}, got {}",
+            expected,
+            result
+        );
 
         // At 50C with 38C threshold: 0.5 * exp(0.15 * 12) = 0.5 * exp(1.8) ~ 3.02
         let result_high = calculate_excess_mortality(50.0, 38.0);
         let expected_high = 0.5 * (0.15_f32 * 12.0).exp();
-        assert!((result_high - expected_high).abs() < 0.01, "Expected ~{}, got {}", expected_high, result_high);
+        assert!(
+            (result_high - expected_high).abs() < 0.01,
+            "Expected ~{}, got {}",
+            expected_high,
+            result_high
+        );
     }
 
     #[test]
@@ -236,7 +263,9 @@ mod tests {
             assert!(
                 (actual - multiplier).abs() < f32::EPSILON,
                 "Energy multiplier for {:?} should be {}, got {}",
-                severity, multiplier, actual
+                severity,
+                multiplier,
+                actual
             );
         }
     }
@@ -260,7 +289,9 @@ mod tests {
             assert!(
                 (actual - multiplier).abs() < f32::EPSILON,
                 "Water multiplier for {:?} should be {}, got {}",
-                severity, multiplier, actual
+                severity,
+                multiplier,
+                actual
             );
         }
     }
@@ -331,7 +362,9 @@ mod tests {
             assert!(
                 (actual - risk).abs() < f32::EPSILON,
                 "Blackout risk for {:?} should be {}, got {}",
-                severity, risk, actual
+                severity,
+                risk,
+                actual
             );
         }
     }

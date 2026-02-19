@@ -3,11 +3,11 @@
 // ---------------------------------------------------------------------------
 
 use simulation::grid::{RoadType, ZoneType};
+use simulation::heat_wave::HeatWaveSeverity;
 use simulation::policies::Policy;
 use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
-use simulation::heat_wave::HeatWaveSeverity;
 use simulation::water_sources::WaterSourceType;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
 

@@ -523,9 +523,9 @@ impl Plugin for SimulationPlugin {
                     virtual_population::adjust_real_citizen_cap.run_if(
                         bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(1)),
                     ),
-                    heat_wave::update_heat_wave.run_if(
-                        bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(2)),
-                    ),
+                    heat_wave::update_heat_wave.run_if(bevy::time::common_conditions::on_timer(
+                        std::time::Duration::from_secs(2),
+                    )),
                 ),
             )
             .init_resource::<LodFrameCounter>()
