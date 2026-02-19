@@ -61,7 +61,7 @@ pub fn tree_effects(
     mut noise: ResMut<NoisePollutionGrid>,
     mut land_value: ResMut<LandValueGrid>,
 ) {
-    if tick.0 % 50 != 0 {
+    if !tick.0.is_multiple_of(50) {
         return;
     }
 

@@ -83,8 +83,7 @@ pub fn update_water_pollution(
             for dx in -radius..=radius {
                 let nx = building.grid_x as i32 + dx;
                 let ny = building.grid_y as i32 + dy;
-                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT
-                {
+                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT {
                     continue;
                 }
                 let ux = nx as usize;
@@ -127,8 +126,7 @@ pub fn update_water_pollution(
             for (dx, dy) in neighbors {
                 let nx = x as i32 + dx;
                 let ny = y as i32 + dy;
-                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT
-                {
+                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT {
                     continue;
                 }
                 let ux = nx as usize;
@@ -155,8 +153,7 @@ pub fn update_water_pollution(
             for dx in -radius..=radius {
                 let nx = utility.grid_x as i32 + dx;
                 let ny = utility.grid_y as i32 + dy;
-                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT
-                {
+                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT {
                     continue;
                 }
                 let ux = nx as usize;
@@ -193,8 +190,7 @@ pub fn water_pollution_health_penalty(
             for dx in -check_radius..=check_radius {
                 let nx = home.grid_x as i32 + dx;
                 let ny = home.grid_y as i32 + dy;
-                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT
-                {
+                if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT {
                     continue;
                 }
                 let ux = nx as usize;

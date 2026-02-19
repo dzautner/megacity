@@ -7,7 +7,7 @@ use crate::stats::CityStats;
 /// Tourism tracking
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct Tourism {
-    pub attractiveness: f32,      // 0-100 score
+    pub attractiveness: f32, // 0-100 score
     pub monthly_visitors: u32,
     pub monthly_tourism_income: f64,
     pub last_update_day: u32,

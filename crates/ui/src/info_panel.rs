@@ -1,44 +1,46 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
+use simulation::achievements::{Achievement, AchievementNotification, AchievementTracker};
+use simulation::advisors::AdvisorPanel;
+use simulation::airport::AirportStats;
 use simulation::buildings::Building;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     Personality, WorkLocation,
 };
 use simulation::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
+use simulation::death_care::DeathCareStats;
+use simulation::districts::DistrictMap;
 use simulation::economy::CityBudget;
+use simulation::education_jobs::{EmploymentStats, JobType};
+use simulation::events::{ActiveCityEffects, EventJournal};
+use simulation::forest_fire::ForestFireStats;
 use simulation::grid::{CellType, WorldGrid, ZoneType};
+use simulation::groundwater::GroundwaterStats;
+use simulation::heating::HeatingStats;
+use simulation::homelessness::HomelessnessStats;
+use simulation::immigration::{CityAttractiveness, ImmigrationStats};
 use simulation::land_value::LandValueGrid;
 use simulation::loans::{LoanBook, LoanTier};
+use simulation::market::MarketPrices;
 use simulation::natural_resources::ResourceBalance;
+use simulation::outside_connections::OutsideConnections;
 use simulation::policies::{Policies, Policy};
 use simulation::pollution::PollutionGrid;
+use simulation::postal::PostalStats;
+use simulation::production::{CityGoods, GoodsType};
 use simulation::services::ServiceBuilding;
+use simulation::specialization::{
+    CitySpecialization, CitySpecializations, SpecializationBonuses, SpecializationScore,
+};
 use simulation::stats::CityStats;
 use simulation::utilities::UtilitySource;
 use simulation::wealth::WealthTier;
-use simulation::zones::ZoneDemand;
-use simulation::districts::DistrictMap;
-use simulation::events::{ActiveCityEffects, EventJournal};
-use simulation::education_jobs::{EmploymentStats, JobType};
-use simulation::death_care::DeathCareStats;
-use simulation::homelessness::HomelessnessStats;
-use simulation::immigration::{CityAttractiveness, ImmigrationStats};
-use simulation::market::MarketPrices;
-use simulation::production::{CityGoods, GoodsType};
-use simulation::outside_connections::OutsideConnections;
-use simulation::specialization::{CitySpecialization, CitySpecializations, SpecializationBonuses, SpecializationScore};
-use simulation::forest_fire::ForestFireStats;
-use simulation::achievements::{Achievement, AchievementNotification, AchievementTracker};
-use simulation::advisors::AdvisorPanel;
-use simulation::airport::AirportStats;
-use simulation::postal::PostalStats;
-use simulation::welfare::WelfareStats;
-use simulation::heating::HeatingStats;
 use simulation::weather::Weather;
-use simulation::groundwater::GroundwaterStats;
+use simulation::welfare::WelfareStats;
 use simulation::wind::WindState;
+use simulation::zones::ZoneDemand;
 
 use rendering::input::SelectedBuilding;
 use rendering::overlay::{OverlayMode, OverlayState};
@@ -190,7 +192,8 @@ pub fn info_panel_ui(
                         format!("Accidents: {} active", active_accidents),
                     );
                 }
-            }            ui.label(format!(
+            }
+            ui.label(format!(
                 "Wind: {} {}",
                 wind.compass_direction(),
                 wind.speed_label(),
@@ -228,7 +231,10 @@ pub fn info_panel_ui(
             };
             ui.colored_label(
                 unemp_color,
-                format!("Unemployment: {:.1}%", employment_stats.unemployment_rate * 100.0),
+                format!(
+                    "Unemployment: {:.1}%",
+                    employment_stats.unemployment_rate * 100.0
+                ),
             );
             ui.label(format!(
                 "Employed: {} | Unemployed: {}",
@@ -272,15 +278,16 @@ pub fn info_panel_ui(
                 });
 
                 // Score bar
-                let (rect, _) = ui.allocate_exact_size(
-                    egui::vec2(160.0, 12.0),
-                    egui::Sense::hover(),
-                );
+                let (rect, _) =
+                    ui.allocate_exact_size(egui::vec2(160.0, 12.0), egui::Sense::hover());
                 let painter = ui.painter_at(rect);
                 painter.rect_filled(rect, 2.0, egui::Color32::from_gray(40));
                 let fill_rect = egui::Rect::from_min_size(
                     rect.min,
-                    egui::vec2(rect.width() * (score / 100.0).clamp(0.0, 1.0), rect.height()),
+                    egui::vec2(
+                        rect.width() * (score / 100.0).clamp(0.0, 1.0),
+                        rect.height(),
+                    ),
                 );
                 painter.rect_filled(fill_rect, 2.0, score_color);
 
@@ -389,10 +396,8 @@ pub fn info_panel_ui(
                 };
                 ui.horizontal(|ui| {
                     ui.label("Avg condition:");
-                    let (rect, _) = ui.allocate_exact_size(
-                        egui::vec2(80.0, 12.0),
-                        egui::Sense::hover(),
-                    );
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::vec2(80.0, 12.0), egui::Sense::hover());
                     let painter = ui.painter_at(rect);
                     painter.rect_filled(rect, 2.0, egui::Color32::from_gray(40));
                     let fill_rect = egui::Rect::from_min_size(
@@ -414,9 +419,15 @@ pub fn info_panel_ui(
                     egui::Color32::from_rgb(180, 180, 180)
                 };
                 ui.horizontal(|ui| {
-                    ui.colored_label(poor_color, format!("Poor: {}", road_maint_stats.poor_roads_count));
+                    ui.colored_label(
+                        poor_color,
+                        format!("Poor: {}", road_maint_stats.poor_roads_count),
+                    );
                     ui.label("|");
-                    ui.colored_label(crit_color, format!("Critical: {}", road_maint_stats.critical_roads_count));
+                    ui.colored_label(
+                        crit_color,
+                        format!("Critical: {}", road_maint_stats.critical_roads_count),
+                    );
                 });
 
                 ui.horizontal(|ui| {
@@ -430,7 +441,10 @@ pub fn info_panel_ui(
                     }
                 });
 
-                ui.label(format!("Cost: ${:.0}/mo", extras.road_maint_budget.monthly_cost));
+                ui.label(format!(
+                    "Cost: ${:.0}/mo",
+                    extras.road_maint_budget.monthly_cost
+                ));
 
                 // ---- Traffic Safety ----
                 ui.separator();
@@ -448,7 +462,10 @@ pub fn info_panel_ui(
                 ui.label(format!("Total accidents: {}", tracker.total_accidents));
                 ui.label(format!("This month: {}", tracker.accidents_this_month));
                 if tracker.response_count > 0 {
-                    ui.label(format!("Avg response: {:.1} ticks", tracker.avg_response_time));
+                    ui.label(format!(
+                        "Avg response: {:.1} ticks",
+                        tracker.avg_response_time
+                    ));
                 }
             });
 
@@ -573,37 +590,55 @@ pub fn info_panel_ui(
 
                 ui.horizontal(|ui| {
                     ui.label("Fire:");
-                    if ui.add(egui::Slider::new(&mut fire_pct, 0.0..=150.0).suffix("%")).changed() {
+                    if ui
+                        .add(egui::Slider::new(&mut fire_pct, 0.0..=150.0).suffix("%"))
+                        .changed()
+                    {
                         sb.fire = fire_pct / 100.0;
                     }
                 });
                 ui.horizontal(|ui| {
                     ui.label("Police:");
-                    if ui.add(egui::Slider::new(&mut police_pct, 0.0..=150.0).suffix("%")).changed() {
+                    if ui
+                        .add(egui::Slider::new(&mut police_pct, 0.0..=150.0).suffix("%"))
+                        .changed()
+                    {
                         sb.police = police_pct / 100.0;
                     }
                 });
                 ui.horizontal(|ui| {
                     ui.label("Health:");
-                    if ui.add(egui::Slider::new(&mut health_pct, 0.0..=150.0).suffix("%")).changed() {
+                    if ui
+                        .add(egui::Slider::new(&mut health_pct, 0.0..=150.0).suffix("%"))
+                        .changed()
+                    {
                         sb.healthcare = health_pct / 100.0;
                     }
                 });
                 ui.horizontal(|ui| {
                     ui.label("Education:");
-                    if ui.add(egui::Slider::new(&mut edu_pct, 0.0..=150.0).suffix("%")).changed() {
+                    if ui
+                        .add(egui::Slider::new(&mut edu_pct, 0.0..=150.0).suffix("%"))
+                        .changed()
+                    {
                         sb.education = edu_pct / 100.0;
                     }
                 });
                 ui.horizontal(|ui| {
                     ui.label("Sanitation:");
-                    if ui.add(egui::Slider::new(&mut sanit_pct, 0.0..=150.0).suffix("%")).changed() {
+                    if ui
+                        .add(egui::Slider::new(&mut sanit_pct, 0.0..=150.0).suffix("%"))
+                        .changed()
+                    {
                         sb.sanitation = sanit_pct / 100.0;
                     }
                 });
                 ui.horizontal(|ui| {
                     ui.label("Transport:");
-                    if ui.add(egui::Slider::new(&mut trans_pct, 0.0..=150.0).suffix("%")).changed() {
+                    if ui
+                        .add(egui::Slider::new(&mut trans_pct, 0.0..=150.0).suffix("%"))
+                        .changed()
+                    {
                         sb.transport = trans_pct / 100.0;
                     }
                 });
@@ -613,15 +648,55 @@ pub fn info_panel_ui(
             ui.heading("Service Coverage");
             // Coverage bars (placeholder values derived from grid)
             let (power_cov, water_cov) = compute_utility_coverage(&grid);
-            coverage_bar(ui, "Power", power_cov, egui::Color32::from_rgb(220, 200, 50));
-            coverage_bar(ui, "Water", water_cov, egui::Color32::from_rgb(50, 130, 220));
+            coverage_bar(
+                ui,
+                "Power",
+                power_cov,
+                egui::Color32::from_rgb(220, 200, 50),
+            );
+            coverage_bar(
+                ui,
+                "Water",
+                water_cov,
+                egui::Color32::from_rgb(50, 130, 220),
+            );
             // Education / fire / police / health computed from ServiceBuilding entities
-            coverage_bar(ui, "Education", compute_service_coverage(&services, &grid, "edu"), egui::Color32::from_rgb(100, 180, 220));
-            coverage_bar(ui, "Fire", compute_service_coverage(&services, &grid, "fire"), egui::Color32::from_rgb(220, 80, 50));
-            coverage_bar(ui, "Police", compute_service_coverage(&services, &grid, "police"), egui::Color32::from_rgb(50, 80, 200));
-            coverage_bar(ui, "Health", compute_service_coverage(&services, &grid, "health"), egui::Color32::from_rgb(220, 50, 120));
-            coverage_bar(ui, "Telecom", compute_service_coverage(&services, &grid, "telecom"), egui::Color32::from_rgb(150, 200, 80));
-            coverage_bar(ui, "Postal", extras.postal_stats.coverage_percentage / 100.0, egui::Color32::from_rgb(180, 130, 80));
+            coverage_bar(
+                ui,
+                "Education",
+                compute_service_coverage(&services, &grid, "edu"),
+                egui::Color32::from_rgb(100, 180, 220),
+            );
+            coverage_bar(
+                ui,
+                "Fire",
+                compute_service_coverage(&services, &grid, "fire"),
+                egui::Color32::from_rgb(220, 80, 50),
+            );
+            coverage_bar(
+                ui,
+                "Police",
+                compute_service_coverage(&services, &grid, "police"),
+                egui::Color32::from_rgb(50, 80, 200),
+            );
+            coverage_bar(
+                ui,
+                "Health",
+                compute_service_coverage(&services, &grid, "health"),
+                egui::Color32::from_rgb(220, 50, 120),
+            );
+            coverage_bar(
+                ui,
+                "Telecom",
+                compute_service_coverage(&services, &grid, "telecom"),
+                egui::Color32::from_rgb(150, 200, 80),
+            );
+            coverage_bar(
+                ui,
+                "Postal",
+                extras.postal_stats.coverage_percentage / 100.0,
+                egui::Color32::from_rgb(180, 130, 80),
+            );
 
             // Heating coverage (only show when there's cold weather demand)
             {
@@ -644,7 +719,12 @@ pub fn info_panel_ui(
                 let gw = &extras.groundwater_stats;
                 let level_pct = gw.avg_level / 255.0;
                 let quality_pct = gw.avg_quality / 255.0;
-                coverage_bar(ui, "Water Table", level_pct, egui::Color32::from_rgb(50, 120, 200));
+                coverage_bar(
+                    ui,
+                    "Water Table",
+                    level_pct,
+                    egui::Color32::from_rgb(50, 120, 200),
+                );
                 let quality_color = if quality_pct >= 0.7 {
                     egui::Color32::from_rgb(50, 180, 80)
                 } else if quality_pct >= 0.4 {
@@ -660,7 +740,10 @@ pub fn info_panel_ui(
                     );
                 }
                 if gw.treatment_capacity > 0 {
-                    ui.small(format!("{} treatment plant(s) active", gw.treatment_capacity));
+                    ui.small(format!(
+                        "{} treatment plant(s) active",
+                        gw.treatment_capacity
+                    ));
                 }
             });
 
@@ -726,10 +809,8 @@ pub fn info_panel_ui(
                         };
 
                         // Draw status dot
-                        let (dot_rect, _) = ui.allocate_exact_size(
-                            egui::vec2(10.0, 10.0),
-                            egui::Sense::hover(),
-                        );
+                        let (dot_rect, _) =
+                            ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
                         let painter = ui.painter_at(dot_rect);
                         painter.circle_filled(dot_rect.center(), 4.0, status_color);
 
@@ -742,10 +823,8 @@ pub fn info_panel_ui(
                         ui.horizontal(|ui| {
                             ui.add_space(14.0); // indent
                             ui.label("Utilization:");
-                            let (bar_rect, _) = ui.allocate_exact_size(
-                                egui::vec2(80.0, 10.0),
-                                egui::Sense::hover(),
-                            );
+                            let (bar_rect, _) = ui
+                                .allocate_exact_size(egui::vec2(80.0, 10.0), egui::Sense::hover());
                             let painter = ui.painter_at(bar_rect);
                             painter.rect_filled(bar_rect, 2.0, egui::Color32::from_gray(40));
                             let util_color = if stat.avg_utilization > 0.8 {
@@ -828,7 +907,10 @@ pub fn info_panel_ui(
                                 } else {
                                     egui::Color32::from_rgb(180, 180, 180)
                                 };
-                                ui.colored_label(mult_color, format!("{:.2}x", airport.tourism_multiplier));
+                                ui.colored_label(
+                                    mult_color,
+                                    format!("{:.2}x", airport.tourism_multiplier),
+                                );
                                 ui.end_row();
 
                                 ui.label("Revenue:");
@@ -869,10 +951,7 @@ pub fn info_panel_ui(
                         };
 
                         let sign = if net >= 0.0 { "+" } else { "" };
-                        ui.colored_label(
-                            net_color,
-                            format!("{}{:.1}", sign, net),
-                        );
+                        ui.colored_label(net_color, format!("{}{:.1}", sign, net));
                         ui.label(format!("({:.0})", stock));
                     });
                 }
@@ -953,10 +1032,7 @@ pub fn info_panel_ui(
                                         egui::Color32::from_rgb(50, 200, 50),
                                     )
                                 } else {
-                                    (
-                                        "~0.0 -".to_string(),
-                                        egui::Color32::from_rgb(140, 140, 140),
-                                    )
+                                    ("~0.0 -".to_string(), egui::Color32::from_rgb(140, 140, 140))
                                 };
                                 ui.colored_label(trend_color, trend_str);
                                 ui.end_row();
@@ -987,10 +1063,7 @@ pub fn info_panel_ui(
                             } else {
                                 egui::Color32::from_rgb(180, 180, 180)
                             };
-                            ui.colored_label(
-                                price_color,
-                                format!("${:.1}", entry.current_price),
-                            );
+                            ui.colored_label(price_color, format!("${:.1}", entry.current_price));
 
                             let trend = entry.trend();
                             let (trend_str, trend_color) = if trend > 0.05 {
@@ -1004,10 +1077,7 @@ pub fn info_panel_ui(
                                     egui::Color32::from_rgb(50, 200, 50),
                                 )
                             } else {
-                                (
-                                    "~0.0 -".to_string(),
-                                    egui::Color32::from_rgb(140, 140, 140),
-                                )
+                                ("~0.0 -".to_string(), egui::Color32::from_rgb(140, 140, 140))
                             };
                             ui.colored_label(trend_color, trend_str);
                             ui.end_row();
@@ -1034,10 +1104,8 @@ pub fn info_panel_ui(
                     });
 
                     // Score bar (0-100)
-                    let (rect, _) = ui.allocate_exact_size(
-                        egui::vec2(160.0, 10.0),
-                        egui::Sense::hover(),
-                    );
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::vec2(160.0, 10.0), egui::Sense::hover());
                     let painter = ui.painter_at(rect);
                     painter.rect_filled(rect, 2.0, egui::Color32::from_gray(40));
                     let fill_pct = (s.score / 100.0).clamp(0.0, 1.0);
@@ -1069,10 +1137,8 @@ pub fn info_panel_ui(
 
                         ui.horizontal(|ui| {
                             // Colored dot for advisor type
-                            let (dot_rect, _) = ui.allocate_exact_size(
-                                egui::vec2(10.0, 10.0),
-                                egui::Sense::hover(),
-                            );
+                            let (dot_rect, _) = ui
+                                .allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
                             let painter = ui.painter_at(dot_rect);
                             painter.circle_filled(dot_rect.center(), 4.0, priority_color);
 
@@ -1093,42 +1159,33 @@ pub fn info_panel_ui(
                 let unlocked = tracker.unlocked_count();
                 let total = Achievement::total_count();
 
-                ui.collapsing(
-                    format!("Achievements ({}/{})", unlocked, total),
-                    |ui| {
-                        for &achievement in Achievement::ALL {
-                            let is_unlocked = tracker.is_unlocked(achievement);
-                            ui.horizontal(|ui| {
-                                if is_unlocked {
-                                    ui.colored_label(
-                                        egui::Color32::from_rgb(50, 200, 50),
-                                        "[v]",
-                                    );
-                                    ui.label(achievement.name());
-                                } else {
-                                    ui.colored_label(
-                                        egui::Color32::from_rgb(100, 100, 100),
-                                        "[ ]",
-                                    );
-                                    ui.colored_label(
-                                        egui::Color32::from_rgb(100, 100, 100),
-                                        achievement.name(),
-                                    );
-                                }
-                            });
+                ui.collapsing(format!("Achievements ({}/{})", unlocked, total), |ui| {
+                    for &achievement in Achievement::ALL {
+                        let is_unlocked = tracker.is_unlocked(achievement);
+                        ui.horizontal(|ui| {
                             if is_unlocked {
-                                ui.small(format!(
-                                    "  {} ({})",
-                                    achievement.description(),
-                                    achievement.reward().description(),
-                                ));
+                                ui.colored_label(egui::Color32::from_rgb(50, 200, 50), "[v]");
+                                ui.label(achievement.name());
                             } else {
-                                ui.small(format!("  {}", achievement.description()));
+                                ui.colored_label(egui::Color32::from_rgb(100, 100, 100), "[ ]");
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(100, 100, 100),
+                                    achievement.name(),
+                                );
                             }
-                            ui.add_space(1.0);
+                        });
+                        if is_unlocked {
+                            ui.small(format!(
+                                "  {} ({})",
+                                achievement.description(),
+                                achievement.reward().description(),
+                            ));
+                        } else {
+                            ui.small(format!("  {}", achievement.description()));
                         }
-                    },
-                );
+                        ui.add_space(1.0);
+                    }
+                });
             }
 
             // ---- Achievement Notifications Popup ----
@@ -1141,10 +1198,7 @@ pub fn info_panel_ui(
                             egui::Color32::from_rgb(255, 215, 0),
                             format!("Achievement Unlocked: {}", achievement.name()),
                         );
-                        ui.small(format!(
-                            "  Reward: {}",
-                            achievement.reward().description(),
-                        ));
+                        ui.small(format!("  Reward: {}", achievement.reward().description(),));
                     }
                 }
             }
@@ -1174,11 +1228,9 @@ pub fn info_panel_ui(
                     size: [MINIMAP_SIZE, MINIMAP_SIZE],
                     pixels,
                 };
-                let texture = ui.ctx().load_texture(
-                    "minimap",
-                    color_image,
-                    egui::TextureOptions::NEAREST,
-                );
+                let texture =
+                    ui.ctx()
+                        .load_texture("minimap", color_image, egui::TextureOptions::NEAREST);
                 minimap_cache.texture_handle = Some(texture);
                 minimap_cache.dirty_timer = 2.0;
             }
@@ -1220,7 +1272,7 @@ fn zone_type_name(zone: ZoneType) -> &'static str {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn building_inspection_ui(
     mut contexts: EguiContexts,
     selected: Res<SelectedBuilding>,
@@ -1269,41 +1321,53 @@ pub fn building_inspection_ui(
                 ui.separator();
 
                 // Building overview
-                egui::Grid::new("building_overview").num_columns(2).show(ui, |ui| {
-                    ui.label("Level:");
-                    ui.label(format!("{} / {}", building.level, building.zone_type.max_level()));
-                    ui.end_row();
+                egui::Grid::new("building_overview")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label("Level:");
+                        ui.label(format!(
+                            "{} / {}",
+                            building.level,
+                            building.zone_type.max_level()
+                        ));
+                        ui.end_row();
 
-                    ui.label("Occupancy:");
-                    let occ_color = if occupancy_pct >= 90.0 {
-                        egui::Color32::from_rgb(220, 50, 50)
-                    } else if occupancy_pct >= 70.0 {
-                        egui::Color32::from_rgb(220, 180, 50)
-                    } else {
-                        egui::Color32::from_rgb(50, 200, 50)
-                    };
-                    ui.colored_label(occ_color, format!("{} / {} ({:.0}%)", building.occupants, building.capacity, occupancy_pct));
-                    ui.end_row();
+                        ui.label("Occupancy:");
+                        let occ_color = if occupancy_pct >= 90.0 {
+                            egui::Color32::from_rgb(220, 50, 50)
+                        } else if occupancy_pct >= 70.0 {
+                            egui::Color32::from_rgb(220, 180, 50)
+                        } else {
+                            egui::Color32::from_rgb(50, 200, 50)
+                        };
+                        ui.colored_label(
+                            occ_color,
+                            format!(
+                                "{} / {} ({:.0}%)",
+                                building.occupants, building.capacity, occupancy_pct
+                            ),
+                        );
+                        ui.end_row();
 
-                    ui.label("Location:");
-                    ui.label(format!("({}, {})", building.grid_x, building.grid_y));
-                    ui.end_row();
+                        ui.label("Location:");
+                        ui.label(format!("({}, {})", building.grid_x, building.grid_y));
+                        ui.end_row();
 
-                    ui.label("Land Value:");
-                    ui.label(format!("{}/255", lv));
-                    ui.end_row();
+                        ui.label("Land Value:");
+                        ui.label(format!("{}/255", lv));
+                        ui.end_row();
 
-                    ui.label("Pollution:");
-                    let poll_color = if poll_level > 50 {
-                        egui::Color32::from_rgb(200, 50, 50)
-                    } else if poll_level > 20 {
-                        egui::Color32::from_rgb(200, 150, 50)
-                    } else {
-                        egui::Color32::from_rgb(50, 200, 50)
-                    };
-                    ui.colored_label(poll_color, format!("{}/255", poll_level));
-                    ui.end_row();
-                });
+                        ui.label("Pollution:");
+                        let poll_color = if poll_level > 50 {
+                            egui::Color32::from_rgb(200, 50, 50)
+                        } else if poll_level > 20 {
+                            egui::Color32::from_rgb(200, 150, 50)
+                        } else {
+                            egui::Color32::from_rgb(50, 200, 50)
+                        };
+                        ui.colored_label(poll_color, format!("{}/255", poll_level));
+                        ui.end_row();
+                    });
 
                 // Power/Water status
                 ui.separator();
@@ -1316,45 +1380,67 @@ pub fn building_inspection_ui(
                     ui.separator();
                     ui.heading("Residents");
 
-                    let mut residents: Vec<(Entity, &CitizenDetails, &CitizenStateComp, Option<&Needs>, Option<&Personality>, Option<&Family>)> = citizens
+                    let mut residents: Vec<(
+                        Entity,
+                        &CitizenDetails,
+                        &CitizenStateComp,
+                        Option<&Needs>,
+                        Option<&Personality>,
+                        Option<&Family>,
+                    )> = citizens
                         .iter()
                         .filter(|(_, _, home, _, _, _, _, _)| home.building == entity)
-                        .map(|(e, details, _, _, state, needs, pers, fam)| (e, details, state, needs, pers, fam))
+                        .map(|(e, details, _, _, state, needs, pers, fam)| {
+                            (e, details, state, needs, pers, fam)
+                        })
                         .collect();
 
                     let count = residents.len();
                     ui.label(format!("{} residents tracked (entity-backed)", count));
 
                     if !residents.is_empty() {
-                        let avg_happiness: f32 = residents.iter().map(|r| r.1.happiness).sum::<f32>() / count as f32;
-                        let avg_age: f32 = residents.iter().map(|r| r.1.age as f32).sum::<f32>() / count as f32;
-                        let avg_salary: f32 = residents.iter().map(|r| r.1.salary).sum::<f32>() / count as f32;
-                        let males = residents.iter().filter(|r| r.1.gender == Gender::Male).count();
-                        let children = residents.iter().filter(|r| r.1.life_stage().should_attend_school() || !r.1.life_stage().can_work()).count();
+                        let avg_happiness: f32 =
+                            residents.iter().map(|r| r.1.happiness).sum::<f32>() / count as f32;
+                        let avg_age: f32 =
+                            residents.iter().map(|r| r.1.age as f32).sum::<f32>() / count as f32;
+                        let avg_salary: f32 =
+                            residents.iter().map(|r| r.1.salary).sum::<f32>() / count as f32;
+                        let males = residents
+                            .iter()
+                            .filter(|r| r.1.gender == Gender::Male)
+                            .count();
+                        let children = residents
+                            .iter()
+                            .filter(|r| {
+                                r.1.life_stage().should_attend_school()
+                                    || !r.1.life_stage().can_work()
+                            })
+                            .count();
 
-                        egui::Grid::new("res_summary").num_columns(2).show(ui, |ui| {
-                            ui.label("Avg happiness:");
-                            happiness_label(ui, avg_happiness);
-                            ui.end_row();
-                            ui.label("Avg age:");
-                            ui.label(format!("{:.0}", avg_age));
-                            ui.end_row();
-                            ui.label("Gender:");
-                            ui.label(format!("{} M / {} F", males, count - males));
-                            ui.end_row();
-                            ui.label("Children:");
-                            ui.label(format!("{}", children));
-                            ui.end_row();
-                            ui.label("Avg salary:");
-                            ui.label(format!("${:.0}/mo", avg_salary));
-                            ui.end_row();
-                            ui.label("Tax revenue:");
-                            let tax: f32 = residents.iter()
-                                .map(|r| r.1.salary * budget.tax_rate)
-                                .sum();
-                            ui.label(format!("${:.0}/mo", tax));
-                            ui.end_row();
-                        });
+                        egui::Grid::new("res_summary")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("Avg happiness:");
+                                happiness_label(ui, avg_happiness);
+                                ui.end_row();
+                                ui.label("Avg age:");
+                                ui.label(format!("{:.0}", avg_age));
+                                ui.end_row();
+                                ui.label("Gender:");
+                                ui.label(format!("{} M / {} F", males, count - males));
+                                ui.end_row();
+                                ui.label("Children:");
+                                ui.label(format!("{}", children));
+                                ui.end_row();
+                                ui.label("Avg salary:");
+                                ui.label(format!("${:.0}/mo", avg_salary));
+                                ui.end_row();
+                                ui.label("Tax revenue:");
+                                let tax: f32 =
+                                    residents.iter().map(|r| r.1.salary * budget.tax_rate).sum();
+                                ui.label(format!("${:.0}/mo", tax));
+                                ui.end_row();
+                            });
 
                         // Average needs satisfaction
                         let needs_count = residents.iter().filter(|r| r.3.is_some()).count();
@@ -1365,7 +1451,13 @@ pub fn building_inspection_ui(
                                 .iter()
                                 .filter_map(|r| r.3)
                                 .fold((0.0f32, 0.0f32, 0.0f32, 0.0f32, 0.0f32), |acc, n| {
-                                    (acc.0 + n.hunger, acc.1 + n.energy, acc.2 + n.social, acc.3 + n.fun, acc.4 + n.comfort)
+                                    (
+                                        acc.0 + n.hunger,
+                                        acc.1 + n.energy,
+                                        acc.2 + n.social,
+                                        acc.3 + n.fun,
+                                        acc.4 + n.comfort,
+                                    )
                                 });
                             let nc = needs_count as f32;
                             needs_bar(ui, "Hunger", avg_h / nc);
@@ -1383,13 +1475,18 @@ pub fn building_inspection_ui(
                             let idx = (r.1.education as usize).min(3);
                             edu_counts[idx] += 1;
                         }
-                        egui::Grid::new("edu_breakdown").num_columns(2).show(ui, |ui| {
-                            for (i, name) in ["None", "Elementary", "High School", "University"].iter().enumerate() {
-                                ui.label(*name);
-                                ui.label(format!("{}", edu_counts[i]));
-                                ui.end_row();
-                            }
-                        });
+                        egui::Grid::new("edu_breakdown")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                for (i, name) in ["None", "Elementary", "High School", "University"]
+                                    .iter()
+                                    .enumerate()
+                                {
+                                    ui.label(*name);
+                                    ui.label(format!("{}", edu_counts[i]));
+                                    ui.end_row();
+                                }
+                            });
 
                         // Wealth breakdown
                         ui.separator();
@@ -1402,66 +1499,83 @@ pub fn building_inspection_ui(
                                 WealthTier::HighIncome => wealth_counts[2] += 1,
                             }
                         }
-                        egui::Grid::new("wealth_breakdown").num_columns(2).show(ui, |ui| {
-                            ui.label("Low income");
-                            ui.label(format!("{}", wealth_counts[0]));
-                            ui.end_row();
-                            ui.label("Middle income");
-                            ui.label(format!("{}", wealth_counts[1]));
-                            ui.end_row();
-                            ui.label("High income");
-                            ui.label(format!("{}", wealth_counts[2]));
-                            ui.end_row();
-                        });
+                        egui::Grid::new("wealth_breakdown")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("Low income");
+                                ui.label(format!("{}", wealth_counts[0]));
+                                ui.end_row();
+                                ui.label("Middle income");
+                                ui.label(format!("{}", wealth_counts[1]));
+                                ui.end_row();
+                                ui.label("High income");
+                                ui.label(format!("{}", wealth_counts[2]));
+                                ui.end_row();
+                            });
 
                         // Individual resident list (scrollable, up to 50)
                         ui.separator();
                         ui.label("Individual Residents:");
-                        residents.sort_by(|a, b| b.1.happiness.partial_cmp(&a.1.happiness).unwrap_or(std::cmp::Ordering::Equal));
-
-                        egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-                            egui::Grid::new("residents_list")
-                                .num_columns(7)
-                                .striped(true)
-                                .show(ui, |ui| {
-                                    ui.strong("Name");
-                                    ui.strong("Age");
-                                    ui.strong("Edu");
-                                    ui.strong("Happy");
-                                    ui.strong("Salary");
-                                    ui.strong("Needs");
-                                    ui.strong("Status");
-                                    ui.end_row();
-
-                                    for (i, (ent, details, state, needs, _personality, _family)) in residents.iter().enumerate() {
-                                        if i >= 50 { break; }
-                                        ui.label(citizen_name(*ent, details.gender));
-                                        ui.label(format!("{}", details.age));
-                                        ui.label(education_abbrev(details.education));
-                                        happiness_label(ui, details.happiness);
-                                        ui.label(format!("${:.0}", details.salary));
-                                        if let Some(n) = needs {
-                                            let sat = n.overall_satisfaction();
-                                            let color = if sat > 0.7 {
-                                                egui::Color32::from_rgb(50, 200, 50)
-                                            } else if sat > 0.4 {
-                                                egui::Color32::from_rgb(220, 180, 50)
-                                            } else {
-                                                egui::Color32::from_rgb(220, 50, 50)
-                                            };
-                                            ui.colored_label(color, format!("{:.0}%", sat * 100.0));
-                                        } else {
-                                            ui.label("-");
-                                        }
-                                        ui.label(state_name(state.0));
-                                        ui.end_row();
-                                    }
-                                });
-
-                            if count > 50 {
-                                ui.label(format!("... and {} more", count - 50));
-                            }
+                        residents.sort_by(|a, b| {
+                            b.1.happiness
+                                .partial_cmp(&a.1.happiness)
+                                .unwrap_or(std::cmp::Ordering::Equal)
                         });
+
+                        egui::ScrollArea::vertical()
+                            .max_height(280.0)
+                            .show(ui, |ui| {
+                                egui::Grid::new("residents_list")
+                                    .num_columns(7)
+                                    .striped(true)
+                                    .show(ui, |ui| {
+                                        ui.strong("Name");
+                                        ui.strong("Age");
+                                        ui.strong("Edu");
+                                        ui.strong("Happy");
+                                        ui.strong("Salary");
+                                        ui.strong("Needs");
+                                        ui.strong("Status");
+                                        ui.end_row();
+
+                                        for (
+                                            i,
+                                            (ent, details, state, needs, _personality, _family),
+                                        ) in residents.iter().enumerate()
+                                        {
+                                            if i >= 50 {
+                                                break;
+                                            }
+                                            ui.label(citizen_name(*ent, details.gender));
+                                            ui.label(format!("{}", details.age));
+                                            ui.label(education_abbrev(details.education));
+                                            happiness_label(ui, details.happiness);
+                                            ui.label(format!("${:.0}", details.salary));
+                                            if let Some(n) = needs {
+                                                let sat = n.overall_satisfaction();
+                                                let color = if sat > 0.7 {
+                                                    egui::Color32::from_rgb(50, 200, 50)
+                                                } else if sat > 0.4 {
+                                                    egui::Color32::from_rgb(220, 180, 50)
+                                                } else {
+                                                    egui::Color32::from_rgb(220, 50, 50)
+                                                };
+                                                ui.colored_label(
+                                                    color,
+                                                    format!("{:.0}%", sat * 100.0),
+                                                );
+                                            } else {
+                                                ui.label("-");
+                                            }
+                                            ui.label(state_name(state.0));
+                                            ui.end_row();
+                                        }
+                                    });
+
+                                if count > 50 {
+                                    ui.label(format!("... and {} more", count - 50));
+                                }
+                            });
                     }
                 } else {
                     // Commercial/Industrial/Office: show worker info
@@ -1480,20 +1594,24 @@ pub fn building_inspection_ui(
                     ui.label(format!("{} workers tracked", count));
 
                     if !workers.is_empty() {
-                        let avg_happiness: f32 = workers.iter().map(|w| w.1.happiness).sum::<f32>() / count as f32;
-                        let avg_salary: f32 = workers.iter().map(|w| w.1.salary).sum::<f32>() / count as f32;
+                        let avg_happiness: f32 =
+                            workers.iter().map(|w| w.1.happiness).sum::<f32>() / count as f32;
+                        let avg_salary: f32 =
+                            workers.iter().map(|w| w.1.salary).sum::<f32>() / count as f32;
 
-                        egui::Grid::new("worker_summary").num_columns(2).show(ui, |ui| {
-                            ui.label("Avg happiness:");
-                            happiness_label(ui, avg_happiness);
-                            ui.end_row();
-                            ui.label("Avg salary:");
-                            ui.label(format!("${:.0}/mo", avg_salary));
-                            ui.end_row();
-                            ui.label("Payroll:");
-                            ui.label(format!("${:.0}/mo", avg_salary * count as f32));
-                            ui.end_row();
-                        });
+                        egui::Grid::new("worker_summary")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("Avg happiness:");
+                                happiness_label(ui, avg_happiness);
+                                ui.end_row();
+                                ui.label("Avg salary:");
+                                ui.label(format!("${:.0}/mo", avg_salary));
+                                ui.end_row();
+                                ui.label("Payroll:");
+                                ui.label(format!("${:.0}/mo", avg_salary * count as f32));
+                                ui.end_row();
+                            });
 
                         // Education breakdown
                         ui.separator();
@@ -1504,7 +1622,10 @@ pub fn building_inspection_ui(
                         }
                         ui.label("Workforce education:");
                         egui::Grid::new("worker_edu").num_columns(2).show(ui, |ui| {
-                            for (i, name) in ["None", "Elementary", "High School", "University"].iter().enumerate() {
+                            for (i, name) in ["None", "Elementary", "High School", "University"]
+                                .iter()
+                                .enumerate()
+                            {
                                 ui.label(*name);
                                 ui.label(format!("{}", edu_counts[i]));
                                 ui.end_row();
@@ -1514,35 +1635,45 @@ pub fn building_inspection_ui(
                         // Individual worker list
                         ui.separator();
                         ui.label("Individual Workers:");
-                        workers.sort_by(|a, b| b.1.happiness.partial_cmp(&a.1.happiness).unwrap_or(std::cmp::Ordering::Equal));
-
-                        egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
-                            egui::Grid::new("workers_list")
-                                .num_columns(5)
-                                .striped(true)
-                                .show(ui, |ui| {
-                                    ui.strong("Name");
-                                    ui.strong("Age");
-                                    ui.strong("Edu");
-                                    ui.strong("Happy");
-                                    ui.strong("Salary");
-                                    ui.end_row();
-
-                                    for (i, (ent, details, _state)) in workers.iter().enumerate() {
-                                        if i >= 50 { break; }
-                                        ui.label(citizen_name(*ent, details.gender));
-                                        ui.label(format!("{}", details.age));
-                                        ui.label(education_abbrev(details.education));
-                                        happiness_label(ui, details.happiness);
-                                        ui.label(format!("${:.0}", details.salary));
-                                        ui.end_row();
-                                    }
-                                });
-
-                            if count > 50 {
-                                ui.label(format!("... and {} more", count - 50));
-                            }
+                        workers.sort_by(|a, b| {
+                            b.1.happiness
+                                .partial_cmp(&a.1.happiness)
+                                .unwrap_or(std::cmp::Ordering::Equal)
                         });
+
+                        egui::ScrollArea::vertical()
+                            .max_height(200.0)
+                            .show(ui, |ui| {
+                                egui::Grid::new("workers_list")
+                                    .num_columns(5)
+                                    .striped(true)
+                                    .show(ui, |ui| {
+                                        ui.strong("Name");
+                                        ui.strong("Age");
+                                        ui.strong("Edu");
+                                        ui.strong("Happy");
+                                        ui.strong("Salary");
+                                        ui.end_row();
+
+                                        for (i, (ent, details, _state)) in
+                                            workers.iter().enumerate()
+                                        {
+                                            if i >= 50 {
+                                                break;
+                                            }
+                                            ui.label(citizen_name(*ent, details.gender));
+                                            ui.label(format!("{}", details.age));
+                                            ui.label(education_abbrev(details.education));
+                                            happiness_label(ui, details.happiness);
+                                            ui.label(format!("${:.0}", details.salary));
+                                            ui.end_row();
+                                        }
+                                    });
+
+                                if count > 50 {
+                                    ui.label(format!("... and {} more", count - 50));
+                                }
+                            });
                     }
                 }
             });
@@ -1554,7 +1685,8 @@ pub fn building_inspection_ui(
         let cell = grid.get(service.grid_x, service.grid_y);
         let idx = service.grid_y * GRID_WIDTH + service.grid_x;
         let lv = land_value.values.get(idx).copied().unwrap_or(0);
-        let monthly_cost = simulation::services::ServiceBuilding::monthly_maintenance(service.service_type);
+        let monthly_cost =
+            simulation::services::ServiceBuilding::monthly_maintenance(service.service_type);
 
         egui::Window::new("Building Inspector")
             .default_width(280.0)
@@ -1563,20 +1695,26 @@ pub fn building_inspection_ui(
                 ui.heading(service.service_type.name());
                 ui.separator();
 
-                egui::Grid::new("service_overview").num_columns(2).show(ui, |ui| {
-                    ui.label("Location:");
-                    ui.label(format!("({}, {})", service.grid_x, service.grid_y));
-                    ui.end_row();
-                    ui.label("Coverage:");
-                    ui.label(format!("{:.0} px ({:.0} cells)", service.radius, service.radius / CELL_SIZE));
-                    ui.end_row();
-                    ui.label("Monthly cost:");
-                    ui.label(format!("${:.0}", monthly_cost));
-                    ui.end_row();
-                    ui.label("Land value:");
-                    ui.label(format!("{}/255", lv));
-                    ui.end_row();
-                });
+                egui::Grid::new("service_overview")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label("Location:");
+                        ui.label(format!("({}, {})", service.grid_x, service.grid_y));
+                        ui.end_row();
+                        ui.label("Coverage:");
+                        ui.label(format!(
+                            "{:.0} px ({:.0} cells)",
+                            service.radius,
+                            service.radius / CELL_SIZE
+                        ));
+                        ui.end_row();
+                        ui.label("Monthly cost:");
+                        ui.label(format!("${:.0}", monthly_cost));
+                        ui.end_row();
+                        ui.label("Land value:");
+                        ui.label(format!("{}/255", lv));
+                        ui.end_row();
+                    });
 
                 ui.separator();
                 ui.horizontal(|ui| {
@@ -1597,17 +1735,23 @@ pub fn building_inspection_ui(
                 ui.heading(utility.utility_type.name());
                 ui.separator();
 
-                egui::Grid::new("utility_overview").num_columns(2).show(ui, |ui| {
-                    ui.label("Type:");
-                    ui.label(if utility.utility_type.is_power() { "Power Generation" } else { "Water Supply" });
-                    ui.end_row();
-                    ui.label("Location:");
-                    ui.label(format!("({}, {})", utility.grid_x, utility.grid_y));
-                    ui.end_row();
-                    ui.label("Range:");
-                    ui.label(format!("{} cells", utility.range));
-                    ui.end_row();
-                });
+                egui::Grid::new("utility_overview")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label("Type:");
+                        ui.label(if utility.utility_type.is_power() {
+                            "Power Generation"
+                        } else {
+                            "Water Supply"
+                        });
+                        ui.end_row();
+                        ui.label("Location:");
+                        ui.label(format!("({}, {})", utility.grid_x, utility.grid_y));
+                        ui.end_row();
+                        ui.label("Range:");
+                        ui.label(format!("{} cells", utility.range));
+                        ui.end_row();
+                    });
 
                 ui.separator();
                 ui.horizontal(|ui| {
@@ -1645,10 +1789,7 @@ fn state_name(state: CitizenState) -> &'static str {
 fn needs_bar(ui: &mut egui::Ui, label: &str, value: f32) {
     ui.horizontal(|ui| {
         ui.label(format!("{:>7}", label));
-        let (rect, _) = ui.allocate_exact_size(
-            egui::vec2(80.0, 10.0),
-            egui::Sense::hover(),
-        );
+        let (rect, _) = ui.allocate_exact_size(egui::vec2(80.0, 10.0), egui::Sense::hover());
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 2.0, egui::Color32::from_gray(40));
         let pct = (value / 100.0).clamp(0.0, 1.0);
@@ -1659,32 +1800,86 @@ fn needs_bar(ui: &mut egui::Ui, label: &str, value: f32) {
         } else {
             egui::Color32::from_rgb(220, 50, 50)
         };
-        let fill_rect = egui::Rect::from_min_size(
-            rect.min,
-            egui::vec2(rect.width() * pct, rect.height()),
-        );
+        let fill_rect =
+            egui::Rect::from_min_size(rect.min, egui::vec2(rect.width() * pct, rect.height()));
         painter.rect_filled(fill_rect, 2.0, color);
         ui.label(format!("{:.0}%", value));
     });
 }
 
 const FIRST_NAMES_M: &[&str] = &[
-    "James", "John", "Robert", "Michael", "David", "William", "Richard", "Joseph",
-    "Thomas", "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew",
-    "Joshua", "Kenneth", "Kevin", "Brian", "George", "Timothy", "Ronald", "Edward",
-    "Jason", "Jeffrey", "Ryan", "Jacob", "Gary", "Nicholas", "Eric", "Jonathan",
+    "James", "John", "Robert", "Michael", "David", "William", "Richard", "Joseph", "Thomas",
+    "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew", "Joshua", "Kenneth",
+    "Kevin", "Brian", "George", "Timothy", "Ronald", "Edward", "Jason", "Jeffrey", "Ryan", "Jacob",
+    "Gary", "Nicholas", "Eric", "Jonathan",
 ];
 const FIRST_NAMES_F: &[&str] = &[
-    "Mary", "Patricia", "Jennifer", "Linda", "Barbara", "Elizabeth", "Susan", "Jessica",
-    "Sarah", "Karen", "Lisa", "Nancy", "Betty", "Margaret", "Sandra", "Ashley",
-    "Emily", "Donna", "Michelle", "Carol", "Amanda", "Dorothy", "Melissa", "Deborah",
-    "Stephanie", "Rebecca", "Sharon", "Laura", "Cynthia", "Kathleen", "Amy", "Angela",
+    "Mary",
+    "Patricia",
+    "Jennifer",
+    "Linda",
+    "Barbara",
+    "Elizabeth",
+    "Susan",
+    "Jessica",
+    "Sarah",
+    "Karen",
+    "Lisa",
+    "Nancy",
+    "Betty",
+    "Margaret",
+    "Sandra",
+    "Ashley",
+    "Emily",
+    "Donna",
+    "Michelle",
+    "Carol",
+    "Amanda",
+    "Dorothy",
+    "Melissa",
+    "Deborah",
+    "Stephanie",
+    "Rebecca",
+    "Sharon",
+    "Laura",
+    "Cynthia",
+    "Kathleen",
+    "Amy",
+    "Angela",
 ];
 const LAST_NAMES: &[&str] = &[
-    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Wilson", "Anderson", "Thomas",
-    "Taylor", "Moore", "Jackson", "Martin", "Lee", "Thompson", "White", "Harris",
-    "Clark", "Lewis", "Robinson", "Walker", "Young", "Allen", "King", "Wright", "Hill",
+    "Smith",
+    "Johnson",
+    "Williams",
+    "Brown",
+    "Jones",
+    "Garcia",
+    "Miller",
+    "Davis",
+    "Rodriguez",
+    "Martinez",
+    "Hernandez",
+    "Lopez",
+    "Wilson",
+    "Anderson",
+    "Thomas",
+    "Taylor",
+    "Moore",
+    "Jackson",
+    "Martin",
+    "Lee",
+    "Thompson",
+    "White",
+    "Harris",
+    "Clark",
+    "Lewis",
+    "Robinson",
+    "Walker",
+    "Young",
+    "Allen",
+    "King",
+    "Wright",
+    "Hill",
 ];
 
 fn citizen_name(entity: Entity, gender: Gender) -> String {
@@ -1719,8 +1914,14 @@ fn power_water_labels(ui: &mut egui::Ui, has_power: bool, has_water: bool) {
     } else {
         egui::Color32::from_rgb(200, 50, 50)
     };
-    ui.colored_label(power_color, if has_power { "Power: ON" } else { "Power: OFF" });
-    ui.colored_label(water_color, if has_water { "Water: ON" } else { "Water: OFF" });
+    ui.colored_label(
+        power_color,
+        if has_power { "Power: ON" } else { "Power: OFF" },
+    );
+    ui.colored_label(
+        water_color,
+        if has_water { "Water: ON" } else { "Water: OFF" },
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1748,10 +1949,20 @@ fn compute_utility_coverage(grid: &WorldGrid) -> (f32, f32) {
     (powered as f32 / total as f32, watered as f32 / total as f32)
 }
 
-fn compute_service_coverage(services: &Query<&ServiceBuilding>, grid: &WorldGrid, category: &str) -> f32 {
+fn compute_service_coverage(
+    services: &Query<&ServiceBuilding>,
+    grid: &WorldGrid,
+    category: &str,
+) -> f32 {
     let mut covered_cells = 0u32;
-    let total_zoned = grid.cells.iter().filter(|c| c.zone != ZoneType::None).count() as f32;
-    if total_zoned == 0.0 { return 0.0; }
+    let total_zoned = grid
+        .cells
+        .iter()
+        .filter(|c| c.zone != ZoneType::None)
+        .count() as f32;
+    if total_zoned == 0.0 {
+        return 0.0;
+    }
 
     for service in services.iter() {
         let matches = match category {
@@ -1845,10 +2056,7 @@ fn build_minimap_pixels(grid: &WorldGrid, overlay: &OverlayState) -> Vec<egui::C
 fn demand_bar(ui: &mut egui::Ui, label: &str, value: f32, color: egui::Color32) {
     ui.horizontal(|ui| {
         ui.label(label);
-        let (rect, _) = ui.allocate_exact_size(
-            egui::vec2(120.0, 16.0),
-            egui::Sense::hover(),
-        );
+        let (rect, _) = ui.allocate_exact_size(egui::vec2(120.0, 16.0), egui::Sense::hover());
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 2.0, egui::Color32::from_gray(40));
         let fill_rect = egui::Rect::from_min_size(
@@ -1863,10 +2071,7 @@ fn demand_bar(ui: &mut egui::Ui, label: &str, value: f32, color: egui::Color32) 
 fn coverage_bar(ui: &mut egui::Ui, label: &str, value: f32, color: egui::Color32) {
     ui.horizontal(|ui| {
         ui.label(format!("{:>6}", label));
-        let (rect, _) = ui.allocate_exact_size(
-            egui::vec2(90.0, 12.0),
-            egui::Sense::hover(),
-        );
+        let (rect, _) = ui.allocate_exact_size(egui::vec2(90.0, 12.0), egui::Sense::hover());
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 2.0, egui::Color32::from_gray(30));
         let fill_rect = egui::Rect::from_min_size(
@@ -1878,15 +2083,15 @@ fn coverage_bar(ui: &mut egui::Ui, label: &str, value: f32, color: egui::Color32
     });
 }
 
-pub fn policies_ui(
-    mut contexts: EguiContexts,
-    mut policies: ResMut<Policies>,
-) {
+pub fn policies_ui(mut contexts: EguiContexts, mut policies: ResMut<Policies>) {
     egui::Window::new("Policies")
         .default_open(false)
         .default_width(300.0)
         .show(contexts.ctx_mut(), |ui| {
-            ui.label(format!("Monthly cost: ${:.0}", policies.total_monthly_cost()));
+            ui.label(format!(
+                "Monthly cost: ${:.0}",
+                policies.total_monthly_cost()
+            ));
             ui.separator();
 
             for &policy in Policy::all() {
@@ -1896,7 +2101,10 @@ pub fn policies_ui(
                 } else {
                     String::new()
                 };
-                if ui.checkbox(&mut active, format!("{}{}", policy.name(), cost_str)).changed() {
+                if ui
+                    .checkbox(&mut active, format!("{}{}", policy.name(), cost_str))
+                    .changed()
+                {
                     policies.toggle(policy);
                 }
                 ui.label(format!("  {}", policy.description()));
@@ -1911,14 +2119,8 @@ pub fn policies_ui(
 
 /// Resource controlling whether the event journal window is visible.
 /// Toggle with 'J' key.
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct JournalVisible(pub bool);
-
-impl Default for JournalVisible {
-    fn default() -> Self {
-        Self(false)
-    }
-}
 
 /// Toggles journal visibility when 'J' key is pressed.
 pub fn toggle_journal_visibility(
@@ -1964,7 +2166,10 @@ pub fn event_journal_ui(
                 if effects.economic_boom_ticks > 0 {
                     ui.colored_label(
                         egui::Color32::from_rgb(50, 200, 50),
-                        format!("Economic Boom ({} ticks remaining)", effects.economic_boom_ticks),
+                        format!(
+                            "Economic Boom ({} ticks remaining)",
+                            effects.economic_boom_ticks
+                        ),
                     );
                 }
                 if effects.epidemic_ticks > 0 {
@@ -1988,24 +2193,23 @@ pub fn event_journal_ui(
                 let start = journal.events.len().saturating_sub(10);
                 let recent = &journal.events[start..];
 
-                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                    for event in recent.iter().rev() {
-                        let h = event.hour as u32;
-                        let m = ((event.hour - h as f32) * 60.0) as u32;
-                        let time_str = format!("Day {} {:02}:{:02}", event.day, h, m);
+                egui::ScrollArea::vertical()
+                    .max_height(300.0)
+                    .show(ui, |ui| {
+                        for event in recent.iter().rev() {
+                            let h = event.hour as u32;
+                            let m = ((event.hour - h as f32) * 60.0) as u32;
+                            let time_str = format!("Day {} {:02}:{:02}", event.day, h, m);
 
-                        let event_color = event_type_color(&event.event_type);
+                            let event_color = event_type_color(&event.event_type);
 
-                        ui.horizontal(|ui| {
-                            ui.colored_label(
-                                egui::Color32::from_rgb(150, 150, 150),
-                                &time_str,
-                            );
-                            ui.colored_label(event_color, &event.description);
-                        });
-                        ui.add_space(2.0);
-                    }
-                });
+                            ui.horizontal(|ui| {
+                                ui.colored_label(egui::Color32::from_rgb(150, 150, 150), &time_str);
+                                ui.colored_label(event_color, &event.description);
+                            });
+                            ui.add_space(2.0);
+                        }
+                    });
             }
         });
 }

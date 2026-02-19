@@ -7,7 +7,7 @@ use simulation::services::ServiceBuilding;
 use simulation::trees::PlantedTree;
 use simulation::utilities::UtilitySource;
 
-use crate::building_meshes::{BuildingModelCache, building_scale};
+use crate::building_meshes::{building_scale, BuildingModelCache};
 
 /// Marker for 3D building entities (both GLB scenes and procedural meshes)
 #[derive(Component)]
@@ -33,10 +33,18 @@ fn building_facing_road(grid: &WorldGrid, gx: usize, gy: usize, hash: usize) -> 
 
     // Prefer first road found; if multiple, pick based on hash for variety
     let mut options = Vec::new();
-    if south { options.push(0.0); }                                // face +Z (south)
-    if north { options.push(std::f32::consts::PI); }               // face -Z (north)
-    if east { options.push(std::f32::consts::FRAC_PI_2); }         // face +X (east)
-    if west { options.push(-std::f32::consts::FRAC_PI_2); }        // face -X (west)
+    if south {
+        options.push(0.0);
+    } // face +Z (south)
+    if north {
+        options.push(std::f32::consts::PI);
+    } // face -Z (north)
+    if east {
+        options.push(std::f32::consts::FRAC_PI_2);
+    } // face +X (east)
+    if west {
+        options.push(-std::f32::consts::FRAC_PI_2);
+    } // face -X (west)
 
     if options.is_empty() {
         // No adjacent road — fall back to grid-aligned rotation
@@ -73,7 +81,10 @@ pub fn spawn_building_meshes(
             continue;
         }
 
-        let hash = building.grid_x.wrapping_mul(7).wrapping_add(building.grid_y.wrapping_mul(13));
+        let hash = building
+            .grid_x
+            .wrapping_mul(7)
+            .wrapping_add(building.grid_y.wrapping_mul(13));
         let scene_handle = model_cache.get_zone_scene(building.zone_type, building.level, hash);
         let scale = building_scale(building.zone_type, building.level);
 
@@ -101,7 +112,9 @@ pub fn spawn_building_meshes(
         };
 
         commands.spawn((
-            BuildingMesh3d { tracked_entity: entity },
+            BuildingMesh3d {
+                tracked_entity: entity,
+            },
             ZoneBuilding,
             SceneRoot(scene_handle),
             Transform::from_xyz(wx, 0.0, wz)
@@ -116,8 +129,7 @@ pub fn spawn_building_meshes(
         if tracked.contains(&entity) {
             continue;
         }
-        let mesh_handle =
-            model_cache.get_or_create_service_mesh(service.service_type, &mut meshes);
+        let mesh_handle = model_cache.get_or_create_service_mesh(service.service_type, &mut meshes);
         let mat_handle = model_cache.fallback_material.clone();
 
         let (fw, fh) = ServiceBuilding::footprint(service.service_type);
@@ -127,7 +139,9 @@ pub fn spawn_building_meshes(
         let offset_z = (fh as f32 - 1.0) * CELL_SIZE * 0.5;
 
         commands.spawn((
-            BuildingMesh3d { tracked_entity: entity },
+            BuildingMesh3d {
+                tracked_entity: entity,
+            },
             Mesh3d(mesh_handle),
             MeshMaterial3d(mat_handle),
             Transform::from_xyz(wx + offset_x, 0.0, wz + offset_z),
@@ -140,15 +154,16 @@ pub fn spawn_building_meshes(
         if tracked.contains(&entity) {
             continue;
         }
-        let mesh_handle =
-            model_cache.get_or_create_utility_mesh(utility.utility_type, &mut meshes);
+        let mesh_handle = model_cache.get_or_create_utility_mesh(utility.utility_type, &mut meshes);
         let mat_handle = model_cache.fallback_material.clone();
 
         let (wx, _wy) = WorldGrid::grid_to_world(utility.grid_x, utility.grid_y);
         let wz = utility.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
 
         commands.spawn((
-            BuildingMesh3d { tracked_entity: entity },
+            BuildingMesh3d {
+                tracked_entity: entity,
+            },
             Mesh3d(mesh_handle),
             MeshMaterial3d(mat_handle),
             Transform::from_xyz(wx, 0.0, wz),
@@ -177,8 +192,12 @@ pub fn update_building_meshes(
         if let Some(&(sprite_entity, is_zone)) = sprite_lookup.get(&entity) {
             if is_zone {
                 // For zone buildings, despawn and respawn with new scene
-                let hash = building.grid_x.wrapping_mul(7).wrapping_add(building.grid_y.wrapping_mul(13));
-                let scene_handle = model_cache.get_zone_scene(building.zone_type, building.level, hash);
+                let hash = building
+                    .grid_x
+                    .wrapping_mul(7)
+                    .wrapping_add(building.grid_y.wrapping_mul(13));
+                let scene_handle =
+                    model_cache.get_zone_scene(building.zone_type, building.level, hash);
                 let scale = building_scale(building.zone_type, building.level);
 
                 let (wx, _wy) = WorldGrid::grid_to_world(building.grid_x, building.grid_y);
@@ -188,7 +207,9 @@ pub fn update_building_meshes(
 
                 commands.entity(sprite_entity).despawn();
                 commands.spawn((
-                    BuildingMesh3d { tracked_entity: entity },
+                    BuildingMesh3d {
+                        tracked_entity: entity,
+                    },
                     ZoneBuilding,
                     SceneRoot(scene_handle),
                     Transform::from_xyz(wx, 0.0, wz)
@@ -332,28 +353,34 @@ pub fn spawn_planted_tree_meshes(
         let wz = tree.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
 
         // Slight position and scale variation based on grid coords
-        let hash = tree.grid_x.wrapping_mul(41).wrapping_add(tree.grid_y.wrapping_mul(53));
+        let hash = tree
+            .grid_x
+            .wrapping_mul(41)
+            .wrapping_add(tree.grid_y.wrapping_mul(53));
         let scale_var = 0.85 + (hash % 30) as f32 / 100.0; // 0.85 - 1.14
 
         // Trunk (brown cylinder)
         let trunk_entity = commands
             .spawn((
-                PlantedTreeMesh { tracked_entity: entity },
+                PlantedTreeMesh {
+                    tracked_entity: entity,
+                },
                 Mesh3d(assets.trunk_mesh.clone()),
                 MeshMaterial3d(assets.trunk_material.clone()),
-                Transform::from_xyz(wx, 3.0 * scale_var, wz)
-                    .with_scale(Vec3::splat(scale_var)),
+                Transform::from_xyz(wx, 3.0 * scale_var, wz).with_scale(Vec3::splat(scale_var)),
                 Visibility::default(),
             ))
             .id();
 
         // Canopy (green sphere), child of trunk for easier despawn
-        commands.spawn((
-            Mesh3d(assets.canopy_mesh.clone()),
-            MeshMaterial3d(assets.canopy_material.clone()),
-            Transform::from_xyz(0.0, 4.5, 0.0),
-            Visibility::default(),
-        )).set_parent(trunk_entity);
+        commands
+            .spawn((
+                Mesh3d(assets.canopy_mesh.clone()),
+                MeshMaterial3d(assets.canopy_material.clone()),
+                Transform::from_xyz(0.0, 4.5, 0.0),
+                Visibility::default(),
+            ))
+            .set_parent(trunk_entity);
     }
 }
 

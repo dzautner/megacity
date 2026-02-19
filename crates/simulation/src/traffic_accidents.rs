@@ -166,8 +166,7 @@ pub fn spawn_accidents(
             let severity = {
                 let road_type = cell.road_type;
                 let speed = road_type.speed();
-                let severity_roll =
-                    (tick.0.wrapping_mul(3571) + idx as u64 + density as u64) % 100;
+                let severity_roll = (tick.0.wrapping_mul(3571) + idx as u64 + density as u64) % 100;
                 if speed >= 80.0 || density >= 15 {
                     // High-speed roads or very congested: more severe
                     if severity_roll < 30 {
@@ -185,14 +184,12 @@ pub fn spawn_accidents(
                     } else {
                         1
                     }
+                } else if severity_roll < 5 {
+                    3
+                } else if severity_roll < 25 {
+                    2
                 } else {
-                    if severity_roll < 5 {
-                        3
-                    } else if severity_roll < 25 {
-                        2
-                    } else {
-                        1
-                    }
+                    1
                 }
             };
 
@@ -282,11 +279,7 @@ pub fn process_accidents(
                 }
                 let nx = accident.grid_x as isize + dx;
                 let ny = accident.grid_y as isize + dy;
-                if nx >= 0
-                    && ny >= 0
-                    && (nx as usize) < GRID_WIDTH
-                    && (ny as usize) < GRID_HEIGHT
-                {
+                if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
                     let ux = nx as usize;
                     let uy = ny as usize;
                     let current = traffic.get(ux, uy);
@@ -319,9 +312,7 @@ pub fn process_accidents(
     tracker.response_count += response_count_delta;
 
     // --- Remove cleared accidents ---
-    tracker
-        .active_accidents
-        .retain(|a| a.ticks_remaining > 0);
+    tracker.active_accidents.retain(|a| a.ticks_remaining > 0);
 
     // --- Update average response time ---
     if tracker.response_count > 0 {
@@ -357,13 +348,7 @@ mod tests {
     #[test]
     fn test_road_neighbor_directions() {
         // Create a simple cross intersection at (10, 10)
-        let grid = make_grid_with_roads(&[
-            (10, 10),
-            (9, 10),
-            (11, 10),
-            (10, 9),
-            (10, 11),
-        ]);
+        let grid = make_grid_with_roads(&[(10, 10), (9, 10), (11, 10), (10, 9), (10, 11)]);
         let dirs = road_neighbor_directions(&grid, 10, 10);
         assert_eq!(dirs, 4, "Cross intersection should have 4 road neighbors");
 
@@ -504,11 +489,7 @@ mod tests {
                 }
                 let nx = ax as isize + dx;
                 let ny = ay as isize + dy;
-                if nx >= 0
-                    && ny >= 0
-                    && (nx as usize) < GRID_WIDTH
-                    && (ny as usize) < GRID_HEIGHT
-                {
+                if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
                     let ux = nx as usize;
                     let uy = ny as usize;
                     let current = traffic.get(ux, uy);

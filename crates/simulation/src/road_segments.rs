@@ -253,20 +253,20 @@ impl RoadSegmentStore {
         let end_node = self.find_or_create_node(to, snap_dist);
         let p1 = from + (to - from) / 3.0;
         let p2 = from + (to - from) * 2.0 / 3.0;
-        let id = self.add_segment(start_node, end_node, from, p1, p2, to, road_type, grid, roads);
-        let cells = self.segments.iter().find(|s| s.id == id)
+        let id = self.add_segment(
+            start_node, end_node, from, p1, p2, to, road_type, grid, roads,
+        );
+        let cells = self
+            .segments
+            .iter()
+            .find(|s| s.id == id)
             .map(|s| s.rasterized_cells.clone())
             .unwrap_or_default();
         (id, cells)
     }
 
     /// Remove a segment and un-rasterize it from the grid
-    pub fn remove_segment(
-        &mut self,
-        id: SegmentId,
-        grid: &mut WorldGrid,
-        roads: &mut RoadNetwork,
-    ) {
+    pub fn remove_segment(&mut self, id: SegmentId, grid: &mut WorldGrid, roads: &mut RoadNetwork) {
         if let Some(idx) = self.segments.iter().position(|s| s.id == id) {
             let segment = self.segments.remove(idx);
 
@@ -293,7 +293,6 @@ impl RoadSegmentStore {
             segment.rasterized_cells = rasterize_segment(segment, grid, roads);
         }
     }
-
 }
 
 #[cfg(test)]

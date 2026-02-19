@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use crate::config::{GRID_WIDTH, GRID_HEIGHT};
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, WorldGrid};
 use crate::services::ServiceBuilding;
+use bevy::prelude::*;
 use std::collections::VecDeque;
 
 #[derive(Resource)]
@@ -87,11 +87,15 @@ fn bfs_education(
     }
 
     while let Some(((x, y), dist)) = queue.pop_front() {
-        if dist >= range { continue; }
+        if dist >= range {
+            continue;
+        }
         let (neighbors, ncount) = grid.neighbors4(x, y);
         for &(nx, ny) in &neighbors[..ncount] {
             let idx = ny * GRID_WIDTH + nx;
-            if visited[idx] { continue; }
+            if visited[idx] {
+                continue;
+            }
             let cell_type = grid.get(nx, ny).cell_type;
             if cell_type == CellType::Road || cell_type == CellType::Grass {
                 visited[idx] = true;

@@ -3,23 +3,14 @@ use pathfinding::prelude::astar;
 use crate::grid::{CellType, WorldGrid};
 use crate::roads::{RoadNetwork, RoadNode};
 
-pub fn find_path(
-    network: &RoadNetwork,
-    start: RoadNode,
-    goal: RoadNode,
-) -> Option<Vec<RoadNode>> {
+pub fn find_path(network: &RoadNetwork, start: RoadNode, goal: RoadNode) -> Option<Vec<RoadNode>> {
     if start == goal {
         return Some(vec![start]);
     }
 
     let result = astar(
         &start,
-        |node| {
-            network
-                .neighbors(node)
-                .into_iter()
-                .map(|n| (n, 1u32))
-        },
+        |node| network.neighbors(node).into_iter().map(|n| (n, 1u32)),
         |node| heuristic(node, &goal),
         |node| *node == goal,
     );
@@ -96,10 +87,11 @@ pub fn nearest_road_grid(grid: &WorldGrid, gx: usize, gy: usize) -> Option<RoadN
                     continue;
                 }
                 let (ux, uy) = (nx as usize, ny as usize);
-                if grid.in_bounds(ux, uy) && grid.get(ux, uy).cell_type == CellType::Road {
-                    if best.is_none() {
-                        best = Some(RoadNode(ux, uy));
-                    }
+                if grid.in_bounds(ux, uy)
+                    && grid.get(ux, uy).cell_type == CellType::Road
+                    && best.is_none()
+                {
+                    best = Some(RoadNode(ux, uy));
                 }
             }
         }

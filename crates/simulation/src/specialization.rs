@@ -125,10 +125,7 @@ impl Default for CitySpecializations {
 
 impl CitySpecializations {
     pub fn get(&self, spec: CitySpecialization) -> SpecializationScore {
-        self.scores
-            .get(&spec)
-            .copied()
-            .unwrap_or_default()
+        self.scores.get(&spec).copied().unwrap_or_default()
     }
 }
 
@@ -253,10 +250,7 @@ pub fn compute_specializations(
     // Citizen education stats
     // -------------------------------------------------------------------------
     let total_citizens = citizens.iter().count() as f32;
-    let high_edu_count = citizens
-        .iter()
-        .filter(|c| c.education >= 3)
-        .count() as f32;
+    let high_edu_count = citizens.iter().filter(|c| c.education >= 3).count() as f32;
     let avg_education = if total_citizens > 0.0 {
         citizens.iter().map(|c| c.education as f32).sum::<f32>() / total_citizens
     } else {
@@ -271,10 +265,7 @@ pub fn compute_specializations(
     // -------------------------------------------------------------------------
     // Production chain output (total production rate across all goods)
     // -------------------------------------------------------------------------
-    let total_production: f32 = city_goods
-        .production_rate
-        .values()
-        .sum();
+    let total_production: f32 = city_goods.production_rate.values().sum();
 
     // -------------------------------------------------------------------------
     // Compute each specialization score (0-100)
@@ -338,10 +329,7 @@ pub fn compute_specializations(
     ];
 
     for (spec, raw_score) in scores_data {
-        let entry = specializations
-            .scores
-            .entry(spec)
-            .or_insert_with(SpecializationScore::default);
+        let entry = specializations.scores.entry(spec).or_default();
         entry.score = raw_score;
         entry.level = SpecializationScore::level_from_score(raw_score);
     }

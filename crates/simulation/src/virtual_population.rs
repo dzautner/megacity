@@ -122,8 +122,7 @@ impl VirtualPopulation {
     /// Called once per second from the update system.
     pub fn adjust_cap(&mut self, frame_time_secs: f32) {
         // Exponential moving average
-        self.smoothed_frame_time =
-            self.smoothed_frame_time * 0.9 + frame_time_secs * 0.1;
+        self.smoothed_frame_time = self.smoothed_frame_time * 0.9 + frame_time_secs * 0.1;
 
         let fps = 1.0 / self.smoothed_frame_time;
 
@@ -178,7 +177,7 @@ mod tests {
         vp.add_virtual_citizen(0, 25, true, 50.0, 500.0, 0.1); // young adult
         vp.add_virtual_citizen(0, 45, true, 50.0, 800.0, 0.1); // middle-aged
         vp.add_virtual_citizen(0, 60, true, 50.0, 900.0, 0.1); // pre-retirement
-        vp.add_virtual_citizen(0, 70, false, 50.0, 0.0, 0.0);  // retired
+        vp.add_virtual_citizen(0, 70, false, 50.0, 0.0, 0.0); // retired
         assert_eq!(vp.district_stats[0].age_brackets, [1, 1, 1, 1, 1]);
     }
 
@@ -249,10 +248,7 @@ mod tests {
 }
 
 /// System: adjust the real citizen cap once per second based on FPS.
-pub fn adjust_real_citizen_cap(
-    time: Res<Time>,
-    mut virtual_pop: ResMut<VirtualPopulation>,
-) {
+pub fn adjust_real_citizen_cap(time: Res<Time>, mut virtual_pop: ResMut<VirtualPopulation>) {
     let dt = time.delta_secs();
     if dt > 0.0 {
         virtual_pop.adjust_cap(dt);

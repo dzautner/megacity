@@ -17,8 +17,8 @@ use simulation::services::{ServiceBuilding, ServiceType};
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
-use simulation::weather::{Season, Weather, WeatherEvent};
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
+use simulation::weather::{Season, Weather, WeatherEvent};
 use simulation::zones::ZoneDemand;
 
 // ---------------------------------------------------------------------------
@@ -575,9 +575,9 @@ pub struct SaveWeather {
 impl Default for SaveWeather {
     fn default() -> Self {
         Self {
-            season: 0,         // Spring
+            season: 0, // Spring
             temperature: 15.0,
-            current_event: 0,  // Clear
+            current_event: 0, // Clear
             event_days_remaining: 0,
             last_update_day: 0,
             disasters_enabled: true,
@@ -626,19 +626,10 @@ impl Default for SaveExtendedBudget {
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode)]
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
 pub struct SaveLifecycleTimer {
     pub last_aging_day: u32,
     pub last_emigration_tick: u32,
-}
-
-impl Default for SaveLifecycleTimer {
-    fn default() -> Self {
-        Self {
-            last_aging_day: 0,
-            last_emigration_tick: 0,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
@@ -786,11 +777,7 @@ pub fn create_save_data(
             height: grid.height,
         },
         roads: SaveRoadNetwork {
-            road_positions: roads
-                .edges
-                .keys()
-                .map(|n| (n.0, n.1))
-                .collect(),
+            road_positions: roads.edges.keys().map(|n| (n.0, n.1)).collect(),
         },
         clock: SaveClock {
             day: clock.day,
@@ -911,7 +898,11 @@ pub fn create_save_data(
         unlock_state: unlock_state.map(|u| SaveUnlockState {
             development_points: u.development_points,
             spent_points: u.spent_points,
-            unlocked_nodes: u.unlocked_nodes.iter().map(|&n| unlock_node_to_u8(n)).collect(),
+            unlocked_nodes: u
+                .unlocked_nodes
+                .iter()
+                .map(|&n| unlock_node_to_u8(n))
+                .collect(),
             last_milestone_pop: u.last_milestone_pop,
         }),
         extended_budget: extended_budget.map(|eb| SaveExtendedBudget {
@@ -927,15 +918,19 @@ pub fn create_save_data(
             transport_budget: eb.service_budgets.transport,
         }),
         loan_book: loan_book.map(|lb| SaveLoanBook {
-            loans: lb.active_loans.iter().map(|l| SaveLoan {
-                name: l.name.clone(),
-                amount: l.amount,
-                interest_rate: l.interest_rate,
-                monthly_payment: l.monthly_payment,
-                remaining_balance: l.remaining_balance,
-                term_months: l.term_months,
-                months_paid: l.months_paid,
-            }).collect(),
+            loans: lb
+                .active_loans
+                .iter()
+                .map(|l| SaveLoan {
+                    name: l.name.clone(),
+                    amount: l.amount,
+                    interest_rate: l.interest_rate,
+                    monthly_payment: l.monthly_payment,
+                    remaining_balance: l.remaining_balance,
+                    term_months: l.term_months,
+                    months_paid: l.months_paid,
+                })
+                .collect(),
             max_loans: lb.max_loans as u32,
             credit_rating: lb.credit_rating,
             last_payment_day: lb.last_payment_day,
@@ -948,16 +943,20 @@ pub fn create_save_data(
         virtual_population: virtual_population.map(|vp| SaveVirtualPopulation {
             total_virtual: vp.total_virtual,
             virtual_employed: vp.virtual_employed,
-            district_stats: vp.district_stats.iter().map(|ds| SaveDistrictStats {
-                population: ds.population,
-                employed: ds.employed,
-                avg_happiness: ds.avg_happiness,
-                avg_age: ds.avg_age,
-                age_brackets: ds.age_brackets,
-                commuters_out: ds.commuters_out,
-                tax_contribution: ds.tax_contribution,
-                service_demand: ds.service_demand,
-            }).collect(),
+            district_stats: vp
+                .district_stats
+                .iter()
+                .map(|ds| SaveDistrictStats {
+                    population: ds.population,
+                    employed: ds.employed,
+                    avg_happiness: ds.avg_happiness,
+                    avg_age: ds.avg_age,
+                    age_brackets: ds.age_brackets,
+                    commuters_out: ds.commuters_out,
+                    tax_contribution: ds.tax_contribution,
+                    service_demand: ds.service_demand,
+                })
+                .collect(),
             max_real_citizens: vp.max_real_citizens,
         }),
     }
@@ -1138,8 +1137,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1267,7 +1281,11 @@ mod tests {
         let save = SaveUnlockState {
             development_points: state.development_points,
             spent_points: state.spent_points,
-            unlocked_nodes: state.unlocked_nodes.iter().map(|&n| unlock_node_to_u8(n)).collect(),
+            unlocked_nodes: state
+                .unlocked_nodes
+                .iter()
+                .map(|&n| unlock_node_to_u8(n))
+                .collect(),
             last_milestone_pop: state.last_milestone_pop,
         };
 
@@ -1340,17 +1358,15 @@ mod tests {
     #[test]
     fn test_loan_book_roundtrip() {
         let save = SaveLoanBook {
-            loans: vec![
-                SaveLoan {
-                    name: "Small Loan".into(),
-                    amount: 10_000.0,
-                    interest_rate: 0.05,
-                    monthly_payment: 856.07,
-                    remaining_balance: 8_500.0,
-                    term_months: 12,
-                    months_paid: 2,
-                },
-            ],
+            loans: vec![SaveLoan {
+                name: "Small Loan".into(),
+                amount: 10_000.0,
+                interest_rate: 0.05,
+                monthly_payment: 856.07,
+                remaining_balance: 8_500.0,
+                term_months: 12,
+                months_paid: 2,
+            }],
             max_loans: 3,
             credit_rating: 1.5,
             last_payment_day: 60,
@@ -1420,12 +1436,29 @@ mod tests {
         let mut treasury = 0.0;
         loan_book.take_loan(loans::LoanTier::Small, &mut treasury);
 
-        let lifecycle_timer = LifecycleTimer { last_aging_day: 200, last_emigration_tick: 15 };
+        let lifecycle_timer = LifecycleTimer {
+            last_aging_day: 200,
+            last_emigration_tick: 15,
+        };
 
         let save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            Some(&policies), Some(&weather), Some(&unlock), Some(&ext_budget), Some(&loan_book),
-            Some(&lifecycle_timer), None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            Some(&policies),
+            Some(&weather),
+            Some(&unlock),
+            Some(&ext_budget),
+            Some(&loan_book),
+            Some(&lifecycle_timer),
+            None,
         );
 
         let bytes = save.encode();
@@ -1439,16 +1472,25 @@ mod tests {
         let rw = restored.weather.as_ref().expect("weather present");
         assert_eq!(rw.season, season_to_u8(Season::Summer));
         assert!((rw.temperature - 32.0).abs() < 0.001);
-        assert_eq!(rw.current_event, weather_event_to_u8(WeatherEvent::HeatWave));
+        assert_eq!(
+            rw.current_event,
+            weather_event_to_u8(WeatherEvent::HeatWave)
+        );
 
         // Unlock state
-        let ru = restored.unlock_state.as_ref().expect("unlock_state present");
+        let ru = restored
+            .unlock_state
+            .as_ref()
+            .expect("unlock_state present");
         assert_eq!(ru.development_points, 15);
         assert_eq!(ru.spent_points, 5);
         assert_eq!(ru.last_milestone_pop, 5000);
 
         // Extended budget
-        let reb = restored.extended_budget.as_ref().expect("extended_budget present");
+        let reb = restored
+            .extended_budget
+            .as_ref()
+            .expect("extended_budget present");
         assert!((reb.fire_budget - 1.3).abs() < 0.001);
         assert!((reb.residential_tax - 0.12).abs() < 0.001);
 
@@ -1470,8 +1512,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1517,8 +1574,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1534,8 +1606,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let mut save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         save.version = 0;
 
@@ -1554,8 +1641,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let mut save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1574,8 +1676,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1593,8 +1710,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let mut save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         save.version = 1;
 
@@ -1613,8 +1745,23 @@ mod tests {
         let demand = ZoneDemand::default();
 
         let mut save = create_save_data(
-            &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None, None,
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         save.version = 2;
 
@@ -1633,16 +1780,20 @@ mod tests {
         let save = SaveVirtualPopulation {
             total_virtual: vp.total_virtual,
             virtual_employed: vp.virtual_employed,
-            district_stats: vp.district_stats.iter().map(|ds| SaveDistrictStats {
-                population: ds.population,
-                employed: ds.employed,
-                avg_happiness: ds.avg_happiness,
-                avg_age: ds.avg_age,
-                age_brackets: ds.age_brackets,
-                commuters_out: ds.commuters_out,
-                tax_contribution: ds.tax_contribution,
-                service_demand: ds.service_demand,
-            }).collect(),
+            district_stats: vp
+                .district_stats
+                .iter()
+                .map(|ds| SaveDistrictStats {
+                    population: ds.population,
+                    employed: ds.employed,
+                    avg_happiness: ds.avg_happiness,
+                    avg_age: ds.avg_age,
+                    age_brackets: ds.age_brackets,
+                    commuters_out: ds.commuters_out,
+                    tax_contribution: ds.tax_contribution,
+                    service_demand: ds.service_demand,
+                })
+                .collect(),
             max_real_citizens: vp.max_real_citizens,
         };
 

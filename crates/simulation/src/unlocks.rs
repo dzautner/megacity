@@ -39,26 +39,26 @@ pub enum UnlockNode {
     ResidentialZoning,
     CommercialZoning,
     IndustrialZoning,
-    BasicPower,    // PowerPlant
-    BasicWater,    // WaterTower
+    BasicPower, // PowerPlant
+    BasicWater, // WaterTower
 
     // Tier 1 (1 DP each, unlock at 500 pop)
     FireService,
     PoliceService,
     ElementaryEducation,
     SmallParks,
-    BasicSanitation,  // Landfill
+    BasicSanitation, // Landfill
 
     // Tier 2 (2 DP each, unlock at 2000 pop)
-    BasicHeating,     // HeatingBoiler
-    HealthCare,       // Hospital
+    BasicHeating, // HeatingBoiler
+    HealthCare,   // Hospital
     HighSchoolEducation,
     HighDensityResidential,
     HighDensityCommercial,
     SolarPower,
     SewagePlant,
-    AdvancedParks,    // Large parks, playground, sports
-    DeathCare,        // Cemetery, Crematorium
+    AdvancedParks, // Large parks, playground, sports
+    DeathCare,     // Cemetery, Crematorium
 
     DistrictHeatingNetwork, // DistrictHeatingPlant, GeothermalPlant
 
@@ -66,21 +66,21 @@ pub enum UnlockNode {
     OfficeZoning,
     UniversityEducation,
     WindPower,
-    AdvancedSanitation, // Recycling, Incinerator
-    PublicTransport,    // BusDepot, TrainStation
-    Entertainment,      // Stadium, Plaza
-    AdvancedEmergency,  // FireHQ, PoliceHQ, Prison, MedicalCenter
-    Telecom,            // CellTower, DataCenter
-    AdvancedTransport,  // Subway, Tram, Ferry
-    SmallAirstrips,     // SmallAirstrip (5K pop)
-    PostalService,      // PostOffice, MailSortingCenter
+    AdvancedSanitation,  // Recycling, Incinerator
+    PublicTransport,     // BusDepot, TrainStation
+    Entertainment,       // Stadium, Plaza
+    AdvancedEmergency,   // FireHQ, PoliceHQ, Prison, MedicalCenter
+    Telecom,             // CellTower, DataCenter
+    AdvancedTransport,   // Subway, Tram, Ferry
+    SmallAirstrips,      // SmallAirstrip (5K pop)
+    PostalService,       // PostOffice, MailSortingCenter
     WaterInfrastructure, // WaterTreatmentPlant, WellPump
 
     // Tier 4 (5 DP each, unlock at 50000 pop)
     Landmarks,        // CityHall, Museum, Cathedral, TVStation
     PolicySystem,     // Enables policies
     NuclearPower,     // NuclearPlant
-    RegionalAirports,   // RegionalAirport (20K pop)
+    RegionalAirports, // RegionalAirport (20K pop)
 
     // Tier 5 (7 DP, unlock at 100000 pop)
     InternationalAirports, // InternationalAirport (100K pop)
@@ -89,33 +89,47 @@ pub enum UnlockNode {
 impl UnlockNode {
     pub fn cost(self) -> u32 {
         match self {
-            UnlockNode::BasicRoads | UnlockNode::ResidentialZoning |
-            UnlockNode::CommercialZoning | UnlockNode::IndustrialZoning |
-            UnlockNode::BasicPower | UnlockNode::BasicWater => 0,
+            UnlockNode::BasicRoads
+            | UnlockNode::ResidentialZoning
+            | UnlockNode::CommercialZoning
+            | UnlockNode::IndustrialZoning
+            | UnlockNode::BasicPower
+            | UnlockNode::BasicWater => 0,
 
-            UnlockNode::FireService | UnlockNode::PoliceService |
-            UnlockNode::ElementaryEducation | UnlockNode::SmallParks |
-            UnlockNode::BasicSanitation => 1,
+            UnlockNode::FireService
+            | UnlockNode::PoliceService
+            | UnlockNode::ElementaryEducation
+            | UnlockNode::SmallParks
+            | UnlockNode::BasicSanitation => 1,
 
-            UnlockNode::BasicHeating |
-            UnlockNode::HealthCare | UnlockNode::HighSchoolEducation |
-            UnlockNode::HighDensityResidential | UnlockNode::HighDensityCommercial |
-            UnlockNode::SolarPower | UnlockNode::SewagePlant |
-            UnlockNode::AdvancedParks | UnlockNode::DeathCare => 2,
+            UnlockNode::BasicHeating
+            | UnlockNode::HealthCare
+            | UnlockNode::HighSchoolEducation
+            | UnlockNode::HighDensityResidential
+            | UnlockNode::HighDensityCommercial
+            | UnlockNode::SolarPower
+            | UnlockNode::SewagePlant
+            | UnlockNode::AdvancedParks
+            | UnlockNode::DeathCare => 2,
 
-            UnlockNode::DistrictHeatingNetwork |
-            UnlockNode::OfficeZoning | UnlockNode::UniversityEducation |
-            UnlockNode::WindPower | UnlockNode::AdvancedSanitation |
-            UnlockNode::PublicTransport | UnlockNode::Entertainment |
-            UnlockNode::AdvancedEmergency | UnlockNode::Telecom |
-            UnlockNode::AdvancedTransport |
-            UnlockNode::SmallAirstrips |
-            UnlockNode::PostalService |
-            UnlockNode::WaterInfrastructure => 3,
+            UnlockNode::DistrictHeatingNetwork
+            | UnlockNode::OfficeZoning
+            | UnlockNode::UniversityEducation
+            | UnlockNode::WindPower
+            | UnlockNode::AdvancedSanitation
+            | UnlockNode::PublicTransport
+            | UnlockNode::Entertainment
+            | UnlockNode::AdvancedEmergency
+            | UnlockNode::Telecom
+            | UnlockNode::AdvancedTransport
+            | UnlockNode::SmallAirstrips
+            | UnlockNode::PostalService
+            | UnlockNode::WaterInfrastructure => 3,
 
-            UnlockNode::Landmarks | UnlockNode::PolicySystem |
-            UnlockNode::NuclearPower |
-            UnlockNode::RegionalAirports => 5,
+            UnlockNode::Landmarks
+            | UnlockNode::PolicySystem
+            | UnlockNode::NuclearPower
+            | UnlockNode::RegionalAirports => 5,
 
             UnlockNode::InternationalAirports => 7,
         }
@@ -123,34 +137,46 @@ impl UnlockNode {
 
     pub fn required_population(self) -> u32 {
         match self {
-            UnlockNode::BasicRoads | UnlockNode::ResidentialZoning |
-            UnlockNode::CommercialZoning | UnlockNode::IndustrialZoning |
-            UnlockNode::BasicPower | UnlockNode::BasicWater => 0,
+            UnlockNode::BasicRoads
+            | UnlockNode::ResidentialZoning
+            | UnlockNode::CommercialZoning
+            | UnlockNode::IndustrialZoning
+            | UnlockNode::BasicPower
+            | UnlockNode::BasicWater => 0,
 
-            UnlockNode::FireService | UnlockNode::PoliceService |
-            UnlockNode::ElementaryEducation | UnlockNode::SmallParks |
-            UnlockNode::BasicSanitation => 500,
+            UnlockNode::FireService
+            | UnlockNode::PoliceService
+            | UnlockNode::ElementaryEducation
+            | UnlockNode::SmallParks
+            | UnlockNode::BasicSanitation => 500,
 
-            UnlockNode::BasicHeating |
-            UnlockNode::HealthCare | UnlockNode::HighSchoolEducation |
-            UnlockNode::HighDensityResidential | UnlockNode::HighDensityCommercial |
-            UnlockNode::SolarPower | UnlockNode::SewagePlant |
-            UnlockNode::AdvancedParks | UnlockNode::DeathCare => 2_000,
+            UnlockNode::BasicHeating
+            | UnlockNode::HealthCare
+            | UnlockNode::HighSchoolEducation
+            | UnlockNode::HighDensityResidential
+            | UnlockNode::HighDensityCommercial
+            | UnlockNode::SolarPower
+            | UnlockNode::SewagePlant
+            | UnlockNode::AdvancedParks
+            | UnlockNode::DeathCare => 2_000,
 
-            UnlockNode::DistrictHeatingNetwork |
-            UnlockNode::OfficeZoning | UnlockNode::UniversityEducation |
-            UnlockNode::WindPower | UnlockNode::AdvancedSanitation |
-            UnlockNode::PublicTransport | UnlockNode::Entertainment |
-            UnlockNode::AdvancedEmergency | UnlockNode::Telecom |
-            UnlockNode::AdvancedTransport |
-            UnlockNode::SmallAirstrips |
-            UnlockNode::PostalService |
-            UnlockNode::WaterInfrastructure => 5_000,
+            UnlockNode::DistrictHeatingNetwork
+            | UnlockNode::OfficeZoning
+            | UnlockNode::UniversityEducation
+            | UnlockNode::WindPower
+            | UnlockNode::AdvancedSanitation
+            | UnlockNode::PublicTransport
+            | UnlockNode::Entertainment
+            | UnlockNode::AdvancedEmergency
+            | UnlockNode::Telecom
+            | UnlockNode::AdvancedTransport
+            | UnlockNode::SmallAirstrips
+            | UnlockNode::PostalService
+            | UnlockNode::WaterInfrastructure => 5_000,
 
             UnlockNode::RegionalAirports => 20_000,
 
-            UnlockNode::Landmarks | UnlockNode::PolicySystem |
-            UnlockNode::NuclearPower => 50_000,
+            UnlockNode::Landmarks | UnlockNode::PolicySystem | UnlockNode::NuclearPower => 50_000,
 
             UnlockNode::InternationalAirports => 100_000,
         }
@@ -201,26 +227,41 @@ impl UnlockNode {
 
     pub fn all() -> &'static [UnlockNode] {
         &[
-            UnlockNode::BasicRoads, UnlockNode::ResidentialZoning,
-            UnlockNode::CommercialZoning, UnlockNode::IndustrialZoning,
-            UnlockNode::BasicPower, UnlockNode::BasicWater,
-            UnlockNode::FireService, UnlockNode::PoliceService,
-            UnlockNode::ElementaryEducation, UnlockNode::SmallParks,
+            UnlockNode::BasicRoads,
+            UnlockNode::ResidentialZoning,
+            UnlockNode::CommercialZoning,
+            UnlockNode::IndustrialZoning,
+            UnlockNode::BasicPower,
+            UnlockNode::BasicWater,
+            UnlockNode::FireService,
+            UnlockNode::PoliceService,
+            UnlockNode::ElementaryEducation,
+            UnlockNode::SmallParks,
             UnlockNode::BasicSanitation,
-            UnlockNode::HealthCare, UnlockNode::HighSchoolEducation,
-            UnlockNode::HighDensityResidential, UnlockNode::HighDensityCommercial,
-            UnlockNode::SolarPower, UnlockNode::SewagePlant,
-            UnlockNode::AdvancedParks, UnlockNode::DeathCare,
-            UnlockNode::BasicHeating, UnlockNode::DistrictHeatingNetwork,
-            UnlockNode::OfficeZoning, UnlockNode::UniversityEducation,
-            UnlockNode::WindPower, UnlockNode::AdvancedSanitation,
-            UnlockNode::PublicTransport, UnlockNode::Entertainment,
-            UnlockNode::AdvancedEmergency, UnlockNode::Telecom,
+            UnlockNode::HealthCare,
+            UnlockNode::HighSchoolEducation,
+            UnlockNode::HighDensityResidential,
+            UnlockNode::HighDensityCommercial,
+            UnlockNode::SolarPower,
+            UnlockNode::SewagePlant,
+            UnlockNode::AdvancedParks,
+            UnlockNode::DeathCare,
+            UnlockNode::BasicHeating,
+            UnlockNode::DistrictHeatingNetwork,
+            UnlockNode::OfficeZoning,
+            UnlockNode::UniversityEducation,
+            UnlockNode::WindPower,
+            UnlockNode::AdvancedSanitation,
+            UnlockNode::PublicTransport,
+            UnlockNode::Entertainment,
+            UnlockNode::AdvancedEmergency,
+            UnlockNode::Telecom,
             UnlockNode::AdvancedTransport,
             UnlockNode::SmallAirstrips,
             UnlockNode::PostalService,
             UnlockNode::WaterInfrastructure,
-            UnlockNode::Landmarks, UnlockNode::PolicySystem,
+            UnlockNode::Landmarks,
+            UnlockNode::PolicySystem,
             UnlockNode::NuclearPower,
             UnlockNode::RegionalAirports,
             UnlockNode::InternationalAirports,
@@ -256,40 +297,72 @@ impl UnlockState {
     /// Check if a specific service type is unlocked
     pub fn is_service_unlocked(&self, service_type: ServiceType) -> bool {
         match service_type {
-            ServiceType::FireStation | ServiceType::FireHouse => self.is_unlocked(UnlockNode::FireService),
+            ServiceType::FireStation | ServiceType::FireHouse => {
+                self.is_unlocked(UnlockNode::FireService)
+            }
             ServiceType::FireHQ => self.is_unlocked(UnlockNode::AdvancedEmergency),
-            ServiceType::PoliceStation | ServiceType::PoliceKiosk => self.is_unlocked(UnlockNode::PoliceService),
-            ServiceType::PoliceHQ | ServiceType::Prison => self.is_unlocked(UnlockNode::AdvancedEmergency),
+            ServiceType::PoliceStation | ServiceType::PoliceKiosk => {
+                self.is_unlocked(UnlockNode::PoliceService)
+            }
+            ServiceType::PoliceHQ | ServiceType::Prison => {
+                self.is_unlocked(UnlockNode::AdvancedEmergency)
+            }
             ServiceType::Hospital => self.is_unlocked(UnlockNode::HealthCare),
             ServiceType::MedicalClinic => self.is_unlocked(UnlockNode::HealthCare),
             ServiceType::MedicalCenter => self.is_unlocked(UnlockNode::AdvancedEmergency),
-            ServiceType::ElementarySchool | ServiceType::Library => self.is_unlocked(UnlockNode::ElementaryEducation),
+            ServiceType::ElementarySchool | ServiceType::Library => {
+                self.is_unlocked(UnlockNode::ElementaryEducation)
+            }
             ServiceType::Kindergarten => self.is_unlocked(UnlockNode::ElementaryEducation),
             ServiceType::HighSchool => self.is_unlocked(UnlockNode::HighSchoolEducation),
             ServiceType::University => self.is_unlocked(UnlockNode::UniversityEducation),
-            ServiceType::SmallPark | ServiceType::Playground => self.is_unlocked(UnlockNode::SmallParks),
-            ServiceType::LargePark | ServiceType::SportsField => self.is_unlocked(UnlockNode::AdvancedParks),
-            ServiceType::Plaza | ServiceType::Stadium => self.is_unlocked(UnlockNode::Entertainment),
+            ServiceType::SmallPark | ServiceType::Playground => {
+                self.is_unlocked(UnlockNode::SmallParks)
+            }
+            ServiceType::LargePark | ServiceType::SportsField => {
+                self.is_unlocked(UnlockNode::AdvancedParks)
+            }
+            ServiceType::Plaza | ServiceType::Stadium => {
+                self.is_unlocked(UnlockNode::Entertainment)
+            }
             ServiceType::Landfill => self.is_unlocked(UnlockNode::BasicSanitation),
-            ServiceType::RecyclingCenter | ServiceType::Incinerator => self.is_unlocked(UnlockNode::AdvancedSanitation),
+            ServiceType::RecyclingCenter | ServiceType::Incinerator => {
+                self.is_unlocked(UnlockNode::AdvancedSanitation)
+            }
             ServiceType::TransferStation => self.is_unlocked(UnlockNode::BasicSanitation),
-            ServiceType::Cemetery | ServiceType::Crematorium => self.is_unlocked(UnlockNode::DeathCare),
-            ServiceType::CityHall | ServiceType::Museum |
-            ServiceType::Cathedral | ServiceType::TVStation => self.is_unlocked(UnlockNode::Landmarks),
-            ServiceType::BusDepot | ServiceType::TrainStation => self.is_unlocked(UnlockNode::PublicTransport),
-            ServiceType::SubwayStation | ServiceType::TramDepot |
-            ServiceType::FerryPier => self.is_unlocked(UnlockNode::AdvancedTransport),
+            ServiceType::Cemetery | ServiceType::Crematorium => {
+                self.is_unlocked(UnlockNode::DeathCare)
+            }
+            ServiceType::CityHall
+            | ServiceType::Museum
+            | ServiceType::Cathedral
+            | ServiceType::TVStation => self.is_unlocked(UnlockNode::Landmarks),
+            ServiceType::BusDepot | ServiceType::TrainStation => {
+                self.is_unlocked(UnlockNode::PublicTransport)
+            }
+            ServiceType::SubwayStation | ServiceType::TramDepot | ServiceType::FerryPier => {
+                self.is_unlocked(UnlockNode::AdvancedTransport)
+            }
             ServiceType::SmallAirstrip => self.is_unlocked(UnlockNode::SmallAirstrips),
             ServiceType::RegionalAirport => self.is_unlocked(UnlockNode::RegionalAirports),
-            ServiceType::InternationalAirport => self.is_unlocked(UnlockNode::InternationalAirports),
-            ServiceType::CellTower | ServiceType::DataCenter => self.is_unlocked(UnlockNode::Telecom),
+            ServiceType::InternationalAirport => {
+                self.is_unlocked(UnlockNode::InternationalAirports)
+            }
+            ServiceType::CellTower | ServiceType::DataCenter => {
+                self.is_unlocked(UnlockNode::Telecom)
+            }
             ServiceType::HomelessShelter => self.is_unlocked(UnlockNode::HealthCare),
-            ServiceType::PostOffice | ServiceType::MailSortingCenter => self.is_unlocked(UnlockNode::PostalService),
-            ServiceType::WaterTreatmentPlant | ServiceType::WellPump => self.is_unlocked(UnlockNode::WaterInfrastructure),
+            ServiceType::PostOffice | ServiceType::MailSortingCenter => {
+                self.is_unlocked(UnlockNode::PostalService)
+            }
+            ServiceType::WaterTreatmentPlant | ServiceType::WellPump => {
+                self.is_unlocked(UnlockNode::WaterInfrastructure)
+            }
             ServiceType::WelfareOffice => self.is_unlocked(UnlockNode::HealthCare),
             ServiceType::HeatingBoiler => self.is_unlocked(UnlockNode::BasicHeating),
-            ServiceType::DistrictHeatingPlant |
-            ServiceType::GeothermalPlant => self.is_unlocked(UnlockNode::DistrictHeatingNetwork),
+            ServiceType::DistrictHeatingPlant | ServiceType::GeothermalPlant => {
+                self.is_unlocked(UnlockNode::DistrictHeatingNetwork)
+            }
         }
     }
 
@@ -315,7 +388,7 @@ pub fn award_development_points(
     mut unlocks: ResMut<UnlockState>,
 ) {
     const MILESTONES: &[(u32, u32)] = &[
-        (500, 2),     // +2 DP at 500 pop
+        (500, 2), // +2 DP at 500 pop
         (1_000, 2),
         (2_000, 3),
         (5_000, 3),

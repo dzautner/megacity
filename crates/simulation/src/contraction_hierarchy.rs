@@ -1,5 +1,5 @@
-use std::collections::BinaryHeap;
 use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 
 use serde::{Deserialize, Serialize};
 
@@ -30,9 +30,8 @@ impl ContractionHierarchy {
         }
 
         // Simple ordering: contract low-degree nodes first
-        let mut node_degree: Vec<(usize, usize)> = (0..n)
-            .map(|i| (csr.neighbors(i as u32).len(), i))
-            .collect();
+        let mut node_degree: Vec<(usize, usize)> =
+            (0..n).map(|i| (csr.neighbors(i as u32).len(), i)).collect();
         node_degree.sort();
 
         let mut rank = vec![0u32; n];
@@ -198,11 +197,8 @@ mod tests {
         let ch = ContractionHierarchy::build(&csr);
 
         // A* path length
-        let astar_path = crate::pathfinding_sys::find_path(
-            &network,
-            RoadNode(5, 10),
-            RoadNode(15, 20),
-        );
+        let astar_path =
+            crate::pathfinding_sys::find_path(&network, RoadNode(5, 10), RoadNode(15, 20));
         let astar_cost = astar_path.map(|p| (p.len() - 1) as u32);
 
         // CH distance

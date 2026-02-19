@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use crate::config::{GRID_WIDTH, GRID_HEIGHT};
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::WorldGrid;
-use crate::services::{ServiceBuilding, ServiceType};
 use crate::land_value::LandValueGrid;
+use crate::services::{ServiceBuilding, ServiceType};
 
 /// Crime probability grid - higher values = more crime
 #[derive(Resource)]
@@ -40,7 +40,9 @@ pub fn update_crime(
     services: Query<&ServiceBuilding>,
     ext_budget: Res<crate::budget::ExtendedBudget>,
 ) {
-    if !slow_timer.should_run() { return; }
+    if !slow_timer.should_run() {
+        return;
+    }
     // Base crime level from land value (low value = more crime)
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {

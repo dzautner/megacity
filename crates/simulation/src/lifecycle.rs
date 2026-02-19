@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
 use crate::buildings::Building;
+use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
 use crate::death_care::{DeathCareGrid, DeathCareStats};
 use crate::time_of_day::GameClock;
 use crate::virtual_population::VirtualPopulation;
@@ -15,6 +15,7 @@ pub struct LifecycleTimer {
     pub last_emigration_tick: u32,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn age_citizens(
     clock: Res<GameClock>,
     mut timer: ResMut<LifecycleTimer>,

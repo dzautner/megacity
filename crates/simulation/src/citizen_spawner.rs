@@ -6,8 +6,8 @@ use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
-use crate::movement::ActivityTimer;
 use crate::grid::WorldGrid;
+use crate::movement::ActivityTimer;
 use crate::virtual_population::VirtualPopulation;
 
 const SPAWN_INTERVAL: u32 = 5; // sim ticks between spawn attempts
@@ -66,7 +66,8 @@ pub fn spawn_citizens(
 
     // Use burst mode when population is far below building capacity
     // Only count operational (non-construction) residential capacity
-    let total_res_capacity: u32 = buildings.iter()
+    let total_res_capacity: u32 = buildings
+        .iter()
         .filter(|(e, b)| b.zone_type.is_residential() && under_construction.get(*e).is_err())
         .map(|(_, b)| b.capacity)
         .sum();

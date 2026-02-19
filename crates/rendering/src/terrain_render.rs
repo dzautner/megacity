@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 
-use simulation::config::{CELL_SIZE, CHUNK_SIZE, CHUNKS_X, CHUNKS_Y, GRID_HEIGHT, GRID_WIDTH};
+use simulation::config::{CELL_SIZE, CHUNKS_X, CHUNKS_Y, CHUNK_SIZE, GRID_HEIGHT, GRID_WIDTH};
 use simulation::education::EducationGrid;
 use simulation::garbage::GarbageGrid;
 use simulation::grid::{CellType, RoadType, WorldGrid, ZoneType};
@@ -62,7 +62,16 @@ pub fn spawn_terrain_chunks(
     let overlay_grids = OverlayGrids::none();
     for cy in 0..CHUNKS_Y {
         for cx in 0..CHUNKS_X {
-            let mesh = build_chunk_mesh(&grid, &roads, &segments, cx, cy, &overlay, &overlay_grids, weather.season);
+            let mesh = build_chunk_mesh(
+                &grid,
+                &roads,
+                &segments,
+                cx,
+                cy,
+                &overlay,
+                &overlay_grids,
+                weather.season,
+            );
             let (wx, wz) = chunk_world_pos(cx, cy);
 
             commands.spawn((
@@ -170,6 +179,7 @@ fn chunk_world_pos(cx: usize, cy: usize) -> (f32, f32) {
     (wx, wz)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_chunk_mesh(
     grid: &WorldGrid,
     roads: &RoadNetwork,
@@ -236,8 +246,17 @@ pub fn build_chunk_mesh(
             // Road surface and markings
             if cell.cell_type == CellType::Road && *overlay == OverlayMode::None {
                 add_road_markings(
-                    &mut positions, &mut normals, &mut colors, &mut indices,
-                    grid, roads, gx, gy, lx, ly, cell.road_type,
+                    &mut positions,
+                    &mut normals,
+                    &mut colors,
+                    &mut indices,
+                    grid,
+                    roads,
+                    gx,
+                    gy,
+                    lx,
+                    ly,
+                    cell.road_type,
                 );
             }
         }
@@ -311,7 +330,8 @@ fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize, season: Se
             // Grass color varies by season with per-cell noise variation
             let [sr, sg, sb] = season.grass_color();
             let elev = cell.elevation;
-            let patch = ((gx.wrapping_mul(31).wrapping_add(gy.wrapping_mul(47))) % 100) as f32 / 100.0;
+            let patch =
+                ((gx.wrapping_mul(31).wrapping_add(gy.wrapping_mul(47))) % 100) as f32 / 100.0;
             let r = sr + elev * 0.06 + patch * 0.08 + v;
             let g = sg + elev * 0.10 + patch * 0.04 + v * 0.5;
             let b = sb + elev * 0.04 + patch * 0.03 + v * 0.3;
@@ -332,7 +352,9 @@ fn apply_overlay(
     match overlay {
         OverlayMode::None => base,
         OverlayMode::Power => {
-            if cell.cell_type == CellType::Water { return base; }
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
             if cell.has_power {
                 blend_tint(base, Color::srgba(0.9, 0.9, 0.1, 0.4))
             } else {
@@ -340,7 +362,9 @@ fn apply_overlay(
             }
         }
         OverlayMode::Water => {
-            if cell.cell_type == CellType::Water { return base; }
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
             if cell.has_water {
                 blend_tint(base, Color::srgba(0.1, 0.5, 0.9, 0.4))
             } else {
@@ -360,7 +384,9 @@ fn apply_overlay(
             }
         }
         OverlayMode::Pollution => {
-            if cell.cell_type == CellType::Water { return base; }
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
             if let Some(pollution) = grids.pollution {
                 let intensity = (pollution.get(gx, gy) as f32 / 50.0).clamp(0.0, 1.0);
                 Color::srgba(intensity, 1.0 - intensity * 0.5, 0.2, 1.0)
@@ -369,7 +395,9 @@ fn apply_overlay(
             }
         }
         OverlayMode::LandValue => {
-            if cell.cell_type == CellType::Water { return base; }
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
             if let Some(land_value) = grids.land_value {
                 let value = land_value.get(gx, gy) as f32 / 255.0;
                 Color::srgba(0.2 + value * 0.6, 0.3 + value * 0.5, 0.1, 1.0)
@@ -378,7 +406,9 @@ fn apply_overlay(
             }
         }
         OverlayMode::Education => {
-            if cell.cell_type == CellType::Water { return base; }
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
             if let Some(education) = grids.education {
                 let level = education.get(gx, gy) as f32 / 3.0;
                 Color::srgba(0.3, 0.3 + level * 0.5, 0.5 + level * 0.5, 1.0)
@@ -387,7 +417,9 @@ fn apply_overlay(
             }
         }
         OverlayMode::Garbage => {
-            if cell.cell_type == CellType::Water { return base; }
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
             if let Some(garbage) = grids.garbage {
                 let level = (garbage.get(gx, gy) as f32 / 30.0).clamp(0.0, 1.0);
                 Color::srgba(0.3 + level * 0.5, 0.4 - level * 0.2, 0.2, 1.0)
@@ -396,7 +428,9 @@ fn apply_overlay(
             }
         }
         OverlayMode::Noise => {
-            if cell.cell_type == CellType::Water { return base; }
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
             if let Some(noise) = grids.noise {
                 let level = (noise.get(gx, gy) as f32 / 100.0).clamp(0.0, 1.0);
                 // Purple-orange gradient: quiet=dark purple, loud=bright orange
@@ -459,10 +493,18 @@ fn coast_tint(
 ) -> [f32; 4] {
     // Count how many cardinal neighbors are on the other side of the shore
     let mut water_neighbors = 0u32;
-    if gx > 0 && grid.get(gx - 1, gy).cell_type == CellType::Water { water_neighbors += 1; }
-    if gx + 1 < GRID_WIDTH && grid.get(gx + 1, gy).cell_type == CellType::Water { water_neighbors += 1; }
-    if gy > 0 && grid.get(gx, gy - 1).cell_type == CellType::Water { water_neighbors += 1; }
-    if gy + 1 < GRID_HEIGHT && grid.get(gx, gy + 1).cell_type == CellType::Water { water_neighbors += 1; }
+    if gx > 0 && grid.get(gx - 1, gy).cell_type == CellType::Water {
+        water_neighbors += 1;
+    }
+    if gx + 1 < GRID_WIDTH && grid.get(gx + 1, gy).cell_type == CellType::Water {
+        water_neighbors += 1;
+    }
+    if gy > 0 && grid.get(gx, gy - 1).cell_type == CellType::Water {
+        water_neighbors += 1;
+    }
+    if gy + 1 < GRID_HEIGHT && grid.get(gx, gy + 1).cell_type == CellType::Water {
+        water_neighbors += 1;
+    }
 
     if cell_type == CellType::Water {
         // Water cell next to land: lighten toward sandy shore
@@ -496,10 +538,22 @@ fn coast_tint(
 
 fn count_road_neighbors_8(grid: &WorldGrid, gx: usize, gy: usize) -> usize {
     let mut count = 0;
-    for &(dx, dy) in &[(-1isize, -1isize), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
+    for &(dx, dy) in &[
+        (-1isize, -1isize),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+    ] {
         let nx = gx as isize + dx;
         let ny = gy as isize + dy;
-        if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT
+        if nx >= 0
+            && ny >= 0
+            && (nx as usize) < GRID_WIDTH
+            && (ny as usize) < GRID_HEIGHT
             && grid.get(nx as usize, ny as usize).cell_type == CellType::Road
         {
             count += 1;
@@ -526,7 +580,9 @@ fn add_road_markings(
         return;
     }
 
-    let is_intersection = roads.intersections.contains(&simulation::roads::RoadNode(gx, gy));
+    let is_intersection = roads
+        .intersections
+        .contains(&simulation::roads::RoadNode(gx, gy));
 
     let has_left = gx > 0 && grid.get(gx - 1, gy).cell_type == CellType::Road;
     let has_right = gx + 1 < GRID_WIDTH && grid.get(gx + 1, gy).cell_type == CellType::Road;
@@ -576,8 +632,18 @@ fn add_road_markings(
     // --- Asphalt road surface ---
     if is_intersection {
         // Full asphalt at intersections
-        push_quad_3d(positions, normals, colors, indices,
-            x_base, z_base, x_base + CELL_SIZE, z_base + CELL_SIZE, y_road, asphalt);
+        push_quad_3d(
+            positions,
+            normals,
+            colors,
+            indices,
+            x_base,
+            z_base,
+            x_base + CELL_SIZE,
+            z_base + CELL_SIZE,
+            y_road,
+            asphalt,
+        );
 
         // Crosswalks only at non-dense boundary intersections
         if !is_dense {
@@ -590,8 +656,18 @@ fn add_road_markings(
                 let zz = z_base + cw_inset;
                 let mut sx = x_base + 1.5;
                 while sx + stripe_w < x_base + CELL_SIZE - 1.5 {
-                    push_quad_3d(positions, normals, colors, indices,
-                        sx, zz, sx + stripe_w, zz + 2.0, y_mark, cw_color);
+                    push_quad_3d(
+                        positions,
+                        normals,
+                        colors,
+                        indices,
+                        sx,
+                        zz,
+                        sx + stripe_w,
+                        zz + 2.0,
+                        y_mark,
+                        cw_color,
+                    );
                     sx += stripe_w + stripe_gap;
                 }
             }
@@ -599,8 +675,18 @@ fn add_road_markings(
                 let zz = z_base + CELL_SIZE - cw_inset - 2.0;
                 let mut sx = x_base + 1.5;
                 while sx + stripe_w < x_base + CELL_SIZE - 1.5 {
-                    push_quad_3d(positions, normals, colors, indices,
-                        sx, zz, sx + stripe_w, zz + 2.0, y_mark, cw_color);
+                    push_quad_3d(
+                        positions,
+                        normals,
+                        colors,
+                        indices,
+                        sx,
+                        zz,
+                        sx + stripe_w,
+                        zz + 2.0,
+                        y_mark,
+                        cw_color,
+                    );
                     sx += stripe_w + stripe_gap;
                 }
             }
@@ -608,8 +694,18 @@ fn add_road_markings(
                 let xx = x_base + cw_inset;
                 let mut sz = z_base + 1.5;
                 while sz + stripe_w < z_base + CELL_SIZE - 1.5 {
-                    push_quad_3d(positions, normals, colors, indices,
-                        xx, sz, xx + 2.0, sz + stripe_w, y_mark, cw_color);
+                    push_quad_3d(
+                        positions,
+                        normals,
+                        colors,
+                        indices,
+                        xx,
+                        sz,
+                        xx + 2.0,
+                        sz + stripe_w,
+                        y_mark,
+                        cw_color,
+                    );
                     sz += stripe_w + stripe_gap;
                 }
             }
@@ -617,8 +713,18 @@ fn add_road_markings(
                 let xx = x_base + CELL_SIZE - cw_inset - 2.0;
                 let mut sz = z_base + 1.5;
                 while sz + stripe_w < z_base + CELL_SIZE - 1.5 {
-                    push_quad_3d(positions, normals, colors, indices,
-                        xx, sz, xx + 2.0, sz + stripe_w, y_mark, cw_color);
+                    push_quad_3d(
+                        positions,
+                        normals,
+                        colors,
+                        indices,
+                        xx,
+                        sz,
+                        xx + 2.0,
+                        sz + stripe_w,
+                        y_mark,
+                        cw_color,
+                    );
                     sz += stripe_w + stripe_gap;
                 }
             }
@@ -628,26 +734,82 @@ fn add_road_markings(
         if is_horizontal && !is_vertical {
             // Extend asphalt vertically toward neighboring road cells
             let z_top = if has_down { z_base } else { cz - road_half_w };
-            let z_bot = if has_up { z_base + CELL_SIZE } else { cz + road_half_w };
-            push_quad_3d(positions, normals, colors, indices,
-                x_base, z_top, x_base + CELL_SIZE, z_bot, y_road, asphalt);
+            let z_bot = if has_up {
+                z_base + CELL_SIZE
+            } else {
+                cz + road_half_w
+            };
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base,
+                z_top,
+                x_base + CELL_SIZE,
+                z_bot,
+                y_road,
+                asphalt,
+            );
         } else if is_vertical && !is_horizontal {
             // Extend asphalt horizontally toward neighboring road cells
             let x_left = if has_left { x_base } else { cx - road_half_w };
-            let x_right = if has_right { x_base + CELL_SIZE } else { cx + road_half_w };
-            push_quad_3d(positions, normals, colors, indices,
-                x_left, z_base, x_right, z_base + CELL_SIZE, y_road, asphalt);
+            let x_right = if has_right {
+                x_base + CELL_SIZE
+            } else {
+                cx + road_half_w
+            };
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_left,
+                z_base,
+                x_right,
+                z_base + CELL_SIZE,
+                y_road,
+                asphalt,
+            );
         } else {
             // Both horizontal and vertical (but not intersection) — draw both strips with extensions
             let z_top = if has_down { z_base } else { cz - road_half_w };
-            let z_bot = if has_up { z_base + CELL_SIZE } else { cz + road_half_w };
-            push_quad_3d(positions, normals, colors, indices,
-                x_base, z_top, x_base + CELL_SIZE, z_bot, y_road, asphalt);
+            let z_bot = if has_up {
+                z_base + CELL_SIZE
+            } else {
+                cz + road_half_w
+            };
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base,
+                z_top,
+                x_base + CELL_SIZE,
+                z_bot,
+                y_road,
+                asphalt,
+            );
 
             let x_left = if has_left { x_base } else { cx - road_half_w };
-            let x_right = if has_right { x_base + CELL_SIZE } else { cx + road_half_w };
-            push_quad_3d(positions, normals, colors, indices,
-                x_left, z_base, x_right, z_base + CELL_SIZE, y_road, asphalt);
+            let x_right = if has_right {
+                x_base + CELL_SIZE
+            } else {
+                cx + road_half_w
+            };
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_left,
+                z_base,
+                x_right,
+                z_base + CELL_SIZE,
+                y_road,
+                asphalt,
+            );
         }
 
         // --- Lane markings (skip in dense areas) ---
@@ -668,42 +830,100 @@ fn add_road_markings(
                             let d0 = sx.max(x0);
                             let d1 = (sx + dash).min(x1);
                             if d1 > d0 {
-                                push_quad_3d(positions, normals, colors, indices,
-                                    d0, cz - lw, d1, cz + lw, y_mark, [0.95, 0.95, 0.90, 0.85]);
+                                push_quad_3d(
+                                    positions,
+                                    normals,
+                                    colors,
+                                    indices,
+                                    d0,
+                                    cz - lw,
+                                    d1,
+                                    cz + lw,
+                                    y_mark,
+                                    [0.95, 0.95, 0.90, 0.85],
+                                );
                             }
                             sx += period;
                         }
                     }
                     RoadType::Avenue => {
                         let s = 0.2;
-                        push_quad_3d(positions, normals, colors, indices,
-                            x0, cz - s - lw, x1, cz - s + lw, y_mark, [0.90, 0.80, 0.15, 0.90]);
-                        push_quad_3d(positions, normals, colors, indices,
-                            x0, cz + s - lw, x1, cz + s + lw, y_mark, [0.90, 0.80, 0.15, 0.90]);
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            x0,
+                            cz - s - lw,
+                            x1,
+                            cz - s + lw,
+                            y_mark,
+                            [0.90, 0.80, 0.15, 0.90],
+                        );
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            x0,
+                            cz + s - lw,
+                            x1,
+                            cz + s + lw,
+                            y_mark,
+                            [0.90, 0.80, 0.15, 0.90],
+                        );
                     }
                     RoadType::Boulevard => {
                         let lane_w = road_half_w * 0.5;
                         let median_hw = 0.8;
-                        push_quad_3d(positions, normals, colors, indices,
-                            x0, cz - median_hw, x1, cz + median_hw, y_curb * 0.7,
-                            [0.35, 0.45, 0.30, 1.0]);
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            x0,
+                            cz - median_hw,
+                            x1,
+                            cz + median_hw,
+                            y_curb * 0.7,
+                            [0.35, 0.45, 0.30, 1.0],
+                        );
                         for &off in &[-lane_w, lane_w] {
                             let mut sx = x0 - (world_x % period);
                             while sx < x1 {
                                 let d0 = sx.max(x0);
                                 let d1 = (sx + dash).min(x1);
                                 if d1 > d0 {
-                                    push_quad_3d(positions, normals, colors, indices,
-                                        d0, cz + off - lw, d1, cz + off + lw,
-                                        y_mark, [1.0, 1.0, 1.0, 0.35]);
+                                    push_quad_3d(
+                                        positions,
+                                        normals,
+                                        colors,
+                                        indices,
+                                        d0,
+                                        cz + off - lw,
+                                        d1,
+                                        cz + off + lw,
+                                        y_mark,
+                                        [1.0, 1.0, 1.0, 0.35],
+                                    );
                                 }
                                 sx += period;
                             }
                         }
                     }
                     RoadType::Highway => {
-                        push_quad_3d(positions, normals, colors, indices,
-                            x0, cz - 0.2, x1, cz + 0.2, y_mark, [0.80, 0.70, 0.12, 0.75]);
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            x0,
+                            cz - 0.2,
+                            x1,
+                            cz + 0.2,
+                            y_mark,
+                            [0.80, 0.70, 0.12, 0.75],
+                        );
                         let lane_w = road_half_w * 0.5;
                         for &off in &[-lane_w, lane_w] {
                             let mut sx = x0 - (world_x % period);
@@ -711,17 +931,35 @@ fn add_road_markings(
                                 let d0 = sx.max(x0);
                                 let d1 = (sx + dash).min(x1);
                                 if d1 > d0 {
-                                    push_quad_3d(positions, normals, colors, indices,
-                                        d0, cz + off - lw, d1, cz + off + lw,
-                                        y_mark, [0.95, 0.95, 0.90, 0.85]);
+                                    push_quad_3d(
+                                        positions,
+                                        normals,
+                                        colors,
+                                        indices,
+                                        d0,
+                                        cz + off - lw,
+                                        d1,
+                                        cz + off + lw,
+                                        y_mark,
+                                        [0.95, 0.95, 0.90, 0.85],
+                                    );
                                 }
                                 sx += period;
                             }
                         }
                         for &edge in &[-road_half_w + 0.3, road_half_w - 0.3] {
-                            push_quad_3d(positions, normals, colors, indices,
-                                x0, cz + edge - lw, x1, cz + edge + lw,
-                                y_mark, [1.0, 1.0, 1.0, 0.55]);
+                            push_quad_3d(
+                                positions,
+                                normals,
+                                colors,
+                                indices,
+                                x0,
+                                cz + edge - lw,
+                                x1,
+                                cz + edge + lw,
+                                y_mark,
+                                [1.0, 1.0, 1.0, 0.55],
+                            );
                         }
                     }
                     RoadType::Path => {}
@@ -739,42 +977,100 @@ fn add_road_markings(
                             let d0 = sz.max(z0);
                             let d1 = (sz + dash).min(z1);
                             if d1 > d0 {
-                                push_quad_3d(positions, normals, colors, indices,
-                                    cx - lw, d0, cx + lw, d1, y_mark, [0.95, 0.95, 0.90, 0.85]);
+                                push_quad_3d(
+                                    positions,
+                                    normals,
+                                    colors,
+                                    indices,
+                                    cx - lw,
+                                    d0,
+                                    cx + lw,
+                                    d1,
+                                    y_mark,
+                                    [0.95, 0.95, 0.90, 0.85],
+                                );
                             }
                             sz += period;
                         }
                     }
                     RoadType::Avenue => {
                         let s = 0.2;
-                        push_quad_3d(positions, normals, colors, indices,
-                            cx - s - lw, z0, cx - s + lw, z1, y_mark, [0.90, 0.80, 0.15, 0.90]);
-                        push_quad_3d(positions, normals, colors, indices,
-                            cx + s - lw, z0, cx + s + lw, z1, y_mark, [0.90, 0.80, 0.15, 0.90]);
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            cx - s - lw,
+                            z0,
+                            cx - s + lw,
+                            z1,
+                            y_mark,
+                            [0.90, 0.80, 0.15, 0.90],
+                        );
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            cx + s - lw,
+                            z0,
+                            cx + s + lw,
+                            z1,
+                            y_mark,
+                            [0.90, 0.80, 0.15, 0.90],
+                        );
                     }
                     RoadType::Boulevard => {
                         let lane_w = road_half_w * 0.5;
                         let median_hw = 0.8;
-                        push_quad_3d(positions, normals, colors, indices,
-                            cx - median_hw, z0, cx + median_hw, z1, y_curb * 0.7,
-                            [0.35, 0.45, 0.30, 1.0]);
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            cx - median_hw,
+                            z0,
+                            cx + median_hw,
+                            z1,
+                            y_curb * 0.7,
+                            [0.35, 0.45, 0.30, 1.0],
+                        );
                         for &off in &[-lane_w, lane_w] {
                             let mut sz = z0 - (world_z % period);
                             while sz < z1 {
                                 let d0 = sz.max(z0);
                                 let d1 = (sz + dash).min(z1);
                                 if d1 > d0 {
-                                    push_quad_3d(positions, normals, colors, indices,
-                                        cx + off - lw, d0, cx + off + lw, d1,
-                                        y_mark, [1.0, 1.0, 1.0, 0.35]);
+                                    push_quad_3d(
+                                        positions,
+                                        normals,
+                                        colors,
+                                        indices,
+                                        cx + off - lw,
+                                        d0,
+                                        cx + off + lw,
+                                        d1,
+                                        y_mark,
+                                        [1.0, 1.0, 1.0, 0.35],
+                                    );
                                 }
                                 sz += period;
                             }
                         }
                     }
                     RoadType::Highway => {
-                        push_quad_3d(positions, normals, colors, indices,
-                            cx - 0.2, z0, cx + 0.2, z1, y_mark, [0.80, 0.70, 0.12, 0.75]);
+                        push_quad_3d(
+                            positions,
+                            normals,
+                            colors,
+                            indices,
+                            cx - 0.2,
+                            z0,
+                            cx + 0.2,
+                            z1,
+                            y_mark,
+                            [0.80, 0.70, 0.12, 0.75],
+                        );
                         let lane_w = road_half_w * 0.5;
                         for &off in &[-lane_w, lane_w] {
                             let mut sz = z0 - (world_z % period);
@@ -782,17 +1078,35 @@ fn add_road_markings(
                                 let d0 = sz.max(z0);
                                 let d1 = (sz + dash).min(z1);
                                 if d1 > d0 {
-                                    push_quad_3d(positions, normals, colors, indices,
-                                        cx + off - lw, d0, cx + off + lw, d1,
-                                        y_mark, [0.95, 0.95, 0.90, 0.85]);
+                                    push_quad_3d(
+                                        positions,
+                                        normals,
+                                        colors,
+                                        indices,
+                                        cx + off - lw,
+                                        d0,
+                                        cx + off + lw,
+                                        d1,
+                                        y_mark,
+                                        [0.95, 0.95, 0.90, 0.85],
+                                    );
                                 }
                                 sz += period;
                             }
                         }
                         for &edge in &[-road_half_w + 0.3, road_half_w - 0.3] {
-                            push_quad_3d(positions, normals, colors, indices,
-                                cx + edge - lw, z0, cx + edge + lw, z1,
-                                y_mark, [1.0, 1.0, 1.0, 0.55]);
+                            push_quad_3d(
+                                positions,
+                                normals,
+                                colors,
+                                indices,
+                                cx + edge - lw,
+                                z0,
+                                cx + edge + lw,
+                                z1,
+                                y_mark,
+                                [1.0, 1.0, 1.0, 0.55],
+                            );
                         }
                     }
                     RoadType::Path => {}
@@ -808,38 +1122,118 @@ fn add_road_markings(
     if is_intersection {
         // Curbs only on edges facing non-road
         if !has_left {
-            push_quad_3d(positions, normals, colors, indices,
-                x_base, z_base, x_base + curb_w, z_base + CELL_SIZE, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base,
+                z_base,
+                x_base + curb_w,
+                z_base + CELL_SIZE,
+                y_curb,
+                curb_color,
+            );
         }
         if !has_right {
-            push_quad_3d(positions, normals, colors, indices,
-                x_base + CELL_SIZE - curb_w, z_base, x_base + CELL_SIZE, z_base + CELL_SIZE, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base + CELL_SIZE - curb_w,
+                z_base,
+                x_base + CELL_SIZE,
+                z_base + CELL_SIZE,
+                y_curb,
+                curb_color,
+            );
         }
         if !has_down {
-            push_quad_3d(positions, normals, colors, indices,
-                x_base, z_base, x_base + CELL_SIZE, z_base + curb_w, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base,
+                z_base,
+                x_base + CELL_SIZE,
+                z_base + curb_w,
+                y_curb,
+                curb_color,
+            );
         }
         if !has_up {
-            push_quad_3d(positions, normals, colors, indices,
-                x_base, z_base + CELL_SIZE - curb_w, x_base + CELL_SIZE, z_base + CELL_SIZE, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base,
+                z_base + CELL_SIZE - curb_w,
+                x_base + CELL_SIZE,
+                z_base + CELL_SIZE,
+                y_curb,
+                curb_color,
+            );
         }
     } else {
         // For straight segments, curbs at the real road edge (not extended side)
         if !has_left && is_vertical {
-            push_quad_3d(positions, normals, colors, indices,
-                cx - road_half_w - curb_w, z_base, cx - road_half_w, z_base + CELL_SIZE, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                cx - road_half_w - curb_w,
+                z_base,
+                cx - road_half_w,
+                z_base + CELL_SIZE,
+                y_curb,
+                curb_color,
+            );
         }
         if !has_right && is_vertical {
-            push_quad_3d(positions, normals, colors, indices,
-                cx + road_half_w, z_base, cx + road_half_w + curb_w, z_base + CELL_SIZE, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                cx + road_half_w,
+                z_base,
+                cx + road_half_w + curb_w,
+                z_base + CELL_SIZE,
+                y_curb,
+                curb_color,
+            );
         }
         if !has_down && is_horizontal {
-            push_quad_3d(positions, normals, colors, indices,
-                x_base, cz - road_half_w - curb_w, x_base + CELL_SIZE, cz - road_half_w, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base,
+                cz - road_half_w - curb_w,
+                x_base + CELL_SIZE,
+                cz - road_half_w,
+                y_curb,
+                curb_color,
+            );
         }
         if !has_up && is_horizontal {
-            push_quad_3d(positions, normals, colors, indices,
-                x_base, cz + road_half_w, x_base + CELL_SIZE, cz + road_half_w + curb_w, y_curb, curb_color);
+            push_quad_3d(
+                positions,
+                normals,
+                colors,
+                indices,
+                x_base,
+                cz + road_half_w,
+                x_base + CELL_SIZE,
+                cz + road_half_w + curb_w,
+                y_curb,
+                curb_color,
+            );
         }
     }
 }

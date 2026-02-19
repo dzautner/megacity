@@ -38,10 +38,7 @@ const LANDMARK_UNLOCKS: &[(u32, &str)] = &[
     (100_000, "TVStation"),
 ];
 
-pub fn check_milestones(
-    stats: Res<CityStats>,
-    mut milestones: ResMut<Milestones>,
-) {
+pub fn check_milestones(stats: Res<CityStats>, mut milestones: ResMut<Milestones>) {
     if stats.population == milestones.last_check_pop {
         return;
     }

@@ -45,178 +45,706 @@ fn build_categories() -> Vec<ToolCategory> {
             icon: "R",
             name: "Roads",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::Road), icon: "=", name: "Local Road", cost: Some(10.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::RoadAvenue), icon: "==", name: "Avenue", cost: Some(20.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::RoadBoulevard), icon: "===", name: "Boulevard", cost: Some(30.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::RoadHighway), icon: "HW", name: "Highway", cost: Some(40.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::RoadOneWay), icon: "->", name: "One-Way", cost: Some(15.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::RoadPath), icon: "..", name: "Path", cost: Some(5.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::Road),
+                    icon: "=",
+                    name: "Local Road",
+                    cost: Some(10.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::RoadAvenue),
+                    icon: "==",
+                    name: "Avenue",
+                    cost: Some(20.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::RoadBoulevard),
+                    icon: "===",
+                    name: "Boulevard",
+                    cost: Some(30.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::RoadHighway),
+                    icon: "HW",
+                    name: "Highway",
+                    cost: Some(40.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::RoadOneWay),
+                    icon: "->",
+                    name: "One-Way",
+                    cost: Some(15.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::RoadPath),
+                    icon: "..",
+                    name: "Path",
+                    cost: Some(5.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "Z",
             name: "Zones",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::ZoneResidentialLow), icon: "RL", name: "Res Low", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::ZoneResidentialHigh), icon: "RH", name: "Res High", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::ZoneCommercialLow), icon: "CL", name: "Com Low", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::ZoneCommercialHigh), icon: "CH", name: "Com High", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::ZoneIndustrial), icon: "I", name: "Industrial", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::ZoneOffice), icon: "O", name: "Office", cost: None, overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::ZoneResidentialLow),
+                    icon: "RL",
+                    name: "Res Low",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::ZoneResidentialHigh),
+                    icon: "RH",
+                    name: "Res High",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::ZoneCommercialLow),
+                    icon: "CL",
+                    name: "Com Low",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::ZoneCommercialHigh),
+                    icon: "CH",
+                    name: "Com High",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::ZoneIndustrial),
+                    icon: "I",
+                    name: "Industrial",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::ZoneOffice),
+                    icon: "O",
+                    name: "Office",
+                    cost: None,
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "U",
             name: "Utilities",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlacePowerPlant), icon: "PP", name: "Power Plant", cost: Some(800.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceSolarFarm), icon: "SF", name: "Solar Farm", cost: Some(1200.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceWindTurbine), icon: "Wi", name: "Wind Turbine", cost: Some(600.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceNuclearPlant), icon: "NP", name: "Nuclear Plant", cost: Some(5000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceGeothermal), icon: "GT", name: "Geothermal", cost: Some(3000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceWaterTower), icon: "WA", name: "Water Tower", cost: Some(600.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceSewagePlant), icon: "SP", name: "Sewage Plant", cost: Some(500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlacePumpingStation), icon: "PS", name: "Pumping Station", cost: Some(400.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceWaterTreatment), icon: "WP", name: "Water Treatment", cost: Some(1000.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePowerPlant),
+                    icon: "PP",
+                    name: "Power Plant",
+                    cost: Some(800.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceSolarFarm),
+                    icon: "SF",
+                    name: "Solar Farm",
+                    cost: Some(1200.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceWindTurbine),
+                    icon: "Wi",
+                    name: "Wind Turbine",
+                    cost: Some(600.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceNuclearPlant),
+                    icon: "NP",
+                    name: "Nuclear Plant",
+                    cost: Some(5000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceGeothermal),
+                    icon: "GT",
+                    name: "Geothermal",
+                    cost: Some(3000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceWaterTower),
+                    icon: "WA",
+                    name: "Water Tower",
+                    cost: Some(600.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceSewagePlant),
+                    icon: "SP",
+                    name: "Sewage Plant",
+                    cost: Some(500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePumpingStation),
+                    icon: "PS",
+                    name: "Pumping Station",
+                    cost: Some(400.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceWaterTreatment),
+                    icon: "WP",
+                    name: "Water Treatment",
+                    cost: Some(1000.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "E",
             name: "Emergency",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlaceFireHouse), icon: "Fh", name: "Fire House", cost: Some(200.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceFireStation), icon: "Fi", name: "Fire Station", cost: Some(500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceFireHQ), icon: "FQ", name: "Fire HQ", cost: Some(1500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlacePoliceKiosk), icon: "Pk", name: "Police Kiosk", cost: Some(200.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlacePoliceStation), icon: "Po", name: "Police Station", cost: Some(500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlacePoliceHQ), icon: "PQ", name: "Police HQ", cost: Some(1500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlacePrison), icon: "Pr", name: "Prison", cost: Some(2000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceMedicalClinic), icon: "Mc", name: "Medical Clinic", cost: Some(300.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceHospital), icon: "Ho", name: "Hospital", cost: Some(1000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceMedicalCenter), icon: "MC", name: "Medical Center", cost: Some(3000.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceFireHouse),
+                    icon: "Fh",
+                    name: "Fire House",
+                    cost: Some(200.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceFireStation),
+                    icon: "Fi",
+                    name: "Fire Station",
+                    cost: Some(500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceFireHQ),
+                    icon: "FQ",
+                    name: "Fire HQ",
+                    cost: Some(1500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePoliceKiosk),
+                    icon: "Pk",
+                    name: "Police Kiosk",
+                    cost: Some(200.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePoliceStation),
+                    icon: "Po",
+                    name: "Police Station",
+                    cost: Some(500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePoliceHQ),
+                    icon: "PQ",
+                    name: "Police HQ",
+                    cost: Some(1500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePrison),
+                    icon: "Pr",
+                    name: "Prison",
+                    cost: Some(2000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceMedicalClinic),
+                    icon: "Mc",
+                    name: "Medical Clinic",
+                    cost: Some(300.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceHospital),
+                    icon: "Ho",
+                    name: "Hospital",
+                    cost: Some(1000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceMedicalCenter),
+                    icon: "MC",
+                    name: "Medical Center",
+                    cost: Some(3000.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "S",
             name: "Education",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlaceKindergarten), icon: "Kg", name: "Kindergarten", cost: Some(400.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceElementarySchool), icon: "El", name: "Elementary", cost: Some(750.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceHighSchool), icon: "HS", name: "High School", cost: Some(1000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceUniversity), icon: "Un", name: "University", cost: Some(2000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceLibrary), icon: "Li", name: "Library", cost: Some(500.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceKindergarten),
+                    icon: "Kg",
+                    name: "Kindergarten",
+                    cost: Some(400.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceElementarySchool),
+                    icon: "El",
+                    name: "Elementary",
+                    cost: Some(750.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceHighSchool),
+                    icon: "HS",
+                    name: "High School",
+                    cost: Some(1000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceUniversity),
+                    icon: "Un",
+                    name: "University",
+                    cost: Some(2000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceLibrary),
+                    icon: "Li",
+                    name: "Library",
+                    cost: Some(500.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "P",
             name: "Parks",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlaceSmallPark), icon: "SP", name: "Small Park", cost: Some(100.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceLargePark), icon: "LP", name: "Large Park", cost: Some(300.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlacePlayground), icon: "Pg", name: "Playground", cost: Some(200.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlacePlaza), icon: "Pz", name: "Plaza", cost: Some(150.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceSportsField), icon: "Sf", name: "Sports Field", cost: Some(400.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceStadium), icon: "St", name: "Stadium", cost: Some(2000.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceSmallPark),
+                    icon: "SP",
+                    name: "Small Park",
+                    cost: Some(100.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceLargePark),
+                    icon: "LP",
+                    name: "Large Park",
+                    cost: Some(300.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePlayground),
+                    icon: "Pg",
+                    name: "Playground",
+                    cost: Some(200.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlacePlaza),
+                    icon: "Pz",
+                    name: "Plaza",
+                    cost: Some(150.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceSportsField),
+                    icon: "Sf",
+                    name: "Sports Field",
+                    cost: Some(400.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceStadium),
+                    icon: "St",
+                    name: "Stadium",
+                    cost: Some(2000.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "L",
             name: "Landmarks",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlaceCityHall), icon: "CH", name: "City Hall", cost: Some(5000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceMuseum), icon: "Mu", name: "Museum", cost: Some(3000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceCathedral), icon: "Ca", name: "Cathedral", cost: Some(4000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceTVStation), icon: "TV", name: "TV Station", cost: Some(3500.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceCityHall),
+                    icon: "CH",
+                    name: "City Hall",
+                    cost: Some(5000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceMuseum),
+                    icon: "Mu",
+                    name: "Museum",
+                    cost: Some(3000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceCathedral),
+                    icon: "Ca",
+                    name: "Cathedral",
+                    cost: Some(4000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceTVStation),
+                    icon: "TV",
+                    name: "TV Station",
+                    cost: Some(3500.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "G",
             name: "Sanitation",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlaceLandfill), icon: "Lf", name: "Landfill", cost: Some(300.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceRecyclingCenter), icon: "RC", name: "Recycling Center", cost: Some(800.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceIncinerator), icon: "In", name: "Incinerator", cost: Some(1500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceTransferStation), icon: "TS", name: "Transfer Station", cost: Some(500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceCemetery), icon: "Ce", name: "Cemetery", cost: Some(400.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceCrematorium), icon: "Cr", name: "Crematorium", cost: Some(600.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceLandfill),
+                    icon: "Lf",
+                    name: "Landfill",
+                    cost: Some(300.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceRecyclingCenter),
+                    icon: "RC",
+                    name: "Recycling Center",
+                    cost: Some(800.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceIncinerator),
+                    icon: "In",
+                    name: "Incinerator",
+                    cost: Some(1500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceTransferStation),
+                    icon: "TS",
+                    name: "Transfer Station",
+                    cost: Some(500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceCemetery),
+                    icon: "Ce",
+                    name: "Cemetery",
+                    cost: Some(400.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceCrematorium),
+                    icon: "Cr",
+                    name: "Crematorium",
+                    cost: Some(600.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "Tr",
             name: "Transport",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlaceBusDepot), icon: "BD", name: "Bus Depot", cost: Some(1000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceTrainStation), icon: "TS", name: "Train Station", cost: Some(2000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceSubwayStation), icon: "SS", name: "Subway", cost: Some(3000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceTramDepot), icon: "TD", name: "Tram Depot", cost: Some(1500.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceFerryPier), icon: "FP", name: "Ferry Pier", cost: Some(800.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceSmallAirstrip), icon: "SA", name: "Small Airstrip", cost: Some(5000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceRegionalAirport), icon: "RA", name: "Regional Airport", cost: Some(10000.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceInternationalAirport), icon: "IA", name: "Int'l Airport", cost: Some(15000.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceBusDepot),
+                    icon: "BD",
+                    name: "Bus Depot",
+                    cost: Some(1000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceTrainStation),
+                    icon: "TS",
+                    name: "Train Station",
+                    cost: Some(2000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceSubwayStation),
+                    icon: "SS",
+                    name: "Subway",
+                    cost: Some(3000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceTramDepot),
+                    icon: "TD",
+                    name: "Tram Depot",
+                    cost: Some(1500.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceFerryPier),
+                    icon: "FP",
+                    name: "Ferry Pier",
+                    cost: Some(800.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceSmallAirstrip),
+                    icon: "SA",
+                    name: "Small Airstrip",
+                    cost: Some(5000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceRegionalAirport),
+                    icon: "RA",
+                    name: "Regional Airport",
+                    cost: Some(10000.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceInternationalAirport),
+                    icon: "IA",
+                    name: "Int'l Airport",
+                    cost: Some(15000.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "TC",
             name: "Telecom",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::PlaceCellTower), icon: "CT", name: "Cell Tower", cost: Some(300.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::PlaceDataCenter), icon: "DC", name: "Data Center", cost: Some(2000.0), overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceCellTower),
+                    icon: "CT",
+                    name: "Cell Tower",
+                    cost: Some(300.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::PlaceDataCenter),
+                    icon: "DC",
+                    name: "Data Center",
+                    cost: Some(2000.0),
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "V",
             name: "Views",
             items: vec![
-                ToolItem { tool: None, icon: "Pw", name: "Power", cost: None, overlay: Some(OverlayMode::Power) },
-                ToolItem { tool: None, icon: "Wa", name: "Water", cost: None, overlay: Some(OverlayMode::Water) },
-                ToolItem { tool: None, icon: "Tr", name: "Traffic", cost: None, overlay: Some(OverlayMode::Traffic) },
-                ToolItem { tool: None, icon: "Po", name: "Pollution", cost: None, overlay: Some(OverlayMode::Pollution) },
-                ToolItem { tool: None, icon: "LV", name: "Land Value", cost: None, overlay: Some(OverlayMode::LandValue) },
-                ToolItem { tool: None, icon: "Ed", name: "Education", cost: None, overlay: Some(OverlayMode::Education) },
-                ToolItem { tool: None, icon: "Gb", name: "Garbage", cost: None, overlay: Some(OverlayMode::Garbage) },
-                ToolItem { tool: None, icon: "No", name: "Noise", cost: None, overlay: Some(OverlayMode::Noise) },
-                ToolItem { tool: None, icon: "WP", name: "Water Pollution", cost: None, overlay: Some(OverlayMode::WaterPollution) },
+                ToolItem {
+                    tool: None,
+                    icon: "Pw",
+                    name: "Power",
+                    cost: None,
+                    overlay: Some(OverlayMode::Power),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "Wa",
+                    name: "Water",
+                    cost: None,
+                    overlay: Some(OverlayMode::Water),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "Tr",
+                    name: "Traffic",
+                    cost: None,
+                    overlay: Some(OverlayMode::Traffic),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "Po",
+                    name: "Pollution",
+                    cost: None,
+                    overlay: Some(OverlayMode::Pollution),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "LV",
+                    name: "Land Value",
+                    cost: None,
+                    overlay: Some(OverlayMode::LandValue),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "Ed",
+                    name: "Education",
+                    cost: None,
+                    overlay: Some(OverlayMode::Education),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "Gb",
+                    name: "Garbage",
+                    cost: None,
+                    overlay: Some(OverlayMode::Garbage),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "No",
+                    name: "Noise",
+                    cost: None,
+                    overlay: Some(OverlayMode::Noise),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "WP",
+                    name: "Water Pollution",
+                    cost: None,
+                    overlay: Some(OverlayMode::WaterPollution),
+                },
             ],
         },
         ToolCategory {
             icon: "Ev",
             name: "Environment",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::TreePlant), icon: "Tp", name: "Plant Tree", cost: Some(50.0), overlay: None },
-                ToolItem { tool: Some(ActiveTool::TreeRemove), icon: "Tr", name: "Remove Tree", cost: None, overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::TreePlant),
+                    icon: "Tp",
+                    name: "Plant Tree",
+                    cost: Some(50.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::TreeRemove),
+                    icon: "Tr",
+                    name: "Remove Tree",
+                    cost: None,
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "Te",
             name: "Terrain",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::TerrainRaise), icon: "/\\", name: "Raise", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::TerrainLower), icon: "\\/", name: "Lower", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::TerrainLevel), icon: "--", name: "Flatten", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::TerrainWater), icon: "~~", name: "Water", cost: None, overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::TerrainRaise),
+                    icon: "/\\",
+                    name: "Raise",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::TerrainLower),
+                    icon: "\\/",
+                    name: "Lower",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::TerrainLevel),
+                    icon: "--",
+                    name: "Flatten",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::TerrainWater),
+                    icon: "~~",
+                    name: "Water",
+                    cost: None,
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "D",
             name: "Districts",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(0)), icon: "D0", name: "Downtown", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(1)), icon: "D1", name: "Suburbs", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(2)), icon: "D2", name: "Industrial", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(3)), icon: "D3", name: "Waterfront", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(4)), icon: "D4", name: "Historic", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(5)), icon: "D5", name: "University", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(6)), icon: "D6", name: "Arts", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictPaint(7)), icon: "D7", name: "Tech Park", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::DistrictErase), icon: "DE", name: "Erase District", cost: None, overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(0)),
+                    icon: "D0",
+                    name: "Downtown",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(1)),
+                    icon: "D1",
+                    name: "Suburbs",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(2)),
+                    icon: "D2",
+                    name: "Industrial",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(3)),
+                    icon: "D3",
+                    name: "Waterfront",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(4)),
+                    icon: "D4",
+                    name: "Historic",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(5)),
+                    icon: "D5",
+                    name: "University",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(6)),
+                    icon: "D6",
+                    name: "Arts",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictPaint(7)),
+                    icon: "D7",
+                    name: "Tech Park",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::DistrictErase),
+                    icon: "DE",
+                    name: "Erase District",
+                    cost: None,
+                    overlay: None,
+                },
             ],
         },
         ToolCategory {
             icon: "T",
             name: "Tools",
             items: vec![
-                ToolItem { tool: Some(ActiveTool::Bulldoze), icon: "Bd", name: "Bulldoze", cost: None, overlay: None },
-                ToolItem { tool: Some(ActiveTool::Inspect), icon: "?", name: "Inspect", cost: None, overlay: None },
+                ToolItem {
+                    tool: Some(ActiveTool::Bulldoze),
+                    icon: "Bd",
+                    name: "Bulldoze",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::Inspect),
+                    icon: "?",
+                    name: "Inspect",
+                    cost: None,
+                    overlay: None,
+                },
             ],
         },
     ]
@@ -312,21 +840,27 @@ pub fn toolbar_ui(
                 ui.label(format!("{} | {}", clock.formatted(), weather.season.name()));
 
                 // Speed controls
-                if ui
-                    .selectable_label(clock.paused, "||")
-                    .clicked()
-                {
+                if ui.selectable_label(clock.paused, "||").clicked() {
                     clock.paused = !clock.paused;
                 }
-                if ui.selectable_label(!clock.paused && clock.speed == 1.0, "1x").clicked() {
+                if ui
+                    .selectable_label(!clock.paused && clock.speed == 1.0, "1x")
+                    .clicked()
+                {
                     clock.speed = 1.0;
                     clock.paused = false;
                 }
-                if ui.selectable_label(!clock.paused && clock.speed == 2.0, "2x").clicked() {
+                if ui
+                    .selectable_label(!clock.paused && clock.speed == 2.0, "2x")
+                    .clicked()
+                {
                     clock.speed = 2.0;
                     clock.paused = false;
                 }
-                if ui.selectable_label(!clock.paused && clock.speed == 4.0, "4x").clicked() {
+                if ui
+                    .selectable_label(!clock.paused && clock.speed == 4.0, "4x")
+                    .clicked()
+                {
                     clock.speed = 4.0;
                     clock.paused = false;
                 }
@@ -390,10 +924,7 @@ pub fn toolbar_ui(
 
                 for (idx, cat) in categories.iter().enumerate() {
                     let is_open = open_cat.0 == Some(idx);
-                    let btn = ui.selectable_label(
-                        is_open,
-                        egui::RichText::new(cat.name).strong(),
-                    );
+                    let btn = ui.selectable_label(is_open, egui::RichText::new(cat.name).strong());
                     if btn.clicked() {
                         if is_open {
                             open_cat.0 = None;
@@ -414,7 +945,10 @@ pub fn toolbar_ui(
             let mut should_close = false;
 
             egui::Area::new(egui::Id::new("category_popup"))
-                .fixed_pos(egui::pos2(bottom_rect.left() + 4.0, bottom_rect.top() - 8.0))
+                .fixed_pos(egui::pos2(
+                    bottom_rect.left() + 4.0,
+                    bottom_rect.top() - 8.0,
+                ))
                 .pivot(egui::Align2::LEFT_BOTTOM)
                 .show(contexts.ctx_mut(), |ui| {
                     egui::Frame::popup(ui.style()).show(ui, |ui| {

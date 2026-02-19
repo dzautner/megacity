@@ -2,7 +2,9 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::buildings::Building;
-use crate::citizen::{Citizen, CitizenDetails, CitizenStateComp, CitizenState, HomeLocation, WorkLocation};
+use crate::citizen::{
+    Citizen, CitizenDetails, CitizenState, CitizenStateComp, HomeLocation, WorkLocation,
+};
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{WorldGrid, ZoneType};
 use crate::happiness::ServiceCoverageGrid;
@@ -142,11 +144,7 @@ pub fn spread_fire(
             .max(on_fire.intensity);
 
         // Update fire grid
-        fire_grid.set(
-            building.grid_x,
-            building.grid_y,
-            on_fire.intensity as u8,
-        );
+        fire_grid.set(building.grid_x, building.grid_y, on_fire.intensity as u8);
 
         // Collect neighbors for potential spread
         let (neighbors, count) = grid.neighbors4(building.grid_x, building.grid_y);
@@ -204,7 +202,12 @@ pub fn fire_damage(
     mut fire_grid: ResMut<FireGrid>,
     burning: Query<(Entity, &Building, &OnFire)>,
     mut citizens: Query<
-        (&mut CitizenDetails, &HomeLocation, Option<&WorkLocation>, &CitizenStateComp),
+        (
+            &mut CitizenDetails,
+            &HomeLocation,
+            Option<&WorkLocation>,
+            &CitizenStateComp,
+        ),
         With<Citizen>,
     >,
 ) {

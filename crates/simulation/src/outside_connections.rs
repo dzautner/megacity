@@ -175,10 +175,8 @@ const EDGE_PROXIMITY: usize = 3;
 
 /// Check if a grid coordinate is near the map edge.
 fn is_near_edge(x: usize, y: usize) -> bool {
-    x < EDGE_PROXIMITY
-        || x >= GRID_WIDTH - EDGE_PROXIMITY
-        || y < EDGE_PROXIMITY
-        || y >= GRID_HEIGHT - EDGE_PROXIMITY
+    !(EDGE_PROXIMITY..GRID_WIDTH - EDGE_PROXIMITY).contains(&x)
+        || !(EDGE_PROXIMITY..GRID_HEIGHT - EDGE_PROXIMITY).contains(&y)
 }
 
 /// Check if a grid coordinate is near a water edge (water cell within EDGE_PROXIMITY of map boundary).
@@ -196,10 +194,9 @@ fn is_near_water_edge(x: usize, y: usize, grid: &WorldGrid) -> bool {
                 && ny >= 0
                 && (nx as usize) < GRID_WIDTH
                 && (ny as usize) < GRID_HEIGHT
+                && grid.get(nx as usize, ny as usize).cell_type == CellType::Water
             {
-                if grid.get(nx as usize, ny as usize).cell_type == CellType::Water {
-                    return true;
-                }
+                return true;
             }
         }
     }
@@ -213,7 +210,14 @@ fn detect_highway_connections(grid: &WorldGrid) -> Vec<OutsideConnection> {
 
     // Check all four edges
     for x in 0..GRID_WIDTH {
-        for &y in &[0usize, 1, 2, GRID_HEIGHT - 3, GRID_HEIGHT - 2, GRID_HEIGHT - 1] {
+        for &y in &[
+            0usize,
+            1,
+            2,
+            GRID_HEIGHT - 3,
+            GRID_HEIGHT - 2,
+            GRID_HEIGHT - 1,
+        ] {
             if y >= GRID_HEIGHT {
                 continue;
             }
@@ -559,10 +563,13 @@ mod tests {
         let connections = detect_highway_connections(&grid);
         // Should detect the two edge highways but not the interior one
         assert_eq!(connections.len(), 2);
-        assert!(connections.iter().all(|c| c.connection_type == ConnectionType::Highway));
+        assert!(connections
+            .iter()
+            .all(|c| c.connection_type == ConnectionType::Highway));
 
         // Verify positions
-        let positions: Vec<(usize, usize)> = connections.iter().map(|c| (c.grid_x, c.grid_y)).collect();
+        let positions: Vec<(usize, usize)> =
+            connections.iter().map(|c| (c.grid_x, c.grid_y)).collect();
         assert!(positions.contains(&(185, 0)));
         assert!(positions.contains(&(185, GRID_HEIGHT - 1)));
     }
@@ -662,12 +669,18 @@ mod tests {
         let stats = outside.stats();
         assert_eq!(stats.len(), 4);
 
-        let highway_stat = stats.iter().find(|s| s.connection_type == ConnectionType::Highway).unwrap();
+        let highway_stat = stats
+            .iter()
+            .find(|s| s.connection_type == ConnectionType::Highway)
+            .unwrap();
         assert!(highway_stat.active);
         assert_eq!(highway_stat.count, 2);
         assert!((highway_stat.avg_utilization - 0.5).abs() < 0.001);
 
-        let railway_stat = stats.iter().find(|s| s.connection_type == ConnectionType::Railway).unwrap();
+        let railway_stat = stats
+            .iter()
+            .find(|s| s.connection_type == ConnectionType::Railway)
+            .unwrap();
         assert!(!railway_stat.active);
         assert_eq!(railway_stat.count, 0);
         assert_eq!(railway_stat.avg_utilization, 0.0);

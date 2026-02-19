@@ -20,10 +20,7 @@ pub struct OverlayState {
     pub mode: OverlayMode,
 }
 
-pub fn toggle_overlay_keys(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut overlay: ResMut<OverlayState>,
-) {
+pub fn toggle_overlay_keys(keys: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<OverlayState>) {
     if keys.just_pressed(KeyCode::KeyP) {
         overlay.mode = if overlay.mode == OverlayMode::Power {
             OverlayMode::None

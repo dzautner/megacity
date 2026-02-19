@@ -317,12 +317,18 @@ impl ServiceBuilding {
     pub fn is_garbage(service_type: ServiceType) -> bool {
         matches!(
             service_type,
-            ServiceType::Landfill | ServiceType::RecyclingCenter | ServiceType::Incinerator | ServiceType::TransferStation
+            ServiceType::Landfill
+                | ServiceType::RecyclingCenter
+                | ServiceType::Incinerator
+                | ServiceType::TransferStation
         )
     }
 
     pub fn is_telecom(service_type: ServiceType) -> bool {
-        matches!(service_type, ServiceType::CellTower | ServiceType::DataCenter)
+        matches!(
+            service_type,
+            ServiceType::CellTower | ServiceType::DataCenter
+        )
     }
 
     pub fn is_transport(service_type: ServiceType) -> bool {
@@ -342,7 +348,10 @@ impl ServiceBuilding {
     pub fn is_police(service_type: ServiceType) -> bool {
         matches!(
             service_type,
-            ServiceType::PoliceStation | ServiceType::PoliceKiosk | ServiceType::PoliceHQ | ServiceType::Prison
+            ServiceType::PoliceStation
+                | ServiceType::PoliceKiosk
+                | ServiceType::PoliceHQ
+                | ServiceType::Prison
         )
     }
 
@@ -363,7 +372,9 @@ impl ServiceBuilding {
     pub fn is_airport(service_type: ServiceType) -> bool {
         matches!(
             service_type,
-            ServiceType::SmallAirstrip | ServiceType::RegionalAirport | ServiceType::InternationalAirport
+            ServiceType::SmallAirstrip
+                | ServiceType::RegionalAirport
+                | ServiceType::InternationalAirport
         )
     }
 
@@ -377,7 +388,9 @@ impl ServiceBuilding {
     pub fn is_heating(service_type: ServiceType) -> bool {
         matches!(
             service_type,
-            ServiceType::HeatingBoiler | ServiceType::DistrictHeatingPlant | ServiceType::GeothermalPlant
+            ServiceType::HeatingBoiler
+                | ServiceType::DistrictHeatingPlant
+                | ServiceType::GeothermalPlant
         )
     }
 
@@ -415,11 +428,15 @@ impl ServiceBuilding {
     /// Returns (width, height) footprint in grid cells
     pub fn footprint(service_type: ServiceType) -> (usize, usize) {
         match service_type {
-            ServiceType::FireHQ | ServiceType::PoliceHQ | ServiceType::MedicalCenter
+            ServiceType::FireHQ
+            | ServiceType::PoliceHQ
+            | ServiceType::MedicalCenter
             | ServiceType::SmallAirstrip => (3, 3),
             ServiceType::RegionalAirport => (4, 3),
             ServiceType::Prison | ServiceType::InternationalAirport => (4, 4),
-            ServiceType::SubwayStation | ServiceType::TramDepot | ServiceType::DataCenter
+            ServiceType::SubwayStation
+            | ServiceType::TramDepot
+            | ServiceType::DataCenter
             | ServiceType::DistrictHeatingPlant => (2, 2),
             ServiceType::GeothermalPlant => (3, 3),
             _ => (1, 1),

@@ -67,6 +67,7 @@ const RENT_AFFORDABILITY_THRESHOLD: f32 = 1000.0;
 /// - They cannot afford rent (savings < 0 and salary < threshold).
 ///
 /// Runs every `CHECK_INTERVAL` ticks.
+#[allow(clippy::type_complexity)]
 pub fn check_homelessness(
     mut commands: Commands,
     tick: Res<TickCounter>,
@@ -77,7 +78,7 @@ pub fn check_homelessness(
     >,
     mut stats: ResMut<HomelessnessStats>,
 ) {
-    if tick.0 % CHECK_INTERVAL != 0 {
+    if !tick.0.is_multiple_of(CHECK_INTERVAL) {
         return;
     }
 
@@ -87,11 +88,8 @@ pub fn check_homelessness(
         let mut should_be_homeless = false;
 
         // Check 1: home building is a placeholder (never assigned or cleared)
-        if home.building == Entity::PLACEHOLDER {
-            should_be_homeless = true;
-        }
         // Check 2: home building entity has been despawned
-        else if buildings.get(home.building).is_err() {
+        if home.building == Entity::PLACEHOLDER || buildings.get(home.building).is_err() {
             should_be_homeless = true;
         }
 
@@ -132,7 +130,7 @@ pub fn seek_shelter(
     mut shelters: Query<&mut HomelessShelter>,
     mut stats: ResMut<HomelessnessStats>,
 ) {
-    if tick.0 % CHECK_INTERVAL != 0 {
+    if !tick.0.is_multiple_of(CHECK_INTERVAL) {
         return;
     }
 
@@ -187,7 +185,7 @@ pub fn recover_from_homelessness(
     mut shelters: Query<&mut HomelessShelter>,
     mut stats: ResMut<HomelessnessStats>,
 ) {
-    if tick.0 % CHECK_INTERVAL != 0 {
+    if !tick.0.is_multiple_of(CHECK_INTERVAL) {
         return;
     }
 

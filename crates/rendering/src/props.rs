@@ -65,7 +65,9 @@ pub fn spawn_tree_props(
                     (gx + 1, gy),
                     (gx, gy.wrapping_sub(1)),
                     (gx, gy + 1),
-                ].iter().any(|&(nx, ny)| {
+                ]
+                .iter()
+                .any(|&(nx, ny)| {
                     nx < width && ny < height && grid.get(nx, ny).cell_type != CellType::Road
                 });
 
@@ -81,12 +83,15 @@ pub fn spawn_tree_props(
                         let mut off_z: f32 = 0.0;
                         if gx > 0 && grid.get(gx - 1, gy).cell_type != CellType::Road {
                             off_x = -CELL_SIZE * 0.35;
-                        } else if gx + 1 < width && grid.get(gx + 1, gy).cell_type != CellType::Road {
+                        } else if gx + 1 < width && grid.get(gx + 1, gy).cell_type != CellType::Road
+                        {
                             off_x = CELL_SIZE * 0.35;
                         }
                         if gy > 0 && grid.get(gx, gy - 1).cell_type != CellType::Road {
                             off_z = -CELL_SIZE * 0.35;
-                        } else if gy + 1 < height && grid.get(gx, gy + 1).cell_type != CellType::Road {
+                        } else if gy + 1 < height
+                            && grid.get(gx, gy + 1).cell_type != CellType::Road
+                        {
                             off_z = CELL_SIZE * 0.35;
                         }
 
@@ -257,9 +262,14 @@ pub fn spawn_parked_cars(
     for gy in 1..height.saturating_sub(1) {
         for gx in 1..width.saturating_sub(1) {
             let cell = grid.get(gx, gy);
-            if cell.cell_type != CellType::Road { continue; }
+            if cell.cell_type != CellType::Road {
+                continue;
+            }
             // Only local and avenue roads get parked cars (not highways/paths)
-            if !matches!(cell.road_type, RoadType::Local | RoadType::Avenue | RoadType::OneWay) {
+            if !matches!(
+                cell.road_type,
+                RoadType::Local | RoadType::Avenue | RoadType::OneWay
+            ) {
                 continue;
             }
 
@@ -269,7 +279,9 @@ pub fn spawn_parked_cars(
                 (gx + 1, gy),
                 (gx, gy.wrapping_sub(1)),
                 (gx, gy + 1),
-            ].iter().any(|&(nx, ny)| {
+            ]
+            .iter()
+            .any(|&(nx, ny)| {
                 if nx < width && ny < height {
                     let nc = grid.get(nx, ny);
                     nc.zone != ZoneType::None && nc.cell_type != CellType::Road
@@ -277,11 +289,15 @@ pub fn spawn_parked_cars(
                     false
                 }
             });
-            if !adj_zoned { continue; }
+            if !adj_zoned {
+                continue;
+            }
 
             // ~20% of eligible road cells get a parked car
             let car_hash = gx.wrapping_mul(67).wrapping_add(gy.wrapping_mul(71)) % 100;
-            if car_hash >= 20 { continue; }
+            if car_hash >= 20 {
+                continue;
+            }
 
             let (wx, _) = WorldGrid::grid_to_world(gx, gy);
             let wz = gy as f32 * CELL_SIZE + CELL_SIZE * 0.5;

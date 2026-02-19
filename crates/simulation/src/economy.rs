@@ -6,11 +6,10 @@ use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::services::ServiceBuilding;
 use crate::time_of_day::GameClock;
 
-
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct CityBudget {
     pub treasury: f64,
-    pub tax_rate: f32,          // 0.0..1.0
+    pub tax_rate: f32, // 0.0..1.0
     pub monthly_income: f64,
     pub monthly_expenses: f64,
     pub last_collection_day: u32,
@@ -30,11 +29,7 @@ impl Default for CityBudget {
 
 /// Compute property tax for a single building.
 /// Formula: land_value * building_level * tax_rate
-pub fn property_tax_for_building(
-    land_value: f64,
-    building_level: u8,
-    tax_rate: f32,
-) -> f64 {
+pub fn property_tax_for_building(land_value: f64, building_level: u8, tax_rate: f32) -> f64 {
     land_value * building_level as f64 * tax_rate as f64
 }
 

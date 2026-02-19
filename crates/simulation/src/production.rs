@@ -142,7 +142,7 @@ impl GoodsType {
 /// each input and produces `output_ratio` units of each output per worker per tick.
 #[derive(Debug, Clone)]
 pub struct ProductionChain {
-    pub inputs: Vec<(GoodsType, f32)>,  // (goods, amount consumed per unit of production)
+    pub inputs: Vec<(GoodsType, f32)>, // (goods, amount consumed per unit of production)
     pub outputs: Vec<(GoodsType, f32)>, // (goods, amount produced per unit of production)
 }
 
@@ -185,17 +185,11 @@ fn chain_for(industry: IndustryType) -> ProductionChain {
         },
         // Manufacturing: refined -> consumer/electronics
         IndustryType::Manufacturing => ProductionChain {
-            inputs: vec![
-                (GoodsType::Steel, 0.5),
-                (GoodsType::Lumber, 0.3),
-            ],
+            inputs: vec![(GoodsType::Steel, 0.5), (GoodsType::Lumber, 0.3)],
             outputs: vec![(GoodsType::ConsumerGoods, 1.2)],
         },
         IndustryType::TechAssembly => ProductionChain {
-            inputs: vec![
-                (GoodsType::Steel, 0.8),
-                (GoodsType::Fuel, 0.3),
-            ],
+            inputs: vec![(GoodsType::Steel, 0.8), (GoodsType::Fuel, 0.3)],
             outputs: vec![(GoodsType::Electronics, 0.6)],
         },
     }
@@ -289,13 +283,12 @@ pub fn assign_industry_type(
             continue;
         }
 
-        let industry_type = pick_industry_from_nearby_resources(
-            building.grid_x,
-            building.grid_y,
-            &resource_grid,
-        );
+        let industry_type =
+            pick_industry_from_nearby_resources(building.grid_x, building.grid_y, &resource_grid);
 
-        commands.entity(entity).insert(IndustryBuilding::new(industry_type));
+        commands
+            .entity(entity)
+            .insert(IndustryBuilding::new(industry_type));
     }
 }
 
@@ -327,7 +320,7 @@ fn pick_industry_from_nearby_resources(
     if counts.is_empty() {
         // No resources nearby: use a hash-based split between Manufacturing and TechAssembly
         let hash = gx.wrapping_mul(31).wrapping_add(gy.wrapping_mul(17));
-        return if hash % 3 == 0 {
+        return if hash.is_multiple_of(3) {
             IndustryType::TechAssembly
         } else {
             IndustryType::Manufacturing
@@ -339,7 +332,7 @@ fn pick_industry_from_nearby_resources(
 
     // Decide between extraction and processing based on a position hash
     let hash = gx.wrapping_mul(13).wrapping_add(gy.wrapping_mul(7));
-    let prefer_processing = hash % 3 == 0; // ~33% chance of processing variant
+    let prefer_processing = hash.is_multiple_of(3); // ~33% chance of processing variant
 
     match best_resource {
         ResourceType::FertileLand => {
@@ -390,7 +383,7 @@ pub fn update_production_chains(
     stats: Res<crate::stats::CityStats>,
     mut budget: ResMut<CityBudget>,
 ) {
-    if tick.0 % PRODUCTION_INTERVAL != 0 {
+    if !tick.0.is_multiple_of(PRODUCTION_INTERVAL) {
         return;
     }
 
@@ -434,9 +427,7 @@ pub fn update_production_chains(
         let worker_ratio = (industry.workers as f32 / building.capacity.max(1) as f32).min(1.0);
 
         // Get average education of workers at this building (0-3 scale)
-        let avg_edu = if let Some(&(count, total_edu)) =
-            building_worker_info.get(&entity)
-        {
+        let avg_edu = if let Some(&(count, total_edu)) = building_worker_info.get(&entity) {
             if count > 0 {
                 total_edu / count as f32
             } else {
@@ -538,7 +529,7 @@ pub fn update_production_chains(
         if stock > 100.0 {
             let surplus = stock - 100.0;
             trade_balance += surplus as f64 * g.export_price() * 0.01; // per-tick fraction
-            // Cap stockpile at 100 (export the rest)
+                                                                       // Cap stockpile at 100 (export the rest)
             city_goods.available.insert(g, 100.0);
         }
         // Deficit: if stock is negative (shouldn't normally happen) or very low,

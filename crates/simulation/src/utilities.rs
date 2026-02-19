@@ -23,15 +23,20 @@ impl UtilityType {
     pub fn is_power(self) -> bool {
         matches!(
             self,
-            UtilityType::PowerPlant | UtilityType::SolarFarm | UtilityType::WindTurbine
-                | UtilityType::NuclearPlant | UtilityType::Geothermal
+            UtilityType::PowerPlant
+                | UtilityType::SolarFarm
+                | UtilityType::WindTurbine
+                | UtilityType::NuclearPlant
+                | UtilityType::Geothermal
         )
     }
     pub fn is_water(self) -> bool {
         matches!(
             self,
-            UtilityType::WaterTower | UtilityType::SewagePlant
-                | UtilityType::PumpingStation | UtilityType::WaterTreatment
+            UtilityType::WaterTower
+                | UtilityType::SewagePlant
+                | UtilityType::PumpingStation
+                | UtilityType::WaterTreatment
         )
     }
 
@@ -98,7 +103,12 @@ pub fn propagate_utilities(
     }
 }
 
-fn bfs_propagate(grid: &mut WorldGrid, source: &UtilitySource, effective_range: u32, visited: &mut [bool]) {
+fn bfs_propagate(
+    grid: &mut WorldGrid,
+    source: &UtilitySource,
+    effective_range: u32,
+    visited: &mut [bool],
+) {
     let width = grid.width;
     visited.fill(false);
     let mut queue = VecDeque::new();

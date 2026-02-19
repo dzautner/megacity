@@ -25,12 +25,12 @@ pub enum ZoneType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum RoadType {
     #[default]
-    Local,      // 2-lane, speed 30, $10, enables zoning
-    Avenue,     // 4-lane, speed 50, $20, enables zoning
-    Boulevard,  // 6-lane, speed 60, $30, enables zoning
-    Highway,    // 4-lane divided, speed 100, $40, NO zoning, high noise
-    OneWay,     // 2-lane one-way, speed 40, $15
-    Path,       // pedestrian, speed 5, $5, no vehicles
+    Local, // 2-lane, speed 30, $10, enables zoning
+    Avenue,    // 4-lane, speed 50, $20, enables zoning
+    Boulevard, // 6-lane, speed 60, $30, enables zoning
+    Highway,   // 4-lane divided, speed 100, $40, NO zoning, high noise
+    OneWay,    // 2-lane one-way, speed 40, $15
+    Path,      // pedestrian, speed 5, $5, no vehicles
 }
 
 impl RoadType {
@@ -68,7 +68,10 @@ impl RoadType {
     }
 
     pub fn allows_zoning(self) -> bool {
-        matches!(self, RoadType::Local | RoadType::Avenue | RoadType::Boulevard)
+        matches!(
+            self,
+            RoadType::Local | RoadType::Avenue | RoadType::Boulevard
+        )
     }
 
     pub fn allows_vehicles(self) -> bool {
@@ -108,7 +111,10 @@ impl ZoneType {
     pub fn max_level(self) -> u8 {
         match self {
             ZoneType::ResidentialLow | ZoneType::CommercialLow => 3,
-            ZoneType::ResidentialHigh | ZoneType::CommercialHigh | ZoneType::Industrial | ZoneType::Office => 5,
+            ZoneType::ResidentialHigh
+            | ZoneType::CommercialHigh
+            | ZoneType::Industrial
+            | ZoneType::Office => 5,
             ZoneType::None => 0,
         }
     }

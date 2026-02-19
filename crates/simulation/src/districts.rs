@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use bevy::ecs::query::With;
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -63,7 +63,13 @@ pub fn aggregate_districts(
     slow_tick: Res<crate::SlowTickTimer>,
     mut districts: ResMut<Districts>,
     buildings: Query<&crate::buildings::Building>,
-    citizens: Query<(&crate::citizen::CitizenDetails, &crate::citizen::HomeLocation), With<crate::citizen::Citizen>>,
+    citizens: Query<
+        (
+            &crate::citizen::CitizenDetails,
+            &crate::citizen::HomeLocation,
+        ),
+        With<crate::citizen::Citizen>,
+    >,
     _grid: Res<crate::grid::WorldGrid>,
 ) {
     if !slow_tick.should_run() {
@@ -114,7 +120,8 @@ pub fn aggregate_districts(
     }
     for i in 0..districts.data.len() {
         if district_citizen_count[i] > 0 {
-            districts.data[i].avg_happiness = district_happiness_sum[i] / district_citizen_count[i] as f32;
+            districts.data[i].avg_happiness =
+                district_happiness_sum[i] / district_citizen_count[i] as f32;
         }
     }
 }
@@ -124,7 +131,7 @@ pub fn aggregate_districts(
 // ============================================================================
 
 /// Per-district policy overrides that players can configure.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DistrictPolicies {
     /// Override tax rate for this district (None = use city-wide rate).
     pub tax_rate: Option<f32>,
@@ -134,17 +141,6 @@ pub struct DistrictPolicies {
     pub noise_ordinance: bool,
     /// Whether heavy industry is banned in this district.
     pub heavy_industry_ban: bool,
-}
-
-impl Default for DistrictPolicies {
-    fn default() -> Self {
-        Self {
-            tax_rate: None,
-            speed_limit: None,
-            noise_ordinance: false,
-            heavy_industry_ban: false,
-        }
-    }
 }
 
 /// Computed per-district statistics (updated by the district_stats system).
@@ -271,7 +267,10 @@ pub fn district_stats(
     mut district_map: ResMut<DistrictMap>,
     buildings: Query<&crate::buildings::Building>,
     citizens: Query<
-        (&crate::citizen::CitizenDetails, &crate::citizen::HomeLocation),
+        (
+            &crate::citizen::CitizenDetails,
+            &crate::citizen::HomeLocation,
+        ),
         With<crate::citizen::Citizen>,
     >,
     crime_grid: Res<crate::crime::CrimeGrid>,

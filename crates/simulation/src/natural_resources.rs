@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{GRID_WIDTH, GRID_HEIGHT};
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResourceType {
@@ -36,7 +36,7 @@ pub struct ResourceGrid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceDeposit {
     pub resource_type: ResourceType,
-    pub amount: u32,   // Remaining amount (finite resources deplete)
+    pub amount: u32, // Remaining amount (finite resources deplete)
     pub max_amount: u32,
 }
 
@@ -90,7 +90,12 @@ impl ResourceBalance {
     /// Trade income/cost from surplus/deficit. Surplus = export income, deficit = import cost
     pub fn trade_balance(&self) -> f64 {
         let mut balance = 0.0f64;
-        for &rt in &[ResourceType::FertileLand, ResourceType::Forest, ResourceType::Ore, ResourceType::Oil] {
+        for &rt in &[
+            ResourceType::FertileLand,
+            ResourceType::Forest,
+            ResourceType::Ore,
+            ResourceType::Oil,
+        ] {
             let surplus = self.surplus(rt);
             if surplus > 0.0 {
                 balance += surplus as f64 * 3.0; // Export income per unit
@@ -111,7 +116,8 @@ pub fn generate_resources(grid: &mut ResourceGrid, elevation: &[f32], seed: u32)
         for x in 0..width {
             let elev = elevation[y * width + x];
             // Simple deterministic placement based on position hash + elevation
-            let hash = (x.wrapping_mul(seed as usize + 7) ^ y.wrapping_mul(seed as usize + 13)) % 1000;
+            let hash =
+                (x.wrapping_mul(seed as usize + 7) ^ y.wrapping_mul(seed as usize + 13)) % 1000;
 
             if elev < 0.35 {
                 continue; // Water - no resources
@@ -207,8 +213,8 @@ pub fn update_resource_production(
 
     // Consumption based on population
     let pop = stats.population as f32;
-    balance.food_consumption = pop * 0.02;    // Each citizen needs food
+    balance.food_consumption = pop * 0.02; // Each citizen needs food
     balance.timber_consumption = pop * 0.005; // Construction materials
-    balance.metal_consumption = pop * 0.003;  // Manufactured goods
-    balance.fuel_consumption = pop * 0.004;   // Energy supplement
+    balance.metal_consumption = pop * 0.003; // Manufactured goods
+    balance.fuel_consumption = pop * 0.004; // Energy supplement
 }

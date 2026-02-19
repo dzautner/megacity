@@ -36,10 +36,8 @@ pub fn sync_road_segment_meshes(
     }
 
     // Collect existing segment IDs
-    let existing_ids: Vec<(Entity, SegmentId)> = existing
-        .iter()
-        .map(|(e, m)| (e, m.segment_id))
-        .collect();
+    let existing_ids: Vec<(Entity, SegmentId)> =
+        existing.iter().map(|(e, m)| (e, m.segment_id)).collect();
 
     // Despawn meshes for segments that no longer exist
     for (entity, id) in &existing_ids {
@@ -50,7 +48,8 @@ pub fn sync_road_segment_meshes(
 
     // Helper: check if a node is a junction (2+ connected segments)
     let is_junction = |node_id: SegmentNodeId| -> bool {
-        store.get_node(node_id)
+        store
+            .get_node(node_id)
             .map(|n| n.connected_segments.len() >= 2)
             .unwrap_or(false)
     };
@@ -71,8 +70,16 @@ pub fn sync_road_segment_meshes(
             RoadType::Boulevard => 8.0,
             RoadType::Highway => 10.0,
         };
-        let trim_start = if is_junction(segment.start_node) { road_half_w * 1.2 } else { 0.0 };
-        let trim_end = if is_junction(segment.end_node) { road_half_w * 1.2 } else { 0.0 };
+        let trim_start = if is_junction(segment.start_node) {
+            road_half_w * 1.2
+        } else {
+            0.0
+        };
+        let trim_end = if is_junction(segment.end_node) {
+            road_half_w * 1.2
+        } else {
+            0.0
+        };
 
         let mesh = tessellate_road_segment(
             &segment.p0,
@@ -150,13 +157,19 @@ pub fn sync_road_segment_meshes(
                 };
                 max_road_hw = max_road_hw.max(rhw);
                 max_total_hw = max_total_hw.max(rhw + sw);
-                for j in 0..4 { avg_asphalt[j] += asph[j]; }
+                for j in 0..4 {
+                    avg_asphalt[j] += asph[j];
+                }
                 count += 1.0;
             }
         }
 
-        if count < 1.0 { continue; }
-        for j in 0..4 { avg_asphalt[j] /= count; }
+        if count < 1.0 {
+            continue;
+        }
+        for val in &mut avg_asphalt {
+            *val /= count;
+        }
 
         let sidewalk_color: [f32; 4] = [0.58, 0.56, 0.53, 1.0];
 
@@ -259,6 +272,7 @@ fn build_intersection_disc(
 }
 
 /// Tessellate a road segment into a triangle strip mesh with sidewalks and lane markings.
+#[allow(clippy::too_many_arguments)]
 fn tessellate_road_segment(
     p0: &Vec2,
     p1: &Vec2,
@@ -298,18 +312,18 @@ fn tessellate_road_segment(
 
     // Asphalt color varies by road type (high contrast)
     let asphalt: [f32; 4] = match road_type {
-        RoadType::Highway => [0.10, 0.10, 0.12, 1.0],     // very dark — fresh asphalt
+        RoadType::Highway => [0.10, 0.10, 0.12, 1.0], // very dark — fresh asphalt
         RoadType::Boulevard => [0.16, 0.16, 0.20, 1.0],
         RoadType::Avenue => [0.22, 0.22, 0.25, 1.0],
         RoadType::Local | RoadType::OneWay => [0.32, 0.32, 0.34, 1.0], // lighter, worn
-        RoadType::Path => [0.52, 0.47, 0.36, 1.0],         // sandy/gravel
+        RoadType::Path => [0.52, 0.47, 0.36, 1.0],                     // sandy/gravel
     };
 
     // Sidewalk color
     let sidewalk_color: [f32; 4] = match road_type {
-        RoadType::Path => [0.42, 0.40, 0.34, 1.0],  // dirt shoulder
+        RoadType::Path => [0.42, 0.40, 0.34, 1.0], // dirt shoulder
         RoadType::Highway => [0.35, 0.35, 0.33, 1.0], // gravel shoulder
-        _ => [0.58, 0.56, 0.53, 1.0],                 // concrete sidewalk
+        _ => [0.58, 0.56, 0.53, 1.0],              // concrete sidewalk
     };
 
     // Curb color (border between sidewalk and road)
@@ -410,7 +424,10 @@ fn tessellate_road_segment(
             &mut colors,
             &mut uvs,
             &mut indices,
-            *p0, *p1, *p2, *p3,
+            *p0,
+            *p1,
+            *p2,
+            *p3,
             road_type,
             road_half_w,
             arc_length,
@@ -466,76 +483,191 @@ fn add_curve_lane_markings(
         RoadType::Local | RoadType::OneWay => {
             // Dashed white center line
             generate_dashed_line_along_curve(
-                positions, normals, colors, uvs, indices,
-                p0, p1, p2, p3,
+                positions,
+                normals,
+                colors,
+                uvs,
+                indices,
+                p0,
+                p1,
+                p2,
+                p3,
                 0.0, // center offset
-                line_hw, y, arc_length, step, total_steps,
-                dash_len, gap_len, white, trim_start, trim_end,
+                line_hw,
+                y,
+                arc_length,
+                step,
+                total_steps,
+                dash_len,
+                gap_len,
+                white,
+                trim_start,
+                trim_end,
             );
         }
         RoadType::Avenue => {
             // Double yellow center lines
             let offset = 0.3;
             generate_solid_line_along_curve(
-                positions, normals, colors, uvs, indices,
-                p0, p1, p2, p3,
-                -offset, line_hw, y, arc_length, step, total_steps, yellow,
-                trim_start, trim_end,
+                positions,
+                normals,
+                colors,
+                uvs,
+                indices,
+                p0,
+                p1,
+                p2,
+                p3,
+                -offset,
+                line_hw,
+                y,
+                arc_length,
+                step,
+                total_steps,
+                yellow,
+                trim_start,
+                trim_end,
             );
             generate_solid_line_along_curve(
-                positions, normals, colors, uvs, indices,
-                p0, p1, p2, p3,
-                offset, line_hw, y, arc_length, step, total_steps, yellow,
-                trim_start, trim_end,
+                positions,
+                normals,
+                colors,
+                uvs,
+                indices,
+                p0,
+                p1,
+                p2,
+                p3,
+                offset,
+                line_hw,
+                y,
+                arc_length,
+                step,
+                total_steps,
+                yellow,
+                trim_start,
+                trim_end,
             );
         }
         RoadType::Boulevard => {
             // Wide green median strip
             let median_hw = 1.5;
             generate_solid_line_along_curve(
-                positions, normals, colors, uvs, indices,
-                p0, p1, p2, p3,
-                0.0, median_hw, y - 0.01, arc_length, step, total_steps,
-                [0.30, 0.42, 0.25, 1.0], trim_start, trim_end,
+                positions,
+                normals,
+                colors,
+                uvs,
+                indices,
+                p0,
+                p1,
+                p2,
+                p3,
+                0.0,
+                median_hw,
+                y - 0.01,
+                arc_length,
+                step,
+                total_steps,
+                [0.30, 0.42, 0.25, 1.0],
+                trim_start,
+                trim_end,
             );
             // Dashed white lane lines
             let lane_w = road_half_w * 0.45;
             for &off in &[-lane_w, lane_w] {
                 generate_dashed_line_along_curve(
-                    positions, normals, colors, uvs, indices,
-                    p0, p1, p2, p3,
-                    off, line_hw, y, arc_length, step, total_steps,
-                    dash_len, gap_len, [1.0, 1.0, 1.0, 0.35],
-                    trim_start, trim_end,
+                    positions,
+                    normals,
+                    colors,
+                    uvs,
+                    indices,
+                    p0,
+                    p1,
+                    p2,
+                    p3,
+                    off,
+                    line_hw,
+                    y,
+                    arc_length,
+                    step,
+                    total_steps,
+                    dash_len,
+                    gap_len,
+                    [1.0, 1.0, 1.0, 0.35],
+                    trim_start,
+                    trim_end,
                 );
             }
         }
         RoadType::Highway => {
             // Concrete jersey barrier in center
             generate_solid_line_along_curve(
-                positions, normals, colors, uvs, indices,
-                p0, p1, p2, p3,
-                0.0, 0.4, y + 0.02, arc_length, step, total_steps,
-                [0.55, 0.53, 0.50, 1.0], trim_start, trim_end,
+                positions,
+                normals,
+                colors,
+                uvs,
+                indices,
+                p0,
+                p1,
+                p2,
+                p3,
+                0.0,
+                0.4,
+                y + 0.02,
+                arc_length,
+                step,
+                total_steps,
+                [0.55, 0.53, 0.50, 1.0],
+                trim_start,
+                trim_end,
             );
             // Dashed white lane lines
             let lane_w = road_half_w * 0.45;
             for &off in &[-lane_w, lane_w] {
                 generate_dashed_line_along_curve(
-                    positions, normals, colors, uvs, indices,
-                    p0, p1, p2, p3,
-                    off, line_hw * 1.5, y, arc_length, step, total_steps,
-                    dash_len, gap_len, [1.0, 1.0, 1.0, 0.55],
-                    trim_start, trim_end,
+                    positions,
+                    normals,
+                    colors,
+                    uvs,
+                    indices,
+                    p0,
+                    p1,
+                    p2,
+                    p3,
+                    off,
+                    line_hw * 1.5,
+                    y,
+                    arc_length,
+                    step,
+                    total_steps,
+                    dash_len,
+                    gap_len,
+                    [1.0, 1.0, 1.0, 0.55],
+                    trim_start,
+                    trim_end,
                 );
             }
             // Solid white edge lines (wider)
             for &edge in &[-road_half_w + 0.5, road_half_w - 0.5] {
                 generate_solid_line_along_curve(
-                    positions, normals, colors, uvs, indices,
-                    p0, p1, p2, p3,
-                    edge, line_hw * 1.5, y, arc_length, step, total_steps,
-                    [1.0, 1.0, 1.0, 0.65], trim_start, trim_end,
+                    positions,
+                    normals,
+                    colors,
+                    uvs,
+                    indices,
+                    p0,
+                    p1,
+                    p2,
+                    p3,
+                    edge,
+                    line_hw * 1.5,
+                    y,
+                    arc_length,
+                    step,
+                    total_steps,
+                    [1.0, 1.0, 1.0, 0.65],
+                    trim_start,
+                    trim_end,
                 );
             }
         }
@@ -551,7 +683,10 @@ fn generate_dashed_line_along_curve(
     colors: &mut Vec<[f32; 4]>,
     uvs: &mut Vec<[f32; 2]>,
     indices: &mut Vec<u32>,
-    p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2,
+    p0: Vec2,
+    p1: Vec2,
+    p2: Vec2,
+    p3: Vec2,
     perp_offset: f32,
     half_width: f32,
     y: f32,
@@ -626,7 +761,10 @@ fn generate_solid_line_along_curve(
     colors: &mut Vec<[f32; 4]>,
     uvs: &mut Vec<[f32; 2]>,
     indices: &mut Vec<u32>,
-    p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2,
+    p0: Vec2,
+    p1: Vec2,
+    p2: Vec2,
+    p3: Vec2,
     perp_offset: f32,
     half_width: f32,
     y: f32,

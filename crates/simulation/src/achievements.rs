@@ -33,26 +33,26 @@ pub enum Achievement {
     Population1M,
 
     // Economic
-    Millionaire,              // Treasury reaches $1M
-    TradePositive100,         // Positive trade balance for 100 consecutive ticks
+    Millionaire,      // Treasury reaches $1M
+    TradePositive100, // Positive trade balance for 100 consecutive ticks
 
     // Services
-    FullPowerCoverage,        // 100% power coverage
-    FullWaterCoverage,        // 100% water coverage
+    FullPowerCoverage, // 100% power coverage
+    FullWaterCoverage, // 100% water coverage
 
     // Happiness
-    HappyCity,                // Average happiness above 80%
-    EuphoricCity,             // Average happiness above 90%
+    HappyCity,    // Average happiness above 80%
+    EuphoricCity, // Average happiness above 90%
 
     // Infrastructure
-    RoadBuilder500,           // 500 road cells
-    HighwayBuilder,           // Build a highway (have highway road type)
-    RoadDiversity,            // Have all road types (Local, Avenue, Boulevard, Highway, OneWay, Path)
+    RoadBuilder500, // 500 road cells
+    HighwayBuilder, // Build a highway (have highway road type)
+    RoadDiversity,  // Have all road types (Local, Avenue, Boulevard, Highway, OneWay, Path)
 
     // Special
-    DisasterSurvivor,         // Survive a disaster (disaster resolves)
-    FullEmployment,           // Reach 0% unemployment (rounded)
-    DiverseSpecializations,   // Have all 6 specialization scores above 20
+    DisasterSurvivor,       // Survive a disaster (disaster resolves)
+    FullEmployment,         // Reach 0% unemployment (rounded)
+    DiverseSpecializations, // Have all 6 specialization scores above 20
 }
 
 impl Achievement {
@@ -197,7 +197,7 @@ impl AchievementReward {
 // =============================================================================
 
 /// Tracks which achievements the player has unlocked and when.
-#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AchievementTracker {
     /// Maps unlocked achievements to the tick at which they were unlocked.
     pub unlocked: HashMap<Achievement, u64>,
@@ -205,16 +205,6 @@ pub struct AchievementTracker {
     pub positive_trade_ticks: u32,
     /// Whether a disaster has been survived (disaster was active and then resolved).
     pub had_active_disaster: bool,
-}
-
-impl Default for AchievementTracker {
-    fn default() -> Self {
-        Self {
-            unlocked: HashMap::new(),
-            positive_trade_ticks: 0,
-            had_active_disaster: false,
-        }
-    }
 }
 
 impl AchievementTracker {
@@ -291,10 +281,11 @@ pub fn check_achievements(
     check_population(&stats, current_tick, &mut tracker, &mut newly_unlocked);
 
     // --- Economic: Millionaire ---
-    if !tracker.is_unlocked(Achievement::Millionaire) && budget.treasury >= 1_000_000.0 {
-        if tracker.unlock(Achievement::Millionaire, current_tick) {
-            newly_unlocked.push(Achievement::Millionaire);
-        }
+    if !tracker.is_unlocked(Achievement::Millionaire)
+        && budget.treasury >= 1_000_000.0
+        && tracker.unlock(Achievement::Millionaire, current_tick)
+    {
+        newly_unlocked.push(Achievement::Millionaire);
     }
 
     // --- Trade balance tracking ---
@@ -304,10 +295,11 @@ pub fn check_achievements(
     } else {
         tracker.positive_trade_ticks = 0;
     }
-    if !tracker.is_unlocked(Achievement::TradePositive100) && tracker.positive_trade_ticks >= 100 {
-        if tracker.unlock(Achievement::TradePositive100, current_tick) {
-            newly_unlocked.push(Achievement::TradePositive100);
-        }
+    if !tracker.is_unlocked(Achievement::TradePositive100)
+        && tracker.positive_trade_ticks >= 100
+        && tracker.unlock(Achievement::TradePositive100, current_tick)
+    {
+        newly_unlocked.push(Achievement::TradePositive100);
     }
 
     // --- Services: Full power/water coverage ---
@@ -317,25 +309,24 @@ pub fn check_achievements(
     if !tracker.is_unlocked(Achievement::HappyCity)
         && stats.population > 0
         && stats.average_happiness >= 80.0
+        && tracker.unlock(Achievement::HappyCity, current_tick)
     {
-        if tracker.unlock(Achievement::HappyCity, current_tick) {
-            newly_unlocked.push(Achievement::HappyCity);
-        }
+        newly_unlocked.push(Achievement::HappyCity);
     }
     if !tracker.is_unlocked(Achievement::EuphoricCity)
         && stats.population > 0
         && stats.average_happiness >= 90.0
+        && tracker.unlock(Achievement::EuphoricCity, current_tick)
     {
-        if tracker.unlock(Achievement::EuphoricCity, current_tick) {
-            newly_unlocked.push(Achievement::EuphoricCity);
-        }
+        newly_unlocked.push(Achievement::EuphoricCity);
     }
 
     // --- Infrastructure ---
-    if !tracker.is_unlocked(Achievement::RoadBuilder500) && stats.road_cells >= 500 {
-        if tracker.unlock(Achievement::RoadBuilder500, current_tick) {
-            newly_unlocked.push(Achievement::RoadBuilder500);
-        }
+    if !tracker.is_unlocked(Achievement::RoadBuilder500)
+        && stats.road_cells >= 500
+        && tracker.unlock(Achievement::RoadBuilder500, current_tick)
+    {
+        newly_unlocked.push(Achievement::RoadBuilder500);
     }
 
     check_road_types(&grid, current_tick, &mut tracker, &mut newly_unlocked);
@@ -344,10 +335,9 @@ pub fn check_achievements(
     if !tracker.is_unlocked(Achievement::FullEmployment)
         && stats.population > 100
         && employment_stats.unemployment_rate < 0.005 // effectively 0% when rounded
+        && tracker.unlock(Achievement::FullEmployment, current_tick)
     {
-        if tracker.unlock(Achievement::FullEmployment, current_tick) {
-            newly_unlocked.push(Achievement::FullEmployment);
-        }
+        newly_unlocked.push(Achievement::FullEmployment);
     }
 
     // --- Disaster survivor ---
@@ -359,10 +349,9 @@ pub fn check_achievements(
     if !tracker.is_unlocked(Achievement::DisasterSurvivor)
         && tracker.had_active_disaster
         && active_disaster.current.is_none()
+        && tracker.unlock(Achievement::DisasterSurvivor, current_tick)
     {
-        if tracker.unlock(Achievement::DisasterSurvivor, current_tick) {
-            newly_unlocked.push(Achievement::DisasterSurvivor);
-        }
+        newly_unlocked.push(Achievement::DisasterSurvivor);
     }
 
     // --- Diverse specializations ---
@@ -370,10 +359,8 @@ pub fn check_achievements(
         let all_above_20 = CitySpecialization::ALL
             .iter()
             .all(|&spec| specializations.get(spec).score >= 20.0);
-        if all_above_20 {
-            if tracker.unlock(Achievement::DiverseSpecializations, current_tick) {
-                newly_unlocked.push(Achievement::DiverseSpecializations);
-            }
+        if all_above_20 && tracker.unlock(Achievement::DiverseSpecializations, current_tick) {
+            newly_unlocked.push(Achievement::DiverseSpecializations);
         }
     }
 
@@ -422,10 +409,11 @@ fn check_population(
     ];
 
     for &(threshold, achievement) in &milestones {
-        if !tracker.is_unlocked(achievement) && stats.population >= threshold {
-            if tracker.unlock(achievement, tick) {
-                newly_unlocked.push(achievement);
-            }
+        if !tracker.is_unlocked(achievement)
+            && stats.population >= threshold
+            && tracker.unlock(achievement, tick)
+        {
+            newly_unlocked.push(achievement);
         }
     }
 }
@@ -458,15 +446,17 @@ fn check_utility_coverage(
         let power_coverage = powered as f32 / total_zoned as f32;
         let water_coverage = watered as f32 / total_zoned as f32;
 
-        if !tracker.is_unlocked(Achievement::FullPowerCoverage) && power_coverage >= 0.999 {
-            if tracker.unlock(Achievement::FullPowerCoverage, tick) {
-                newly_unlocked.push(Achievement::FullPowerCoverage);
-            }
+        if !tracker.is_unlocked(Achievement::FullPowerCoverage)
+            && power_coverage >= 0.999
+            && tracker.unlock(Achievement::FullPowerCoverage, tick)
+        {
+            newly_unlocked.push(Achievement::FullPowerCoverage);
         }
-        if !tracker.is_unlocked(Achievement::FullWaterCoverage) && water_coverage >= 0.999 {
-            if tracker.unlock(Achievement::FullWaterCoverage, tick) {
-                newly_unlocked.push(Achievement::FullWaterCoverage);
-            }
+        if !tracker.is_unlocked(Achievement::FullWaterCoverage)
+            && water_coverage >= 0.999
+            && tracker.unlock(Achievement::FullWaterCoverage, tick)
+        {
+            newly_unlocked.push(Achievement::FullWaterCoverage);
         }
     }
 }
@@ -496,17 +486,19 @@ fn check_road_types(
         }
     }
 
-    if !tracker.is_unlocked(Achievement::HighwayBuilder) && has_highway {
-        if tracker.unlock(Achievement::HighwayBuilder, tick) {
-            newly_unlocked.push(Achievement::HighwayBuilder);
-        }
+    if !tracker.is_unlocked(Achievement::HighwayBuilder)
+        && has_highway
+        && tracker.unlock(Achievement::HighwayBuilder, tick)
+    {
+        newly_unlocked.push(Achievement::HighwayBuilder);
     }
 
     // All 6 road types present
-    if !tracker.is_unlocked(Achievement::RoadDiversity) && road_types_found == 0b111111 {
-        if tracker.unlock(Achievement::RoadDiversity, tick) {
-            newly_unlocked.push(Achievement::RoadDiversity);
-        }
+    if !tracker.is_unlocked(Achievement::RoadDiversity)
+        && road_types_found == 0b111111
+        && tracker.unlock(Achievement::RoadDiversity, tick)
+    {
+        newly_unlocked.push(Achievement::RoadDiversity);
     }
 }
 

@@ -110,9 +110,11 @@ pub fn degrade_roads(
     }
 
     // On first run, sync condition grid with current road cells
-    let needs_sync = grid.cells.iter().enumerate().any(|(i, cell)| {
-        cell.cell_type == CellType::Road && condition_grid.conditions[i] == 0
-    });
+    let needs_sync = grid
+        .cells
+        .iter()
+        .enumerate()
+        .any(|(i, cell)| cell.cell_type == CellType::Road && condition_grid.conditions[i] == 0);
     if needs_sync {
         condition_grid.sync_with_grid(&grid);
     }
@@ -124,7 +126,7 @@ pub fn degrade_roads(
             }
 
             let traffic_level = traffic.get(x, y);
-            let degradation = (traffic_level as u16 * 2 + 1).min(255) as u8;
+            let degradation = (traffic_level * 2 + 1).min(255) as u8;
             let current = condition_grid.get(x, y);
             condition_grid.set(x, y, current.saturating_sub(degradation));
         }
@@ -234,7 +236,11 @@ mod tests {
         let grid = make_grid_with_road(10, 10);
         let mut cond = RoadConditionGrid::default();
         cond.sync_with_grid(&grid);
-        assert_eq!(cond.get(10, 10), 200, "Road cell should be initialized to 200");
+        assert_eq!(
+            cond.get(10, 10),
+            200,
+            "Road cell should be initialized to 200"
+        );
         assert_eq!(cond.get(0, 0), 0, "Non-road cell should remain 0");
     }
 
@@ -361,6 +367,9 @@ mod tests {
         let repair_normal = (budget_level_normal * 5.0) as u8;
         let repair_double = (budget_level_double * 5.0) as u8;
 
-        assert!(repair_double > repair_normal, "Double budget should repair faster");
+        assert!(
+            repair_double > repair_normal,
+            "Double budget should repair faster"
+        );
     }
 }

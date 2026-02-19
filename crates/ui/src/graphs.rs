@@ -51,10 +51,7 @@ pub fn record_history(
     }
 }
 
-pub fn graphs_ui(
-    mut contexts: EguiContexts,
-    history: Res<HistoryData>,
-) {
+pub fn graphs_ui(mut contexts: EguiContexts, history: Res<HistoryData>) {
     egui::Window::new("Trends")
         .default_open(false)
         .show(contexts.ctx_mut(), |ui| {
@@ -79,10 +76,7 @@ pub fn graphs_ui(
 }
 
 fn draw_sparkline(ui: &mut egui::Ui, data: &[f32], color: egui::Color32) {
-    let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(180.0, 40.0),
-        egui::Sense::hover(),
-    );
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(180.0, 40.0), egui::Sense::hover());
 
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 2.0, egui::Color32::from_gray(30));

@@ -19,7 +19,13 @@ impl RoadNetwork {
         self.place_road_typed(grid, x, y, RoadType::Local)
     }
 
-    pub fn place_road_typed(&mut self, grid: &mut WorldGrid, x: usize, y: usize, road_type: RoadType) -> bool {
+    pub fn place_road_typed(
+        &mut self,
+        grid: &mut WorldGrid,
+        x: usize,
+        y: usize,
+        road_type: RoadType,
+    ) -> bool {
         if !grid.in_bounds(x, y) {
             return false;
         }

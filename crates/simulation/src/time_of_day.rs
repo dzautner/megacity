@@ -64,10 +64,7 @@ pub fn tick_game_clock(mut clock: ResMut<GameClock>) {
 
 /// Scales the FixedUpdate timestep based on GameClock speed.
 /// Base rate is 10 Hz (100 ms). At 2x speed it becomes 50 ms, at 4x -> 25 ms, etc.
-pub fn sync_fixed_timestep(
-    clock: Res<GameClock>,
-    mut time: ResMut<Time<Fixed>>,
-) {
+pub fn sync_fixed_timestep(clock: Res<GameClock>, mut time: ResMut<Time<Fixed>>) {
     let base_hz = std::time::Duration::from_millis(100); // 10 Hz
     let effective = if clock.paused || clock.speed <= 0.0 {
         // When paused, keep the timestep but the tick_game_clock won't advance

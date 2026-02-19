@@ -270,7 +270,7 @@ pub fn assign_workplace_details(
 /// Happiness penalty for overqualified workers (per education level gap).
 const OVERQUALIFIED_HAPPINESS_PENALTY: f32 = 5.0;
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn job_matching(
     tick: Res<TickCounter>,
     mut commands: Commands,
@@ -479,8 +479,15 @@ mod tests {
         assert_eq!(slots.len(), 20);
 
         // Most slots should be unskilled.
-        let unskilled_count = slots.iter().filter(|s| s.job_type == JobType::Unskilled).count();
-        assert!(unskilled_count >= 10, "expected mostly unskilled slots, got {}", unskilled_count);
+        let unskilled_count = slots
+            .iter()
+            .filter(|s| s.job_type == JobType::Unskilled)
+            .count();
+        assert!(
+            unskilled_count >= 10,
+            "expected mostly unskilled slots, got {}",
+            unskilled_count
+        );
     }
 
     #[test]
@@ -490,8 +497,14 @@ mod tests {
         assert_eq!(slots.len(), 30);
 
         // Should have executive and professional slots.
-        let exec_count = slots.iter().filter(|s| s.job_type == JobType::Executive).count();
-        let prof_count = slots.iter().filter(|s| s.job_type == JobType::Professional).count();
+        let exec_count = slots
+            .iter()
+            .filter(|s| s.job_type == JobType::Executive)
+            .count();
+        let prof_count = slots
+            .iter()
+            .filter(|s| s.job_type == JobType::Professional)
+            .count();
         assert!(exec_count > 0, "office should have executive slots");
         assert!(prof_count > 0, "office should have professional slots");
     }
@@ -503,10 +516,22 @@ mod tests {
         assert_eq!(slots.len(), 100);
 
         // Should have a mix of service, skilled, professional, executive.
-        let service_count = slots.iter().filter(|s| s.job_type == JobType::Service).count();
-        let skilled_count = slots.iter().filter(|s| s.job_type == JobType::Skilled).count();
-        assert!(service_count > 30, "commercial high should have many service slots");
-        assert!(skilled_count > 0, "commercial high should have skilled slots");
+        let service_count = slots
+            .iter()
+            .filter(|s| s.job_type == JobType::Service)
+            .count();
+        let skilled_count = slots
+            .iter()
+            .filter(|s| s.job_type == JobType::Skilled)
+            .count();
+        assert!(
+            service_count > 30,
+            "commercial high should have many service slots"
+        );
+        assert!(
+            skilled_count > 0,
+            "commercial high should have skilled slots"
+        );
     }
 
     #[test]

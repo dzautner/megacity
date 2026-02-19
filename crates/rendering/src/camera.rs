@@ -97,7 +97,9 @@ pub fn apply_orbit_camera(
         return;
     }
     let (pos, look_at) = orbit_to_transform(&orbit);
-    let Ok(mut transform) = query.get_single_mut() else { return };
+    let Ok(mut transform) = query.get_single_mut() else {
+        return;
+    };
     *transform = Transform::from_translation(pos).looking_at(look_at, Vec3::Y);
 }
 
@@ -144,7 +146,9 @@ pub fn camera_pan_drag(
     mut drag: ResMut<CameraDrag>,
     mut orbit: ResMut<OrbitCamera>,
 ) {
-    let Ok(window) = windows.get_single() else { return };
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
     let scale = orbit.distance / 1000.0;
 
     if buttons.just_pressed(MouseButton::Middle) {
@@ -181,7 +185,9 @@ pub fn camera_orbit_drag(
     mut drag: ResMut<CameraOrbitDrag>,
     mut orbit: ResMut<OrbitCamera>,
 ) {
-    let Ok(window) = windows.get_single() else { return };
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
 
     if buttons.just_pressed(MouseButton::Right) {
         if let Some(pos) = window.cursor_position() {
@@ -211,7 +217,9 @@ pub fn camera_left_drag(
     mut left_drag: ResMut<LeftClickDrag>,
     mut orbit: ResMut<OrbitCamera>,
 ) {
-    let Ok(window) = windows.get_single() else { return };
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
     let scale = orbit.distance / 1000.0;
 
     if buttons.just_pressed(MouseButton::Left) {
@@ -254,10 +262,7 @@ pub fn camera_left_drag(
 }
 
 /// Scroll wheel: zoom (change distance).
-pub fn camera_zoom(
-    mut scroll_evts: EventReader<MouseWheel>,
-    mut orbit: ResMut<OrbitCamera>,
-) {
+pub fn camera_zoom(mut scroll_evts: EventReader<MouseWheel>, mut orbit: ResMut<OrbitCamera>) {
     for evt in scroll_evts.read() {
         let dy = match evt.unit {
             MouseScrollUnit::Line => evt.y,

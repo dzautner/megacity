@@ -14,16 +14,16 @@ use std::time::Instant;
 
 use simulation::citizen::CitizenState;
 use simulation::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
+use simulation::grid::WorldGrid;
 use simulation::happiness::ServiceCoverageGrid;
 use simulation::lod::{CompressedCitizen, LodTier};
+use simulation::road_graph_csr::{csr_find_path, CsrGraph};
+use simulation::roads::{RoadNetwork, RoadNode};
 use simulation::spatial_grid::SpatialGrid;
 use simulation::traffic::TrafficGrid;
 use simulation::virtual_population::{
     VirtualPopulation, DEFAULT_REAL_CITIZEN_CAP, MAX_REAL_CITIZENS_HARD, MIN_REAL_CITIZENS,
 };
-use simulation::grid::WorldGrid;
-use simulation::road_graph_csr::{CsrGraph, csr_find_path};
-use simulation::roads::{RoadNetwork, RoadNode};
 use simulation::{SlowTickTimer, TickCounter};
 
 use bevy::prelude::Entity;
@@ -250,13 +250,8 @@ fn test_service_coverage_grid_scale() {
             for dx in -r..=r {
                 let nx = cx as i32 + dx;
                 let ny = cy as i32 + dy;
-                if nx >= 0
-                    && nx < GRID_WIDTH as i32
-                    && ny >= 0
-                    && ny < GRID_HEIGHT as i32
-                {
-                    let dist_sq =
-                        (dx as f32 * CELL_SIZE).powi(2) + (dy as f32 * CELL_SIZE).powi(2);
+                if nx >= 0 && nx < GRID_WIDTH as i32 && ny >= 0 && ny < GRID_HEIGHT as i32 {
+                    let dist_sq = (dx as f32 * CELL_SIZE).powi(2) + (dy as f32 * CELL_SIZE).powi(2);
                     if dist_sq <= r2 {
                         let idx = ny as usize * GRID_WIDTH + nx as usize;
                         coverage.flags[idx] |= simulation::happiness::COVERAGE_HEALTH;
@@ -270,8 +265,15 @@ fn test_service_coverage_grid_scale() {
     let elapsed = start.elapsed();
 
     // Verify some coverage was set
-    let health_count: usize = coverage.flags.iter().filter(|&&v| v & simulation::happiness::COVERAGE_HEALTH != 0).count();
-    assert!(health_count > 1000, "Should have substantial health coverage");
+    let health_count: usize = coverage
+        .flags
+        .iter()
+        .filter(|&&v| v & simulation::happiness::COVERAGE_HEALTH != 0)
+        .count();
+    assert!(
+        health_count > 1000,
+        "Should have substantial health coverage"
+    );
 
     // Clear
     coverage.clear();
@@ -320,8 +322,14 @@ fn test_tick_counter_throttling() {
         }
     }
 
-    assert_eq!(happiness_runs, 100, "Happiness should run 100 times in 1000 ticks");
-    assert_eq!(traffic_runs, 200, "Traffic should run 200 times in 1000 ticks");
+    assert_eq!(
+        happiness_runs, 100,
+        "Happiness should run 100 times in 1000 ticks"
+    );
+    assert_eq!(
+        traffic_runs, 200,
+        "Traffic should run 200 times in 1000 ticks"
+    );
     assert_eq!(slow_runs, 10, "SlowTick should run 10 times in 1000 ticks");
 }
 
@@ -477,7 +485,8 @@ fn test_full_1m_tick_budget() {
     assert!(total_h > 0.0);
 
     // Per-tick budget: everything except virtual pop init (which is one-time)
-    let per_tick_us = spatial_time.as_micros() + traffic_time.as_micros() + happiness_time.as_micros();
+    let per_tick_us =
+        spatial_time.as_micros() + traffic_time.as_micros() + happiness_time.as_micros();
 
     // Must complete in well under the 100ms FixedUpdate budget
     // (these are just the grid operations; actual ECS queries add overhead but
@@ -489,12 +498,27 @@ fn test_full_1m_tick_budget() {
     );
 
     println!("=== 1M City Tick Budget ===");
-    println!("Virtual pop init (one-time): {}ms", virtual_time.as_millis());
-    println!("Spatial grid 50K rebuild:    {}us", spatial_time.as_micros());
-    println!("Traffic 10K writes:          {}us", traffic_time.as_micros());
-    println!("Happiness 50K lookups:       {}us", happiness_time.as_micros());
+    println!(
+        "Virtual pop init (one-time): {}ms",
+        virtual_time.as_millis()
+    );
+    println!(
+        "Spatial grid 50K rebuild:    {}us",
+        spatial_time.as_micros()
+    );
+    println!(
+        "Traffic 10K writes:          {}us",
+        traffic_time.as_micros()
+    );
+    println!(
+        "Happiness 50K lookups:       {}us",
+        happiness_time.as_micros()
+    );
     println!("Total per-tick grid work:    {}us", per_tick_us);
-    println!("Tick budget remaining:       {}ms", 100 - per_tick_us / 1000);
+    println!(
+        "Tick budget remaining:       {}ms",
+        100 - per_tick_us / 1000
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -518,11 +542,17 @@ fn test_throttle_ratios_at_scale() {
 
     // Traffic: every 5 ticks → 32 runs/sec
     let traffic_per_sec = ticks_per_sec / 5.0;
-    assert!(traffic_per_sec <= 32.0, "Traffic should run <=32/sec at 16x");
+    assert!(
+        traffic_per_sec <= 32.0,
+        "Traffic should run <=32/sec at 16x"
+    );
 
     // Stats/zones/education/pollution: every 100 ticks → 1.6 runs/sec
     let slow_per_sec = ticks_per_sec / 100.0;
-    assert!(slow_per_sec <= 2.0, "Slow systems should run <=2/sec at 16x");
+    assert!(
+        slow_per_sec <= 2.0,
+        "Slow systems should run <=2/sec at 16x"
+    );
 
     // LOD/spatial: every 6 render frames at 60fps → 10 runs/sec (independent of sim speed)
     let lod_per_sec = 60.0 / 6.0;
@@ -561,7 +591,11 @@ fn test_pathfinding_throughput() {
     }
 
     let csr = CsrGraph::from_road_network(&network);
-    assert!(csr.node_count() > 2000, "Should have 2500 road nodes, got {}", csr.node_count());
+    assert!(
+        csr.node_count() > 2000,
+        "Should have 2500 road nodes, got {}",
+        csr.node_count()
+    );
 
     // Time 200 path queries (simulates one commute tick with batching cap)
     let start = Instant::now();
@@ -578,7 +612,11 @@ fn test_pathfinding_throughput() {
     }
     let elapsed = start.elapsed();
 
-    assert!(paths_found > 100, "Should find most paths (found {})", paths_found);
+    assert!(
+        paths_found > 100,
+        "Should find most paths (found {})",
+        paths_found
+    );
     assert!(
         elapsed.as_millis() < 100,
         "200 A* queries took {}ms, should be <100ms (avg {}us per query)",
@@ -624,7 +662,11 @@ fn test_neighbors4_allocation_free() {
     let elapsed = start.elapsed();
 
     // 256*256 = 65,536 lookups should complete in well under 50ms
-    assert!(total > 200_000, "Should have many neighbor entries (got {})", total);
+    assert!(
+        total > 200_000,
+        "Should have many neighbor entries (got {})",
+        total
+    );
     assert!(
         elapsed.as_millis() < 50,
         "65K neighbor lookups took {}ms, should be <50ms (was Vec-based before)",
@@ -632,7 +674,10 @@ fn test_neighbors4_allocation_free() {
     );
 
     println!("=== Neighbors4 Performance ===");
-    println!("65K lookups:             {}ms (allocation-free)", elapsed.as_millis());
+    println!(
+        "65K lookups:             {}ms (allocation-free)",
+        elapsed.as_millis()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -767,5 +812,8 @@ fn test_combined_1m_budget() {
     println!("Speedup:                 {:.1}x", speedup);
     println!("Typical tick:            {:.1}ms", after_typical_ms);
     println!("Budget at 16x:           {:.1}ms", budget_16x);
-    println!("Headroom:                {:.1}ms", budget_16x - after_typical_ms);
+    println!(
+        "Headroom:                {:.1}ms",
+        budget_16x - after_typical_ms
+    );
 }

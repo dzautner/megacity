@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{GRID_WIDTH, GRID_HEIGHT};
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::pollution::PollutionGrid;
 use crate::services::{ServiceBuilding, ServiceType};
 
@@ -35,7 +35,9 @@ pub fn update_health_grid(
     pollution: Res<PollutionGrid>,
     services: Query<&ServiceBuilding>,
 ) {
-    if !slow_timer.should_run() { return; }
+    if !slow_timer.should_run() {
+        return;
+    }
     // Base health level = inverse of pollution
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {

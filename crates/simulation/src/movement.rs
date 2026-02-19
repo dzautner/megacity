@@ -21,8 +21,8 @@ const MAX_PATHS_PER_TICK: usize = 64;
 const CITIZEN_SPEED: f32 = 48.0; // pixels per second (at 10Hz that's ~4.8 px/tick)
 
 // Duration limits (in ticks) for activities
-const SHOPPING_DURATION: u32 = 30;  // ~3 game minutes
-const LEISURE_DURATION: u32 = 60;   // ~6 game minutes
+const SHOPPING_DURATION: u32 = 30; // ~3 game minutes
+const LEISURE_DURATION: u32 = 60; // ~6 game minutes
 const SCHOOL_HOURS_START: u32 = 8;
 const SCHOOL_HOURS_END: u32 = 15;
 
@@ -124,14 +124,15 @@ pub fn citizen_state_machine(
 
                 // Children: go to school during school hours (with jitter)
                 if life_stage.should_attend_school()
-                    && hour >= SCHOOL_HOURS_START
-                    && hour < SCHOOL_HOURS_END
+                    && (SCHOOL_HOURS_START..SCHOOL_HOURS_END).contains(&hour)
                     && (minute % 60 == jitter % 60)
                 {
                     if let Some(dest) = find_nearest(school_spots, home.grid_x, home.grid_y, 30) {
                         commands.entity(entity).insert(PathRequest {
-                            from_gx: home.grid_x, from_gy: home.grid_y,
-                            to_gx: dest.0, to_gy: dest.1,
+                            from_gx: home.grid_x,
+                            from_gy: home.grid_y,
+                            to_gx: dest.0,
+                            to_gy: dest.1,
                             target_state: CitizenState::CommutingToSchool,
                         });
                         continue;
@@ -139,13 +140,16 @@ pub fn citizen_state_machine(
                 }
 
                 // Working adults: morning commute
-                if life_stage.can_work() && clock.is_morning_commute()
+                if life_stage.can_work()
+                    && clock.is_morning_commute()
                     && (minute % 60 == jitter % 60)
                 {
                     if let Some(work_loc) = work {
                         commands.entity(entity).insert(PathRequest {
-                            from_gx: home.grid_x, from_gy: home.grid_y,
-                            to_gx: work_loc.grid_x, to_gy: work_loc.grid_y,
+                            from_gx: home.grid_x,
+                            from_gy: home.grid_y,
+                            to_gx: work_loc.grid_x,
+                            to_gy: work_loc.grid_y,
                             target_state: CitizenState::CommutingToWork,
                         });
                         continue;
@@ -153,24 +157,30 @@ pub fn citizen_state_machine(
                 }
 
                 // Retired/unemployed: go shopping or leisure based on needs
-                if !life_stage.should_attend_school() && hour >= 10 && hour <= 20 {
+                if !life_stage.should_attend_school() && (10..=20).contains(&hour) {
                     if needs.hunger < 40.0 {
                         if let Some(dest) = find_nearest(shops, home.grid_x, home.grid_y, 25) {
                             timer.0 = 0;
                             commands.entity(entity).insert(PathRequest {
-                                from_gx: home.grid_x, from_gy: home.grid_y,
-                                to_gx: dest.0, to_gy: dest.1,
+                                from_gx: home.grid_x,
+                                from_gy: home.grid_y,
+                                to_gx: dest.0,
+                                to_gy: dest.1,
                                 target_state: CitizenState::CommutingToShop,
                             });
                             continue;
                         }
                     }
                     if needs.fun < 30.0 || needs.social < 30.0 {
-                        if let Some(dest) = find_nearest(leisure_spots, home.grid_x, home.grid_y, 25) {
+                        if let Some(dest) =
+                            find_nearest(leisure_spots, home.grid_x, home.grid_y, 25)
+                        {
                             timer.0 = 0;
                             commands.entity(entity).insert(PathRequest {
-                                from_gx: home.grid_x, from_gy: home.grid_y,
-                                to_gx: dest.0, to_gy: dest.1,
+                                from_gx: home.grid_x,
+                                from_gy: home.grid_y,
+                                to_gx: dest.0,
+                                to_gy: dest.1,
                                 target_state: CitizenState::CommutingToLeisure,
                             });
                             continue;
@@ -192,11 +202,15 @@ pub fn citizen_state_machine(
                     // After work: check if needs drive a detour
                     if needs.hunger < 35.0 {
                         if let Some(work_loc) = work {
-                            if let Some(dest) = find_nearest(shops, work_loc.grid_x, work_loc.grid_y, 20) {
+                            if let Some(dest) =
+                                find_nearest(shops, work_loc.grid_x, work_loc.grid_y, 20)
+                            {
                                 timer.0 = 0;
                                 commands.entity(entity).insert(PathRequest {
-                                    from_gx: work_loc.grid_x, from_gy: work_loc.grid_y,
-                                    to_gx: dest.0, to_gy: dest.1,
+                                    from_gx: work_loc.grid_x,
+                                    from_gy: work_loc.grid_y,
+                                    to_gx: dest.0,
+                                    to_gy: dest.1,
                                     target_state: CitizenState::CommutingToShop,
                                 });
                                 continue;
@@ -205,11 +219,15 @@ pub fn citizen_state_machine(
                     }
                     if needs.fun < 25.0 || needs.social < 25.0 {
                         if let Some(work_loc) = work {
-                            if let Some(dest) = find_nearest(leisure_spots, work_loc.grid_x, work_loc.grid_y, 20) {
+                            if let Some(dest) =
+                                find_nearest(leisure_spots, work_loc.grid_x, work_loc.grid_y, 20)
+                            {
                                 timer.0 = 0;
                                 commands.entity(entity).insert(PathRequest {
-                                    from_gx: work_loc.grid_x, from_gy: work_loc.grid_y,
-                                    to_gx: dest.0, to_gy: dest.1,
+                                    from_gx: work_loc.grid_x,
+                                    from_gy: work_loc.grid_y,
+                                    to_gx: dest.0,
+                                    to_gy: dest.1,
                                     target_state: CitizenState::CommutingToLeisure,
                                 });
                                 continue;
@@ -218,10 +236,14 @@ pub fn citizen_state_machine(
                     }
 
                     // Default: commute home
-                    let from = work.map(|w| (w.grid_x, w.grid_y)).unwrap_or((home.grid_x, home.grid_y));
+                    let from = work
+                        .map(|w| (w.grid_x, w.grid_y))
+                        .unwrap_or((home.grid_x, home.grid_y));
                     commands.entity(entity).insert(PathRequest {
-                        from_gx: from.0, from_gy: from.1,
-                        to_gx: home.grid_x, to_gy: home.grid_y,
+                        from_gx: from.0,
+                        from_gy: from.1,
+                        to_gx: home.grid_x,
+                        to_gy: home.grid_y,
                         target_state: CitizenState::CommutingHome,
                     });
                 }
@@ -247,8 +269,10 @@ pub fn citizen_state_machine(
                 timer.0 += 1;
                 if timer.0 >= SHOPPING_DURATION {
                     commands.entity(entity).insert(PathRequest {
-                        from_gx: home.grid_x, from_gy: home.grid_y,
-                        to_gx: home.grid_x, to_gy: home.grid_y,
+                        from_gx: home.grid_x,
+                        from_gy: home.grid_y,
+                        to_gx: home.grid_x,
+                        to_gy: home.grid_y,
                         target_state: CitizenState::CommutingHome,
                     });
                 }
@@ -267,8 +291,10 @@ pub fn citizen_state_machine(
                 timer.0 += 1;
                 if timer.0 >= LEISURE_DURATION || hour >= 21 {
                     commands.entity(entity).insert(PathRequest {
-                        from_gx: home.grid_x, from_gy: home.grid_y,
-                        to_gx: home.grid_x, to_gy: home.grid_y,
+                        from_gx: home.grid_x,
+                        from_gy: home.grid_y,
+                        to_gx: home.grid_x,
+                        to_gy: home.grid_y,
                         target_state: CitizenState::CommutingHome,
                     });
                 }
@@ -285,8 +311,10 @@ pub fn citizen_state_machine(
             CitizenState::AtSchool => {
                 if hour >= SCHOOL_HOURS_END {
                     commands.entity(entity).insert(PathRequest {
-                        from_gx: home.grid_x, from_gy: home.grid_y,
-                        to_gx: home.grid_x, to_gy: home.grid_y,
+                        from_gx: home.grid_x,
+                        from_gy: home.grid_y,
+                        to_gx: home.grid_x,
+                        to_gy: home.grid_y,
                         target_state: CitizenState::CommutingHome,
                     });
                 }
@@ -303,17 +331,18 @@ pub fn process_path_requests(
     csr: Res<CsrGraph>,
     mut query: Query<(Entity, &PathRequest, &mut PathCache, &mut CitizenStateComp), With<Citizen>>,
 ) {
-    let mut processed = 0;
-    for (entity, request, mut path, mut state) in &mut query {
+    for (processed, (entity, request, mut path, mut state)) in query.iter_mut().enumerate() {
         if processed >= MAX_PATHS_PER_TICK {
             break;
         }
-        processed += 1;
 
         if let Some(route) = compute_route_csr(
-            &grid, &csr,
-            request.from_gx, request.from_gy,
-            request.to_gx, request.to_gy,
+            &grid,
+            &csr,
+            request.from_gx,
+            request.from_gy,
+            request.to_gx,
+            request.to_gy,
         ) {
             *path = PathCache::new(route);
             state.0 = request.target_state;
@@ -322,6 +351,7 @@ pub fn process_path_requests(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn move_citizens(
     clock: Res<GameClock>,
     weather: Res<crate::weather::Weather>,
@@ -343,57 +373,59 @@ pub fn move_citizens(
 
     let speed_per_tick = (CITIZEN_SPEED / 10.0) * weather.travel_speed_multiplier();
 
-    query.par_iter_mut().for_each(|(entity, state, mut pos, mut vel, mut path, lod)| {
-        // Skip abstract citizens entirely
-        if lod == Some(&LodTier::Abstract) {
-            vel.x = 0.0;
-            vel.y = 0.0;
-            return;
-        }
-        // Move during any commuting state
-        if !state.0.is_commuting() {
-            vel.x = 0.0;
-            vel.y = 0.0;
-            return;
-        }
-
-        if let Some(target) = path.current_target() {
-            // Compute smoothed target using Catmull-Rom interpolation
-            let (tx, ty) = smoothed_waypoint_target(&path, *target, pos.x, pos.y);
-            let dx = tx - pos.x;
-            let dy = ty - pos.y;
-            let dist = (dx * dx + dy * dy).sqrt();
-
-            // Check arrival against the actual waypoint (not the smoothed target)
-            let (raw_tx, raw_ty) = WorldGrid::grid_to_world(target.0, target.1);
-            let raw_dist = ((raw_tx - pos.x).powi(2) + (raw_ty - pos.y).powi(2)).sqrt();
-
-            if raw_dist < speed_per_tick {
-                pos.x = raw_tx;
-                pos.y = raw_ty;
-                vel.x = dx;
-                vel.y = dy;
-                path.advance();
-            } else if dist > 0.001 {
-                let nx = dx / dist;
-                let ny = dy / dist;
-
-                // Per-entity lane offset: shift perpendicular to travel direction
-                let lane = (entity.index() % 3) as f32 - 1.0;
-                let lane_offset = lane * 2.5;
-                let perp_x = -ny;
-                let perp_y = nx;
-
-                pos.x += nx * speed_per_tick + perp_x * lane_offset * 0.02;
-                pos.y += ny * speed_per_tick + perp_y * lane_offset * 0.02;
-                vel.x = nx * speed_per_tick;
-                vel.y = ny * speed_per_tick;
+    query
+        .par_iter_mut()
+        .for_each(|(entity, state, mut pos, mut vel, mut path, lod)| {
+            // Skip abstract citizens entirely
+            if lod == Some(&LodTier::Abstract) {
+                vel.x = 0.0;
+                vel.y = 0.0;
+                return;
             }
-        } else {
-            vel.x = 0.0;
-            vel.y = 0.0;
-        }
-    });
+            // Move during any commuting state
+            if !state.0.is_commuting() {
+                vel.x = 0.0;
+                vel.y = 0.0;
+                return;
+            }
+
+            if let Some(target) = path.current_target() {
+                // Compute smoothed target using Catmull-Rom interpolation
+                let (tx, ty) = smoothed_waypoint_target(&path, *target, pos.x, pos.y);
+                let dx = tx - pos.x;
+                let dy = ty - pos.y;
+                let dist = (dx * dx + dy * dy).sqrt();
+
+                // Check arrival against the actual waypoint (not the smoothed target)
+                let (raw_tx, raw_ty) = WorldGrid::grid_to_world(target.0, target.1);
+                let raw_dist = ((raw_tx - pos.x).powi(2) + (raw_ty - pos.y).powi(2)).sqrt();
+
+                if raw_dist < speed_per_tick {
+                    pos.x = raw_tx;
+                    pos.y = raw_ty;
+                    vel.x = dx;
+                    vel.y = dy;
+                    path.advance();
+                } else if dist > 0.001 {
+                    let nx = dx / dist;
+                    let ny = dy / dist;
+
+                    // Per-entity lane offset: shift perpendicular to travel direction
+                    let lane = (entity.index() % 3) as f32 - 1.0;
+                    let lane_offset = lane * 2.5;
+                    let perp_x = -ny;
+                    let perp_y = nx;
+
+                    pos.x += nx * speed_per_tick + perp_x * lane_offset * 0.02;
+                    pos.y += ny * speed_per_tick + perp_y * lane_offset * 0.02;
+                    vel.x = nx * speed_per_tick;
+                    vel.y = ny * speed_per_tick;
+                }
+            } else {
+                vel.x = 0.0;
+                vel.y = 0.0;
+            }
+        });
 }
 
 /// Compute a smoothed waypoint target using Catmull-Rom interpolation.

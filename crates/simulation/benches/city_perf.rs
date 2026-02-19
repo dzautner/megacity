@@ -6,14 +6,14 @@
 //! Run with: cargo bench -p simulation
 //! Compare results over time to catch performance regressions.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use rand::Rng;
 
 use simulation::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
 use simulation::grid::{CellType, WorldGrid};
-use simulation::roads::{RoadNetwork, RoadNode};
-use simulation::road_graph_csr::{CsrGraph, csr_find_path};
 use simulation::pathfinding_sys::{find_path, nearest_road, nearest_road_grid};
+use simulation::road_graph_csr::{csr_find_path, CsrGraph};
+use simulation::roads::{RoadNetwork, RoadNode};
 use simulation::spatial_grid::SpatialGrid;
 use simulation::traffic::TrafficGrid;
 
@@ -58,7 +58,13 @@ fn build_realistic_roads() -> (WorldGrid, RoadNetwork) {
             let dy = (y as i32 - cy as i32).unsigned_abs() as usize;
             let dist = dx.max(dy);
 
-            let spacing = if dist < 20 { 4 } else if dist < 50 { 6 } else { 8 };
+            let spacing = if dist < 20 {
+                4
+            } else if dist < 50 {
+                6
+            } else {
+                8
+            };
 
             if x % spacing == 0 || y % spacing == 0 {
                 if grid.get(x, y).cell_type != CellType::Road {
@@ -86,7 +92,10 @@ fn bench_pathfinding(c: &mut Criterion) {
 
         // Short path (within a neighborhood)
         group.bench_with_input(
-            BenchmarkId::new("astar_short", format!("spacing{}_roads{}", spacing, road_count)),
+            BenchmarkId::new(
+                "astar_short",
+                format!("spacing{}_roads{}", spacing, road_count),
+            ),
             &network,
             |b, net| {
                 b.iter(|| {
@@ -97,7 +106,10 @@ fn bench_pathfinding(c: &mut Criterion) {
 
         // Medium path (across town)
         group.bench_with_input(
-            BenchmarkId::new("astar_medium", format!("spacing{}_roads{}", spacing, road_count)),
+            BenchmarkId::new(
+                "astar_medium",
+                format!("spacing{}_roads{}", spacing, road_count),
+            ),
             &network,
             |b, net| {
                 b.iter(|| {
@@ -108,7 +120,10 @@ fn bench_pathfinding(c: &mut Criterion) {
 
         // Long path (corner to corner, worst case)
         group.bench_with_input(
-            BenchmarkId::new("astar_long", format!("spacing{}_roads{}", spacing, road_count)),
+            BenchmarkId::new(
+                "astar_long",
+                format!("spacing{}_roads{}", spacing, road_count),
+            ),
             &network,
             |b, net| {
                 b.iter(|| {
@@ -343,7 +358,12 @@ fn bench_grid_operations(c: &mut Criterion) {
         let mut data = vec![0u8; GRID_WIDTH * GRID_HEIGHT];
         let mut rng = rand::thread_rng();
         let buildings: Vec<(usize, usize)> = (0..100)
-            .map(|_| (rng.gen_range(20..GRID_WIDTH - 20), rng.gen_range(20..GRID_HEIGHT - 20)))
+            .map(|_| {
+                (
+                    rng.gen_range(20..GRID_WIDTH - 20),
+                    rng.gen_range(20..GRID_HEIGHT - 20),
+                )
+            })
             .collect();
 
         b.iter(|| {
@@ -356,7 +376,8 @@ fn bench_grid_operations(c: &mut Criterion) {
                         let nx = cx as i32 + dx;
                         let ny = cy as i32 + dy;
                         if nx >= 0 && nx < GRID_WIDTH as i32 && ny >= 0 && ny < GRID_HEIGHT as i32 {
-                            let dist_sq = (dx as f32 * CELL_SIZE).powi(2) + (dy as f32 * CELL_SIZE).powi(2);
+                            let dist_sq =
+                                (dx as f32 * CELL_SIZE).powi(2) + (dy as f32 * CELL_SIZE).powi(2);
                             if dist_sq <= r2 {
                                 data[ny as usize * GRID_WIDTH + nx as usize] = 1;
                             }
@@ -408,11 +429,21 @@ fn bench_happiness_pattern(c: &mut Criterion) {
                     let mut total_happiness = 0.0f32;
                     for &idx in positions {
                         let mut h = 50.0f32;
-                        if coverage_health[idx] { h += 8.0; }
-                        if coverage_edu[idx] { h += 6.0; }
-                        if coverage_police[idx] { h += 5.0; }
-                        if coverage_park[idx] { h += 7.0; }
-                        if coverage_ent[idx] { h += 4.0; }
+                        if coverage_health[idx] {
+                            h += 8.0;
+                        }
+                        if coverage_edu[idx] {
+                            h += 6.0;
+                        }
+                        if coverage_police[idx] {
+                            h += 5.0;
+                        }
+                        if coverage_park[idx] {
+                            h += 7.0;
+                        }
+                        if coverage_ent[idx] {
+                            h += 4.0;
+                        }
                         h -= pollution[idx] as f32 * 0.3;
                         h += land_value[idx] as f32 * 0.05;
                         h -= traffic[idx] as f32 * 0.1;
@@ -474,7 +505,8 @@ fn bench_service_coverage(c: &mut Criterion) {
                         let nx = cx as i32 + dx;
                         let ny = cy as i32 + dy;
                         if nx >= 0 && nx < GRID_WIDTH as i32 && ny >= 0 && ny < GRID_HEIGHT as i32 {
-                            let dist_sq = (dx as f32 * CELL_SIZE).powi(2) + (dy as f32 * CELL_SIZE).powi(2);
+                            let dist_sq =
+                                (dx as f32 * CELL_SIZE).powi(2) + (dy as f32 * CELL_SIZE).powi(2);
                             if dist_sq <= r2 {
                                 grid[ny as usize * GRID_WIDTH + nx as usize] = true;
                             }
@@ -609,7 +641,16 @@ fn bench_memory_footprint(c: &mut Criterion) {
             let c3 = vec![false; GRID_WIDTH * GRID_HEIGHT];
             let c4 = vec![false; GRID_WIDTH * GRID_HEIGHT];
             let c5 = vec![false; GRID_WIDTH * GRID_HEIGHT];
-            black_box(t.density.len() + p.len() + lv.len() + c1.len() + c2.len() + c3.len() + c4.len() + c5.len());
+            black_box(
+                t.density.len()
+                    + p.len()
+                    + lv.len()
+                    + c1.len()
+                    + c2.len()
+                    + c3.len()
+                    + c4.len()
+                    + c5.len(),
+            );
         });
     });
 
@@ -692,8 +733,12 @@ fn bench_full_tick_estimate(c: &mut Criterion) {
             let mut total_h = 0.0f32;
             for &idx in &home_indices {
                 let mut h = 50.0f32;
-                if coverage[idx] { h += 8.0; }
-                if coverage[idx] { h += 6.0; }
+                if coverage[idx] {
+                    h += 8.0;
+                }
+                if coverage[idx] {
+                    h += 6.0;
+                }
                 h -= pollution[idx] as f32 * 0.3;
                 h += land_value[idx] as f32 * 0.05;
                 h = h.clamp(0.0, 100.0);

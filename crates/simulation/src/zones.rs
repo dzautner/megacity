@@ -121,13 +121,18 @@ pub fn is_adjacent_to_road(grid: &WorldGrid, x: usize, y: usize) -> bool {
     // Check within 2-cell radius so interior block cells can also have buildings
     for dy in -2i32..=2 {
         for dx in -2i32..=2 {
-            if dx == 0 && dy == 0 { continue; }
+            if dx == 0 && dy == 0 {
+                continue;
+            }
             let nx = x as i32 + dx;
             let ny = y as i32 + dy;
-            if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
-                if grid.get(nx as usize, ny as usize).cell_type == CellType::Road {
-                    return true;
-                }
+            if nx >= 0
+                && ny >= 0
+                && (nx as usize) < grid.width
+                && (ny as usize) < grid.height
+                && grid.get(nx as usize, ny as usize).cell_type == CellType::Road
+            {
+                return true;
             }
         }
     }

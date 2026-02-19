@@ -1,8 +1,8 @@
-use bevy::prelude::*;
-use crate::config::{GRID_WIDTH, GRID_HEIGHT};
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::pollution::PollutionGrid;
 use crate::services::ServiceBuilding;
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct LandValueGrid {
@@ -29,7 +29,9 @@ impl LandValueGrid {
         self.values[y * self.width + x] = val;
     }
     pub fn average(&self) -> f32 {
-        if self.values.is_empty() { return 0.0; }
+        if self.values.is_empty() {
+            return 0.0;
+        }
         let sum: u64 = self.values.iter().map(|&v| v as u64).sum();
         sum as f32 / self.values.len() as f32
     }
@@ -42,7 +44,9 @@ pub fn update_land_value(
     pollution: Res<PollutionGrid>,
     services: Query<&ServiceBuilding>,
 ) {
-    if !slow_timer.should_run() { return; }
+    if !slow_timer.should_run() {
+        return;
+    }
     // Reset to base value
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {
@@ -92,7 +96,11 @@ pub fn update_land_value(
                     let dist = dx.abs() + dy.abs();
                     let effect = (boost - dist * 2).max(0);
                     let cur = land_value.get(nx as usize, ny as usize);
-                    land_value.set(nx as usize, ny as usize, (cur as i32 + effect).min(255) as u8);
+                    land_value.set(
+                        nx as usize,
+                        ny as usize,
+                        (cur as i32 + effect).min(255) as u8,
+                    );
                 }
             }
         }

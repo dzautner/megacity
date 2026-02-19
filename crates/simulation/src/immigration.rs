@@ -151,8 +151,8 @@ pub fn compute_attractiveness(
     }
 
     let housing_factor = if total_res_capacity > 0 {
-        let vacancy_rate =
-            (total_res_capacity.saturating_sub(total_res_occupants)) as f32 / total_res_capacity as f32;
+        let vacancy_rate = (total_res_capacity.saturating_sub(total_res_occupants)) as f32
+            / total_res_capacity as f32;
         // Ideal vacancy is 5-15%. Too low = no room, too high = ghost town.
         // Peak attractiveness at ~10% vacancy
         if vacancy_rate < 0.02 {
@@ -322,8 +322,8 @@ fn spawn_immigrant_families(
         }
 
         // Pick a workplace
-        let work_idx = tick_pseudo_random(tick.wrapping_add(i as u64 * 13 + 3)) as usize
-            % workplaces.len();
+        let work_idx =
+            tick_pseudo_random(tick.wrapping_add(i as u64 * 13 + 3)) as usize % workplaces.len();
         let (work_entity, work_gx, work_gy) = workplaces[work_idx];
 
         let (home_wx, home_wy) = WorldGrid::grid_to_world(home_gx, home_gy);
@@ -331,7 +331,7 @@ fn spawn_immigrant_families(
         // Generate citizen attributes from tick-based pseudo-random
         let seed = tick.wrapping_add(i as u64 * 31);
         let age = 18 + (tick_pseudo_random(seed) % 47) as u8;
-        let gender = if tick_pseudo_random(seed.wrapping_add(1)) % 2 == 0 {
+        let gender = if tick_pseudo_random(seed.wrapping_add(1)).is_multiple_of(2) {
             Gender::Male
         } else {
             Gender::Female
@@ -376,7 +376,8 @@ fn spawn_immigrant_families(
                     happiness: 55.0, // Immigrants start slightly above neutral
                     health: 80.0 + (tick_pseudo_random(seed.wrapping_add(10)) % 20) as f32,
                     salary,
-                    savings: salary * (1.0 + (tick_pseudo_random(seed.wrapping_add(11)) % 30) as f32 / 10.0),
+                    savings: salary
+                        * (1.0 + (tick_pseudo_random(seed.wrapping_add(11)) % 30) as f32 / 10.0),
                 },
                 Personality {
                     ambition: pr(20),
@@ -517,7 +518,8 @@ mod tests {
     #[test]
     fn test_weight_sum() {
         // Weights should sum to 100
-        let total = WEIGHT_EMPLOYMENT + WEIGHT_HAPPINESS + WEIGHT_SERVICES + WEIGHT_HOUSING + WEIGHT_TAX;
+        let total =
+            WEIGHT_EMPLOYMENT + WEIGHT_HAPPINESS + WEIGHT_SERVICES + WEIGHT_HOUSING + WEIGHT_TAX;
         assert!((total - 100.0).abs() < 0.01);
     }
 

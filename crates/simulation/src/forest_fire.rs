@@ -120,7 +120,7 @@ pub fn update_forest_fire(
     wind: Res<WindState>,
     mut stats: ResMut<ForestFireStats>,
 ) {
-    if tick.0 % FIRE_UPDATE_INTERVAL != 0 {
+    if !tick.0.is_multiple_of(FIRE_UPDATE_INTERVAL) {
         return;
     }
 
@@ -233,7 +233,7 @@ pub fn update_forest_fire(
 
                 // Roads slow fire spread significantly
                 if ncell.cell_type == CellType::Road {
-                    spread_chance = spread_chance / 4;
+                    spread_chance /= 4;
                 }
 
                 // Wind influence: higher chance downwind
@@ -391,10 +391,13 @@ fn is_near_industrial(grid: &WorldGrid, x: usize, y: usize, radius: i32) -> bool
             }
             let nx = x as i32 + dx;
             let ny = y as i32 + dy;
-            if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
-                if grid.get(nx as usize, ny as usize).zone == ZoneType::Industrial {
-                    return true;
-                }
+            if nx >= 0
+                && ny >= 0
+                && (nx as usize) < GRID_WIDTH
+                && (ny as usize) < GRID_HEIGHT
+                && grid.get(nx as usize, ny as usize).zone == ZoneType::Industrial
+            {
+                return true;
             }
         }
     }

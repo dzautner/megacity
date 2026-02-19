@@ -20,6 +20,7 @@ pub struct LastUtilityStatus {
 
 /// Cached status per building, used to detect changes between ticks.
 #[derive(PartialEq, Eq, Clone, Copy)]
+#[allow(clippy::enum_variant_names)]
 enum IconKind {
     NoPower,
     NoWater,
@@ -28,8 +29,8 @@ enum IconKind {
 
 fn icon_color(kind: IconKind) -> Color {
     match kind {
-        IconKind::NoPower => Color::srgb(1.0, 0.15, 0.15),       // red
-        IconKind::NoWater => Color::srgb(0.2, 0.45, 1.0),        // blue
+        IconKind::NoPower => Color::srgb(1.0, 0.15, 0.15), // red
+        IconKind::NoWater => Color::srgb(0.2, 0.45, 1.0),  // blue
         IconKind::NoPowerNoWater => Color::srgb(1.0, 0.85, 0.1), // yellow
     }
 }

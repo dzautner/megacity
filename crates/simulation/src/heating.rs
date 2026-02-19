@@ -325,8 +325,13 @@ mod tests {
         assert!(HeatingPlantType::SmallBoiler.range() < HeatingPlantType::DistrictHeating.range());
         assert!(HeatingPlantType::DistrictHeating.range() < HeatingPlantType::Geothermal.range());
 
-        assert!(HeatingPlantType::SmallBoiler.efficiency() < HeatingPlantType::Geothermal.efficiency());
-        assert!(HeatingPlantType::SmallBoiler.cost_per_unit() > HeatingPlantType::Geothermal.cost_per_unit());
+        assert!(
+            HeatingPlantType::SmallBoiler.efficiency() < HeatingPlantType::Geothermal.efficiency()
+        );
+        assert!(
+            HeatingPlantType::SmallBoiler.cost_per_unit()
+                > HeatingPlantType::Geothermal.cost_per_unit()
+        );
     }
 
     #[test]
@@ -391,7 +396,12 @@ mod tests {
         // Heat should decay with distance
         let heat_near = heating_grid.get(101, 100);
         let heat_far = heating_grid.get(110, 100);
-        assert!(heat_near > heat_far, "heat should decay: near={} far={}", heat_near, heat_far);
+        assert!(
+            heat_near > heat_far,
+            "heat should decay: near={} far={}",
+            heat_near,
+            heat_far
+        );
     }
 
     #[test]

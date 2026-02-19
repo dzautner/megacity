@@ -45,10 +45,10 @@ impl Season {
     /// Base grass color tint for terrain rendering, varying by season.
     pub fn grass_color(self) -> [f32; 3] {
         match self {
-            Season::Spring => [0.35, 0.65, 0.15],   // Bright green with slight yellow tint
-            Season::Summer => [0.25, 0.55, 0.12],   // Lush deep green
-            Season::Autumn => [0.55, 0.40, 0.15],   // Orange/brown
-            Season::Winter => [0.75, 0.78, 0.82],   // Grey/white with slight blue tint
+            Season::Spring => [0.35, 0.65, 0.15], // Bright green with slight yellow tint
+            Season::Summer => [0.25, 0.55, 0.12], // Lush deep green
+            Season::Autumn => [0.55, 0.40, 0.15], // Orange/brown
+            Season::Winter => [0.75, 0.78, 0.82], // Grey/white with slight blue tint
         }
     }
 }
@@ -65,7 +65,7 @@ pub enum WeatherEvent {
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct Weather {
     pub season: Season,
-    pub temperature: f32,         // -10 to 40 Celsius
+    pub temperature: f32, // -10 to 40 Celsius
     pub current_event: WeatherEvent,
     pub event_days_remaining: u32,
     pub last_update_day: u32,
@@ -162,16 +162,17 @@ impl Weather {
             WeatherEvent::Rain => 0.8,
             WeatherEvent::ColdSnap => 0.7,
             _ => {
-                if self.season == Season::Winter { 0.85 } else { 1.0 }
+                if self.season == Season::Winter {
+                    0.85
+                } else {
+                    1.0
+                }
             }
         }
     }
 }
 
-pub fn update_weather(
-    clock: Res<GameClock>,
-    mut weather: ResMut<Weather>,
-) {
+pub fn update_weather(clock: Res<GameClock>, mut weather: ResMut<Weather>) {
     if clock.day == weather.last_update_day {
         return;
     }
@@ -264,7 +265,9 @@ mod tests {
         assert!(weather.power_multiplier() >= 0.5 && weather.power_multiplier() <= 2.0);
         assert!(weather.water_multiplier() >= 0.5 && weather.water_multiplier() <= 2.0);
         assert!(weather.park_multiplier() >= 0.0 && weather.park_multiplier() <= 2.0);
-        assert!(weather.travel_speed_multiplier() >= 0.3 && weather.travel_speed_multiplier() <= 1.5);
+        assert!(
+            weather.travel_speed_multiplier() >= 0.3 && weather.travel_speed_multiplier() <= 1.5
+        );
     }
 
     #[test]

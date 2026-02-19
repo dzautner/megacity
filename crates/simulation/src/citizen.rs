@@ -15,12 +15,12 @@ pub enum Gender {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LifeStage {
-    Child,       // 0-5   (stays home)
-    SchoolAge,   // 6-17  (goes to school)
-    YoungAdult,  // 18-25 (first job, education)
-    Adult,       // 26-54 (career, family)
-    Senior,      // 55-64 (working but slowing)
-    Retired,     // 65+   (no work)
+    Child,      // 0-5   (stays home)
+    SchoolAge,  // 6-17  (goes to school)
+    YoungAdult, // 18-25 (first job, education)
+    Adult,      // 26-54 (career, family)
+    Senior,     // 55-64 (working but slowing)
+    Retired,    // 65+   (no work)
 }
 
 impl LifeStage {
@@ -202,10 +202,10 @@ pub struct PathRequest {
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Personality {
-    pub ambition: f32,       // 0.0-1.0: career/education drive
-    pub sociability: f32,    // 0.0-1.0: social need weight, family size
-    pub materialism: f32,    // 0.0-1.0: money/housing quality importance
-    pub resilience: f32,     // 0.0-1.0: stress resistance, handles bad conditions
+    pub ambition: f32,    // 0.0-1.0: career/education drive
+    pub sociability: f32, // 0.0-1.0: social need weight, family size
+    pub materialism: f32, // 0.0-1.0: money/housing quality importance
+    pub resilience: f32,  // 0.0-1.0: stress resistance, handles bad conditions
 }
 
 impl Personality {
@@ -226,11 +226,11 @@ impl Personality {
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Needs {
-    pub hunger: f32,   // decays while awake, restored by eating at home / shopping
-    pub energy: f32,   // decays while awake, restored by sleeping at home
-    pub social: f32,   // decays when alone, restored by leisure / working
-    pub fun: f32,      // decays during work, restored by leisure / entertainment
-    pub comfort: f32,  // based on housing quality + utilities
+    pub hunger: f32,  // decays while awake, restored by eating at home / shopping
+    pub energy: f32,  // decays while awake, restored by sleeping at home
+    pub social: f32,  // decays when alone, restored by leisure / working
+    pub fun: f32,     // decays during work, restored by leisure / entertainment
+    pub comfort: f32, // based on housing quality + utilities
 }
 
 impl Default for Needs {
@@ -343,11 +343,7 @@ mod tests {
 
     #[test]
     fn test_path_cache() {
-        let mut path = PathCache::new(vec![
-            RoadNode(0, 0),
-            RoadNode(1, 0),
-            RoadNode(2, 0),
-        ]);
+        let mut path = PathCache::new(vec![RoadNode(0, 0), RoadNode(1, 0), RoadNode(2, 0)]);
         assert_eq!(path.current_target(), Some(&RoadNode(0, 0)));
         assert!(!path.is_complete());
 
@@ -392,6 +388,9 @@ mod tests {
 
     #[test]
     fn test_salary_for_education() {
-        assert!(CitizenDetails::base_salary_for_education(3) > CitizenDetails::base_salary_for_education(0));
+        assert!(
+            CitizenDetails::base_salary_for_education(3)
+                > CitizenDetails::base_salary_for_education(0)
+        );
     }
 }

@@ -25,23 +25,23 @@ pub struct LifeSimTimer {
     pub health_tick: u32,
 }
 
-const NEEDS_INTERVAL: u32 = 10;       // every 10 ticks (~1 game minute)
-const LIFE_EVENT_INTERVAL: u32 = 600;  // every 600 ticks (~1 game hour)
-const SALARY_INTERVAL: u32 = 43200;    // every 43200 ticks (~30 game days)
-const EDUCATION_INTERVAL: u32 = 1440;  // every 1440 ticks (~1 game day)
-const JOB_SEEK_INTERVAL: u32 = 300;    // every 300 ticks (~30 game minutes)
+const NEEDS_INTERVAL: u32 = 10; // every 10 ticks (~1 game minute)
+const LIFE_EVENT_INTERVAL: u32 = 600; // every 600 ticks (~1 game hour)
+const SALARY_INTERVAL: u32 = 43200; // every 43200 ticks (~30 game days)
+const EDUCATION_INTERVAL: u32 = 1440; // every 1440 ticks (~1 game day)
+const JOB_SEEK_INTERVAL: u32 = 300; // every 300 ticks (~30 game minutes)
 const PERSONALITY_INTERVAL: u32 = 2880; // every 2880 ticks (~2 game days)
-const HEALTH_INTERVAL: u32 = 1440;      // every 1440 ticks (~1 game day)
+const HEALTH_INTERVAL: u32 = 1440; // every 1440 ticks (~1 game day)
 
 // ---------------------------------------------------------------------------
 // Needs decay/fulfillment rates (per NEEDS_INTERVAL = 10 ticks)
 // ---------------------------------------------------------------------------
 
 // Decay rates (per interval, while active)
-const HUNGER_DECAY: f32 = 2.1;    // empty in ~8h
-const ENERGY_DECAY: f32 = 1.0;    // empty in ~16h
-const SOCIAL_DECAY: f32 = 0.23;   // empty in ~3 days
-const FUN_DECAY: f32 = 0.35;      // empty in ~2 days
+const HUNGER_DECAY: f32 = 2.1; // empty in ~8h
+const ENERGY_DECAY: f32 = 1.0; // empty in ~16h
+const SOCIAL_DECAY: f32 = 0.23; // empty in ~3 days
+const FUN_DECAY: f32 = 0.35; // empty in ~2 days
 
 // Restoration rates (per interval, at appropriate activity)
 const HUNGER_RESTORE_HOME: f32 = 8.0;
@@ -53,7 +53,7 @@ const SOCIAL_RESTORE_LEISURE: f32 = 3.0;
 const SOCIAL_RESTORE_SCHOOL: f32 = 2.0;
 const FUN_RESTORE_LEISURE: f32 = 5.0;
 const FUN_RESTORE_SHOP: f32 = 1.5;
-const FUN_DRAIN_WORK: f32 = 0.3;  // extra fun drain while working
+const FUN_DRAIN_WORK: f32 = 0.3; // extra fun drain while working
 
 // ---------------------------------------------------------------------------
 // System: update_needs
@@ -64,7 +64,12 @@ pub fn update_needs(
     mut timer: ResMut<LifeSimTimer>,
     grid: Res<WorldGrid>,
     mut citizens: Query<
-        (&CitizenStateComp, &mut Needs, &HomeLocation, &CitizenDetails),
+        (
+            &CitizenStateComp,
+            &mut Needs,
+            &HomeLocation,
+            &CitizenDetails,
+        ),
         With<Citizen>,
     >,
 ) {
@@ -162,8 +167,8 @@ pub fn education_advancement(
         // Age requirements for education levels
         let can_advance = match available_level {
             1 => details.age >= 6 && details.age <= 30,  // Elementary
-            2 => details.age >= 12 && details.age <= 35,  // High School
-            3 => details.age >= 18 && details.age <= 40,  // University
+            2 => details.age >= 12 && details.age <= 35, // High School
+            3 => details.age >= 18 && details.age <= 40, // University
             _ => false,
         };
 
@@ -293,7 +298,11 @@ fn find_matching_job(
     let preferred: &[ZoneType] = match education {
         0 => &[ZoneType::Industrial],
         1 => &[ZoneType::Industrial, ZoneType::CommercialLow],
-        2 => &[ZoneType::CommercialLow, ZoneType::CommercialHigh, ZoneType::Industrial],
+        2 => &[
+            ZoneType::CommercialLow,
+            ZoneType::CommercialHigh,
+            ZoneType::Industrial,
+        ],
         _ => &[ZoneType::Office, ZoneType::CommercialHigh],
     };
 
@@ -344,7 +353,13 @@ pub fn life_events(
     mut timer: ResMut<LifeSimTimer>,
     mut commands: Commands,
     mut citizens: Query<
-        (Entity, &mut CitizenDetails, &mut Family, &HomeLocation, &Personality),
+        (
+            Entity,
+            &mut CitizenDetails,
+            &mut Family,
+            &HomeLocation,
+            &Personality,
+        ),
         With<Citizen>,
     >,
     mut buildings: Query<&mut Building>,
@@ -371,10 +386,12 @@ pub fn life_events(
         if details.age < 20 || details.age > 55 {
             continue;
         }
-        singles_by_building
-            .entry(home.building)
-            .or_default()
-            .push((entity, details.gender, details.age, details.happiness));
+        singles_by_building.entry(home.building).or_default().push((
+            entity,
+            details.gender,
+            details.age,
+            details.happiness,
+        ));
     }
 
     // --- Marriage ---
@@ -546,11 +563,18 @@ pub fn retire_workers(
 // Success reinforces traits. Hardship builds resilience (or breaks it).
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::type_complexity)]
 pub fn evolve_personality(
     clock: Res<GameClock>,
     mut timer: ResMut<LifeSimTimer>,
     mut citizens: Query<
-        (&mut Personality, &CitizenDetails, &Needs, Option<&WorkLocation>, &Family),
+        (
+            &mut Personality,
+            &CitizenDetails,
+            &Needs,
+            Option<&WorkLocation>,
+            &Family,
+        ),
         With<Citizen>,
     >,
 ) {

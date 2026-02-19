@@ -57,6 +57,7 @@ const JOB_TRAINING_SALARY_BONUS: f32 = 50.0;
 /// - Welfare offices provide job training bonus (increase salary for unemployed citizens in radius)
 /// - Welfare offices reduce crime in radius (social safety net effect)
 /// - Tracks shelter occupancy vs capacity
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn update_welfare(
     slow_timer: Res<SlowTickTimer>,
     services: Query<&ServiceBuilding>,
@@ -126,11 +127,7 @@ pub fn update_welfare(
             for dx in -radius_cells..=radius_cells {
                 let nx = gx as i32 + dx;
                 let ny = gy as i32 + dy;
-                if nx >= 0
-                    && ny >= 0
-                    && (nx as usize) < grid.width
-                    && (ny as usize) < grid.height
-                {
+                if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
                     let dist = dx.abs() + dy.abs();
                     // Falloff with distance
                     let effect = WELFARE_CRIME_REDUCTION.saturating_sub(dist as u8 / 2);

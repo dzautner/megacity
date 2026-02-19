@@ -50,8 +50,8 @@ pub fn update_day_night_cycle(
         // so a negative X rotation tilts the light downward.
         *transform = Transform::from_rotation(Quat::from_euler(
             EulerRot::XYZ,
-            -elevation_angle,   // pitch (positive elevation_angle = higher sun = more negative X rotation)
-            azimuth,            // yaw
+            -elevation_angle, // pitch (positive elevation_angle = higher sun = more negative X rotation)
+            azimuth,          // yaw
             0.0,
         ));
     }
@@ -64,7 +64,7 @@ pub fn update_day_night_cycle(
 
 /// Compute sun illuminance and color for a given hour.
 fn sun_light_for_hour(hour: f32) -> (f32, Color) {
-    if hour >= 5.0 && hour < 7.0 {
+    if (5.0..7.0).contains(&hour) {
         // Dawn: 5:00 - 7:00
         let t = (hour - 5.0) / 2.0; // 0.0 at 5:00, 1.0 at 7:00
         let illuminance = lerp(1000.0, 10000.0, t);
@@ -74,10 +74,10 @@ fn sun_light_for_hour(hour: f32) -> (f32, Color) {
             t,
         );
         (illuminance, color)
-    } else if hour >= 7.0 && hour < 17.0 {
+    } else if (7.0..17.0).contains(&hour) {
         // Day: 7:00 - 17:00
         (10000.0, Color::srgb(1.0, 0.95, 0.9))
-    } else if hour >= 17.0 && hour < 19.0 {
+    } else if (17.0..19.0).contains(&hour) {
         // Dusk: 17:00 - 19:00
         let t = (hour - 17.0) / 2.0; // 0.0 at 17:00, 1.0 at 19:00
         let illuminance = lerp(10000.0, 1000.0, t);
@@ -95,7 +95,7 @@ fn sun_light_for_hour(hour: f32) -> (f32, Color) {
 
 /// Compute ambient light brightness and color for a given hour.
 fn ambient_light_for_hour(hour: f32) -> (f32, Color) {
-    if hour >= 5.0 && hour < 7.0 {
+    if (5.0..7.0).contains(&hour) {
         // Dawn transition
         let t = (hour - 5.0) / 2.0;
         let brightness = lerp(50.0, 300.0, t);
@@ -105,10 +105,10 @@ fn ambient_light_for_hour(hour: f32) -> (f32, Color) {
             t,
         );
         (brightness, color)
-    } else if hour >= 7.0 && hour < 17.0 {
+    } else if (7.0..17.0).contains(&hour) {
         // Day
         (300.0, Color::srgb(0.9, 0.9, 1.0))
-    } else if hour >= 17.0 && hour < 19.0 {
+    } else if (17.0..19.0).contains(&hour) {
         // Dusk transition
         let t = (hour - 17.0) / 2.0;
         let brightness = lerp(300.0, 50.0, t);

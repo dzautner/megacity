@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use crate::config::{GRID_WIDTH, GRID_HEIGHT};
 use crate::buildings::Building;
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::services::{ServiceBuilding, ServiceType};
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct GarbageGrid {
@@ -36,18 +36,26 @@ pub fn update_garbage(
     services: Query<&ServiceBuilding>,
     policies: Res<crate::policies::Policies>,
 ) {
-    if !slow_timer.should_run() { return; }
+    if !slow_timer.should_run() {
+        return;
+    }
     // Buildings produce garbage proportional to occupants (reduced by recycling policy)
     let garbage_mult = policies.garbage_multiplier();
     for building in &buildings {
         let production = ((building.occupants / 5).min(10) as f32 * garbage_mult) as u8;
         let cur = garbage.get(building.grid_x, building.grid_y);
-        garbage.set(building.grid_x, building.grid_y, cur.saturating_add(production));
+        garbage.set(
+            building.grid_x,
+            building.grid_y,
+            cur.saturating_add(production),
+        );
     }
 
     // Garbage service buildings collect in radius
     for service in &services {
-        if !ServiceBuilding::is_garbage(service.service_type) { continue; }
+        if !ServiceBuilding::is_garbage(service.service_type) {
+            continue;
+        }
         let radius = (service.radius / 16.0) as i32;
         let collection = match service.service_type {
             ServiceType::Landfill => 3u8,

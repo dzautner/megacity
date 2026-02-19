@@ -98,11 +98,15 @@ impl ServiceBudgets {
             ServiceType::FireStation => self.fire,
             ServiceType::PoliceStation => self.police,
             ServiceType::Hospital => self.healthcare,
-            ServiceType::ElementarySchool | ServiceType::HighSchool |
-            ServiceType::University | ServiceType::Library => self.education,
-            ServiceType::Landfill | ServiceType::RecyclingCenter |
-            ServiceType::Incinerator | ServiceType::Cemetery |
-            ServiceType::Crematorium => self.sanitation,
+            ServiceType::ElementarySchool
+            | ServiceType::HighSchool
+            | ServiceType::University
+            | ServiceType::Library => self.education,
+            ServiceType::Landfill
+            | ServiceType::RecyclingCenter
+            | ServiceType::Incinerator
+            | ServiceType::Cemetery
+            | ServiceType::Crematorium => self.sanitation,
             ServiceType::BusDepot | ServiceType::TrainStation => self.transport,
             _ => 1.0, // Parks, landmarks use default
         }

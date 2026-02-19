@@ -100,25 +100,38 @@ impl ActiveTool {
             ActiveTool::RoadHighway => Some(RoadType::Highway.cost()),
             ActiveTool::RoadOneWay => Some(RoadType::OneWay.cost()),
             ActiveTool::RoadPath => Some(RoadType::Path.cost()),
-            ActiveTool::Bulldoze | ActiveTool::Inspect
-            | ActiveTool::TerrainRaise | ActiveTool::TerrainLower
-            | ActiveTool::TerrainLevel | ActiveTool::TerrainWater
-            | ActiveTool::DistrictPaint(_) | ActiveTool::DistrictErase
+            ActiveTool::Bulldoze
+            | ActiveTool::Inspect
+            | ActiveTool::TerrainRaise
+            | ActiveTool::TerrainLower
+            | ActiveTool::TerrainLevel
+            | ActiveTool::TerrainWater
+            | ActiveTool::DistrictPaint(_)
+            | ActiveTool::DistrictErase
             | ActiveTool::TreeRemove => None,
             ActiveTool::TreePlant => Some(simulation::trees::TREE_PLANT_COST),
-            ActiveTool::ZoneResidentialLow | ActiveTool::ZoneResidentialHigh
-            | ActiveTool::ZoneCommercialLow | ActiveTool::ZoneCommercialHigh
-            | ActiveTool::ZoneIndustrial | ActiveTool::ZoneOffice => None,
+            ActiveTool::ZoneResidentialLow
+            | ActiveTool::ZoneResidentialHigh
+            | ActiveTool::ZoneCommercialLow
+            | ActiveTool::ZoneCommercialHigh
+            | ActiveTool::ZoneIndustrial
+            | ActiveTool::ZoneOffice => None,
             // Utilities
             ActiveTool::PlacePowerPlant => Some(services::utility_cost(UtilityType::PowerPlant)),
             ActiveTool::PlaceSolarFarm => Some(services::utility_cost(UtilityType::SolarFarm)),
             ActiveTool::PlaceWindTurbine => Some(services::utility_cost(UtilityType::WindTurbine)),
             ActiveTool::PlaceWaterTower => Some(services::utility_cost(UtilityType::WaterTower)),
             ActiveTool::PlaceSewagePlant => Some(services::utility_cost(UtilityType::SewagePlant)),
-            ActiveTool::PlaceNuclearPlant => Some(services::utility_cost(UtilityType::NuclearPlant)),
+            ActiveTool::PlaceNuclearPlant => {
+                Some(services::utility_cost(UtilityType::NuclearPlant))
+            }
             ActiveTool::PlaceGeothermal => Some(services::utility_cost(UtilityType::Geothermal)),
-            ActiveTool::PlacePumpingStation => Some(services::utility_cost(UtilityType::PumpingStation)),
-            ActiveTool::PlaceWaterTreatment => Some(services::utility_cost(UtilityType::WaterTreatment)),
+            ActiveTool::PlacePumpingStation => {
+                Some(services::utility_cost(UtilityType::PumpingStation))
+            }
+            ActiveTool::PlaceWaterTreatment => {
+                Some(services::utility_cost(UtilityType::WaterTreatment))
+            }
             // Services
             _ => self.service_type().map(services::ServiceBuilding::cost),
         }
@@ -318,8 +331,12 @@ pub fn update_cursor_grid_pos(
     mut cursor: ResMut<CursorGridPos>,
     grid: Res<WorldGrid>,
 ) {
-    let Ok(window) = windows.get_single() else { return };
-    let Ok((camera, cam_transform)) = camera_q.get_single() else { return };
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+    let Ok((camera, cam_transform)) = camera_q.get_single() else {
+        return;
+    };
 
     if let Some(screen_pos) = window.cursor_position() {
         // Ray-plane intersection against Y=0 ground plane
@@ -333,9 +350,7 @@ pub fn update_cursor_grid_pos(
                     cursor.world_pos = Vec2::new(hit.x, hit.z);
                     cursor.grid_x = gx;
                     cursor.grid_y = gy;
-                    cursor.valid = gx >= 0
-                        && gy >= 0
-                        && grid.in_bounds(gx as usize, gy as usize);
+                    cursor.valid = gx >= 0 && gy >= 0 && grid.in_bounds(gx as usize, gy as usize);
                     return;
                 }
             }
@@ -441,12 +456,7 @@ pub fn handle_tool_input(
                     }
 
                     let (_seg_id, cells) = segments.add_straight_segment(
-                        start_pos,
-                        end_pos,
-                        road_type,
-                        24.0,
-                        &mut grid,
-                        &mut roads,
+                        start_pos, end_pos, road_type, 24.0, &mut grid, &mut roads,
                     );
 
                     let actual_cost = road_type.cost() * cells.len() as f64;
@@ -471,12 +481,66 @@ pub fn handle_tool_input(
 
     let changed = match *tool {
         // Roads (legacy grid-snap with Ctrl held)
-        ActiveTool::Road => place_road_if_affordable(&mut roads, &mut grid, &mut budget, &mut status, &buttons, RoadType::Local, gx, gy),
-        ActiveTool::RoadAvenue => place_road_if_affordable(&mut roads, &mut grid, &mut budget, &mut status, &buttons, RoadType::Avenue, gx, gy),
-        ActiveTool::RoadBoulevard => place_road_if_affordable(&mut roads, &mut grid, &mut budget, &mut status, &buttons, RoadType::Boulevard, gx, gy),
-        ActiveTool::RoadHighway => place_road_if_affordable(&mut roads, &mut grid, &mut budget, &mut status, &buttons, RoadType::Highway, gx, gy),
-        ActiveTool::RoadOneWay => place_road_if_affordable(&mut roads, &mut grid, &mut budget, &mut status, &buttons, RoadType::OneWay, gx, gy),
-        ActiveTool::RoadPath => place_road_if_affordable(&mut roads, &mut grid, &mut budget, &mut status, &buttons, RoadType::Path, gx, gy),
+        ActiveTool::Road => place_road_if_affordable(
+            &mut roads,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            RoadType::Local,
+            gx,
+            gy,
+        ),
+        ActiveTool::RoadAvenue => place_road_if_affordable(
+            &mut roads,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            RoadType::Avenue,
+            gx,
+            gy,
+        ),
+        ActiveTool::RoadBoulevard => place_road_if_affordable(
+            &mut roads,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            RoadType::Boulevard,
+            gx,
+            gy,
+        ),
+        ActiveTool::RoadHighway => place_road_if_affordable(
+            &mut roads,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            RoadType::Highway,
+            gx,
+            gy,
+        ),
+        ActiveTool::RoadOneWay => place_road_if_affordable(
+            &mut roads,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            RoadType::OneWay,
+            gx,
+            gy,
+        ),
+        ActiveTool::RoadPath => place_road_if_affordable(
+            &mut roads,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            RoadType::Path,
+            gx,
+            gy,
+        ),
         ActiveTool::Bulldoze => {
             let cell = grid.get(gx, gy);
             if let Some(entity) = cell.building_id {
@@ -522,23 +586,141 @@ pub fn handle_tool_input(
         }
 
         // --- Zones ---
-        ActiveTool::ZoneResidentialLow => apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::ResidentialLow),
-        ActiveTool::ZoneResidentialHigh => apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::ResidentialHigh),
-        ActiveTool::ZoneCommercialLow => apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::CommercialLow),
-        ActiveTool::ZoneCommercialHigh => apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::CommercialHigh),
-        ActiveTool::ZoneIndustrial => apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::Industrial),
-        ActiveTool::ZoneOffice => apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::Office),
+        ActiveTool::ZoneResidentialLow => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::ResidentialLow,
+        ),
+        ActiveTool::ZoneResidentialHigh => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::ResidentialHigh,
+        ),
+        ActiveTool::ZoneCommercialLow => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::CommercialLow,
+        ),
+        ActiveTool::ZoneCommercialHigh => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::CommercialHigh,
+        ),
+        ActiveTool::ZoneIndustrial => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::Industrial,
+        ),
+        ActiveTool::ZoneOffice => {
+            apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::Office)
+        }
 
         // --- Utilities ---
-        ActiveTool::PlacePowerPlant => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::PowerPlant, gx, gy),
-        ActiveTool::PlaceSolarFarm => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::SolarFarm, gx, gy),
-        ActiveTool::PlaceWindTurbine => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::WindTurbine, gx, gy),
-        ActiveTool::PlaceWaterTower => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::WaterTower, gx, gy),
-        ActiveTool::PlaceSewagePlant => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::SewagePlant, gx, gy),
-        ActiveTool::PlaceNuclearPlant => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::NuclearPlant, gx, gy),
-        ActiveTool::PlaceGeothermal => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::Geothermal, gx, gy),
-        ActiveTool::PlacePumpingStation => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::PumpingStation, gx, gy),
-        ActiveTool::PlaceWaterTreatment => place_utility_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, UtilityType::WaterTreatment, gx, gy),
+        ActiveTool::PlacePowerPlant => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::PowerPlant,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlaceSolarFarm => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::SolarFarm,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlaceWindTurbine => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::WindTurbine,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlaceWaterTower => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::WaterTower,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlaceSewagePlant => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::SewagePlant,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlaceNuclearPlant => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::NuclearPlant,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlaceGeothermal => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::Geothermal,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlacePumpingStation => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::PumpingStation,
+            gx,
+            gy,
+        ),
+        ActiveTool::PlaceWaterTreatment => place_utility_if_affordable(
+            &mut commands,
+            &mut grid,
+            &mut budget,
+            &mut status,
+            &buttons,
+            UtilityType::WaterTreatment,
+            gx,
+            gy,
+        ),
 
         // --- Terrain tools ---
         ActiveTool::TerrainRaise => {
@@ -547,13 +729,19 @@ pub fn handle_tool_input(
                 for dx in -radius..=radius {
                     let nx = gx as i32 + dx;
                     let ny = gy as i32 + dy;
-                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < grid.width
+                        && (ny as usize) < grid.height
+                    {
                         let dist = ((dx * dx + dy * dy) as f32).sqrt();
                         if dist <= radius as f32 {
                             let strength = 0.01 * (1.0 - dist / radius as f32);
                             let cell = grid.get_mut(nx as usize, ny as usize);
                             cell.elevation = (cell.elevation + strength).min(1.0);
-                            if cell.elevation > 0.35 && cell.cell_type == simulation::grid::CellType::Water {
+                            if cell.elevation > 0.35
+                                && cell.cell_type == simulation::grid::CellType::Water
+                            {
                                 cell.cell_type = simulation::grid::CellType::Grass;
                             }
                             mark_chunk_dirty_at(nx as usize, ny as usize, &chunks, &mut commands);
@@ -569,7 +757,11 @@ pub fn handle_tool_input(
                 for dx in -radius..=radius {
                     let nx = gx as i32 + dx;
                     let ny = gy as i32 + dy;
-                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < grid.width
+                        && (ny as usize) < grid.height
+                    {
                         let dist = ((dx * dx + dy * dy) as f32).sqrt();
                         if dist <= radius as f32 {
                             let strength = 0.01 * (1.0 - dist / radius as f32);
@@ -589,7 +781,11 @@ pub fn handle_tool_input(
                 for dx in -radius..=radius {
                     let nx = gx as i32 + dx;
                     let ny = gy as i32 + dy;
-                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < grid.width
+                        && (ny as usize) < grid.height
+                    {
                         let dist = ((dx * dx + dy * dy) as f32).sqrt();
                         if dist <= radius as f32 {
                             let cell = grid.get_mut(nx as usize, ny as usize);
@@ -607,7 +803,11 @@ pub fn handle_tool_input(
                 for dx in -radius..=radius {
                     let nx = gx as i32 + dx;
                     let ny = gy as i32 + dy;
-                    if nx >= 0 && ny >= 0 && (nx as usize) < grid.width && (ny as usize) < grid.height {
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < grid.width
+                        && (ny as usize) < grid.height
+                    {
                         let dist = ((dx * dx + dy * dy) as f32).sqrt();
                         if dist <= radius as f32 {
                             let cell = grid.get_mut(nx as usize, ny as usize);
@@ -637,7 +837,16 @@ pub fn handle_tool_input(
         // --- Services (use service_type() helper) ---
         _ => {
             if let Some(st) = tool.service_type() {
-                place_service_if_affordable(&mut commands, &mut grid, &mut budget, &mut status, &buttons, st, gx, gy)
+                place_service_if_affordable(
+                    &mut commands,
+                    &mut grid,
+                    &mut budget,
+                    &mut status,
+                    &buttons,
+                    st,
+                    gx,
+                    gy,
+                )
             } else {
                 false
             }
@@ -699,9 +908,9 @@ fn try_zone(grid: &WorldGrid, x: usize, y: usize, zone: ZoneType) -> ZoneResult 
         return ZoneResult::InvalidCell;
     }
     let (n4, n4c) = grid.neighbors4(x, y);
-    let has_road = n4[..n4c].iter().any(|(nx, ny)| {
-        grid.get(*nx, *ny).cell_type == simulation::grid::CellType::Road
-    });
+    let has_road = n4[..n4c]
+        .iter()
+        .any(|(nx, ny)| grid.get(*nx, *ny).cell_type == simulation::grid::CellType::Road);
     if !has_road {
         return ZoneResult::NotAdjacentToRoad;
     }
@@ -799,10 +1008,7 @@ fn place_service_if_affordable(
 // Keyboard shortcuts (core tools only; extended tools via UI toolbar)
 // ---------------------------------------------------------------------------
 
-pub fn keyboard_tool_switch(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut tool: ResMut<ActiveTool>,
-) {
+pub fn keyboard_tool_switch(keys: Res<ButtonInput<KeyCode>>, mut tool: ResMut<ActiveTool>) {
     if keys.just_pressed(KeyCode::Digit1) {
         *tool = ActiveTool::Road;
     }
@@ -883,7 +1089,10 @@ pub fn handle_tree_tool(
             } else {
                 budget.treasury -= simulation::trees::TREE_PLANT_COST;
                 tree_grid.set(gx, gy, true);
-                commands.spawn(simulation::trees::PlantedTree { grid_x: gx, grid_y: gy });
+                commands.spawn(simulation::trees::PlantedTree {
+                    grid_x: gx,
+                    grid_y: gy,
+                });
                 true
             }
         }

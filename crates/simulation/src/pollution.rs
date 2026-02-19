@@ -1,9 +1,9 @@
-use bevy::prelude::*;
-use crate::config::{GRID_WIDTH, GRID_HEIGHT};
-use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::buildings::Building;
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::services::ServiceBuilding;
 use crate::wind::WindState;
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct PollutionGrid {
@@ -40,7 +40,9 @@ pub fn update_pollution(
     policies: Res<crate::policies::Policies>,
     wind: Res<WindState>,
 ) {
-    if !slow_timer.should_run() { return; }
+    if !slow_timer.should_run() {
+        return;
+    }
     pollution.levels.fill(0);
 
     // Roads add +2 pollution
@@ -63,7 +65,11 @@ pub fn update_pollution(
                 for dx in -radius..=radius {
                     let nx = building.grid_x as i32 + dx;
                     let ny = building.grid_y as i32 + dy;
-                    if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < GRID_WIDTH
+                        && (ny as usize) < GRID_HEIGHT
+                    {
                         let dist = dx.abs() + dy.abs();
                         let decay = (intensity - dist).max(0) as u8;
                         let cur = pollution.get(nx as usize, ny as usize);
@@ -83,7 +89,11 @@ pub fn update_pollution(
                 for dx in -radius..=radius {
                     let nx = service.grid_x as i32 + dx;
                     let ny = service.grid_y as i32 + dy;
-                    if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < GRID_WIDTH
+                        && (ny as usize) < GRID_HEIGHT
+                    {
                         let dist = dx.abs() + dy.abs();
                         let effect = reduction.saturating_sub(dist as u8);
                         let cur = pollution.get(nx as usize, ny as usize);
@@ -119,8 +129,8 @@ fn apply_wind_drift(pollution: &mut PollutionGrid, wind: &WindState) {
     let mut drift_buf: Vec<f32> = vec![0.0; total];
 
     // Copy current pollution into the drift buffer as the base
-    for i in 0..total {
-        drift_buf[i] = pollution.levels[i] as f32;
+    for (i, buf) in drift_buf.iter_mut().enumerate().take(total) {
+        *buf = pollution.levels[i] as f32;
     }
 
     // For each cell, move `drift_fraction` of its pollution toward the downwind cell(s).
@@ -134,8 +144,20 @@ fn apply_wind_drift(pollution: &mut PollutionGrid, wind: &WindState) {
     let norm_dy = dy / max_comp;
 
     // Step offsets: the primary downwind cell and diagonal
-    let step_x: i32 = if norm_dx > 0.0 { 1 } else if norm_dx < 0.0 { -1 } else { 0 };
-    let step_y: i32 = if norm_dy > 0.0 { 1 } else if norm_dy < 0.0 { -1 } else { 0 };
+    let step_x: i32 = if norm_dx > 0.0 {
+        1
+    } else if norm_dx < 0.0 {
+        -1
+    } else {
+        0
+    };
+    let step_y: i32 = if norm_dy > 0.0 {
+        1
+    } else if norm_dy < 0.0 {
+        -1
+    } else {
+        0
+    };
 
     // Weights for distributing drift between x-neighbor, y-neighbor, and diagonal
     let wx = abs_dx / (abs_dx + abs_dy + 0.001);
@@ -185,7 +207,12 @@ fn apply_wind_drift(pollution: &mut PollutionGrid, wind: &WindState) {
     }
 
     // Write the drift buffer back to the pollution grid, clamping to u8 range
-    for i in 0..total {
-        pollution.levels[i] = drift_buf[i].clamp(0.0, 255.0) as u8;
+    for (level, buf) in pollution
+        .levels
+        .iter_mut()
+        .zip(drift_buf.iter())
+        .take(total)
+    {
+        *level = buf.clamp(0.0, 255.0) as u8;
     }
 }

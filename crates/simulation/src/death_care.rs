@@ -54,10 +54,9 @@ impl DeathCareGrid {
                     && ny >= 0
                     && (nx as usize) < GRID_WIDTH
                     && (ny as usize) < GRID_HEIGHT
+                    && self.levels[ny as usize * self.width + nx as usize] > 0
                 {
-                    if self.levels[ny as usize * self.width + nx as usize] > 0 {
-                        return true;
-                    }
+                    return true;
                 }
             }
         }

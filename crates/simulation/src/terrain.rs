@@ -39,8 +39,11 @@ mod tests {
         let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
         generate_terrain(&mut grid, 42);
         for cell in &grid.cells {
-            assert!(cell.elevation >= 0.0 && cell.elevation <= 1.0,
-                "elevation {} out of bounds", cell.elevation);
+            assert!(
+                cell.elevation >= 0.0 && cell.elevation <= 1.0,
+                "elevation {} out of bounds",
+                cell.elevation
+            );
         }
     }
 
@@ -48,12 +51,17 @@ mod tests {
     fn test_water_generation() {
         let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
         generate_terrain(&mut grid, 42);
-        let water_count = grid.cells.iter()
+        let water_count = grid
+            .cells
+            .iter()
             .filter(|c| c.cell_type == CellType::Water)
             .count();
         // Should have some water but not all water
         assert!(water_count > 0, "should have some water cells");
-        assert!(water_count < GRID_WIDTH * GRID_HEIGHT, "should not be all water");
+        assert!(
+            water_count < GRID_WIDTH * GRID_HEIGHT,
+            "should not be all water"
+        );
     }
 
     #[test]
@@ -74,13 +82,20 @@ mod tests {
         generate_terrain(&mut grid, 42);
         let n = grid.cells.len() as f32;
         let mean = grid.cells.iter().map(|c| c.elevation).sum::<f32>() / n;
-        let variance = grid.cells.iter()
+        let variance = grid
+            .cells
+            .iter()
             .map(|c| (c.elevation - mean).powi(2))
-            .sum::<f32>() / n;
+            .sum::<f32>()
+            / n;
         let stddev = variance.sqrt();
-        assert!(stddev < 0.3,
-            "elevation stddev {stddev} should be < 0.3 for natural-looking terrain");
-        assert!(stddev > 0.01,
-            "elevation stddev {stddev} should be > 0.01 (terrain should not be flat)");
+        assert!(
+            stddev < 0.3,
+            "elevation stddev {stddev} should be < 0.3 for natural-looking terrain"
+        );
+        assert!(
+            stddev > 0.01,
+            "elevation stddev {stddev} should be > 0.01 (terrain should not be flat)"
+        );
     }
 }

@@ -70,14 +70,8 @@ impl MarketEvent {
                 (GoodsType::Electronics, 0.4),
                 (GoodsType::ConsumerGoods, 0.2),
             ],
-            Self::TechBoom => &[
-                (GoodsType::Electronics, -0.3),
-                (GoodsType::Steel, 0.1),
-            ],
-            Self::FoodCrisis => &[
-                (GoodsType::RawFood, 0.5),
-                (GoodsType::ProcessedFood, 0.4),
-            ],
+            Self::TechBoom => &[(GoodsType::Electronics, -0.3), (GoodsType::Steel, 0.1)],
+            Self::FoodCrisis => &[(GoodsType::RawFood, 0.5), (GoodsType::ProcessedFood, 0.4)],
             Self::Recession => &[
                 (GoodsType::ConsumerGoods, -0.2),
                 (GoodsType::Electronics, -0.2),
@@ -95,20 +89,11 @@ impl MarketEvent {
     pub fn resource_effects(self) -> &'static [(ResourceType, f32)] {
         match self {
             Self::OilShock => &[(ResourceType::Oil, 0.5)],
-            Self::TradeEmbargo => &[
-                (ResourceType::Ore, 0.2),
-                (ResourceType::Oil, 0.2),
-            ],
+            Self::TradeEmbargo => &[(ResourceType::Ore, 0.2), (ResourceType::Oil, 0.2)],
             Self::TechBoom => &[(ResourceType::Ore, 0.15)],
             Self::FoodCrisis => &[(ResourceType::FertileLand, 0.3)],
-            Self::Recession => &[
-                (ResourceType::Ore, -0.15),
-                (ResourceType::Forest, -0.1),
-            ],
-            Self::ConstructionBoom => &[
-                (ResourceType::Ore, 0.3),
-                (ResourceType::Forest, 0.25),
-            ],
+            Self::Recession => &[(ResourceType::Ore, -0.15), (ResourceType::Forest, -0.1)],
+            Self::ConstructionBoom => &[(ResourceType::Ore, 0.3), (ResourceType::Forest, 0.25)],
         }
     }
 
@@ -304,10 +289,7 @@ pub fn update_market_prices(
         let new_event = MarketEvent::ALL[event_idx];
 
         // Don't duplicate an already active event
-        let already_active = market
-            .active_events
-            .iter()
-            .any(|ae| ae.event == new_event);
+        let already_active = market.active_events.iter().any(|ae| ae.event == new_event);
         if !already_active {
             market.active_events.push(ActiveMarketEvent {
                 event: new_event,
@@ -342,7 +324,10 @@ pub fn update_market_prices(
     // 3. Update goods prices based on supply/demand + cycle + events
     // -----------------------------------------------------------------
     for &g in GoodsType::all() {
-        let entry = market.goods_prices.entry(g).or_insert_with(|| PriceEntry::new(g.export_price()));
+        let entry = market
+            .goods_prices
+            .entry(g)
+            .or_insert_with(|| PriceEntry::new(g.export_price()));
         entry.previous_price = entry.current_price;
 
         let base = entry.base_price;
@@ -388,7 +373,11 @@ pub fn update_market_prices(
         let event_factor = 1.0 + event_delta;
 
         // Combine all factors
-        let new_price = base * sd_factor as f64 * cycle_factor as f64 * noise_factor as f64 * event_factor as f64;
+        let new_price = base
+            * sd_factor as f64
+            * cycle_factor as f64
+            * noise_factor as f64
+            * event_factor as f64;
 
         // Clamp to reasonable range: 30% to 300% of base
         entry.current_price = new_price.clamp(base * 0.3, base * 3.0);
@@ -601,11 +590,15 @@ mod tests {
         let mut entry = PriceEntry::new(10.0);
         // Simulate extreme price
         entry.current_price = 50.0;
-        let clamped = entry.current_price.clamp(entry.base_price * 0.3, entry.base_price * 3.0);
+        let clamped = entry
+            .current_price
+            .clamp(entry.base_price * 0.3, entry.base_price * 3.0);
         assert!((clamped - 30.0).abs() < f64::EPSILON);
 
         entry.current_price = 0.5;
-        let clamped = entry.current_price.clamp(entry.base_price * 0.3, entry.base_price * 3.0);
+        let clamped = entry
+            .current_price
+            .clamp(entry.base_price * 0.3, entry.base_price * 3.0);
         assert!((clamped - 3.0).abs() < f64::EPSILON);
     }
 }

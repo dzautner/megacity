@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::config::{GRID_HEIGHT, GRID_WIDTH, CELL_SIZE};
+use crate::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
 
 const BUCKET_SIZE: f32 = 128.0; // pixels per spatial bucket
 const BUCKETS_X: usize = (GRID_WIDTH as f32 * CELL_SIZE / BUCKET_SIZE) as usize + 1;

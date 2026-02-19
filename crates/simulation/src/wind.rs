@@ -34,7 +34,8 @@ impl WindState {
         // Normalize to [0, 2*PI)
         let angle = self.direction.rem_euclid(std::f32::consts::TAU);
         // Divide the circle into 8 sectors of PI/4 each, offset by PI/8
-        let sector = ((angle + std::f32::consts::FRAC_PI_8) / std::f32::consts::FRAC_PI_4) as u32 % 8;
+        let sector =
+            ((angle + std::f32::consts::FRAC_PI_8) / std::f32::consts::FRAC_PI_4) as u32 % 8;
         match sector {
             0 => "E",
             1 => "NE",
@@ -100,11 +101,8 @@ const MAX_DIRECTION_SHIFT: f32 = 0.2;
 const MAX_SPEED_SHIFT: f32 = 0.08;
 
 /// Updates wind direction and speed with a gentle random walk every WIND_UPDATE_INTERVAL ticks.
-pub fn update_wind(
-    tick: Res<TickCounter>,
-    mut wind: ResMut<WindState>,
-) {
-    if tick.0 == 0 || tick.0 % WIND_UPDATE_INTERVAL != 0 {
+pub fn update_wind(tick: Res<TickCounter>, mut wind: ResMut<WindState>) {
+    if tick.0 == 0 || !tick.0.is_multiple_of(WIND_UPDATE_INTERVAL) {
         return;
     }
 
@@ -202,7 +200,12 @@ mod tests {
     fn test_rand_signed_f32_range() {
         for seed in 0..1000u64 {
             let val = rand_signed_f32(seed);
-            assert!(val >= -1.0 && val < 1.0, "rand_signed_f32({}) = {} out of range", seed, val);
+            assert!(
+                val >= -1.0 && val < 1.0,
+                "rand_signed_f32({}) = {} out of range",
+                seed,
+                val
+            );
         }
     }
 }

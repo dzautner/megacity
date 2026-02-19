@@ -233,8 +233,7 @@ pub fn process_active_disaster(
             }
             DisasterType::Earthquake => {
                 // All buildings in radius lose 1 level (min 1), 10% destroyed
-                for (idx, &(entity, gx, gy, level, _elev)) in
-                    buildings_in_radius.iter().enumerate()
+                for (idx, &(entity, gx, gy, level, _elev)) in buildings_in_radius.iter().enumerate()
                 {
                     let hash_seed = tick.0.wrapping_add(idx as u64).wrapping_mul(0xbadf00d);
                     if rand_f32(hash_seed) < EARTHQUAKE_DESTROY_PCT {
@@ -322,8 +321,7 @@ pub fn apply_earthquake_damage(
     for (entity, mut building) in &mut buildings {
         if building.level > 1 {
             building.level -= 1;
-            building.capacity =
-                Building::capacity_for_level(building.zone_type, building.level);
+            building.capacity = Building::capacity_for_level(building.zone_type, building.level);
             // Evict excess occupants
             if building.occupants > building.capacity {
                 building.occupants = building.capacity;
@@ -368,7 +366,12 @@ mod tests {
     fn test_rand_f32_range() {
         for seed in 0..1000u64 {
             let val = rand_f32(seed);
-            assert!(val >= 0.0 && val < 1.0, "rand_f32({}) = {} out of range", seed, val);
+            assert!(
+                val >= 0.0 && val < 1.0,
+                "rand_f32({}) = {} out of range",
+                seed,
+                val
+            );
         }
     }
 
@@ -376,7 +379,12 @@ mod tests {
     fn test_rand_usize_range() {
         for seed in 0..1000u64 {
             let val = rand_usize(seed, 256);
-            assert!(val < 256, "rand_usize({}, 256) = {} out of range", seed, val);
+            assert!(
+                val < 256,
+                "rand_usize({}, 256) = {} out of range",
+                seed,
+                val
+            );
         }
     }
 

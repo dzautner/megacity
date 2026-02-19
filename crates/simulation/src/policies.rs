@@ -78,7 +78,9 @@ impl Policy {
     pub fn description(self) -> &'static str {
         match self {
             Policy::FreePublicTransport => "Transit is free, reducing traffic but costing money",
-            Policy::HeavyIndustryTaxBreak => "Attracts industry, reduces industrial tax income by 50%",
+            Policy::HeavyIndustryTaxBreak => {
+                "Attracts industry, reduces industrial tax income by 50%"
+            }
             Policy::TourismPromotion => "Increases commercial demand from tourism",
             Policy::SmallBusinessGrant => "Boosts commercial growth, costs money",
             Policy::RecyclingProgram => "Reduces garbage by 30%, increases service cost",
@@ -136,54 +138,94 @@ impl Policies {
 
     /// Pollution multiplier (1.0 = normal, lower = less pollution)
     pub fn pollution_multiplier(&self) -> f32 {
-        if self.is_active(Policy::IndustrialAirFilters) { 0.6 } else { 1.0 }
+        if self.is_active(Policy::IndustrialAirFilters) {
+            0.6
+        } else {
+            1.0
+        }
     }
 
     /// Garbage multiplier
     pub fn garbage_multiplier(&self) -> f32 {
-        if self.is_active(Policy::RecyclingProgram) { 0.7 } else { 1.0 }
+        if self.is_active(Policy::RecyclingProgram) {
+            0.7
+        } else {
+            1.0
+        }
     }
 
     /// Park effectiveness multiplier
     pub fn park_multiplier(&self) -> f32 {
-        if self.is_active(Policy::GreenSpaceInitiative) { 1.5 } else { 1.0 }
+        if self.is_active(Policy::GreenSpaceInitiative) {
+            1.5
+        } else {
+            1.0
+        }
     }
 
     /// Max building level allowed (3 normally, 2 with HighRiseBan)
     pub fn max_building_level(&self) -> u8 {
-        if self.is_active(Policy::HighRiseBan) { 2 } else { 3 }
+        if self.is_active(Policy::HighRiseBan) {
+            2
+        } else {
+            3
+        }
     }
 
     /// Industrial tax multiplier (1.0 normal, 0.5 with tax break)
     pub fn industrial_tax_multiplier(&self) -> f32 {
-        if self.is_active(Policy::HeavyIndustryTaxBreak) { 0.5 } else { 1.0 }
+        if self.is_active(Policy::HeavyIndustryTaxBreak) {
+            0.5
+        } else {
+            1.0
+        }
     }
 
     /// Commercial demand bonus from tourism
     pub fn commercial_demand_bonus(&self) -> f32 {
         let mut bonus = 0.0;
-        if self.is_active(Policy::TourismPromotion) { bonus += 0.15; }
-        if self.is_active(Policy::SmallBusinessGrant) { bonus += 0.10; }
+        if self.is_active(Policy::TourismPromotion) {
+            bonus += 0.15;
+        }
+        if self.is_active(Policy::SmallBusinessGrant) {
+            bonus += 0.10;
+        }
         bonus
     }
 
     /// Happiness bonus from social policies
     pub fn happiness_bonus(&self) -> f32 {
         let mut bonus = 0.0;
-        if self.is_active(Policy::FreePublicTransport) { bonus += 3.0; }
-        if self.is_active(Policy::NightShiftBan) { bonus += 3.0; }
-        if self.is_active(Policy::HealthcareForAll) { bonus += 2.0; }
-        if self.is_active(Policy::NeighborhoodWatch) { bonus += 2.0; }
+        if self.is_active(Policy::FreePublicTransport) {
+            bonus += 3.0;
+        }
+        if self.is_active(Policy::NightShiftBan) {
+            bonus += 3.0;
+        }
+        if self.is_active(Policy::HealthcareForAll) {
+            bonus += 2.0;
+        }
+        if self.is_active(Policy::NeighborhoodWatch) {
+            bonus += 2.0;
+        }
         bonus
     }
 
     /// Education speed multiplier
     pub fn education_multiplier(&self) -> f32 {
-        if self.is_active(Policy::EducationPush) { 1.5 } else { 1.0 }
+        if self.is_active(Policy::EducationPush) {
+            1.5
+        } else {
+            1.0
+        }
     }
 
     /// Industrial demand bonus from tax breaks
     pub fn industrial_demand_bonus(&self) -> f32 {
-        if self.is_active(Policy::HeavyIndustryTaxBreak) { 0.15 } else { 0.0 }
+        if self.is_active(Policy::HeavyIndustryTaxBreak) {
+            0.15
+        } else {
+            0.0
+        }
     }
 }

@@ -81,7 +81,7 @@ pub struct LoadGameEvent;
 #[derive(Event)]
 pub struct NewGameEvent;
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn handle_save(
     mut events: EventReader<SaveGameEvent>,
     grid: Res<WorldGrid>,
@@ -113,18 +113,16 @@ fn handle_save(
 
         let citizen_data: Vec<CitizenSaveInput> = citizens
             .iter()
-            .map(|(d, state, home, work, path, vel, pos)| {
-                CitizenSaveInput {
-                    details: d.clone(),
-                    state: state.0,
-                    home_x: home.grid_x,
-                    home_y: home.grid_y,
-                    work_x: work.grid_x,
-                    work_y: work.grid_y,
-                    path: path.clone(),
-                    velocity: vel.clone(),
-                    position: pos.clone(),
-                }
+            .map(|(d, state, home, work, path, vel, pos)| CitizenSaveInput {
+                details: d.clone(),
+                state: state.0,
+                home_x: home.grid_x,
+                home_y: home.grid_y,
+                work_x: work.grid_x,
+                work_y: work.grid_y,
+                path: path.clone(),
+                velocity: vel.clone(),
+                position: pos.clone(),
             })
             .collect();
 
@@ -254,10 +252,17 @@ fn handle_load(
         // Restore roads - use saved road types, not default Local
         *roads = RoadNetwork::default();
         // Save the road types before place_road overwrites them
-        let saved_road_types: Vec<(usize, usize, u8)> = save.roads.road_positions.iter()
+        let saved_road_types: Vec<(usize, usize, u8)> = save
+            .roads
+            .road_positions
+            .iter()
             .map(|(x, y)| {
                 let idx = y * grid.width + x;
-                let rt = if idx < save.grid.cells.len() { save.grid.cells[idx].road_type } else { 0 };
+                let rt = if idx < save.grid.cells.len() {
+                    save.grid.cells[idx].road_type
+                } else {
+                    0
+                };
                 (*x, *y, rt)
             })
             .collect();
@@ -362,13 +367,17 @@ fn handle_load(
             // We need building entities for home/work locations.
             // Find them from the grid if possible, otherwise use a dummy.
             let home_building = if grid.in_bounds(sc.home_x, sc.home_y) {
-                grid.get(sc.home_x, sc.home_y).building_id.unwrap_or(Entity::PLACEHOLDER)
+                grid.get(sc.home_x, sc.home_y)
+                    .building_id
+                    .unwrap_or(Entity::PLACEHOLDER)
             } else {
                 Entity::PLACEHOLDER
             };
 
             let work_building = if grid.in_bounds(sc.work_x, sc.work_y) {
-                grid.get(sc.work_x, sc.work_y).building_id.unwrap_or(Entity::PLACEHOLDER)
+                grid.get(sc.work_x, sc.work_y)
+                    .building_id
+                    .unwrap_or(Entity::PLACEHOLDER)
             } else {
                 Entity::PLACEHOLDER
             };
@@ -384,7 +393,8 @@ fn handle_load(
             // Restore path cache: convert saved waypoints to RoadNodes and
             // validate that all waypoints reference valid grid positions.
             let (path_cache, restored_state) = {
-                let waypoints: Vec<RoadNode> = sc.path_waypoints
+                let waypoints: Vec<RoadNode> = sc
+                    .path_waypoints
                     .iter()
                     .map(|&(x, y)| RoadNode(x, y))
                     .collect();
@@ -413,7 +423,11 @@ fn handle_load(
                 Citizen,
                 CitizenDetails {
                     age: sc.age,
-                    gender: if sc.age % 2 == 0 { Gender::Male } else { Gender::Female },
+                    gender: if sc.age % 2 == 0 {
+                        Gender::Male
+                    } else {
+                        Gender::Female
+                    },
                     happiness: sc.happiness,
                     health: 80.0,
                     education: sc.education,

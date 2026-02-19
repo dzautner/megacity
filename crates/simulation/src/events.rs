@@ -203,9 +203,7 @@ pub fn random_city_events(
 
     // --- Population milestone check ---
     for &(threshold, name) in POPULATION_MILESTONES {
-        if stats.population >= threshold
-            && !milestones.reached_milestones.contains(&threshold)
-        {
+        if stats.population >= threshold && !milestones.reached_milestones.contains(&threshold) {
             milestones.reached_milestones.push(threshold);
             let description = format!(
                 "Reached {} ({} population)!",

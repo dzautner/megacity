@@ -13,12 +13,12 @@ use crate::spatial_grid::SpatialGrid;
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LodTier {
     /// Full simulation: individual pathfinding, rendered
-    Full,       // ~5K
+    Full, // ~5K
     /// Simplified: pre-computed paths, rendered as pixels
     Simplified, // ~50K
     /// Abstract: state machine only, not rendered
-    Abstract,   // ~200K
-    // Tier 3 (Statistical) is NOT stored in ECS; see Districts resource
+    Abstract, // ~200K
+              // Tier 3 (Statistical) is NOT stored in ECS; see Districts resource
 }
 
 impl Default for LodTier {
@@ -37,7 +37,15 @@ pub struct CompressedCitizen {
 }
 
 impl CompressedCitizen {
-    pub fn new(gx: u8, gy: u8, state: CitizenState, age: u8, happiness: u8, home_d: u8, work_d: u8) -> Self {
+    pub fn new(
+        gx: u8,
+        gy: u8,
+        state: CitizenState,
+        age: u8,
+        happiness: u8,
+        home_d: u8,
+        work_d: u8,
+    ) -> Self {
         let state_bits = match state {
             CitizenState::AtHome => 0u32,
             CitizenState::CommutingToWork => 1,
@@ -50,7 +58,8 @@ impl CompressedCitizen {
             CitizenState::CommutingToSchool => 8,
             CitizenState::AtSchool => 9,
         };
-        let packed_a = (gx as u32) << 24 | (gy as u32) << 16 | (state_bits << 12) | (age as u32 & 0xF);
+        let packed_a =
+            (gx as u32) << 24 | (gy as u32) << 16 | (state_bits << 12) | (age as u32 & 0xF);
         let packed_b = (happiness as u32) << 24 | (home_d as u32) << 16 | (work_d as u32) << 8;
         Self { packed_a, packed_b }
     }
@@ -103,7 +112,9 @@ pub fn update_viewport_bounds(
 
     // Estimate visible ground (Y=0) rectangle from 3D camera.
     // Cast rays from viewport corners to the Y=0 plane.
-    let viewport_size = camera.logical_viewport_size().unwrap_or(Vec2::new(1280.0, 720.0));
+    let viewport_size = camera
+        .logical_viewport_size()
+        .unwrap_or(Vec2::new(1280.0, 720.0));
     let corners = [
         Vec2::ZERO,
         Vec2::new(viewport_size.x, 0.0),
@@ -208,11 +219,7 @@ pub fn compress_abstract_citizens(
             &CitizenDetails,
             &HomeLocation,
         ),
-        (
-            With<Citizen>,
-            Changed<LodTier>,
-            Without<CompressedCitizen>,
-        ),
+        (With<Citizen>, Changed<LodTier>, Without<CompressedCitizen>),
     >,
 ) {
     for (entity, lod, state, details, home) in &query {
@@ -228,14 +235,19 @@ pub fn compress_abstract_citizens(
             0, // home district placeholder
             0, // work district placeholder
         );
-        commands
-            .entity(entity)
-            .insert(compressed)
-            .remove::<(PathCache, Velocity, Needs, Personality, Family, ActivityTimer)>();
+        commands.entity(entity).insert(compressed).remove::<(
+            PathCache,
+            Velocity,
+            Needs,
+            Personality,
+            Family,
+            ActivityTimer,
+        )>();
     }
 }
 
 /// When a citizen leaves Abstract tier, restore full components from CompressedCitizen.
+#[allow(clippy::type_complexity)]
 pub fn decompress_active_citizens(
     mut commands: Commands,
     query: Query<(Entity, &LodTier, &CompressedCitizen), (With<Citizen>, Changed<LodTier>)>,

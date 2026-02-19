@@ -86,11 +86,7 @@ impl CsrGraph {
 }
 
 /// Find path using A* on CSR graph
-pub fn csr_find_path(
-    csr: &CsrGraph,
-    start: RoadNode,
-    goal: RoadNode,
-) -> Option<Vec<RoadNode>> {
+pub fn csr_find_path(csr: &CsrGraph, start: RoadNode, goal: RoadNode) -> Option<Vec<RoadNode>> {
     let start_idx = csr.find_node_index(&start)?;
     let goal_idx = csr.find_node_index(&goal)?;
 
@@ -138,11 +134,8 @@ mod tests {
         let csr = CsrGraph::from_road_network(&network);
 
         // Verify A* on original network matches CSR
-        let path_original = crate::pathfinding_sys::find_path(
-            &network,
-            RoadNode(5, 10),
-            RoadNode(15, 20),
-        );
+        let path_original =
+            crate::pathfinding_sys::find_path(&network, RoadNode(5, 10), RoadNode(15, 20));
         let path_csr = csr_find_path(&csr, RoadNode(5, 10), RoadNode(15, 20));
 
         assert!(path_original.is_some());

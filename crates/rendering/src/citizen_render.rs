@@ -21,9 +21,13 @@ const CHARACTER_SCALE: f32 = 2.0;
 /// Scale for vehicle GLB models (Kenney car-kit models are ~4 units long, already car-sized)
 const VEHICLE_SCALE: f32 = 3.0;
 
+#[allow(clippy::type_complexity)]
 pub fn spawn_citizen_sprites(
     mut commands: Commands,
-    query: Query<(Entity, Option<&CitizenStateComp>, Option<&LodTier>), (With<Citizen>, Without<CitizenSprite>)>,
+    query: Query<
+        (Entity, Option<&CitizenStateComp>, Option<&LodTier>),
+        (With<Citizen>, Without<CitizenSprite>),
+    >,
     model_cache: Res<BuildingModelCache>,
 ) {
     if query.is_empty() {
@@ -39,9 +43,17 @@ pub fn spawn_citizen_sprites(
         let is_commuting = state_opt.is_some_and(|s| s.0.is_commuting());
 
         let (scene_handle, kind, scale) = if is_commuting {
-            (model_cache.get_vehicle(hash), CitizenMeshKind::Car, VEHICLE_SCALE)
+            (
+                model_cache.get_vehicle(hash),
+                CitizenMeshKind::Car,
+                VEHICLE_SCALE,
+            )
         } else {
-            (model_cache.get_character(hash), CitizenMeshKind::Humanoid, CHARACTER_SCALE)
+            (
+                model_cache.get_character(hash),
+                CitizenMeshKind::Humanoid,
+                CHARACTER_SCALE,
+            )
         };
 
         commands.entity(entity).insert((
@@ -69,11 +81,20 @@ pub fn update_citizen_sprites(
             &mut Transform,
             &mut Visibility,
         ),
-        (With<CitizenSprite>, Or<(Changed<Position>, Changed<CitizenStateComp>, Changed<LodTier>)>),
+        (
+            With<CitizenSprite>,
+            Or<(
+                Changed<Position>,
+                Changed<CitizenStateComp>,
+                Changed<LodTier>,
+            )>,
+        ),
     >,
     model_cache: Res<BuildingModelCache>,
 ) {
-    for (entity, pos, vel, state, lod, mut mesh_kind, mut scene_root, mut transform, mut vis) in &mut query {
+    for (entity, pos, vel, state, lod, mut mesh_kind, mut scene_root, mut transform, mut vis) in
+        &mut query
+    {
         match lod {
             LodTier::Abstract => {
                 *vis = Visibility::Hidden;
@@ -175,6 +196,7 @@ pub fn update_citizen_sprites(
 
 /// Despawn CitizenSprite + SceneRoot when a citizen transitions to Abstract tier.
 /// This prevents 150K-600K unnecessary GLTF child entities from accumulating.
+#[allow(clippy::type_complexity)]
 pub fn despawn_abstract_sprites(
     mut commands: Commands,
     query: Query<(Entity, &LodTier), (With<CitizenSprite>, Changed<LodTier>)>,

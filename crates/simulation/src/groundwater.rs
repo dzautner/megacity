@@ -137,7 +137,11 @@ pub fn init_groundwater(grid: &WorldGrid) -> (GroundwaterGrid, WaterQualityGrid)
                 for dx in -radius..=radius {
                     let nx = x as i32 + dx;
                     let ny = y as i32 + dy;
-                    if nx < 0 || ny < 0 || (nx as usize) >= GRID_WIDTH || (ny as usize) >= GRID_HEIGHT {
+                    if nx < 0
+                        || ny < 0
+                        || (nx as usize) >= GRID_WIDTH
+                        || (ny as usize) >= GRID_HEIGHT
+                    {
                         continue;
                     }
                     let dist = dx.abs() + dy.abs();
@@ -160,6 +164,7 @@ pub fn init_groundwater(grid: &WorldGrid) -> (GroundwaterGrid, WaterQualityGrid)
 /// - Water treatment plants purify water in radius (increase quality)
 /// - Groundwater level drops near heavy building density (water usage)
 /// - Rain replenishes groundwater levels
+#[allow(clippy::too_many_arguments)]
 pub fn update_groundwater(
     slow_timer: Res<crate::SlowTickTimer>,
     mut groundwater: ResMut<GroundwaterGrid>,

@@ -36,7 +36,7 @@ pub fn check_building_abandonment(
     grid: Res<WorldGrid>,
     buildings: Query<(Entity, &Building), Without<Abandoned>>,
 ) {
-    if tick.0 % CHECK_INTERVAL != 0 {
+    if !tick.0.is_multiple_of(CHECK_INTERVAL) {
         return;
     }
 
@@ -57,7 +57,9 @@ pub fn check_building_abandonment(
         let empty_upgraded = building.occupants == 0 && building.level > 1;
 
         if no_utilities || empty_upgraded {
-            commands.entity(entity).insert(Abandoned { ticks_abandoned: 0 });
+            commands
+                .entity(entity)
+                .insert(Abandoned { ticks_abandoned: 0 });
         }
     }
 }
@@ -133,11 +135,7 @@ pub fn abandoned_land_value_penalty(
                 let nx = bx + dx;
                 let ny = by + dy;
 
-                if nx >= 0
-                    && ny >= 0
-                    && (nx as usize) < GRID_WIDTH
-                    && (ny as usize) < GRID_HEIGHT
-                {
+                if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
                     let ux = nx as usize;
                     let uy = ny as usize;
                     let cur = land_value.get(ux, uy) as i32;

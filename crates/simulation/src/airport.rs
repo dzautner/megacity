@@ -171,9 +171,8 @@ pub fn update_airports(
     let passenger_flights = demand.min(total_capacity);
 
     // Cargo flights are a fraction of passenger flights, boosted by outside connections
-    let has_airport_connection = outside.has_connection(
-        crate::outside_connections::ConnectionType::Airport,
-    );
+    let has_airport_connection =
+        outside.has_connection(crate::outside_connections::ConnectionType::Airport);
     let cargo_base = passenger_flights / 5;
     let cargo_flights = if has_airport_connection {
         (cargo_base as f32 * 1.5) as u32
@@ -306,6 +305,8 @@ mod tests {
     fn test_revenue_per_flight() {
         assert!((AirportTier::SmallAirstrip.revenue_per_flight() - 5.0).abs() < f64::EPSILON);
         assert!((AirportTier::RegionalAirport.revenue_per_flight() - 15.0).abs() < f64::EPSILON);
-        assert!((AirportTier::InternationalAirport.revenue_per_flight() - 50.0).abs() < f64::EPSILON);
+        assert!(
+            (AirportTier::InternationalAirport.revenue_per_flight() - 50.0).abs() < f64::EPSILON
+        );
     }
 }

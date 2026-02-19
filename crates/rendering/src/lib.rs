@@ -123,8 +123,8 @@ fn setup_lighting(mut commands: Commands) {
         },
         Transform::from_rotation(Quat::from_euler(
             EulerRot::XYZ,
-            -std::f32::consts::FRAC_PI_4,  // 45 degrees down
-            std::f32::consts::FRAC_PI_6,   // slight rotation
+            -std::f32::consts::FRAC_PI_4, // 45 degrees down
+            std::f32::consts::FRAC_PI_6,  // slight rotation
             0.0,
         )),
     ));

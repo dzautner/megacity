@@ -179,10 +179,22 @@ mod tests {
 
     #[test]
     fn test_building_capacity() {
-        assert_eq!(Building::capacity_for_level(ZoneType::ResidentialLow, 1), 10);
-        assert_eq!(Building::capacity_for_level(ZoneType::ResidentialLow, 2), 30);
-        assert_eq!(Building::capacity_for_level(ZoneType::ResidentialHigh, 3), 500);
-        assert_eq!(Building::capacity_for_level(ZoneType::ResidentialHigh, 5), 2000);
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialLow, 1),
+            10
+        );
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialLow, 2),
+            30
+        );
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialHigh, 3),
+            500
+        );
+        assert_eq!(
+            Building::capacity_for_level(ZoneType::ResidentialHigh, 5),
+            2000
+        );
         assert_eq!(Building::capacity_for_level(ZoneType::CommercialLow, 1), 8);
         assert_eq!(Building::capacity_for_level(ZoneType::Industrial, 1), 20);
         assert_eq!(Building::capacity_for_level(ZoneType::Office, 1), 30);

@@ -42,7 +42,7 @@ impl WealthTier {
         match self {
             WealthTier::LowIncome => crate::grid::ZoneType::ResidentialHigh, // apartments
             WealthTier::MiddleIncome => crate::grid::ZoneType::ResidentialLow, // houses
-            WealthTier::HighIncome => crate::grid::ZoneType::ResidentialLow,   // luxury houses
+            WealthTier::HighIncome => crate::grid::ZoneType::ResidentialLow, // luxury houses
         }
     }
 
@@ -102,7 +102,9 @@ impl WealthStats {
 
     pub fn percentage(&self, tier: WealthTier) -> f32 {
         let total = self.total() as f32;
-        if total == 0.0 { return 0.0; }
+        if total == 0.0 {
+            return 0.0;
+        }
         match tier {
             WealthTier::LowIncome => self.low_income_count as f32 / total,
             WealthTier::MiddleIncome => self.middle_income_count as f32 / total,

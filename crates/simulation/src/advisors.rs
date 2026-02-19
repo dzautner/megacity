@@ -80,8 +80,7 @@ impl AdvisorPanel {
     fn prune(&mut self, current_tick: u64) {
         self.messages
             .retain(|m| current_tick.saturating_sub(m.tick_created) < EXPIRY_TICKS);
-        self.messages
-            .sort_by(|a, b| b.priority.cmp(&a.priority));
+        self.messages.sort_by(|a, b| b.priority.cmp(&a.priority));
         self.messages.truncate(MAX_MESSAGES);
     }
 
@@ -277,7 +276,10 @@ fn infrastructure_advice(
         } else if power_cov < 0.8 {
             msgs.push(AdvisorMessage {
                 advisor_type: AdvisorType::Infrastructure,
-                message: format!("Power coverage at {:.0}% -- some areas are dark.", power_cov * 100.0),
+                message: format!(
+                    "Power coverage at {:.0}% -- some areas are dark.",
+                    power_cov * 100.0
+                ),
                 priority: 3,
                 suggestion: "Consider adding a power plant near underserved areas.".into(),
                 tick_created: tick,
@@ -374,12 +376,7 @@ fn health_advice(tick: u64, extras: &AdvisorExtras, msgs: &mut Vec<AdvisorMessag
 fn education_advice(tick: u64, extras: &AdvisorExtras, msgs: &mut Vec<AdvisorMessage>) {
     // Compute average education level across the grid
     let total = extras.education_grid.levels.len() as f32;
-    let sum: f32 = extras
-        .education_grid
-        .levels
-        .iter()
-        .map(|&v| v as f32)
-        .sum();
+    let sum: f32 = extras.education_grid.levels.iter().map(|&v| v as f32).sum();
     let avg_edu = if total > 0.0 { sum / total } else { 0.0 };
 
     if avg_edu < 0.5 {
@@ -416,11 +413,7 @@ fn safety_advice(tick: u64, extras: &AdvisorExtras, msgs: &mut Vec<AdvisorMessag
     // Average crime level
     let total = extras.crime.levels.len() as f32;
     let crime_sum: f32 = extras.crime.levels.iter().map(|&v| v as f32).sum();
-    let avg_crime = if total > 0.0 {
-        crime_sum / total
-    } else {
-        0.0
-    };
+    let avg_crime = if total > 0.0 { crime_sum / total } else { 0.0 };
 
     if avg_crime > 50.0 {
         msgs.push(AdvisorMessage {
@@ -442,12 +435,7 @@ fn safety_advice(tick: u64, extras: &AdvisorExtras, msgs: &mut Vec<AdvisorMessag
     }
 
     // Count active fires
-    let active_fires = extras
-        .fire
-        .fire_levels
-        .iter()
-        .filter(|&&v| v > 0)
-        .count();
+    let active_fires = extras.fire.fire_levels.iter().filter(|&&v| v > 0).count();
     if active_fires > 10 {
         msgs.push(AdvisorMessage {
             advisor_type: AdvisorType::Safety,

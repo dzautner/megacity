@@ -109,7 +109,9 @@ pub fn update_noise_pollution(
     // --- Stadiums generate noise=15 in 3-cell radius ---
     for service in &services {
         match service.service_type {
-            ServiceType::SmallAirstrip | ServiceType::RegionalAirport | ServiceType::InternationalAirport => {
+            ServiceType::SmallAirstrip
+            | ServiceType::RegionalAirport
+            | ServiceType::InternationalAirport => {
                 let (radius, intensity) = match service.service_type {
                     ServiceType::SmallAirstrip => (5i32, 25u8),
                     ServiceType::RegionalAirport => (7i32, 35u8),
@@ -176,11 +178,7 @@ pub fn update_noise_pollution(
             for dx in -radius..=radius {
                 let nx = cx as i32 + dx;
                 let ny = cy as i32 + dy;
-                if nx >= 0
-                    && ny >= 0
-                    && (nx as usize) < GRID_WIDTH
-                    && (ny as usize) < GRID_HEIGHT
-                {
+                if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
                     noise.sub(nx as usize, ny as usize, 2);
                 }
             }

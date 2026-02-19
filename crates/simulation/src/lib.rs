@@ -15,12 +15,12 @@ pub mod crime;
 pub mod death_care;
 pub mod disasters;
 pub mod districts;
-pub mod fire;
-pub mod forest_fire;
 pub mod economy;
 pub mod education;
 pub mod education_jobs;
 pub mod events;
+pub mod fire;
+pub mod forest_fire;
 pub mod garbage;
 pub mod grid;
 pub mod groundwater;
@@ -31,6 +31,7 @@ pub mod homelessness;
 pub mod immigration;
 pub mod imports_exports;
 pub mod land_value;
+pub mod life_simulation;
 pub mod lifecycle;
 pub mod loans;
 pub mod lod;
@@ -55,17 +56,16 @@ pub mod stats;
 pub mod terrain;
 pub mod time_of_day;
 pub mod tourism;
-pub mod trees;
 pub mod traffic;
 pub mod traffic_accidents;
+pub mod trees;
 pub mod unlocks;
 pub mod utilities;
 pub mod virtual_population;
-pub mod wealth;
-pub mod welfare;
-pub mod life_simulation;
 pub mod water_pollution;
+pub mod wealth;
 pub mod weather;
+pub mod welfare;
 pub mod wind;
 pub mod zones;
 
@@ -79,14 +79,12 @@ use citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
-use life_simulation::LifeSimTimer;
-use movement::ActivityTimer;
 use citizen_spawner::CitizenSpawnTimer;
 use config::{GRID_HEIGHT, GRID_WIDTH};
 use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
 use disasters::ActiveDisaster;
-use districts::{Districts, DistrictMap};
+use districts::{DistrictMap, Districts};
 use economy::CityBudget;
 use education::EducationGrid;
 use education_jobs::EmploymentStats;
@@ -95,15 +93,17 @@ use fire::FireGrid;
 use forest_fire::{ForestFireGrid, ForestFireStats};
 use garbage::GarbageGrid;
 use grid::{CellType, RoadType, WorldGrid, ZoneType};
-use groundwater::{GroundwaterGrid, WaterQualityGrid, GroundwaterStats};
+use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
 use health::HealthGrid;
 use heating::{HeatingGrid, HeatingStats};
 use imports_exports::TradeConnections;
 use land_value::LandValueGrid;
+use life_simulation::LifeSimTimer;
 use lifecycle::LifecycleTimer;
 use loans::{BankruptcyEvent, LoanBook};
-use market::MarketPrices;
 use lod::ViewportBounds;
+use market::MarketPrices;
+use movement::ActivityTimer;
 use natural_resources::{ResourceBalance, ResourceGrid};
 use noise::NoisePollutionGrid;
 use outside_connections::OutsideConnections;
@@ -125,8 +125,8 @@ use trees::TreeGrid;
 use unlocks::UnlockState;
 use utilities::{UtilitySource, UtilityType};
 use virtual_population::VirtualPopulation;
-use wealth::WealthStats;
 use water_pollution::WaterPollutionGrid;
+use wealth::WealthStats;
 use weather::Weather;
 use wind::WindState;
 use zones::ZoneDemand;
@@ -314,10 +314,7 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                (
-                    loans::process_loan_payments,
-                    loans::update_credit_rating,
-                )
+                (loans::process_loan_payments, loans::update_credit_rating)
                     .chain()
                     .after(economy::collect_taxes),
             )
@@ -345,13 +342,11 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                airport::update_airports
-                    .after(tourism::update_tourism),
+                airport::update_airports.after(tourism::update_tourism),
             )
             .add_systems(
                 FixedUpdate,
-                outside_connections::update_outside_connections
-                    .after(airport::update_airports),
+                outside_connections::update_outside_connections.after(airport::update_airports),
             )
             .add_systems(
                 FixedUpdate,
@@ -365,22 +360,17 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                (
-                    events::random_city_events,
-                    events::apply_active_effects,
-                )
+                (events::random_city_events, events::apply_active_effects)
                     .chain()
                     .after(stats::update_stats),
             )
             .add_systems(
                 FixedUpdate,
-                specialization::compute_specializations
-                    .after(stats::update_stats),
+                specialization::compute_specializations.after(stats::update_stats),
             )
             .add_systems(
                 FixedUpdate,
-                advisors::update_advisors
-                    .after(stats::update_stats),
+                advisors::update_advisors.after(stats::update_stats),
             )
             .add_systems(
                 FixedUpdate,
@@ -400,8 +390,7 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                abandonment::abandoned_land_value_penalty
-                    .after(land_value::update_land_value),
+                abandonment::abandoned_land_value_penalty.after(land_value::update_land_value),
             )
             .add_systems(
                 FixedUpdate,
@@ -416,8 +405,7 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                forest_fire::update_forest_fire
-                    .after(fire::fire_damage),
+                forest_fire::update_forest_fire.after(fire::fire_damage),
             )
             .add_systems(
                 FixedUpdate,
@@ -444,8 +432,7 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                education_jobs::job_matching
-                    .after(life_simulation::job_seeking),
+                education_jobs::job_matching.after(life_simulation::job_seeking),
             )
             .add_systems(
                 FixedUpdate,
@@ -468,8 +455,7 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                welfare::update_welfare
-                    .after(homelessness::recover_from_homelessness),
+                welfare::update_welfare.after(homelessness::recover_from_homelessness),
             )
             .add_systems(
                 FixedUpdate,
@@ -485,10 +471,9 @@ impl Plugin for SimulationPlugin {
                 (
                     time_of_day::sync_fixed_timestep,
                     rebuild_csr_on_road_change,
-                    virtual_population::adjust_real_citizen_cap
-                        .run_if(bevy::time::common_conditions::on_timer(
-                            std::time::Duration::from_secs(1),
-                        )),
+                    virtual_population::adjust_real_citizen_cap.run_if(
+                        bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(1)),
+                    ),
                 ),
             )
             .init_resource::<LodFrameCounter>()
@@ -531,19 +516,13 @@ fn lod_frame_ready(counter: Res<LodFrameCounter>) -> bool {
 }
 
 /// Rebuild the CSR graph whenever the road network changes.
-fn rebuild_csr_on_road_change(
-    roads: Res<RoadNetwork>,
-    mut csr: ResMut<CsrGraph>,
-) {
+fn rebuild_csr_on_road_change(roads: Res<RoadNetwork>, mut csr: ResMut<CsrGraph>) {
     if roads.is_changed() {
         *csr = CsrGraph::from_road_network(&roads);
     }
 }
 
-pub fn init_world(
-    mut commands: Commands,
-    mut segments: ResMut<RoadSegmentStore>,
-) {
+pub fn init_world(mut commands: Commands, mut segments: ResMut<RoadSegmentStore>) {
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
 
     // --- Tel Aviv terrain: Mediterranean coast on west, Yarkon River in north ---
@@ -604,12 +583,10 @@ fn generate_tel_aviv_terrain(grid: &mut WorldGrid) {
             // Yarkon River (east-west around y≈185, meandering)
             let yarkon_cy = 185.0 + 1.5 * (xf * 0.04).sin();
             let yarkon_hw = 2.0;
-            let is_yarkon = (yf - yarkon_cy).abs() < yarkon_hw
-                && xf > coast - 3.0
-                && xf < 195.0;
+            let is_yarkon = (yf - yarkon_cy).abs() < yarkon_hw && xf > coast - 3.0 && xf < 195.0;
 
-            let noise = ((x.wrapping_mul(7919).wrapping_add(y.wrapping_mul(6271))) % 100) as f32
-                / 100.0;
+            let noise =
+                ((x.wrapping_mul(7919).wrapping_add(y.wrapping_mul(6271))) % 100) as f32 / 100.0;
 
             let cell = grid.get_mut(x, y);
 
@@ -649,12 +626,15 @@ fn coastline_x(y: f32) -> f32 {
 // =============================================================================
 
 /// Add a straight Bezier road between two grid positions.
+#[allow(clippy::too_many_arguments)]
 fn road_straight(
     seg: &mut RoadSegmentStore,
     grid: &mut WorldGrid,
     roads: &mut RoadNetwork,
-    gx0: usize, gy0: usize,
-    gx1: usize, gy1: usize,
+    gx0: usize,
+    gy0: usize,
+    gx1: usize,
+    gy1: usize,
     rt: RoadType,
 ) {
     let (wx0, wy0) = WorldGrid::grid_to_world(gx0, gy0);
@@ -662,16 +642,23 @@ fn road_straight(
     seg.add_straight_segment(
         Vec2::new(wx0, wy0),
         Vec2::new(wx1, wy1),
-        rt, 16.0, grid, roads,
+        rt,
+        16.0,
+        grid,
+        roads,
     );
 }
 
 /// Add a curved Bezier road with explicit control points (world coords).
+#[allow(clippy::too_many_arguments)]
 fn road_curve(
     seg: &mut RoadSegmentStore,
     grid: &mut WorldGrid,
     roads: &mut RoadNetwork,
-    from: Vec2, c1: Vec2, c2: Vec2, to: Vec2,
+    from: Vec2,
+    c1: Vec2,
+    c2: Vec2,
+    to: Vec2,
     rt: RoadType,
 ) {
     let start = seg.find_or_create_node(from, 16.0);
@@ -689,17 +676,16 @@ fn gw(gx: usize, gy: usize) -> Vec2 {
 // Tel Aviv road network
 // =============================================================================
 
-fn build_tel_aviv_roads(
-    seg: &mut RoadSegmentStore,
-    grid: &mut WorldGrid,
-    roads: &mut RoadNetwork,
-) {
+fn build_tel_aviv_roads(seg: &mut RoadSegmentStore, grid: &mut WorldGrid, roads: &mut RoadNetwork) {
     // --- 1. Jaffa old city: winding local roads near the coast (SW) ---
     // Yefet Street: main road through Jaffa, slightly curving
     let jaffa_n = gw(62, 65);
     let jaffa_s = gw(55, 35);
     let jaffa_mid = gw(58, 50);
-    road_curve(seg, grid, roads,
+    road_curve(
+        seg,
+        grid,
+        roads,
         jaffa_s,
         jaffa_s + Vec2::new(30.0, 80.0),
         jaffa_mid + Vec2::new(-10.0, 80.0),
@@ -722,7 +708,10 @@ fn build_tel_aviv_roads(
     let allenby_coast = gw(65, 82);
     let allenby_mid = gw(95, 88);
     let allenby_end = gw(140, 92);
-    road_curve(seg, grid, roads,
+    road_curve(
+        seg,
+        grid,
+        roads,
         allenby_coast,
         allenby_coast + Vec2::new(200.0, 20.0),
         allenby_mid + Vec2::new(200.0, 30.0),
@@ -734,7 +723,10 @@ fn build_tel_aviv_roads(
     let roth_start = gw(78, 72);
     let roth_mid = gw(95, 88);
     let roth_end = gw(118, 108);
-    road_curve(seg, grid, roads,
+    road_curve(
+        seg,
+        grid,
+        roads,
         roth_start,
         roth_start + Vec2::new(150.0, 100.0),
         roth_mid + Vec2::new(100.0, 100.0),
@@ -828,7 +820,16 @@ fn build_tel_aviv_roads(
     for &(gy0, gy1) in &[(35, 65), (65, 90), (90, 120), (120, 150), (150, 180)] {
         let coast_x0 = (coastline_x(gy0 as f32) + 2.0) as usize;
         let coast_x1 = (coastline_x(gy1 as f32) + 2.0) as usize;
-        road_straight(seg, grid, roads, coast_x0, gy0, coast_x1, gy1, RoadType::Path);
+        road_straight(
+            seg,
+            grid,
+            roads,
+            coast_x0,
+            gy0,
+            coast_x1,
+            gy1,
+            RoadType::Path,
+        );
     }
 }
 
@@ -836,6 +837,7 @@ fn build_tel_aviv_roads(
 // Zoning (Tel Aviv neighborhoods)
 // =============================================================================
 
+#[allow(dead_code)]
 fn zone_tel_aviv(grid: &WorldGrid, commands: &mut Commands) {
     // We need mutable grid but also read it for adjacency checks.
     // Clone zone assignments, then apply.
@@ -948,10 +950,16 @@ fn apply_zones(grid: &mut WorldGrid) {
             }
             for dy in -zone_depth..=zone_depth {
                 for dx in -zone_depth..=zone_depth {
-                    if dx.abs() + dy.abs() > zone_depth { continue; }
+                    if dx.abs() + dy.abs() > zone_depth {
+                        continue;
+                    }
                     let nx = rx as isize + dx;
                     let ny = ry as isize + dy;
-                    if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < GRID_WIDTH
+                        && (ny as usize) < GRID_HEIGHT
+                    {
                         near_road[ny as usize * GRID_WIDTH + nx as usize] = true;
                     }
                 }
@@ -1020,8 +1028,10 @@ fn apply_zones(grid: &mut WorldGrid) {
                     5..=6 => ZoneType::CommercialLow,
                     _ => ZoneType::Office,
                 }
+            } else if hash % 3 == 0 {
+                ZoneType::ResidentialLow
             } else {
-                if hash % 3 == 0 { ZoneType::ResidentialLow } else { ZoneType::ResidentialHigh }
+                ZoneType::ResidentialHigh
             };
 
             grid.get_mut(x, y).zone = zone;
@@ -1077,7 +1087,11 @@ fn spawn_tel_aviv_buildings(
             // Building level based on neighborhood
             let level: u8 = if xf > 100.0 && xf < 150.0 && yf > 90.0 && yf < 115.0 {
                 // Azrieli area: tall
-                if hash % 3 == 0 { 2 } else { 3 }
+                if hash % 3 == 0 {
+                    2
+                } else {
+                    3
+                }
             } else if xf > 70.0 && xf < 140.0 && yf > 70.0 && yf < 160.0 {
                 // White City: medium-tall
                 match hash % 4 {
@@ -1087,7 +1101,11 @@ fn spawn_tel_aviv_buildings(
                 }
             } else if yf < 70.0 && xf < 80.0 {
                 // Jaffa: low
-                if hash % 4 == 0 { 2 } else { 1 }
+                if hash % 4 == 0 {
+                    2
+                } else {
+                    1
+                }
             } else if yf > 192.0 {
                 // Ramat Aviv: medium
                 match hash % 3 {
@@ -1174,12 +1192,12 @@ fn spawn_tel_aviv_services(commands: &mut Commands, grid: &mut WorldGrid) {
         (ServiceType::FireStation, 80, 145),
         (ServiceType::FireStation, 120, 210),
         // Police
-        (ServiceType::PoliceStation, 65, 48),  // Jaffa
+        (ServiceType::PoliceStation, 65, 48), // Jaffa
         (ServiceType::PoliceStation, 110, 90),
         (ServiceType::PoliceStation, 90, 135),
         (ServiceType::PoliceStation, 130, 160),
         // Hospitals
-        (ServiceType::Hospital, 95, 80),   // Ichilov area
+        (ServiceType::Hospital, 95, 80), // Ichilov area
         (ServiceType::Hospital, 150, 130),
         // Schools
         (ServiceType::ElementarySchool, 78, 80),
@@ -1187,22 +1205,22 @@ fn spawn_tel_aviv_services(commands: &mut Commands, grid: &mut WorldGrid) {
         (ServiceType::ElementarySchool, 88, 210),
         (ServiceType::HighSchool, 105, 95),
         (ServiceType::HighSchool, 90, 150),
-        (ServiceType::University, 110, 215),  // Tel Aviv University area
+        (ServiceType::University, 110, 215), // Tel Aviv University area
         // Parks
-        (ServiceType::LargePark, 80, 180),  // Yarkon Park
+        (ServiceType::LargePark, 80, 180), // Yarkon Park
         (ServiceType::LargePark, 105, 180),
-        (ServiceType::SmallPark, 95, 88),    // Rothschild gardens
+        (ServiceType::SmallPark, 95, 88), // Rothschild gardens
         (ServiceType::SmallPark, 110, 105),
         (ServiceType::SmallPark, 130, 140),
-        (ServiceType::SmallPark, 70, 50),    // Jaffa garden
-        (ServiceType::Plaza, 100, 135),      // Dizengoff Square area
-        (ServiceType::Plaza, 118, 108),      // Habima area
+        (ServiceType::SmallPark, 70, 50), // Jaffa garden
+        (ServiceType::Plaza, 100, 135),   // Dizengoff Square area
+        (ServiceType::Plaza, 118, 108),   // Habima area
         // Culture & civic
-        (ServiceType::Museum, 112, 100),     // Art museum area
+        (ServiceType::Museum, 112, 100), // Art museum area
         (ServiceType::CityHall, 115, 95),
         (ServiceType::Library, 105, 110),
         // Transport
-        (ServiceType::TrainStation, 145, 95),  // HaShalom station
+        (ServiceType::TrainStation, 145, 95), // HaShalom station
         (ServiceType::TrainStation, 145, 155), // Arlozorov station
         (ServiceType::BusDepot, 100, 105),
         (ServiceType::SubwayStation, 110, 85),
@@ -1230,7 +1248,7 @@ fn spawn_tel_aviv_services(commands: &mut Commands, grid: &mut WorldGrid) {
 
 fn spawn_tel_aviv_citizens(
     commands: &mut Commands,
-    grid: &WorldGrid,
+    _grid: &WorldGrid,
     building_entities: &[(Entity, ZoneType, usize, usize, u32)],
 ) {
     let work_buildings: Vec<(Entity, usize, usize)> = building_entities
@@ -1290,7 +1308,11 @@ fn spawn_tel_aviv_citizens(
             age_counter = age_counter.wrapping_add(7);
             let age = 18 + (age_counter % 47);
 
-            let gender = if citizen_count % 2 == 0 { Gender::Male } else { Gender::Female };
+            let gender = if citizen_count.is_multiple_of(2) {
+                Gender::Male
+            } else {
+                Gender::Female
+            };
             let edu = match age {
                 18..=22 => (age_counter % 3).min(1),
                 23..=30 => (age_counter % 4).min(2),
@@ -1301,16 +1323,31 @@ fn spawn_tel_aviv_citizens(
 
             commands.spawn((
                 Citizen,
-                Position { x: home_wx, y: home_wy },
+                Position {
+                    x: home_wx,
+                    y: home_wy,
+                },
                 Velocity { x: 0.0, y: 0.0 },
-                HomeLocation { grid_x: *hx, grid_y: *hy, building: *home_entity },
-                WorkLocation { grid_x: wx, grid_y: wy, building: work_entity },
+                HomeLocation {
+                    grid_x: *hx,
+                    grid_y: *hy,
+                    building: *home_entity,
+                },
+                WorkLocation {
+                    grid_x: wx,
+                    grid_y: wy,
+                    building: work_entity,
+                },
                 CitizenStateComp(CitizenState::AtHome),
                 PathCache::new(Vec::new()),
                 CitizenDetails {
-                    age, gender, education: edu,
-                    happiness: 60.0, health: 90.0,
-                    salary, savings: salary * 2.0,
+                    age,
+                    gender,
+                    education: edu,
+                    happiness: 60.0,
+                    health: 90.0,
+                    salary,
+                    savings: salary * 2.0,
                 },
                 Personality {
                     ambition: ((age_counter.wrapping_mul(3)) % 100) as f32 / 100.0,
