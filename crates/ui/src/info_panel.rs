@@ -18,6 +18,10 @@ use simulation::events::{ActiveCityEffects, EventJournal};
 use simulation::forest_fire::ForestFireStats;
 use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::groundwater::GroundwaterStats;
+use simulation::happiness::{
+    ServiceCoverageGrid, COVERAGE_EDUCATION, COVERAGE_ENTERTAINMENT, COVERAGE_FIRE,
+    COVERAGE_HEALTH, COVERAGE_PARK, COVERAGE_POLICE, COVERAGE_TELECOM, COVERAGE_TRANSPORT,
+};
 use simulation::heating::HeatingStats;
 use simulation::homelessness::HomelessnessStats;
 use simulation::immigration::{CityAttractiveness, ImmigrationStats};
@@ -30,7 +34,7 @@ use simulation::policies::{Policies, Policy};
 use simulation::pollution::PollutionGrid;
 use simulation::postal::PostalStats;
 use simulation::production::{CityGoods, GoodsType};
-use simulation::services::ServiceBuilding;
+use simulation::services::{ServiceBuilding, ServiceType};
 use simulation::specialization::{
     CitySpecialization, CitySpecializations, SpecializationBonuses, SpecializationScore,
 };
@@ -2146,8 +2150,13 @@ pub struct AdvisorVisible(pub bool);
 #[derive(Resource, Default)]
 pub struct PoliciesVisible(pub bool);
 
+/// Resource controlling whether the service coverage detail panel is visible.
+/// Toggle with 'V' key.
+#[derive(Resource, Default)]
+pub struct ServicePanelVisible(pub bool);
+
 /// Toggles UI panel visibility when keybinds are pressed.
-/// J = Event Journal, C = Charts, A = Advisors, P = Policies.
+/// J = Event Journal, C = Charts, A = Advisors, P = Policies, V = Services.
 /// Keys are ignored when egui has keyboard focus (e.g. text input).
 pub fn panel_keybinds(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -2155,6 +2164,7 @@ pub fn panel_keybinds(
     mut charts: ResMut<ChartsVisible>,
     mut advisor: ResMut<AdvisorVisible>,
     mut policies: ResMut<PoliciesVisible>,
+    mut service_panel: ResMut<ServicePanelVisible>,
     mut contexts: EguiContexts,
 ) {
     // Don't toggle panels when a text field or other egui widget wants keyboard input
@@ -2173,6 +2183,9 @@ pub fn panel_keybinds(
     }
     if keyboard.just_pressed(KeyCode::KeyP) {
         policies.0 = !policies.0;
+    }
+    if keyboard.just_pressed(KeyCode::KeyV) {
+        service_panel.0 = !service_panel.0;
     }
 }
 
@@ -2327,4 +2340,208 @@ fn event_type_color(event_type: &simulation::events::CityEventType) -> egui::Col
         CityEventType::EconomicBoom => egui::Color32::from_rgb(50, 220, 50),
         CityEventType::ResourceDepleted(_) => egui::Color32::from_rgb(200, 150, 50),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Service Coverage Detail Panel
+// ---------------------------------------------------------------------------
+
+/// Service category used for grouping in the detail panel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum ServiceCategory {
+    Health,
+    Education,
+    Police,
+    Fire,
+    Parks,
+    Entertainment,
+    Telecom,
+    Transport,
+}
+
+impl ServiceCategory {
+    const ALL: [ServiceCategory; 8] = [
+        ServiceCategory::Health,
+        ServiceCategory::Education,
+        ServiceCategory::Police,
+        ServiceCategory::Fire,
+        ServiceCategory::Parks,
+        ServiceCategory::Entertainment,
+        ServiceCategory::Telecom,
+        ServiceCategory::Transport,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            ServiceCategory::Health => "Health",
+            ServiceCategory::Education => "Education",
+            ServiceCategory::Police => "Police",
+            ServiceCategory::Fire => "Fire",
+            ServiceCategory::Parks => "Parks",
+            ServiceCategory::Entertainment => "Entertainment",
+            ServiceCategory::Telecom => "Telecom",
+            ServiceCategory::Transport => "Transport",
+        }
+    }
+
+    fn coverage_bit(self) -> u8 {
+        match self {
+            ServiceCategory::Health => COVERAGE_HEALTH,
+            ServiceCategory::Education => COVERAGE_EDUCATION,
+            ServiceCategory::Police => COVERAGE_POLICE,
+            ServiceCategory::Fire => COVERAGE_FIRE,
+            ServiceCategory::Parks => COVERAGE_PARK,
+            ServiceCategory::Entertainment => COVERAGE_ENTERTAINMENT,
+            ServiceCategory::Telecom => COVERAGE_TELECOM,
+            ServiceCategory::Transport => COVERAGE_TRANSPORT,
+        }
+    }
+
+    fn matches_service(self, st: ServiceType) -> bool {
+        match self {
+            ServiceCategory::Health => ServiceBuilding::is_health(st),
+            ServiceCategory::Education => ServiceBuilding::is_education(st),
+            ServiceCategory::Police => ServiceBuilding::is_police(st),
+            ServiceCategory::Fire => ServiceBuilding::is_fire(st),
+            ServiceCategory::Parks => ServiceBuilding::is_park(st),
+            ServiceCategory::Entertainment => {
+                matches!(
+                    st,
+                    ServiceType::Stadium | ServiceType::Plaza | ServiceType::SportsField
+                )
+            }
+            ServiceCategory::Telecom => ServiceBuilding::is_telecom(st),
+            ServiceCategory::Transport => ServiceBuilding::is_transport(st),
+        }
+    }
+
+    /// Map to a corresponding overlay mode if one exists.
+    fn overlay(self) -> Option<OverlayMode> {
+        match self {
+            ServiceCategory::Education => Some(OverlayMode::Education),
+            _ => None,
+        }
+    }
+}
+
+/// Coverage percentage color: green (>80%), yellow (50-80%), red (<50%).
+fn coverage_color(pct: f32) -> egui::Color32 {
+    if pct > 80.0 {
+        egui::Color32::from_rgb(80, 200, 80)
+    } else if pct >= 50.0 {
+        egui::Color32::from_rgb(220, 200, 50)
+    } else {
+        egui::Color32::from_rgb(220, 60, 60)
+    }
+}
+
+/// Displays the Service Coverage Detail Panel as a standalone egui window.
+/// Shows per-category coverage percentages, building counts, and color coding.
+/// Toggle visibility with the 'V' key. Click a category to activate overlay.
+pub fn service_detail_panel_ui(
+    mut contexts: EguiContexts,
+    visible: Res<ServicePanelVisible>,
+    coverage_grid: Res<ServiceCoverageGrid>,
+    grid: Res<WorldGrid>,
+    services: Query<&ServiceBuilding>,
+    mut overlay: ResMut<OverlayState>,
+) {
+    if !visible.0 {
+        return;
+    }
+
+    // Count residential cells and per-category covered residential cells.
+    let mut residential_count: u32 = 0;
+    let mut covered: [u32; 8] = [0; 8];
+
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
+            let cell = grid.get(x, y);
+            if !cell.zone.is_residential() {
+                continue;
+            }
+            residential_count += 1;
+            let idx = ServiceCoverageGrid::idx(x, y);
+            let flags = coverage_grid.flags[idx];
+            for (i, cat) in ServiceCategory::ALL.iter().enumerate() {
+                if flags & cat.coverage_bit() != 0 {
+                    covered[i] += 1;
+                }
+            }
+        }
+    }
+
+    // Count buildings per category and compute total coverage radius (as proxy for capacity).
+    let mut building_counts: [u32; 8] = [0; 8];
+    let mut total_radius: [f32; 8] = [0.0; 8];
+
+    for sb in &services {
+        for (i, cat) in ServiceCategory::ALL.iter().enumerate() {
+            if cat.matches_service(sb.service_type) {
+                building_counts[i] += 1;
+                total_radius[i] += sb.radius;
+            }
+        }
+    }
+
+    egui::Window::new("Service Coverage")
+        .default_open(true)
+        .default_width(320.0)
+        .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 60.0))
+        .show(contexts.ctx_mut(), |ui| {
+            ui.small("Press [V] to toggle");
+            ui.separator();
+
+            if residential_count == 0 {
+                ui.label("No residential zones placed yet.");
+                return;
+            }
+
+            egui::Grid::new("service_coverage_grid")
+                .num_columns(4)
+                .spacing([12.0, 4.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    // Header
+                    ui.strong("Service");
+                    ui.strong("Coverage");
+                    ui.strong("Buildings");
+                    ui.strong("Capacity");
+                    ui.end_row();
+
+                    for (i, cat) in ServiceCategory::ALL.iter().enumerate() {
+                        let pct = if residential_count > 0 {
+                            covered[i] as f32 / residential_count as f32 * 100.0
+                        } else {
+                            0.0
+                        };
+
+                        let color = coverage_color(pct);
+
+                        // Clickable label -- activates overlay if available
+                        let label = egui::RichText::new(cat.label()).color(color);
+                        let response = ui.add(egui::Label::new(label).sense(egui::Sense::click()));
+                        if response.clicked() {
+                            if let Some(mode) = cat.overlay() {
+                                overlay.mode = if overlay.mode == mode {
+                                    OverlayMode::None
+                                } else {
+                                    mode
+                                };
+                            }
+                        }
+                        if cat.overlay().is_some() {
+                            response.on_hover_text("Click to toggle overlay");
+                        }
+
+                        ui.colored_label(color, format!("{pct:.0}%"));
+                        ui.label(format!("{}", building_counts[i]));
+
+                        // Capacity: total coverage radius in cells (rough proxy for demand coverage)
+                        let capacity_cells = (total_radius[i] / CELL_SIZE).round() as u32;
+                        ui.label(format!("{} / {}", capacity_cells, residential_count));
+                        ui.end_row();
+                    }
+                });
+        });
 }
