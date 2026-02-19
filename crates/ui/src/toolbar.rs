@@ -883,6 +883,15 @@ pub fn toolbar_ui(
                     load_events.send(LoadGameEvent);
                 }
 
+                // Current overlay
+                if overlay.mode != OverlayMode::None {
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(format!("Overlay: {}", overlay.mode.label()))
+                            .color(egui::Color32::from_rgb(140, 220, 255)),
+                    );
+                }
+
                 // Active tool + cost
                 if let Some(cost) = tool.cost() {
                     ui.separator();
