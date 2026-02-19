@@ -6,6 +6,7 @@ use simulation::buildings::Building;
 use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Velocity};
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid};
+use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
 use simulation::policies::{Policies, Policy};
@@ -388,7 +389,8 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 /// v1 = original fields (grid, roads, clock, budget, demand, buildings, citizens, utilities, services, road_segments)
 /// v2 = policies, weather, unlock_state, extended_budget, loans
 /// v3 = lifecycle_timer, path_cache, velocity per citizen
-pub const CURRENT_SAVE_VERSION: u32 = 3;
+/// v4 = life_sim_timer (LifeSimTimer serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 4;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -455,6 +457,8 @@ pub struct SaveData {
     pub lifecycle_timer: Option<SaveLifecycleTimer>,
     #[serde(default)]
     pub virtual_population: Option<SaveVirtualPopulation>,
+    #[serde(default)]
+    pub life_sim_timer: Option<SaveLifeSimTimer>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -633,6 +637,17 @@ pub struct SaveLifecycleTimer {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveLifeSimTimer {
+    pub needs_tick: u32,
+    pub life_event_tick: u32,
+    pub salary_tick: u32,
+    pub education_tick: u32,
+    pub job_seek_tick: u32,
+    pub personality_tick: u32,
+    pub health_tick: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
 pub struct SaveLoanBook {
     pub loans: Vec<SaveLoan>,
     pub max_loans: u32,
@@ -713,6 +728,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 3;
     }
 
+    // v3 -> v4: Added life_sim_timer (LifeSimTimer serialization).
+    // Uses `#[serde(default)]` so it deserializes as None from a v3 save.
+    if save.version == 3 {
+        save.version = 4;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
@@ -751,6 +772,7 @@ pub fn create_save_data(
     loan_book: Option<&LoanBook>,
     lifecycle_timer: Option<&LifecycleTimer>,
     virtual_population: Option<&VirtualPopulation>,
+    life_sim_timer: Option<&LifeSimTimer>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -959,6 +981,15 @@ pub fn create_save_data(
                 .collect(),
             max_real_citizens: vp.max_real_citizens,
         }),
+        life_sim_timer: life_sim_timer.map(|lst| SaveLifeSimTimer {
+            needs_tick: lst.needs_tick,
+            life_event_tick: lst.life_event_tick,
+            salary_tick: lst.salary_tick,
+            education_tick: lst.education_tick,
+            job_seek_tick: lst.job_seek_tick,
+            personality_tick: lst.personality_tick,
+            health_tick: lst.health_tick,
+        }),
     }
 }
 
@@ -1091,6 +1122,19 @@ pub fn restore_lifecycle_timer(save: &SaveLifecycleTimer) -> LifecycleTimer {
     }
 }
 
+/// Restore a `LifeSimTimer` resource from saved data.
+pub fn restore_life_sim_timer(save: &SaveLifeSimTimer) -> LifeSimTimer {
+    LifeSimTimer {
+        needs_tick: save.needs_tick,
+        life_event_tick: save.life_event_tick,
+        salary_tick: save.salary_tick,
+        education_tick: save.education_tick,
+        job_seek_tick: save.job_seek_tick,
+        personality_tick: save.personality_tick,
+        health_tick: save.health_tick,
+    }
+}
+
 /// Restore a `VirtualPopulation` resource from saved data.
 pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
     let district_stats = save
@@ -1146,6 +1190,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1459,6 +1504,7 @@ mod tests {
             Some(&loan_book),
             Some(&lifecycle_timer),
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1529,6 +1575,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1541,6 +1588,7 @@ mod tests {
         assert!(restored.loan_book.is_none());
         assert!(restored.lifecycle_timer.is_none());
         assert!(restored.virtual_population.is_none());
+        assert!(restored.life_sim_timer.is_none());
     }
 
     #[test]
@@ -1591,6 +1639,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1615,6 +1664,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1658,6 +1708,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1685,6 +1736,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1727,6 +1779,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1754,6 +1807,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1886,6 +1940,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1936,6 +1991,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         // Simulate an old save citizen with default V3 fields
         save.citizens.push(SaveCitizen {
@@ -1963,5 +2019,165 @@ mod tests {
         assert_eq!(c.path_current_index, 0);
         assert!((c.velocity_x).abs() < 0.001);
         assert!((c.velocity_y).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_life_sim_timer_roundtrip() {
+        let timer = LifeSimTimer {
+            needs_tick: 7,
+            life_event_tick: 123,
+            salary_tick: 9999,
+            education_tick: 500,
+            job_seek_tick: 42,
+            personality_tick: 1234,
+            health_tick: 777,
+        };
+
+        let save = SaveLifeSimTimer {
+            needs_tick: timer.needs_tick,
+            life_event_tick: timer.life_event_tick,
+            salary_tick: timer.salary_tick,
+            education_tick: timer.education_tick,
+            job_seek_tick: timer.job_seek_tick,
+            personality_tick: timer.personality_tick,
+            health_tick: timer.health_tick,
+        };
+
+        let restored = restore_life_sim_timer(&save);
+        assert_eq!(restored.needs_tick, 7);
+        assert_eq!(restored.life_event_tick, 123);
+        assert_eq!(restored.salary_tick, 9999);
+        assert_eq!(restored.education_tick, 500);
+        assert_eq!(restored.job_seek_tick, 42);
+        assert_eq!(restored.personality_tick, 1234);
+        assert_eq!(restored.health_tick, 777);
+    }
+
+    #[test]
+    fn test_life_sim_timer_full_roundtrip() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let life_sim_timer = LifeSimTimer {
+            needs_tick: 5,
+            life_event_tick: 300,
+            salary_tick: 20000,
+            education_tick: 700,
+            job_seek_tick: 100,
+            personality_tick: 1500,
+            health_tick: 900,
+        };
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&life_sim_timer),
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        let rlst = restored
+            .life_sim_timer
+            .as_ref()
+            .expect("life_sim_timer present");
+        assert_eq!(rlst.needs_tick, 5);
+        assert_eq!(rlst.life_event_tick, 300);
+        assert_eq!(rlst.salary_tick, 20000);
+        assert_eq!(rlst.education_tick, 700);
+        assert_eq!(rlst.job_seek_tick, 100);
+        assert_eq!(rlst.personality_tick, 1500);
+        assert_eq!(rlst.health_tick, 900);
+    }
+
+    #[test]
+    fn test_life_sim_timer_backward_compat() {
+        // Saves without life_sim_timer should have it as None
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        assert!(restored.life_sim_timer.is_none());
+    }
+
+    #[test]
+    fn test_migrate_from_v3() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        save.version = 3;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 3);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
 }

@@ -4,10 +4,11 @@ use bevy::prelude::*;
 pub mod serialization;
 
 use serialization::{
-    create_save_data, migrate_save, restore_extended_budget, restore_lifecycle_timer,
-    restore_loan_book, restore_policies, restore_road_segment_store, restore_unlock_state,
-    restore_virtual_population, restore_weather, u8_to_road_type, u8_to_service_type,
-    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    create_save_data, migrate_save, restore_extended_budget, restore_life_sim_timer,
+    restore_lifecycle_timer, restore_loan_book, restore_policies, restore_road_segment_store,
+    restore_unlock_state, restore_virtual_population, restore_weather, u8_to_road_type,
+    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
+    CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
@@ -17,6 +18,7 @@ use simulation::citizen::{
 };
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
+use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
 use simulation::movement::ActivityTimer;
@@ -39,7 +41,7 @@ use rendering::citizen_render::CitizenSprite;
 // SystemParam bundles to keep system parameter counts under Bevy's 16 limit
 // ---------------------------------------------------------------------------
 
-/// Read-only access to the V2 resources (policies, weather, unlocks, ext budget, loans, virtual pop).
+/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer).
 #[derive(SystemParam)]
 struct V2ResourcesRead<'w> {
     policies: Res<'w, Policies>,
@@ -48,9 +50,10 @@ struct V2ResourcesRead<'w> {
     extended_budget: Res<'w, ExtendedBudget>,
     loan_book: Res<'w, LoanBook>,
     virtual_population: Res<'w, VirtualPopulation>,
+    life_sim_timer: Res<'w, LifeSimTimer>,
 }
 
-/// Mutable access to the V2 resources.
+/// Mutable access to the V2+ resources.
 #[derive(SystemParam)]
 struct V2ResourcesWrite<'w> {
     policies: ResMut<'w, Policies>,
@@ -59,6 +62,7 @@ struct V2ResourcesWrite<'w> {
     extended_budget: ResMut<'w, ExtendedBudget>,
     loan_book: ResMut<'w, LoanBook>,
     virtual_population: ResMut<'w, VirtualPopulation>,
+    life_sim_timer: ResMut<'w, LifeSimTimer>,
 }
 
 pub struct SavePlugin;
@@ -154,6 +158,7 @@ fn handle_save(
             Some(&v2.loan_book),
             Some(&lifecycle_timer),
             Some(&v2.virtual_population),
+            Some(&v2.life_sim_timer),
         );
 
         let bytes = save.encode();
@@ -509,6 +514,13 @@ fn handle_load(
             *v2.virtual_population = VirtualPopulation::default();
         }
 
+        // Restore life sim timer (prevents all life events firing simultaneously on load)
+        if let Some(ref saved_lst) = save.life_sim_timer {
+            *v2.life_sim_timer = restore_life_sim_timer(saved_lst);
+        } else {
+            *v2.life_sim_timer = LifeSimTimer::default();
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -583,6 +595,7 @@ fn handle_new_game(
         *v2.loan_book = LoanBook::default();
         *v2.virtual_population = VirtualPopulation::default();
         *lifecycle_timer = LifecycleTimer::default();
+        *v2.life_sim_timer = LifeSimTimer::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
