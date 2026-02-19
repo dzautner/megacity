@@ -226,7 +226,7 @@ pub fn draw_connected_highlights(
         // Find citizens connected to this building (home or work)
         for (home, work) in &citizens {
             let is_home = home.building == sel;
-            let is_work = work.as_ref().map_or(false, |w| w.building == sel);
+            let is_work = work.as_ref().is_some_and(|w| w.building == sel);
 
             if is_home {
                 // Draw line to workplace
