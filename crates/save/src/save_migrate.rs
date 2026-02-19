@@ -91,6 +91,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 12;
     }
 
+    // v12 -> v13: Added drought_state (DroughtState serialization for drought index).
+    // Uses `#[serde(default)]` so it deserializes as None from a v12 save.
+    if save.version == 12 {
+        save.version = 13;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 

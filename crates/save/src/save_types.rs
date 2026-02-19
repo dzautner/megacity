@@ -24,7 +24,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v10 = recycling_state (RecyclingState + RecyclingEconomics serialization)
 /// v11 = wind_damage_state (WindDamageState serialization)
 /// v12 = uhi_grid (UhiGrid serialization for urban heat island)
-pub const CURRENT_SAVE_VERSION: u32 = 12;
+/// v13 = drought_state (DroughtState serialization for drought index)
+pub const CURRENT_SAVE_VERSION: u32 = 13;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -107,6 +108,8 @@ pub struct SaveData {
     pub wind_damage_state: Option<SaveWindDamageState>,
     #[serde(default)]
     pub uhi_grid: Option<SaveUhiGrid>,
+    #[serde(default)]
+    pub drought_state: Option<SaveDroughtState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -445,6 +448,19 @@ pub struct SaveUhiGrid {
     pub cells: Vec<f32>,
     pub width: usize,
     pub height: usize,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveDroughtState {
+    pub rainfall_history: Vec<f32>,
+    pub current_index: f32,
+    pub current_tier: u8,
+    pub expected_daily_rainfall: f32,
+    pub water_demand_modifier: f32,
+    pub agriculture_modifier: f32,
+    pub fire_risk_multiplier: f32,
+    pub happiness_modifier: f32,
+    pub last_record_day: u32,
 }
 
 impl SaveData {

@@ -7,6 +7,7 @@ use bevy::prelude::*;
 
 use simulation::budget::ExtendedBudget;
 use simulation::degree_days::DegreeDays;
+use simulation::drought::DroughtState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::loans::LoanBook;
 use simulation::policies::Policies;
@@ -36,6 +37,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub recycling_economics: Res<'w, RecyclingEconomics>,
     pub wind_damage_state: Res<'w, WindDamageState>,
     pub uhi_grid: Res<'w, UhiGrid>,
+    pub drought_state: Res<'w, DroughtState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -56,4 +58,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub recycling_economics: ResMut<'w, RecyclingEconomics>,
     pub wind_damage_state: ResMut<'w, WindDamageState>,
     pub uhi_grid: ResMut<'w, UhiGrid>,
+    pub drought_state: ResMut<'w, DroughtState>,
 }

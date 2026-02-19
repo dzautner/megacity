@@ -290,3 +290,18 @@ pub fn restore_uhi_grid(save: &SaveUhiGrid) -> UhiGrid {
         height: save.height,
     }
 }
+
+/// Restore a `DroughtState` resource from saved data.
+pub fn restore_drought(save: &SaveDroughtState) -> simulation::drought::DroughtState {
+    simulation::drought::DroughtState {
+        rainfall_history: save.rainfall_history.clone(),
+        current_index: save.current_index,
+        current_tier: u8_to_drought_tier(save.current_tier),
+        expected_daily_rainfall: save.expected_daily_rainfall,
+        water_demand_modifier: save.water_demand_modifier,
+        agriculture_modifier: save.agriculture_modifier,
+        fire_risk_multiplier: save.fire_risk_multiplier,
+        happiness_modifier: save.happiness_modifier,
+        last_record_day: save.last_record_day,
+    }
+}
