@@ -12,6 +12,7 @@ pub mod citizen_spawner;
 pub mod config;
 pub mod crime;
 pub mod death_care;
+pub mod degree_days;
 pub mod disasters;
 pub mod districts;
 pub mod economy;
@@ -83,6 +84,7 @@ use citizen_spawner::CitizenSpawnTimer;
 use config::{GRID_HEIGHT, GRID_WIDTH};
 use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
+use degree_days::DegreeDays;
 use disasters::ActiveDisaster;
 use districts::{DistrictMap, Districts};
 use economy::CityBudget;
@@ -238,6 +240,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<postal::PostalCoverage>()
             .init_resource::<postal::PostalStats>()
             .init_resource::<WaterSupply>()
+            .init_resource::<DegreeDays>()
             .add_event::<BankruptcyEvent>()
             .add_systems(Startup, init_world)
             .add_systems(
@@ -333,6 +336,7 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     weather::update_weather,
+                    degree_days::update_degree_days,
                     heating::update_heating,
                     wind::update_wind,
                     noise::update_noise_pollution,
