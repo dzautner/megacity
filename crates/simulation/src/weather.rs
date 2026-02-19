@@ -730,6 +730,80 @@ impl Weather {
     }
 }
 
+/// Resource holding current construction speed and cost modifiers derived from weather/season.
+///
+/// Updated each tick by `update_construction_modifiers`. Other systems can query this
+/// resource when construction times are applied.
+///
+/// Speed factor: `construction_progress_per_tick = base_rate * speed_factor`
+/// Cost factor: multiplied against base construction cost.
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+pub struct ConstructionModifiers {
+    /// Combined speed factor (season_factor * weather_factor). Range: 0.0 to ~1.1.
+    pub speed_factor: f32,
+    /// Cost multiplier based on season. Range: 1.0 to 1.25.
+    pub cost_factor: f32,
+}
+
+impl Default for ConstructionModifiers {
+    fn default() -> Self {
+        Self {
+            speed_factor: 1.0,
+            cost_factor: 1.0,
+        }
+    }
+}
+
+impl ConstructionModifiers {
+    /// Season-based construction speed factor.
+    pub fn season_speed_factor(season: Season) -> f32 {
+        match season {
+            Season::Spring => 1.0,
+            Season::Summer => 1.1,
+            Season::Autumn => 0.9,
+            Season::Winter => 0.6,
+        }
+    }
+
+    /// Weather condition-based construction speed factor.
+    pub fn weather_speed_factor(condition: WeatherCondition, temperature: f32) -> f32 {
+        // Extreme cold (below -5C) halts construction almost entirely
+        if temperature < -5.0 {
+            return 0.2;
+        }
+
+        match condition {
+            WeatherCondition::Sunny | WeatherCondition::PartlyCloudy => 1.0,
+            WeatherCondition::Overcast => 1.0,
+            WeatherCondition::Rain => 0.5,
+            WeatherCondition::HeavyRain => 0.5,
+            WeatherCondition::Snow => 0.3,
+            WeatherCondition::Storm => 0.0,
+        }
+    }
+
+    /// Season-based construction cost factor.
+    pub fn season_cost_factor(season: Season) -> f32 {
+        match season {
+            Season::Spring | Season::Summer => 1.0,
+            Season::Autumn => 1.05,
+            Season::Winter => 1.25,
+        }
+    }
+}
+
+/// Updates `ConstructionModifiers` each tick based on current weather and season.
+pub fn update_construction_modifiers(
+    weather: Res<Weather>,
+    mut modifiers: ResMut<ConstructionModifiers>,
+) {
+    let season_speed = ConstructionModifiers::season_speed_factor(weather.season);
+    let weather_speed =
+        ConstructionModifiers::weather_speed_factor(weather.current_event, weather.temperature);
+    modifiers.speed_factor = season_speed * weather_speed;
+    modifiers.cost_factor = ConstructionModifiers::season_cost_factor(weather.season);
+}
+
 /// Hourly weather update system. Runs every time the game clock crosses an hour boundary.
 ///
 /// Implements:
@@ -1606,5 +1680,87 @@ mod tests {
     fn test_climate_zone_all_variants() {
         let all = ClimateZone::all();
         assert_eq!(all.len(), 7);
+
+    // ConstructionModifiers tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_season_speed_factors() {
+        assert!((ConstructionModifiers::season_speed_factor(Season::Spring) - 1.0).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::season_speed_factor(Season::Summer) - 1.1).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::season_speed_factor(Season::Autumn) - 0.9).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::season_speed_factor(Season::Winter) - 0.6).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_weather_speed_factor_clear() {
+        // Sunny/PartlyCloudy/Overcast at normal temp = 1.0
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Sunny, 20.0) - 1.0).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::PartlyCloudy, 20.0) - 1.0).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Overcast, 20.0) - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_weather_speed_factor_rain() {
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Rain, 10.0) - 0.5).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::HeavyRain, 10.0) - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_weather_speed_factor_snow() {
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Snow, -2.0) - 0.3).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_storm_halts_construction() {
+        // Storm weather factor = 0.0 (construction halted)
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Storm, 15.0) - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_extreme_cold_slows_construction() {
+        // Extreme cold (below -5C) = 0.2 regardless of weather condition
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Sunny, -10.0) - 0.2).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::weather_speed_factor(WeatherCondition::Overcast, -6.0) - 0.2).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_season_cost_factors() {
+        assert!((ConstructionModifiers::season_cost_factor(Season::Spring) - 1.0).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::season_cost_factor(Season::Summer) - 1.0).abs() < f32::EPSILON);
+        assert!((ConstructionModifiers::season_cost_factor(Season::Autumn) - 1.05).abs() < f32::EPSILON);
+        // Winter cost modifier = 1.25
+        assert!((ConstructionModifiers::season_cost_factor(Season::Winter) - 1.25).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_summer_gives_1_1x_speed() {
+        // Summer with clear weather = 1.1 * 1.0 = 1.1
+        let speed = ConstructionModifiers::season_speed_factor(Season::Summer)
+            * ConstructionModifiers::weather_speed_factor(WeatherCondition::Sunny, 25.0);
+        assert!((speed - 1.1).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_combined_speed_factor_winter_storm() {
+        // Winter + Storm = 0.6 * 0.0 = 0.0
+        let speed = ConstructionModifiers::season_speed_factor(Season::Winter)
+            * ConstructionModifiers::weather_speed_factor(WeatherCondition::Storm, 2.0);
+        assert!(speed.abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_combined_speed_factor_spring_rain() {
+        // Spring + Rain = 1.0 * 0.5 = 0.5
+        let speed = ConstructionModifiers::season_speed_factor(Season::Spring)
+            * ConstructionModifiers::weather_speed_factor(WeatherCondition::Rain, 10.0);
+        assert!((speed - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_construction_modifiers_default() {
+        let cm = ConstructionModifiers::default();
+        assert!((cm.speed_factor - 1.0).abs() < f32::EPSILON);
+        assert!((cm.cost_factor - 1.0).abs() < f32::EPSILON);
     }
 }

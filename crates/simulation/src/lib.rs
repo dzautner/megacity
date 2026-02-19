@@ -133,7 +133,7 @@ use virtual_population::VirtualPopulation;
 use water_demand::WaterSupply;
 use water_pollution::WaterPollutionGrid;
 use wealth::WealthStats;
-use weather::{ClimateZone, Weather, WeatherChangeEvent};
+use weather::{ClimateZone, ConstructionModifiers, Weather, WeatherChangeEvent};
 use wind::WindState;
 use zones::ZoneDemand;
 
@@ -246,6 +246,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<WaterSupply>()
             .init_resource::<StormwaterGrid>()
             .init_resource::<DegreeDays>()
+            .init_resource::<ConstructionModifiers>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_systems(Startup, init_world)
@@ -343,6 +344,7 @@ impl Plugin for SimulationPlugin {
                 (
                     weather::update_weather,
                     degree_days::update_degree_days,
+                    weather::update_construction_modifiers,
                     heating::update_heating,
                     wind::update_wind,
                     noise::update_noise_pollution,
