@@ -379,7 +379,6 @@ impl Plugin for SimulationPlugin {
                     wind_damage::update_wind_damage,
                     urban_heat_island::update_uhi_grid,
                     drought::update_drought_index,
-                    heat_wave::update_heat_wave,
                     noise::update_noise_pollution,
                     crime::update_crime,
                     health::update_health_grid,
@@ -397,6 +396,7 @@ impl Plugin for SimulationPlugin {
             .add_systems(
                 FixedUpdate,
                 (
+                    heat_wave::update_heat_wave,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,
