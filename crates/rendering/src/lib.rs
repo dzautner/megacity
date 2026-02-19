@@ -14,6 +14,7 @@ pub mod props;
 pub mod terrain_render;
 
 pub mod road_render;
+pub mod selection_highlight;
 pub mod status_icons;
 
 use camera::{CameraDrag, LeftClickDrag};
@@ -106,6 +107,14 @@ impl Plugin for RenderingPlugin {
                         .run_if(on_timer(std::time::Duration::from_secs(1))),
                     status_icons::update_building_status_icons
                         .run_if(on_timer(std::time::Duration::from_secs(2))),
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    selection_highlight::manage_selection_highlights,
+                    selection_highlight::animate_selection_highlights,
+                    selection_highlight::draw_connected_highlights,
                 ),
             );
     }
