@@ -3,6 +3,35 @@ use serde::{Deserialize, Serialize};
 
 use crate::time_of_day::GameClock;
 
+/// Lightweight event fired whenever weather conditions change.
+///
+/// Consumers can listen for this with `EventReader<WeatherChangeEvent>` instead of
+/// polling the `Weather` resource every tick.
+#[derive(Event, Debug, Clone)]
+pub struct WeatherChangeEvent {
+    /// The weather condition before the change.
+    pub old_condition: WeatherCondition,
+    /// The weather condition after the change.
+    pub new_condition: WeatherCondition,
+    /// The season before the change (differs from `new_season` on season transitions).
+    pub old_season: Season,
+    /// The season after the change.
+    pub new_season: Season,
+    /// `true` when the new condition is Storm, or temperature crosses extreme
+    /// thresholds (heat-wave >35 C, cold-snap < -5 C).
+    pub is_extreme: bool,
+}
+
+/// Temperature thresholds for extreme weather classification.
+const EXTREME_HEAT_THRESHOLD: f32 = 35.0;
+const EXTREME_COLD_THRESHOLD: f32 = -5.0;
+
+/// Returns `true` if the weather condition or temperature qualifies as extreme.
+fn is_extreme_weather(condition: WeatherCondition, temperature: f32) -> bool {
+    matches!(condition, WeatherCondition::Storm)
+        || !(EXTREME_COLD_THRESHOLD..=EXTREME_HEAT_THRESHOLD).contains(&temperature)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Season {
     Spring,
@@ -197,6 +226,9 @@ pub struct Weather {
     /// Last hour that triggered a weather update (used for hourly boundary detection).
     #[serde(default)]
     pub last_update_hour: u32,
+    /// Whether the previous tick ended in an extreme weather state (for change detection).
+    #[serde(default)]
+    pub prev_extreme: bool,
 }
 
 fn default_humidity() -> f32 {
@@ -216,6 +248,7 @@ impl Default for Weather {
             cloud_cover: 0.1,
             precipitation_intensity: 0.0,
             last_update_hour: 0,
+            prev_extreme: false,
         }
     }
 }
@@ -336,13 +369,22 @@ impl Weather {
 /// - Daily variation via deterministic hash on day
 /// - Atmospheric state updates (cloud_cover, humidity, precipitation)
 /// - Weather condition derived from atmospheric state
-pub fn update_weather(clock: Res<GameClock>, mut weather: ResMut<Weather>) {
+pub fn update_weather(
+    clock: Res<GameClock>,
+    mut weather: ResMut<Weather>,
+    mut change_events: EventWriter<WeatherChangeEvent>,
+) {
     let current_hour = clock.hour_of_day();
 
     // Only update on hour boundaries (when the integer hour changes)
     if current_hour == weather.last_update_hour && clock.day == weather.last_update_day {
         return;
     }
+
+    // Snapshot pre-update state for change detection
+    let old_condition = weather.current_event;
+    let old_season = weather.season;
+    let old_was_extreme = weather.prev_extreme;
 
     let day_changed = clock.day != weather.last_update_day;
     weather.last_update_hour = current_hour;
@@ -465,6 +507,28 @@ pub fn update_weather(clock: Res<GameClock>, mut weather: ResMut<Weather>) {
         weather.precipitation_intensity,
         weather.temperature,
     );
+
+    // --- Fire WeatherChangeEvent if anything meaningful changed ---
+    let new_condition = weather.current_event;
+    let new_season = weather.season;
+    let new_is_extreme = is_extreme_weather(new_condition, weather.temperature);
+
+    let condition_changed = old_condition != new_condition;
+    let season_changed = old_season != new_season;
+    let extreme_crossed = old_was_extreme != new_is_extreme;
+
+    // Store current extreme state for next tick's comparison
+    weather.prev_extreme = new_is_extreme;
+
+    if condition_changed || season_changed || extreme_crossed {
+        change_events.send(WeatherChangeEvent {
+            old_condition,
+            new_condition,
+            old_season,
+            new_season,
+            is_extreme: new_is_extreme,
+        });
+    }
 }
 
 #[cfg(test)]
@@ -721,5 +785,262 @@ mod tests {
 
         w.current_event = WeatherCondition::Snow;
         assert!(w.park_multiplier() < 0.3);
+    }
+
+    // -----------------------------------------------------------------------
+    // WeatherChangeEvent tests
+    // -----------------------------------------------------------------------
+
+    /// Helper: build a minimal Bevy App with weather system and resources.
+    fn weather_test_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<GameClock>()
+            .init_resource::<Weather>()
+            .add_event::<WeatherChangeEvent>()
+            .add_systems(Update, update_weather);
+        app
+    }
+
+    #[test]
+    fn test_event_fired_on_clear_to_rain_transition() {
+        let mut app = weather_test_app();
+
+        // Start: Sunny, day 1, hour 0
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.current_event = WeatherCondition::Sunny;
+            weather.cloud_cover = 0.1;
+            weather.precipitation_intensity = 0.0;
+            weather.temperature = 20.0;
+            weather.last_update_day = 1;
+            weather.last_update_hour = 5;
+            weather.season = Season::Spring;
+        }
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.day = 1;
+            clock.hour = 6.0; // different hour to trigger update
+        }
+
+        // Force rainy atmospheric state by setting cloud_cover and precipitation
+        // before the system runs. The system will derive Rain from atmosphere.
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.cloud_cover = 0.8;
+            weather.precipitation_intensity = 0.3;
+        }
+
+        app.update();
+
+        // Read events
+        let events = app.world().resource::<Events<WeatherChangeEvent>>();
+        let mut reader = events.get_cursor();
+        let fired: Vec<_> = reader.read(events).collect();
+
+        assert!(
+            !fired.is_empty(),
+            "WeatherChangeEvent should fire when condition changes"
+        );
+        let evt = &fired[0];
+        assert_eq!(evt.old_condition, WeatherCondition::Sunny);
+        assert_eq!(evt.new_condition, WeatherCondition::Rain);
+        assert!(!evt.is_extreme, "Rain is not extreme weather");
+    }
+
+    #[test]
+    fn test_event_is_extreme_for_storm() {
+        let mut app = weather_test_app();
+
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.current_event = WeatherCondition::Sunny;
+            weather.cloud_cover = 0.1;
+            weather.precipitation_intensity = 0.0;
+            weather.temperature = 20.0;
+            weather.last_update_day = 1;
+            weather.last_update_hour = 5;
+            weather.season = Season::Summer;
+        }
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.day = 1;
+            clock.hour = 6.0;
+        }
+
+        // Set storm-level atmospheric state
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.cloud_cover = 0.95;
+            weather.precipitation_intensity = 0.85;
+        }
+
+        app.update();
+
+        let events = app.world().resource::<Events<WeatherChangeEvent>>();
+        let mut reader = events.get_cursor();
+        let fired: Vec<_> = reader.read(events).collect();
+
+        assert!(!fired.is_empty(), "Event should fire for Storm");
+        let evt = &fired[0];
+        assert_eq!(evt.new_condition, WeatherCondition::Storm);
+        assert!(evt.is_extreme, "Storm should be flagged as extreme");
+    }
+
+    #[test]
+    fn test_event_is_extreme_for_heat_wave() {
+        let mut app = weather_test_app();
+
+        // Set up non-extreme state, then push temp to extreme
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.current_event = WeatherCondition::Sunny;
+            weather.cloud_cover = 0.05;
+            weather.precipitation_intensity = 0.0;
+            weather.temperature = 50.0; // will smooth but stay > 35C
+            weather.last_update_day = 120;
+            weather.last_update_hour = 14;
+            weather.season = Season::Summer;
+            weather.event_days_remaining = 5;
+            weather.prev_extreme = false; // previous tick was NOT extreme
+        }
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.day = 120; // Summer day
+            clock.hour = 15.0; // peak heat hour
+        }
+
+        app.update();
+
+        let events = app.world().resource::<Events<WeatherChangeEvent>>();
+        let mut reader = events.get_cursor();
+        let fired: Vec<_> = reader.read(events).collect();
+
+        assert!(
+            !fired.is_empty(),
+            "Event should fire when crossing extreme heat threshold"
+        );
+        let evt = &fired[fired.len() - 1];
+        assert!(evt.is_extreme, "Temperature > 35C should be extreme");
+    }
+
+    #[test]
+    fn test_event_is_extreme_for_cold_snap() {
+        let mut app = weather_test_app();
+
+        // Set up non-extreme state, then push temp to extreme cold
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.current_event = WeatherCondition::Sunny;
+            weather.cloud_cover = 0.2;
+            weather.precipitation_intensity = 0.0;
+            weather.temperature = -25.0; // will smooth but stay < -5C
+            weather.last_update_day = 300;
+            weather.last_update_hour = 5;
+            weather.season = Season::Winter;
+            weather.event_days_remaining = 5;
+            weather.prev_extreme = false; // previous tick was NOT extreme
+        }
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.day = 300; // Winter day
+            clock.hour = 6.0; // trough temp hour
+        }
+
+        app.update();
+
+        let events = app.world().resource::<Events<WeatherChangeEvent>>();
+        let mut reader = events.get_cursor();
+        let fired: Vec<_> = reader.read(events).collect();
+
+        assert!(
+            !fired.is_empty(),
+            "Event should fire when crossing extreme cold threshold"
+        );
+        let evt = &fired[fired.len() - 1];
+        assert!(evt.is_extreme, "Temperature < -5C should be extreme");
+    }
+
+    #[test]
+    fn test_event_fired_on_season_change() {
+        let mut app = weather_test_app();
+
+        // Set up: end of Spring (day 90)
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.current_event = WeatherCondition::Sunny;
+            weather.cloud_cover = 0.1;
+            weather.precipitation_intensity = 0.0;
+            weather.temperature = 20.0;
+            weather.last_update_day = 90;
+            weather.last_update_hour = 11;
+            weather.season = Season::Spring;
+        }
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.day = 91; // Summer starts
+            clock.hour = 12.0;
+        }
+
+        app.update();
+
+        let events = app.world().resource::<Events<WeatherChangeEvent>>();
+        let mut reader = events.get_cursor();
+        let fired: Vec<_> = reader.read(events).collect();
+
+        assert!(!fired.is_empty(), "Event should fire on season transition");
+        let evt = &fired[0];
+        assert_eq!(evt.old_season, Season::Spring);
+        assert_eq!(evt.new_season, Season::Summer);
+    }
+
+    #[test]
+    fn test_no_event_when_nothing_changes() {
+        let mut app = weather_test_app();
+
+        // Set up: Sunny, clear, mild temperature, Spring
+        {
+            let mut weather = app.world_mut().resource_mut::<Weather>();
+            weather.current_event = WeatherCondition::Sunny;
+            weather.cloud_cover = 0.1;
+            weather.precipitation_intensity = 0.0;
+            weather.temperature = 15.0;
+            weather.last_update_day = 1;
+            weather.last_update_hour = 5;
+            weather.season = Season::Spring;
+        }
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.day = 1;
+            clock.hour = 6.0;
+        }
+
+        app.update();
+
+        let events = app.world().resource::<Events<WeatherChangeEvent>>();
+        let mut reader = events.get_cursor();
+        let fired: Vec<_> = reader.read(events).collect();
+
+        // The condition should remain Sunny (low cloud cover, no precipitation),
+        // season stays Spring (day 1), and temperature is mild.
+        // No event should fire.
+        assert!(
+            fired.is_empty(),
+            "No event should fire when weather does not change; got {} events",
+            fired.len()
+        );
+    }
+
+    #[test]
+    fn test_is_extreme_weather_helper() {
+        // Storm is always extreme
+        assert!(is_extreme_weather(WeatherCondition::Storm, 20.0));
+        // Heat wave
+        assert!(is_extreme_weather(WeatherCondition::Sunny, 36.0));
+        // Cold snap
+        assert!(is_extreme_weather(WeatherCondition::Sunny, -6.0));
+        // Normal conditions
+        assert!(!is_extreme_weather(WeatherCondition::Sunny, 20.0));
+        assert!(!is_extreme_weather(WeatherCondition::Rain, 10.0));
+        assert!(!is_extreme_weather(WeatherCondition::Snow, -3.0));
     }
 }
