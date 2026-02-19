@@ -18,6 +18,7 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
 use simulation::weather::{Season, Weather, WeatherEvent};
+use simulation::virtual_population::{DistrictStats, VirtualPopulation};
 use simulation::zones::ZoneDemand;
 
 // ---------------------------------------------------------------------------
@@ -439,6 +440,8 @@ pub struct SaveData {
     pub loan_book: Option<SaveLoanBook>,
     #[serde(default)]
     pub lifecycle_timer: Option<SaveLifecycleTimer>,
+    #[serde(default)]
+    pub virtual_population: Option<SaveVirtualPopulation>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -645,6 +648,26 @@ pub struct SaveLoan {
     pub months_paid: u32,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveDistrictStats {
+    pub population: u32,
+    pub employed: u32,
+    pub avg_happiness: f32,
+    pub avg_age: f32,
+    pub age_brackets: [u32; 5],
+    pub commuters_out: u32,
+    pub tax_contribution: f32,
+    pub service_demand: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveVirtualPopulation {
+    pub total_virtual: u32,
+    pub virtual_employed: u32,
+    pub district_stats: Vec<SaveDistrictStats>,
+    pub max_real_citizens: u32,
+}
+
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {
         bitcode::encode(self)
@@ -686,6 +709,7 @@ pub fn create_save_data(
     extended_budget: Option<&ExtendedBudget>,
     loan_book: Option<&LoanBook>,
     lifecycle_timer: Option<&LifecycleTimer>,
+    virtual_population: Option<&VirtualPopulation>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -870,6 +894,21 @@ pub fn create_save_data(
             last_aging_day: lt.last_aging_day,
             last_emigration_tick: lt.last_emigration_tick,
         }),
+        virtual_population: virtual_population.map(|vp| SaveVirtualPopulation {
+            total_virtual: vp.total_virtual,
+            virtual_employed: vp.virtual_employed,
+            district_stats: vp.district_stats.iter().map(|ds| SaveDistrictStats {
+                population: ds.population,
+                employed: ds.employed,
+                avg_happiness: ds.avg_happiness,
+                avg_age: ds.avg_age,
+                age_brackets: ds.age_brackets,
+                commuters_out: ds.commuters_out,
+                tax_contribution: ds.tax_contribution,
+                service_demand: ds.service_demand,
+            }).collect(),
+            max_real_citizens: vp.max_real_citizens,
+        }),
     }
 }
 
@@ -1002,6 +1041,30 @@ pub fn restore_lifecycle_timer(save: &SaveLifecycleTimer) -> LifecycleTimer {
     }
 }
 
+/// Restore a `VirtualPopulation` resource from saved data.
+pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
+    let district_stats = save
+        .district_stats
+        .iter()
+        .map(|ds| DistrictStats {
+            population: ds.population,
+            employed: ds.employed,
+            avg_happiness: ds.avg_happiness,
+            avg_age: ds.avg_age,
+            age_brackets: ds.age_brackets,
+            commuters_out: ds.commuters_out,
+            tax_contribution: ds.tax_contribution,
+            service_demand: ds.service_demand,
+        })
+        .collect();
+    VirtualPopulation::from_saved(
+        save.total_virtual,
+        save.virtual_employed,
+        district_stats,
+        save.max_real_citizens,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1025,7 +1088,7 @@ mod tests {
 
         let save = create_save_data(
             &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1054,6 +1117,7 @@ mod tests {
         assert!(restored.unlock_state.is_none());
         assert!(restored.extended_budget.is_none());
         assert!(restored.loan_book.is_none());
+        assert!(restored.virtual_population.is_none());
     }
 
     #[test]
@@ -1310,7 +1374,7 @@ mod tests {
         let save = create_save_data(
             &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
             Some(&policies), Some(&weather), Some(&unlock), Some(&ext_budget), Some(&loan_book),
-            Some(&lifecycle_timer),
+            Some(&lifecycle_timer), None,
         );
 
         let bytes = save.encode();
@@ -1356,7 +1420,7 @@ mod tests {
 
         let save = create_save_data(
             &grid, &roads, &clock, &budget, &demand, &[], &[], &[], &[], None,
-            None, None, None, None, None, None,
+            None, None, None, None, None, None, None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1368,6 +1432,7 @@ mod tests {
         assert!(restored.extended_budget.is_none());
         assert!(restored.loan_book.is_none());
         assert!(restored.lifecycle_timer.is_none());
+        assert!(restored.virtual_population.is_none());
     }
 
     #[test]
@@ -1385,5 +1450,39 @@ mod tests {
         let restored = restore_lifecycle_timer(&save);
         assert_eq!(restored.last_aging_day, 730);
         assert_eq!(restored.last_emigration_tick, 25);
+    }
+
+    #[test]
+    fn test_virtual_population_roundtrip() {
+        let mut vp = VirtualPopulation::default();
+        vp.add_virtual_citizen(0, 25, true, 75.0, 1000.0, 0.1);
+        vp.add_virtual_citizen(0, 40, false, 50.0, 0.0, 0.0);
+        vp.add_virtual_citizen(1, 60, true, 80.0, 1500.0, 0.12);
+
+        let save = SaveVirtualPopulation {
+            total_virtual: vp.total_virtual,
+            virtual_employed: vp.virtual_employed,
+            district_stats: vp.district_stats.iter().map(|ds| SaveDistrictStats {
+                population: ds.population,
+                employed: ds.employed,
+                avg_happiness: ds.avg_happiness,
+                avg_age: ds.avg_age,
+                age_brackets: ds.age_brackets,
+                commuters_out: ds.commuters_out,
+                tax_contribution: ds.tax_contribution,
+                service_demand: ds.service_demand,
+            }).collect(),
+            max_real_citizens: vp.max_real_citizens,
+        };
+
+        let restored = restore_virtual_population(&save);
+        assert_eq!(restored.total_virtual, 3);
+        assert_eq!(restored.virtual_employed, 2);
+        assert_eq!(restored.district_stats.len(), 2);
+        assert_eq!(restored.district_stats[0].population, 2);
+        assert_eq!(restored.district_stats[0].employed, 1);
+        assert_eq!(restored.district_stats[1].population, 1);
+        assert_eq!(restored.district_stats[1].employed, 1);
+        assert_eq!(restored.max_real_citizens, vp.max_real_citizens);
     }
 }

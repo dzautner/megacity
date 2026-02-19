@@ -5,8 +5,9 @@ pub mod serialization;
 
 use serialization::{
     create_save_data, restore_extended_budget, restore_lifecycle_timer, restore_loan_book,
-    restore_policies, restore_road_segment_store, restore_unlock_state, restore_weather,
-    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
+    restore_policies, restore_road_segment_store, restore_unlock_state,
+    restore_virtual_population, restore_weather, u8_to_road_type, u8_to_service_type,
+    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
@@ -27,6 +28,7 @@ use simulation::services::ServiceBuilding;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
 use simulation::utilities::UtilitySource;
+use simulation::virtual_population::VirtualPopulation;
 use simulation::weather::Weather;
 use simulation::zones::ZoneDemand;
 
@@ -37,7 +39,7 @@ use rendering::citizen_render::CitizenSprite;
 // SystemParam bundles to keep system parameter counts under Bevy's 16 limit
 // ---------------------------------------------------------------------------
 
-/// Read-only access to the V2 resources (policies, weather, unlocks, ext budget, loans).
+/// Read-only access to the V2 resources (policies, weather, unlocks, ext budget, loans, virtual pop).
 #[derive(SystemParam)]
 struct V2ResourcesRead<'w> {
     policies: Res<'w, Policies>,
@@ -45,6 +47,7 @@ struct V2ResourcesRead<'w> {
     unlock_state: Res<'w, UnlockState>,
     extended_budget: Res<'w, ExtendedBudget>,
     loan_book: Res<'w, LoanBook>,
+    virtual_population: Res<'w, VirtualPopulation>,
 }
 
 /// Mutable access to the V2 resources.
@@ -55,6 +58,7 @@ struct V2ResourcesWrite<'w> {
     unlock_state: ResMut<'w, UnlockState>,
     extended_budget: ResMut<'w, ExtendedBudget>,
     loan_book: ResMut<'w, LoanBook>,
+    virtual_population: ResMut<'w, VirtualPopulation>,
 }
 
 pub struct SavePlugin;
@@ -151,6 +155,7 @@ fn handle_save(
             Some(&v2.extended_budget),
             Some(&v2.loan_book),
             Some(&lifecycle_timer),
+            Some(&v2.virtual_population),
         );
 
         let bytes = save.encode();
@@ -474,6 +479,13 @@ fn handle_load(
             lifecycle_timer.last_emigration_tick = 0;
         }
 
+        // Restore virtual population (prevents population count mismatch on load)
+        if let Some(ref saved_vp) = save.virtual_population {
+            *v2.virtual_population = restore_virtual_population(saved_vp);
+        } else {
+            *v2.virtual_population = VirtualPopulation::default();
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -546,6 +558,7 @@ fn handle_new_game(
         *v2.unlock_state = UnlockState::default();
         *v2.extended_budget = ExtendedBudget::default();
         *v2.loan_book = LoanBook::default();
+        *v2.virtual_population = VirtualPopulation::default();
         *lifecycle_timer = LifecycleTimer::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
