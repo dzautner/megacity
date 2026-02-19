@@ -787,6 +787,111 @@ fn milestone_name(pop: u32) -> &'static str {
 }
 
 // ---------------------------------------------------------------------------
+// RCI Demand Bars
+// ---------------------------------------------------------------------------
+
+/// Draw a single vertical demand bar. `value` is in 0.0..=1.0.
+/// 0.5 is the neutral midpoint: above 0.5 draws upward (demand), below draws
+/// downward (surplus, shown in red).
+fn demand_bar(ui: &mut egui::Ui, label: &str, value: f32, color: egui::Color32) {
+    let bar_width = 8.0;
+    let bar_height = 24.0;
+    let midpoint = 0.5;
+
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(bar_width + 12.0, bar_height),
+        egui::Sense::hover(),
+    );
+
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+
+        // Bar background
+        let bar_rect = egui::Rect::from_min_size(
+            egui::pos2(rect.min.x, rect.min.y),
+            egui::vec2(bar_width, bar_height),
+        );
+        painter.rect_filled(bar_rect, 2.0, egui::Color32::from_gray(50));
+
+        // Midpoint line
+        let mid_y = bar_rect.min.y + bar_height * 0.5;
+        painter.line_segment(
+            [
+                egui::pos2(bar_rect.min.x, mid_y),
+                egui::pos2(bar_rect.max.x, mid_y),
+            ],
+            egui::Stroke::new(1.0, egui::Color32::from_gray(120)),
+        );
+
+        // Filled portion
+        let clamped = value.clamp(0.0, 1.0);
+        if clamped > midpoint {
+            // Demand: draw upward from midpoint
+            let fill_frac = (clamped - midpoint) / midpoint;
+            let fill_height = fill_frac * (bar_height * 0.5);
+            let fill_rect = egui::Rect::from_min_max(
+                egui::pos2(bar_rect.min.x + 1.0, mid_y - fill_height),
+                egui::pos2(bar_rect.max.x - 1.0, mid_y),
+            );
+            painter.rect_filled(fill_rect, 1.0, color);
+        } else if clamped < midpoint {
+            // Surplus: draw downward from midpoint in red
+            let fill_frac = (midpoint - clamped) / midpoint;
+            let fill_height = fill_frac * (bar_height * 0.5);
+            let fill_rect = egui::Rect::from_min_max(
+                egui::pos2(bar_rect.min.x + 1.0, mid_y),
+                egui::pos2(bar_rect.max.x - 1.0, mid_y + fill_height),
+            );
+            painter.rect_filled(fill_rect, 1.0, egui::Color32::from_rgb(220, 60, 50));
+        }
+
+        // Label to the right of the bar
+        painter.text(
+            egui::pos2(bar_rect.max.x + 2.0, rect.center().y),
+            egui::Align2::LEFT_CENTER,
+            label,
+            egui::FontId::proportional(10.0),
+            color,
+        );
+    }
+
+    // Tooltip with exact value on hover
+    let pct = value * 100.0;
+    let status = if value > 0.5 {
+        "demand"
+    } else if value < 0.5 {
+        "surplus"
+    } else {
+        "balanced"
+    };
+    response.on_hover_text(format!("{label}: {pct:.0}% ({status})"));
+}
+
+fn rci_demand_bars(ui: &mut egui::Ui, demand: &ZoneDemand) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 2.0;
+        demand_bar(
+            ui,
+            "R",
+            demand.residential,
+            egui::Color32::from_rgb(80, 200, 80),
+        );
+        demand_bar(
+            ui,
+            "C",
+            demand.commercial,
+            egui::Color32::from_rgb(80, 140, 220),
+        );
+        demand_bar(
+            ui,
+            "I",
+            demand.industrial,
+            egui::Color32::from_rgb(220, 200, 60),
+        );
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Main toolbar system
 // ---------------------------------------------------------------------------
 
@@ -797,7 +902,7 @@ pub fn toolbar_ui(
     mut clock: ResMut<GameClock>,
     stats: Res<CityStats>,
     budget: Res<CityBudget>,
-    _demand: Res<ZoneDemand>,
+    demand: Res<ZoneDemand>,
     mut overlay: ResMut<OverlayState>,
     status: Res<StatusMessage>,
     mut save_events: EventWriter<SaveGameEvent>,
@@ -828,6 +933,11 @@ pub fn toolbar_ui(
 
                 // Population
                 ui.label(format!("Pop: {}", format_pop(stats.population)));
+
+                ui.separator();
+
+                // RCI Demand Bars
+                rci_demand_bars(ui, &demand);
 
                 ui.separator();
 
