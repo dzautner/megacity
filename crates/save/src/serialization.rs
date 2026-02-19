@@ -15,6 +15,7 @@ use simulation::road_segments::{
 };
 use simulation::roads::RoadNetwork;
 use simulation::services::{ServiceBuilding, ServiceType};
+use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::{UnlockNode, UnlockState};
 use simulation::utilities::{UtilitySource, UtilityType};
@@ -397,7 +398,8 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 /// v2 = policies, weather, unlock_state, extended_budget, loans
 /// v3 = lifecycle_timer, path_cache, velocity per citizen
 /// v4 = life_sim_timer (LifeSimTimer serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 4;
+/// v5 = stormwater_grid (StormwaterGrid serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 5;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -466,6 +468,8 @@ pub struct SaveData {
     pub virtual_population: Option<SaveVirtualPopulation>,
     #[serde(default)]
     pub life_sim_timer: Option<SaveLifeSimTimer>,
+    #[serde(default)]
+    pub stormwater_grid: Option<SaveStormwaterGrid>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -671,6 +675,15 @@ pub struct SaveLifeSimTimer {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveStormwaterGrid {
+    pub runoff: Vec<f32>,
+    pub total_runoff: f32,
+    pub total_infiltration: f32,
+    pub width: usize,
+    pub height: usize,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
 pub struct SaveLoanBook {
     pub loans: Vec<SaveLoan>,
     pub max_loans: u32,
@@ -757,6 +770,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 4;
     }
 
+    // v4 -> v5: Added stormwater_grid (StormwaterGrid serialization).
+    // Uses `#[serde(default)]` so it deserializes as None from a v4 save.
+    if save.version == 4 {
+        save.version = 5;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
@@ -796,6 +815,7 @@ pub fn create_save_data(
     lifecycle_timer: Option<&LifecycleTimer>,
     virtual_population: Option<&VirtualPopulation>,
     life_sim_timer: Option<&LifeSimTimer>,
+    stormwater_grid: Option<&StormwaterGrid>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -1017,6 +1037,13 @@ pub fn create_save_data(
             personality_tick: lst.personality_tick,
             health_tick: lst.health_tick,
         }),
+        stormwater_grid: stormwater_grid.map(|sw| SaveStormwaterGrid {
+            runoff: sw.runoff.clone(),
+            total_runoff: sw.total_runoff,
+            total_infiltration: sw.total_infiltration,
+            width: sw.width,
+            height: sw.height,
+        }),
     }
 }
 
@@ -1166,6 +1193,17 @@ pub fn restore_life_sim_timer(save: &SaveLifeSimTimer) -> LifeSimTimer {
     }
 }
 
+/// Restore a `StormwaterGrid` resource from saved data.
+pub fn restore_stormwater_grid(save: &SaveStormwaterGrid) -> StormwaterGrid {
+    StormwaterGrid {
+        runoff: save.runoff.clone(),
+        total_runoff: save.total_runoff,
+        total_infiltration: save.total_infiltration,
+        width: save.width,
+        height: save.height,
+    }
+}
+
 /// Restore a `VirtualPopulation` resource from saved data.
 pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
     let district_stats = save
@@ -1230,6 +1268,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1259,6 +1298,7 @@ mod tests {
         assert!(restored.extended_budget.is_none());
         assert!(restored.loan_book.is_none());
         assert!(restored.virtual_population.is_none());
+        assert!(restored.stormwater_grid.is_none());
     }
 
     #[test]
@@ -1553,6 +1593,7 @@ mod tests {
             Some(&lifecycle_timer),
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1624,6 +1665,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1637,6 +1679,7 @@ mod tests {
         assert!(restored.lifecycle_timer.is_none());
         assert!(restored.virtual_population.is_none());
         assert!(restored.life_sim_timer.is_none());
+        assert!(restored.stormwater_grid.is_none());
     }
 
     #[test]
@@ -1688,6 +1731,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1712,6 +1756,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1757,6 +1802,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1784,6 +1830,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1828,6 +1875,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1855,6 +1903,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1989,6 +2038,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -2031,6 +2081,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2139,6 +2190,7 @@ mod tests {
             None,
             None,
             Some(&life_sim_timer),
+            None,
         );
 
         let bytes = save.encode();
@@ -2186,6 +2238,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2221,11 +2274,140 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 3;
 
         let old = migrate_save(&mut save);
         assert_eq!(old, 3);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_migrate_from_v4() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        save.version = 4;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 4);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_stormwater_grid_roundtrip() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut sw = StormwaterGrid::default();
+        sw.runoff[0] = 10.5;
+        sw.runoff[5] = 3.2;
+        sw.total_runoff = 13.7;
+        sw.total_infiltration = 5.0;
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&sw),
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        let rsw = restored
+            .stormwater_grid
+            .as_ref()
+            .expect("stormwater_grid present");
+        assert!((rsw.runoff[0] - 10.5).abs() < 0.001);
+        assert!((rsw.runoff[5] - 3.2).abs() < 0.001);
+        assert!((rsw.total_runoff - 13.7).abs() < 0.001);
+        assert!((rsw.total_infiltration - 5.0).abs() < 0.001);
+
+        let restored_sw = restore_stormwater_grid(rsw);
+        assert!((restored_sw.runoff[0] - 10.5).abs() < 0.001);
+        assert!((restored_sw.total_runoff - 13.7).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_stormwater_backward_compat() {
+        // Saves without stormwater_grid should have it as None
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        assert!(restored.stormwater_grid.is_none());
     }
 }

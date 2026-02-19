@@ -52,6 +52,7 @@ pub mod services;
 pub mod spatial_grid;
 pub mod specialization;
 pub mod stats;
+pub mod stormwater;
 pub mod terrain;
 pub mod time_of_day;
 pub mod tourism;
@@ -117,6 +118,7 @@ use services::{ServiceBuilding, ServiceType};
 use spatial_grid::SpatialGrid;
 use specialization::{CitySpecializations, SpecializationBonuses};
 use stats::CityStats;
+use stormwater::StormwaterGrid;
 use time_of_day::GameClock;
 use tourism::Tourism;
 use traffic::TrafficGrid;
@@ -238,6 +240,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<postal::PostalCoverage>()
             .init_resource::<postal::PostalStats>()
             .init_resource::<WaterSupply>()
+            .init_resource::<StormwaterGrid>()
             .add_event::<BankruptcyEvent>()
             .add_systems(Startup, init_world)
             .add_systems(
@@ -343,6 +346,7 @@ impl Plugin for SimulationPlugin {
                     water_pollution::water_pollution_health_penalty,
                     groundwater::update_groundwater,
                     groundwater::groundwater_health_penalty,
+                    stormwater::update_stormwater,
                     water_demand::calculate_building_water_demand,
                     water_demand::aggregate_water_supply,
                     water_demand::water_service_happiness_penalty,
