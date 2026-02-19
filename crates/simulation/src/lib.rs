@@ -45,6 +45,7 @@ pub mod policies;
 pub mod pollution;
 pub mod postal;
 pub mod production;
+pub mod recycling;
 pub mod road_graph_csr;
 pub mod road_maintenance;
 pub mod road_segments;
@@ -109,6 +110,7 @@ use noise::NoisePollutionGrid;
 use outside_connections::OutsideConnections;
 use policies::Policies;
 use pollution::PollutionGrid;
+use recycling::{RecyclingEconomics, RecyclingState};
 use road_graph_csr::CsrGraph;
 use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
@@ -243,6 +245,8 @@ impl Plugin for SimulationPlugin {
             .init_resource::<DegreeDays>()
             .init_resource::<ConstructionModifiers>()
             .init_resource::<WasteAccumulation>()
+            .init_resource::<RecyclingEconomics>()
+            .init_resource::<RecyclingState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
@@ -320,6 +324,10 @@ impl Plugin for SimulationPlugin {
                 )
                     .chain()
                     .after(garbage::update_waste_collection),
+            )
+            .add_systems(
+                FixedUpdate,
+                recycling::update_recycling_economics.after(garbage::update_waste_generation),
             )
             .add_systems(
                 FixedUpdate,

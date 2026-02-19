@@ -11,6 +11,7 @@ use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
 use simulation::policies::Policies;
+use simulation::recycling::{RecyclingEconomics, RecyclingState};
 use simulation::road_segments::{
     RoadSegment, RoadSegmentStore, SegmentId, SegmentNode, SegmentNodeId,
 };
@@ -241,4 +242,29 @@ pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopula
         district_stats,
         save.max_real_citizens,
     )
+}
+
+/// Restore `RecyclingState` and `RecyclingEconomics` from saved data.
+pub fn restore_recycling(save: &SaveRecyclingState) -> (RecyclingState, RecyclingEconomics) {
+    let tier = u8_to_recycling_tier(save.tier);
+    let state = RecyclingState {
+        tier,
+        daily_tons_diverted: save.daily_tons_diverted,
+        daily_tons_contaminated: save.daily_tons_contaminated,
+        daily_revenue: save.daily_revenue,
+        daily_cost: save.daily_cost,
+        total_revenue: save.total_revenue,
+        total_cost: save.total_cost,
+        participating_households: save.participating_households,
+    };
+    let economics = RecyclingEconomics {
+        price_paper: save.price_paper,
+        price_plastic: save.price_plastic,
+        price_glass: save.price_glass,
+        price_metal: save.price_metal,
+        price_organic: save.price_organic,
+        market_cycle_position: save.market_cycle_position,
+        last_update_day: save.economics_last_update_day,
+    };
+    (state, economics)
 }
