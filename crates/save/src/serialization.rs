@@ -387,7 +387,7 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 /// Current save file version.
 /// v1 = original fields (grid, roads, clock, budget, demand, buildings, citizens, utilities, services, road_segments)
 /// v2 = policies, weather, unlock_state, extended_budget, loans
-/// v3 = lifecycle_timer, path_cache, velocity per citizen
+/// v3 = lifecycle_timer, path_cache, velocity per citizen, virtual_population
 pub const CURRENT_SAVE_VERSION: u32 = 3;
 
 // ---------------------------------------------------------------------------
@@ -1441,6 +1441,11 @@ mod tests {
             last_emigration_tick: 15,
         };
 
+        let mut virtual_pop = VirtualPopulation::default();
+        virtual_pop.add_virtual_citizen(0, 25, true, 75.0, 1000.0, 0.1);
+        virtual_pop.add_virtual_citizen(0, 40, false, 50.0, 0.0, 0.0);
+        virtual_pop.add_virtual_citizen(1, 60, true, 80.0, 1500.0, 0.12);
+
         let save = create_save_data(
             &grid,
             &roads,
@@ -1458,7 +1463,7 @@ mod tests {
             Some(&ext_budget),
             Some(&loan_book),
             Some(&lifecycle_timer),
-            None,
+            Some(&virtual_pop),
         );
 
         let bytes = save.encode();
@@ -1498,6 +1503,18 @@ mod tests {
         let rlb = restored.loan_book.as_ref().expect("loan_book present");
         assert_eq!(rlb.loans.len(), 1);
         assert_eq!(rlb.loans[0].name, "Small Loan");
+
+        // Virtual population
+        let rvp = restored
+            .virtual_population
+            .as_ref()
+            .expect("virtual_population present");
+        assert_eq!(rvp.total_virtual, 3);
+        assert_eq!(rvp.virtual_employed, 2);
+        assert_eq!(rvp.district_stats.len(), 2);
+        assert_eq!(rvp.district_stats[0].population, 2);
+        assert_eq!(rvp.district_stats[1].population, 1);
+        assert_eq!(rvp.max_real_citizens, virtual_pop.max_real_citizens);
     }
 
     #[test]
@@ -1806,5 +1823,119 @@ mod tests {
         assert_eq!(restored.district_stats[1].population, 1);
         assert_eq!(restored.district_stats[1].employed, 1);
         assert_eq!(restored.max_real_citizens, vp.max_real_citizens);
+    }
+
+    #[test]
+    fn test_virtual_population_full_encode_decode() {
+        // Test VirtualPopulation survives the full create_save_data -> encode -> decode -> restore cycle.
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut vp = VirtualPopulation::default();
+        vp.add_virtual_citizen(0, 20, true, 60.0, 800.0, 0.1);
+        vp.add_virtual_citizen(0, 35, true, 70.0, 1200.0, 0.1);
+        vp.add_virtual_citizen(0, 50, false, 55.0, 0.0, 0.0);
+        vp.add_virtual_citizen(1, 28, true, 80.0, 1500.0, 0.12);
+        vp.add_virtual_citizen(2, 65, false, 40.0, 0.0, 0.0);
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&vp),
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        // Verify the saved virtual_population field is present
+        let saved_vp = restored
+            .virtual_population
+            .as_ref()
+            .expect("virtual_population should be present after encode/decode");
+
+        // Verify counts
+        assert_eq!(saved_vp.total_virtual, 5);
+        assert_eq!(saved_vp.virtual_employed, 3);
+        assert_eq!(saved_vp.district_stats.len(), 3);
+        assert_eq!(saved_vp.max_real_citizens, vp.max_real_citizens);
+
+        // Verify district-level data
+        assert_eq!(saved_vp.district_stats[0].population, 3);
+        assert_eq!(saved_vp.district_stats[0].employed, 2);
+        assert_eq!(saved_vp.district_stats[1].population, 1);
+        assert_eq!(saved_vp.district_stats[1].employed, 1);
+        assert_eq!(saved_vp.district_stats[2].population, 1);
+        assert_eq!(saved_vp.district_stats[2].employed, 0);
+
+        // Verify full restore produces a valid VirtualPopulation
+        let restored_vp = restore_virtual_population(saved_vp);
+        assert_eq!(restored_vp.total_virtual, vp.total_virtual);
+        assert_eq!(restored_vp.virtual_employed, vp.virtual_employed);
+        assert_eq!(restored_vp.district_stats.len(), vp.district_stats.len());
+        assert_eq!(restored_vp.max_real_citizens, vp.max_real_citizens);
+        // total_with_real should give consistent results
+        assert_eq!(restored_vp.total_with_real(100), 105);
+    }
+
+    #[test]
+    fn test_virtual_population_backward_compat_defaults_to_empty() {
+        // Verify that a save without VirtualPopulation (old save) restores to default.
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None, // no VirtualPopulation
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        // VP should be None when not provided
+        assert!(restored.virtual_population.is_none());
+
+        // When None, load handler should use VirtualPopulation::default()
+        let default_vp = VirtualPopulation::default();
+        assert_eq!(default_vp.total_virtual, 0);
+        assert_eq!(default_vp.virtual_employed, 0);
+        assert!(default_vp.district_stats.is_empty());
+        assert_eq!(default_vp.total_with_real(50), 50);
     }
 }
