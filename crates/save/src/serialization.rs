@@ -10,6 +10,7 @@ pub use crate::save_types::*;
 
 use simulation::buildings::{Building, MixedUseBuilding};
 use simulation::citizen::CitizenState;
+use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::life_simulation::LifeSimTimer;
@@ -30,7 +31,6 @@ use simulation::zones::ZoneDemand;
 
 use simulation::budget::ExtendedBudget;
 use simulation::degree_days::DegreeDays;
-use simulation::recycling::{RecyclingEconomics, RecyclingState};
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_save_data(
@@ -57,7 +57,7 @@ pub fn create_save_data(
     degree_days: Option<&DegreeDays>,
     climate_zone: Option<&ClimateZone>,
     construction_modifiers: Option<&ConstructionModifiers>,
-    recycling_state: Option<(&RecyclingState, &RecyclingEconomics)>,
+    drought_state: Option<&DroughtState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -322,22 +322,16 @@ pub fn create_save_data(
             speed_factor: cm.speed_factor,
             cost_factor: cm.cost_factor,
         }),
-        recycling_state: recycling_state.map(|(rs, re)| SaveRecyclingState {
-            tier: recycling_tier_to_u8(rs.tier),
-            daily_tons_diverted: rs.daily_tons_diverted,
-            daily_tons_contaminated: rs.daily_tons_contaminated,
-            daily_revenue: rs.daily_revenue,
-            daily_cost: rs.daily_cost,
-            total_revenue: rs.total_revenue,
-            total_cost: rs.total_cost,
-            participating_households: rs.participating_households,
-            price_paper: re.price_paper,
-            price_plastic: re.price_plastic,
-            price_glass: re.price_glass,
-            price_metal: re.price_metal,
-            price_organic: re.price_organic,
-            market_cycle_position: re.market_cycle_position,
-            economics_last_update_day: re.last_update_day,
+        drought_state: drought_state.map(|ds| SaveDroughtState {
+            rainfall_history: ds.rainfall_history.clone(),
+            current_index: ds.current_index,
+            current_tier: drought_tier_to_u8(ds.current_tier),
+            expected_daily_rainfall: ds.expected_daily_rainfall,
+            water_demand_modifier: ds.water_demand_modifier,
+            agriculture_modifier: ds.agriculture_modifier,
+            fire_risk_multiplier: ds.fire_risk_multiplier,
+            happiness_modifier: ds.happiness_modifier,
+            last_record_day: ds.last_record_day,
         }),
     }
 }
@@ -442,7 +436,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
-        assert!(restored.recycling_state.is_none());
+        assert!(restored.drought_state.is_none());
     }
 
     #[test]
@@ -516,7 +510,6 @@ mod tests {
             precipitation_intensity: 0.5,
             last_update_hour: 14,
             prev_extreme: false,
-            ..Default::default()
         };
 
         let save = SaveWeather {
@@ -687,7 +680,6 @@ mod tests {
             precipitation_intensity: 0.0,
             last_update_hour: 12,
             prev_extreme: false,
-            ..Default::default()
         };
         let mut unlock = UnlockState::default();
         unlock.development_points = 15;
@@ -843,7 +835,7 @@ mod tests {
         assert!(restored.degree_days.is_none());
         assert!(restored.water_sources.is_none());
         assert!(restored.construction_modifiers.is_none());
-        assert!(restored.recycling_state.is_none());
+        assert!(restored.drought_state.is_none());
     }
 
     #[test]
@@ -1944,7 +1936,6 @@ mod tests {
             precipitation_intensity: 0.0,
             last_update_hour: 12,
             prev_extreme: false,
-            ..Default::default()
         };
 
         let climate_zone = ClimateZone::Tropical;
@@ -2034,7 +2025,6 @@ mod tests {
         assert!(restored.stormwater_grid.is_none());
         // When construction_modifiers is None, the restore uses default
         assert!(restored.construction_modifiers.is_none());
-        assert!(restored.recycling_state.is_none());
     }
 
     #[test]
