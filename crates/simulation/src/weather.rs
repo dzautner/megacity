@@ -227,6 +227,9 @@ pub struct Weather {
     /// Last hour that triggered a weather update (used for hourly boundary detection).
     #[serde(default)]
     pub last_update_hour: u32,
+    /// Whether the previous tick ended in an extreme weather state (for change detection).
+    #[serde(default)]
+    pub prev_extreme: bool,
 }
 
 fn default_humidity() -> f32 {
@@ -246,6 +249,7 @@ impl Default for Weather {
             cloud_cover: 0.1,
             precipitation_intensity: 0.0,
             last_update_hour: 0,
+            prev_extreme: false,
         }
     }
 }
@@ -381,7 +385,7 @@ pub fn update_weather(
     // Snapshot pre-update state for change detection
     let old_condition = weather.current_event;
     let old_season = weather.season;
-    let old_was_extreme = is_extreme_weather(old_condition, weather.temperature);
+    let old_was_extreme = weather.prev_extreme;
 
     let day_changed = clock.day != weather.last_update_day;
     weather.last_update_hour = current_hour;
@@ -513,6 +517,9 @@ pub fn update_weather(
     let condition_changed = old_condition != new_condition;
     let season_changed = old_season != new_season;
     let extreme_crossed = old_was_extreme != new_is_extreme;
+
+    // Store current extreme state for next tick's comparison
+    weather.prev_extreme = new_is_extreme;
 
     if condition_changed || season_changed || extreme_crossed {
         change_events.send(WeatherChangeEvent {
@@ -884,41 +891,35 @@ mod tests {
     fn test_event_is_extreme_for_heat_wave() {
         let mut app = weather_test_app();
 
-        // Phase 1: establish non-extreme baseline
+        // Set up non-extreme state, then push temp to extreme
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.05;
             weather.precipitation_intensity = 0.0;
-            weather.temperature = 30.0; // warm but not extreme
+            weather.temperature = 50.0; // will smooth but stay > 35C
             weather.last_update_day = 120;
-            weather.last_update_hour = 13;
+            weather.last_update_hour = 14;
             weather.season = Season::Summer;
             weather.event_days_remaining = 5;
+            weather.prev_extreme = false; // previous tick was NOT extreme
         }
         {
             let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.day = 120;
-            clock.hour = 14.0;
+            clock.day = 120; // Summer day
+            clock.hour = 15.0; // peak heat hour
         }
-        app.update(); // establishes non-extreme state
 
-        // Phase 2: push temperature to extreme and trigger next hour
-        {
-            let mut weather = app.world_mut().resource_mut::<Weather>();
-            weather.temperature = 50.0; // extreme heat
-        }
-        {
-            let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.hour = 15.0;
-        }
-        app.update(); // should detect non-extreme -> extreme crossing
+        app.update();
 
         let events = app.world().resource::<Events<WeatherChangeEvent>>();
         let mut reader = events.get_cursor();
         let fired: Vec<_> = reader.read(events).collect();
 
-        assert!(!fired.is_empty(), "Event should fire when crossing extreme heat threshold");
+        assert!(
+            !fired.is_empty(),
+            "Event should fire when crossing extreme heat threshold"
+        );
         let evt = &fired[fired.len() - 1];
         assert!(evt.is_extreme, "Temperature > 35C should be extreme");
     }
@@ -927,41 +928,35 @@ mod tests {
     fn test_event_is_extreme_for_cold_snap() {
         let mut app = weather_test_app();
 
-        // Phase 1: establish non-extreme baseline
+        // Set up non-extreme state, then push temp to extreme cold
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.2;
             weather.precipitation_intensity = 0.0;
-            weather.temperature = 0.0; // cold but not extreme
+            weather.temperature = -25.0; // will smooth but stay < -5C
             weather.last_update_day = 300;
-            weather.last_update_hour = 4;
+            weather.last_update_hour = 5;
             weather.season = Season::Winter;
             weather.event_days_remaining = 5;
+            weather.prev_extreme = false; // previous tick was NOT extreme
         }
         {
             let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.day = 300;
-            clock.hour = 5.0;
+            clock.day = 300; // Winter day
+            clock.hour = 6.0; // trough temp hour
         }
-        app.update(); // establishes non-extreme state
 
-        // Phase 2: push temperature to extreme cold and trigger next hour
-        {
-            let mut weather = app.world_mut().resource_mut::<Weather>();
-            weather.temperature = -25.0; // extreme cold
-        }
-        {
-            let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.hour = 6.0;
-        }
-        app.update(); // should detect non-extreme -> extreme crossing
+        app.update();
 
         let events = app.world().resource::<Events<WeatherChangeEvent>>();
         let mut reader = events.get_cursor();
         let fired: Vec<_> = reader.read(events).collect();
 
-        assert!(!fired.is_empty(), "Event should fire when crossing extreme cold threshold");
+        assert!(
+            !fired.is_empty(),
+            "Event should fire when crossing extreme cold threshold"
+        );
         let evt = &fired[fired.len() - 1];
         assert!(evt.is_extreme, "Temperature < -5C should be extreme");
     }
