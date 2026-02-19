@@ -884,41 +884,42 @@ mod tests {
     fn test_event_is_extreme_for_heat_wave() {
         let mut app = weather_test_app();
 
+        // Phase 1: establish non-extreme baseline
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
             weather.cloud_cover = 0.05;
             weather.precipitation_intensity = 0.0;
-            weather.temperature = 30.0; // warm but not extreme yet
+            weather.temperature = 30.0; // warm but not extreme
             weather.last_update_day = 120;
-            weather.last_update_hour = 14;
+            weather.last_update_hour = 13;
             weather.season = Season::Summer;
-            weather.event_days_remaining = 5; // prevent random event from changing state
+            weather.event_days_remaining = 5;
         }
         {
             let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.day = 120; // Summer day
-            clock.hour = 15.0; // peak heat hour
+            clock.day = 120;
+            clock.hour = 14.0;
         }
+        app.update(); // establishes non-extreme state
 
-        // Push temperature well above extreme heat threshold
-        // After smoothing toward seasonal target, must remain > 35C
+        // Phase 2: push temperature to extreme and trigger next hour
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
-            weather.temperature = 50.0;
+            weather.temperature = 50.0; // extreme heat
         }
-
-        app.update();
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.hour = 15.0;
+        }
+        app.update(); // should detect non-extreme -> extreme crossing
 
         let events = app.world().resource::<Events<WeatherChangeEvent>>();
         let mut reader = events.get_cursor();
         let fired: Vec<_> = reader.read(events).collect();
 
-        assert!(
-            !fired.is_empty(),
-            "Event should fire when crossing extreme heat threshold"
-        );
-        let evt = &fired[0];
+        assert!(!fired.is_empty(), "Event should fire when crossing extreme heat threshold");
+        let evt = &fired[fired.len() - 1];
         assert!(evt.is_extreme, "Temperature > 35C should be extreme");
     }
 
@@ -926,6 +927,7 @@ mod tests {
     fn test_event_is_extreme_for_cold_snap() {
         let mut app = weather_test_app();
 
+        // Phase 1: establish non-extreme baseline
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
             weather.current_event = WeatherCondition::Sunny;
@@ -933,34 +935,34 @@ mod tests {
             weather.precipitation_intensity = 0.0;
             weather.temperature = 0.0; // cold but not extreme
             weather.last_update_day = 300;
-            weather.last_update_hour = 5;
+            weather.last_update_hour = 4;
             weather.season = Season::Winter;
-            weather.event_days_remaining = 5; // prevent random event from changing state
+            weather.event_days_remaining = 5;
         }
         {
             let mut clock = app.world_mut().resource_mut::<GameClock>();
-            clock.day = 300; // Winter day
-            clock.hour = 6.0; // trough temp hour
+            clock.day = 300;
+            clock.hour = 5.0;
         }
+        app.update(); // establishes non-extreme state
 
-        // Push temperature well below extreme cold threshold
-        // After smoothing toward seasonal target, must remain < -5C
+        // Phase 2: push temperature to extreme cold and trigger next hour
         {
             let mut weather = app.world_mut().resource_mut::<Weather>();
-            weather.temperature = -20.0;
+            weather.temperature = -25.0; // extreme cold
         }
-
-        app.update();
+        {
+            let mut clock = app.world_mut().resource_mut::<GameClock>();
+            clock.hour = 6.0;
+        }
+        app.update(); // should detect non-extreme -> extreme crossing
 
         let events = app.world().resource::<Events<WeatherChangeEvent>>();
         let mut reader = events.get_cursor();
         let fired: Vec<_> = reader.read(events).collect();
 
-        assert!(
-            !fired.is_empty(),
-            "Event should fire when crossing extreme cold threshold"
-        );
-        let evt = &fired[0];
+        assert!(!fired.is_empty(), "Event should fire when crossing extreme cold threshold");
+        let evt = &fired[fired.len() - 1];
         assert!(evt.is_extreme, "Temperature < -5C should be extreme");
     }
 
