@@ -1807,4 +1807,161 @@ mod tests {
         assert_eq!(restored.district_stats[1].employed, 1);
         assert_eq!(restored.max_real_citizens, vp.max_real_citizens);
     }
+
+    #[test]
+    fn test_pathcache_velocity_citizen_roundtrip() {
+        use simulation::roads::RoadNode;
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+        let citizens = vec![
+            CitizenSaveInput {
+                details: CitizenDetails {
+                    age: 30,
+                    gender: simulation::citizen::Gender::Male,
+                    education: 2,
+                    happiness: 75.0,
+                    health: 90.0,
+                    salary: 3500.0,
+                    savings: 7000.0,
+                },
+                state: CitizenState::CommutingToWork,
+                home_x: 1,
+                home_y: 1,
+                work_x: 3,
+                work_y: 3,
+                path: PathCache {
+                    waypoints: vec![
+                        RoadNode(1, 1),
+                        RoadNode(2, 1),
+                        RoadNode(2, 2),
+                        RoadNode(3, 3),
+                    ],
+                    current_index: 1,
+                },
+                velocity: Velocity { x: 4.5, y: -2.3 },
+                position: Position { x: 100.0, y: 200.0 },
+            },
+            CitizenSaveInput {
+                details: CitizenDetails {
+                    age: 45,
+                    gender: simulation::citizen::Gender::Female,
+                    education: 1,
+                    happiness: 60.0,
+                    health: 80.0,
+                    salary: 2200.0,
+                    savings: 4400.0,
+                },
+                state: CitizenState::AtHome,
+                home_x: 2,
+                home_y: 2,
+                work_x: 3,
+                work_y: 2,
+                path: PathCache {
+                    waypoints: vec![],
+                    current_index: 0,
+                },
+                velocity: Velocity { x: 0.0, y: 0.0 },
+                position: Position { x: 50.0, y: 75.0 },
+            },
+        ];
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &citizens,
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        assert_eq!(restored.citizens.len(), 2);
+        // First citizen: active path with waypoints
+        let c0 = &restored.citizens[0];
+        assert_eq!(c0.path_waypoints, vec![(1, 1), (2, 1), (2, 2), (3, 3)]);
+        assert_eq!(c0.path_current_index, 1);
+        assert!((c0.velocity_x - 4.5).abs() < 0.001);
+        assert!((c0.velocity_y - (-2.3)).abs() < 0.001);
+        assert!((c0.pos_x - 100.0).abs() < 0.001);
+        assert!((c0.pos_y - 200.0).abs() < 0.001);
+        assert_eq!(c0.state, 1); // CommutingToWork
+        // Second citizen: idle, empty path
+        let c1 = &restored.citizens[1];
+        assert!(c1.path_waypoints.is_empty());
+        assert_eq!(c1.path_current_index, 0);
+        assert!((c1.velocity_x).abs() < 0.001);
+        assert!((c1.velocity_y).abs() < 0.001);
+        assert!((c1.pos_x - 50.0).abs() < 0.001);
+        assert!((c1.pos_y - 75.0).abs() < 0.001);
+        assert_eq!(c1.state, 0); // AtHome
+    }
+
+    #[test]
+    fn test_pathcache_velocity_v2_backward_compat() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        // Simulate an old save citizen with default V3 fields
+        save.citizens.push(SaveCitizen {
+            age: 25,
+            happiness: 70.0,
+            education: 1,
+            state: 1, // CommutingToWork
+            home_x: 1,
+            home_y: 1,
+            work_x: 3,
+            work_y: 3,
+            path_waypoints: vec![],
+            path_current_index: 0,
+            velocity_x: 0.0,
+            velocity_y: 0.0,
+            pos_x: 0.0,
+            pos_y: 0.0,
+        });
+        save.version = 2;
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 2);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+        let c = &save.citizens[0];
+        assert!(c.path_waypoints.is_empty());
+        assert_eq!(c.path_current_index, 0);
+        assert!((c.velocity_x).abs() < 0.001);
+        assert!((c.velocity_y).abs() < 0.001);
+    }
 }
