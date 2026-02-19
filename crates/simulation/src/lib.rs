@@ -12,6 +12,7 @@ pub mod citizen_spawner;
 pub mod config;
 pub mod crime;
 pub mod death_care;
+pub mod degree_days;
 pub mod disasters;
 pub mod districts;
 pub mod economy;
@@ -85,6 +86,7 @@ use citizen_spawner::CitizenSpawnTimer;
 use config::{GRID_HEIGHT, GRID_WIDTH};
 use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
+use degree_days::DegreeDays;
 use disasters::ActiveDisaster;
 use districts::{DistrictMap, Districts};
 use economy::CityBudget;
@@ -242,6 +244,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<postal::PostalStats>()
             .init_resource::<WaterSupply>()
             .init_resource::<StormwaterGrid>()
+            .init_resource::<DegreeDays>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_systems(Startup, init_world)
@@ -338,6 +341,7 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     weather::update_weather,
+                    degree_days::update_degree_days,
                     heating::update_heating,
                     wind::update_wind,
                     noise::update_noise_pollution,
@@ -364,9 +368,12 @@ impl Plugin for SimulationPlugin {
                     natural_resources::update_resource_production,
                     wealth::update_wealth_stats,
                     tourism::update_tourism,
-                    unlocks::award_development_points,
-                    trees::tree_effects,
                 )
+                    .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                (unlocks::award_development_points, trees::tree_effects)
                     .after(imports_exports::process_trade),
             )
             .add_systems(

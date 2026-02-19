@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::buildings::{Building, MixedUseBuilding};
 use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Velocity};
+use simulation::degree_days::DegreeDays;
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid};
 use simulation::life_simulation::LifeSimTimer;
@@ -422,7 +423,8 @@ pub fn u8_to_unlock_node(v: u8) -> Option<UnlockNode> {
 /// v4 = life_sim_timer (LifeSimTimer serialization)
 /// v5 = stormwater_grid (StormwaterGrid serialization)
 /// v6 = water_sources (WaterSource component serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 6;
+/// v7 = degree_days (HDD/CDD tracking for HVAC energy demand)
+pub const CURRENT_SAVE_VERSION: u32 = 7;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -495,6 +497,8 @@ pub struct SaveData {
     pub stormwater_grid: Option<SaveStormwaterGrid>,
     #[serde(default)]
     pub water_sources: Option<Vec<SaveWaterSource>>,
+    #[serde(default)]
+    pub degree_days: Option<SaveDegreeDays>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -730,6 +734,17 @@ pub struct SaveStormwaterGrid {
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveDegreeDays {
+    pub daily_hdd: f32,
+    pub daily_cdd: f32,
+    pub monthly_hdd: [f32; 12],
+    pub monthly_cdd: [f32; 12],
+    pub annual_hdd: f32,
+    pub annual_cdd: f32,
+    pub last_update_day: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
 pub struct SaveLoanBook {
     pub loans: Vec<SaveLoan>,
     pub max_loans: u32,
@@ -828,6 +843,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 6;
     }
 
+    // v6 -> v7: Added degree_days (HDD/CDD tracking for HVAC energy demand).
+    // Uses `#[serde(default)]` so it deserializes as None from a v6 save.
+    if save.version == 6 {
+        save.version = 7;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
@@ -869,6 +890,7 @@ pub fn create_save_data(
     life_sim_timer: Option<&LifeSimTimer>,
     stormwater_grid: Option<&StormwaterGrid>,
     water_sources: Option<&[WaterSource]>,
+    degree_days: Option<&DegreeDays>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -1115,6 +1137,15 @@ pub fn create_save_data(
                 })
                 .collect()
         }),
+        degree_days: degree_days.map(|dd| SaveDegreeDays {
+            daily_hdd: dd.daily_hdd,
+            daily_cdd: dd.daily_cdd,
+            monthly_hdd: dd.monthly_hdd,
+            monthly_cdd: dd.monthly_cdd,
+            annual_hdd: dd.annual_hdd,
+            annual_cdd: dd.annual_cdd,
+            last_update_day: dd.last_update_day,
+        }),
     }
 }
 
@@ -1291,6 +1322,19 @@ pub fn restore_water_source(save: &SaveWaterSource) -> Option<WaterSource> {
     })
 }
 
+/// Restore a `DegreeDays` resource from saved data.
+pub fn restore_degree_days(save: &SaveDegreeDays) -> DegreeDays {
+    DegreeDays {
+        daily_hdd: save.daily_hdd,
+        daily_cdd: save.daily_cdd,
+        monthly_hdd: save.monthly_hdd,
+        monthly_cdd: save.monthly_cdd,
+        annual_hdd: save.annual_hdd,
+        annual_cdd: save.annual_cdd,
+        last_update_day: save.last_update_day,
+    }
+}
+
 /// Restore a `VirtualPopulation` resource from saved data.
 pub fn restore_virtual_population(save: &SaveVirtualPopulation) -> VirtualPopulation {
     let district_stats = save
@@ -1357,6 +1401,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1387,6 +1432,7 @@ mod tests {
         assert!(restored.loan_book.is_none());
         assert!(restored.virtual_population.is_none());
         assert!(restored.stormwater_grid.is_none());
+        assert!(restored.degree_days.is_none());
     }
 
     #[test]
@@ -1686,6 +1732,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1759,6 +1806,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1773,6 +1821,7 @@ mod tests {
         assert!(restored.virtual_population.is_none());
         assert!(restored.life_sim_timer.is_none());
         assert!(restored.stormwater_grid.is_none());
+        assert!(restored.degree_days.is_none());
     }
 
     #[test]
@@ -1826,6 +1875,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1850,6 +1900,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1899,6 +1950,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1926,6 +1978,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1974,6 +2027,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -2001,6 +2055,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2139,6 +2194,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -2181,6 +2237,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2293,6 +2350,7 @@ mod tests {
             Some(&life_sim_timer),
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2342,6 +2400,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2368,6 +2427,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2456,6 +2516,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
         );
 
         let bytes = save.encode();
@@ -2508,6 +2569,42 @@ mod tests {
     }
 
     #[test]
+    fn test_degree_days_roundtrip() {
+        let dd = DegreeDays {
+            daily_hdd: 15.5,
+            daily_cdd: 0.0,
+            monthly_hdd: [
+                10.0, 20.0, 15.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 12.0, 25.0,
+            ],
+            monthly_cdd: [
+                0.0, 0.0, 0.0, 0.0, 5.0, 15.0, 20.0, 18.0, 10.0, 0.0, 0.0, 0.0,
+            ],
+            annual_hdd: 92.5,
+            annual_cdd: 68.0,
+            last_update_day: 150,
+        };
+
+        let save = SaveDegreeDays {
+            daily_hdd: dd.daily_hdd,
+            daily_cdd: dd.daily_cdd,
+            monthly_hdd: dd.monthly_hdd,
+            monthly_cdd: dd.monthly_cdd,
+            annual_hdd: dd.annual_hdd,
+            annual_cdd: dd.annual_cdd,
+            last_update_day: dd.last_update_day,
+        };
+
+        let restored = restore_degree_days(&save);
+        assert!((restored.daily_hdd - 15.5).abs() < 0.001);
+        assert!(restored.daily_cdd.abs() < 0.001);
+        assert!((restored.monthly_hdd[0] - 10.0).abs() < 0.001);
+        assert!((restored.monthly_cdd[6] - 20.0).abs() < 0.001);
+        assert!((restored.annual_hdd - 92.5).abs() < 0.001);
+        assert!((restored.annual_cdd - 68.0).abs() < 0.001);
+        assert_eq!(restored.last_update_day, 150);
+    }
+
+    #[test]
     fn test_water_source_backward_compat() {
         // Saves without water_sources should have it as None
         let mut grid = WorldGrid::new(4, 4);
@@ -2538,11 +2635,13 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
         assert!(restored.water_sources.is_none());
+        assert!(restored.degree_days.is_none());
     }
 
     #[test]
@@ -2575,11 +2674,51 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 4;
 
         let old = migrate_save(&mut save);
         assert_eq!(old, 4);
+        assert_eq!(save.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn test_migrate_from_v5() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        save.version = 5;
+
+        let old = migrate_save(&mut save);
+        assert_eq!(old, 5);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
 
@@ -2618,6 +2757,7 @@ mod tests {
             None,
             None,
             Some(&sw),
+            None,
             None,
         );
 
@@ -2658,6 +2798,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
