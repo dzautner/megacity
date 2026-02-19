@@ -1143,8 +1143,7 @@ fn spawn_tel_aviv_buildings(
             let capacity = Building::capacity_for_level(zone, level);
 
             let entity = if zone.is_mixed_use() {
-                let (comm_cap, res_cap) =
-                    buildings::MixedUseBuilding::capacities_for_level(level);
+                let (comm_cap, res_cap) = buildings::MixedUseBuilding::capacities_for_level(level);
                 commands
                     .spawn((
                         Building {

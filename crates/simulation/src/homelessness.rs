@@ -193,8 +193,7 @@ pub fn recover_from_homelessness(
     let available_homes: Vec<(Entity, usize, usize)> = buildings
         .iter()
         .filter(|(_, b)| {
-            (b.zone_type.is_residential() || b.zone_type.is_mixed_use())
-                && b.occupants < b.capacity
+            (b.zone_type.is_residential() || b.zone_type.is_mixed_use()) && b.occupants < b.capacity
         })
         .map(|(e, b)| (e, b.grid_x, b.grid_y))
         .collect();

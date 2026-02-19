@@ -279,8 +279,7 @@ fn spawn_immigrant_families(
     let homes_with_capacity: Vec<Entity> = buildings
         .iter()
         .filter(|(_, b)| {
-            (b.zone_type.is_residential() || b.zone_type.is_mixed_use())
-                && b.occupants < b.capacity
+            (b.zone_type.is_residential() || b.zone_type.is_mixed_use()) && b.occupants < b.capacity
         })
         .map(|(e, _)| e)
         .collect();

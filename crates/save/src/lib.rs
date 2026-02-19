@@ -328,11 +328,12 @@ fn handle_load(
             let entity = if zone.is_mixed_use() {
                 // Restore MixedUseBuilding component; use saved data if non-zero,
                 // otherwise derive from static capacities for the level.
-                let (comm_cap, res_cap) = if sb.commercial_capacity > 0 || sb.residential_capacity > 0 {
-                    (sb.commercial_capacity, sb.residential_capacity)
-                } else {
-                    MixedUseBuilding::capacities_for_level(sb.level)
-                };
+                let (comm_cap, res_cap) =
+                    if sb.commercial_capacity > 0 || sb.residential_capacity > 0 {
+                        (sb.commercial_capacity, sb.residential_capacity)
+                    } else {
+                        MixedUseBuilding::capacities_for_level(sb.level)
+                    };
                 commands
                     .spawn((
                         building,

@@ -52,8 +52,7 @@ pub fn upgrade_buildings(
             building.capacity = Building::capacity_for_level(building.zone_type, building.level);
             // Update MixedUseBuilding capacities if present
             if let Some(mut mu) = mixed_use {
-                let (comm_cap, res_cap) =
-                    MixedUseBuilding::capacities_for_level(building.level);
+                let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(building.level);
                 mu.commercial_capacity = comm_cap;
                 mu.residential_capacity = res_cap;
             }
@@ -93,8 +92,7 @@ pub fn downgrade_buildings(
             }
             // Update MixedUseBuilding capacities if present
             if let Some(mut mu) = mixed_use {
-                let (comm_cap, res_cap) =
-                    MixedUseBuilding::capacities_for_level(building.level);
+                let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(building.level);
                 mu.commercial_capacity = comm_cap;
                 mu.residential_capacity = res_cap;
                 if mu.commercial_occupants > mu.commercial_capacity {
