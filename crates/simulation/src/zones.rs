@@ -77,7 +77,7 @@ impl ZoneDemand {
 // Intermediate struct for tallying building stats from the grid + ECS.
 // ---------------------------------------------------------------------------
 
-struct ZoneStats {
+pub struct ZoneStats {
     /// Total population living in residential buildings.
     population: u32,
     /// Total capacity of residential buildings.
