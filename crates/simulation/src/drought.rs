@@ -276,6 +276,9 @@ mod tests {
         let state = DroughtState::default();
         // With empty history, index should be 1.0 (no drought)
         assert!((state.current_index - 1.0).abs() < f32::EPSILON);
-        assert_eq!(drought_tier_from_index(state.current_index), DroughtTier::Normal);
+        assert_eq!(
+            drought_tier_from_index(state.current_index),
+            DroughtTier::Normal
+        );
     }
 }
