@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-
+// CI trigger test
 pub mod abandonment;
 pub mod achievements;
 pub mod advisors;
