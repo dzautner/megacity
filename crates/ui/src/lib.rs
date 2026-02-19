@@ -37,6 +37,7 @@ impl Plugin for UiPlugin {
                     graphs::graphs_ui,
                     info_panel::policies_ui,
                     info_panel::panel_keybinds,
+                    info_panel::quick_save_load_keybinds,
                     info_panel::event_journal_ui,
                     info_panel::advisor_window_ui,
                 ),
