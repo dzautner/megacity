@@ -3,6 +3,365 @@ use serde::{Deserialize, Serialize};
 
 use crate::time_of_day::GameClock;
 
+/// Climate zone presets that shift all seasonal parameters for different map types.
+///
+/// Each zone defines temperature ranges, precipitation patterns, and snow behavior
+/// that replace the hardcoded Temperate defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Resource, Default)]
+pub enum ClimateZone {
+    /// Moderate temperatures, four distinct seasons. Backward-compatible default.
+    #[default]
+    Temperate,
+    /// Hot year-round, heavy rainfall, no snow.
+    Tropical,
+    /// Very hot summers, mild winters, minimal precipitation.
+    Arid,
+    /// Dry hot summers, mild wet winters, no snow.
+    Mediterranean,
+    /// Extreme temperature swings between seasons, cold winters, warm summers.
+    Continental,
+    /// Very cold winters, cool summers, heavy snow.
+    Subarctic,
+    /// Mild, wet year-round with narrow temperature range.
+    Oceanic,
+}
+
+/// Per-season climate parameters driven by the active `ClimateZone`.
+#[derive(Debug, Clone, Copy)]
+pub struct SeasonClimateParams {
+    /// Minimum temperature for the season (Celsius).
+    pub t_min: f32,
+    /// Maximum temperature for the season (Celsius).
+    pub t_max: f32,
+    /// Base chance of a precipitation event starting on any given day (0.0 to 1.0).
+    pub precipitation_chance: f32,
+    /// Whether snow is possible in this season/zone combination.
+    pub snow_enabled: bool,
+}
+
+impl ClimateZone {
+    /// Return all climate zone variants (useful for UI iteration).
+    pub fn all() -> &'static [ClimateZone] {
+        &[
+            ClimateZone::Temperate,
+            ClimateZone::Tropical,
+            ClimateZone::Arid,
+            ClimateZone::Mediterranean,
+            ClimateZone::Continental,
+            ClimateZone::Subarctic,
+            ClimateZone::Oceanic,
+        ]
+    }
+
+    /// Human-readable name for display in the UI.
+    pub fn name(self) -> &'static str {
+        match self {
+            ClimateZone::Temperate => "Temperate",
+            ClimateZone::Tropical => "Tropical",
+            ClimateZone::Arid => "Arid",
+            ClimateZone::Mediterranean => "Mediterranean",
+            ClimateZone::Continental => "Continental",
+            ClimateZone::Subarctic => "Subarctic",
+            ClimateZone::Oceanic => "Oceanic",
+        }
+    }
+
+    /// Get the climate parameters for a given season in this zone.
+    ///
+    /// Temperature values are in Celsius. Precipitation chance is a base probability
+    /// (0.0 to 1.0) that a precipitation event begins on any given day.
+    pub fn season_params(self, season: Season) -> SeasonClimateParams {
+        match self {
+            ClimateZone::Temperate => match season {
+                // Original hardcoded values preserved for backward compatibility.
+                Season::Spring => SeasonClimateParams {
+                    t_min: 8.0,
+                    t_max: 22.0,
+                    precipitation_chance: 0.09,
+                    snow_enabled: false,
+                },
+                Season::Summer => SeasonClimateParams {
+                    t_min: 20.0,
+                    t_max: 36.0,
+                    precipitation_chance: 0.08,
+                    snow_enabled: false,
+                },
+                Season::Autumn => SeasonClimateParams {
+                    t_min: 5.0,
+                    t_max: 19.0,
+                    precipitation_chance: 0.11,
+                    snow_enabled: false,
+                },
+                Season::Winter => SeasonClimateParams {
+                    t_min: -8.0,
+                    t_max: 6.0,
+                    precipitation_chance: 0.09,
+                    snow_enabled: true,
+                },
+            },
+            ClimateZone::Tropical => match season {
+                // Hot year-round, heavy rainfall, no snow.
+                // Winter low ~18C (65F), Summer high ~38C
+                Season::Spring => SeasonClimateParams {
+                    t_min: 22.0,
+                    t_max: 34.0,
+                    precipitation_chance: 0.20,
+                    snow_enabled: false,
+                },
+                Season::Summer => SeasonClimateParams {
+                    t_min: 24.0,
+                    t_max: 38.0,
+                    precipitation_chance: 0.30,
+                    snow_enabled: false,
+                },
+                Season::Autumn => SeasonClimateParams {
+                    t_min: 22.0,
+                    t_max: 34.0,
+                    precipitation_chance: 0.25,
+                    snow_enabled: false,
+                },
+                Season::Winter => SeasonClimateParams {
+                    t_min: 18.0,
+                    t_max: 30.0,
+                    precipitation_chance: 0.15,
+                    snow_enabled: false,
+                },
+            },
+            ClimateZone::Arid => match season {
+                // Very hot, minimal precipitation.
+                Season::Spring => SeasonClimateParams {
+                    t_min: 15.0,
+                    t_max: 35.0,
+                    precipitation_chance: 0.02,
+                    snow_enabled: false,
+                },
+                Season::Summer => SeasonClimateParams {
+                    t_min: 25.0,
+                    t_max: 48.0,
+                    precipitation_chance: 0.01,
+                    snow_enabled: false,
+                },
+                Season::Autumn => SeasonClimateParams {
+                    t_min: 15.0,
+                    t_max: 33.0,
+                    precipitation_chance: 0.02,
+                    snow_enabled: false,
+                },
+                Season::Winter => SeasonClimateParams {
+                    t_min: 5.0,
+                    t_max: 22.0,
+                    precipitation_chance: 0.03,
+                    snow_enabled: false,
+                },
+            },
+            ClimateZone::Mediterranean => match season {
+                // Dry hot summers, mild wet winters.
+                Season::Spring => SeasonClimateParams {
+                    t_min: 12.0,
+                    t_max: 24.0,
+                    precipitation_chance: 0.10,
+                    snow_enabled: false,
+                },
+                Season::Summer => SeasonClimateParams {
+                    t_min: 20.0,
+                    t_max: 35.0,
+                    precipitation_chance: 0.02,
+                    snow_enabled: false,
+                },
+                Season::Autumn => SeasonClimateParams {
+                    t_min: 12.0,
+                    t_max: 25.0,
+                    precipitation_chance: 0.12,
+                    snow_enabled: false,
+                },
+                Season::Winter => SeasonClimateParams {
+                    t_min: 5.0,
+                    t_max: 15.0,
+                    precipitation_chance: 0.18,
+                    snow_enabled: false,
+                },
+            },
+            ClimateZone::Continental => match season {
+                // Extreme temperature swings.
+                Season::Spring => SeasonClimateParams {
+                    t_min: 0.0,
+                    t_max: 18.0,
+                    precipitation_chance: 0.10,
+                    snow_enabled: true,
+                },
+                Season::Summer => SeasonClimateParams {
+                    t_min: 18.0,
+                    t_max: 38.0,
+                    precipitation_chance: 0.10,
+                    snow_enabled: false,
+                },
+                Season::Autumn => SeasonClimateParams {
+                    t_min: -2.0,
+                    t_max: 15.0,
+                    precipitation_chance: 0.10,
+                    snow_enabled: true,
+                },
+                Season::Winter => SeasonClimateParams {
+                    t_min: -25.0,
+                    t_max: -5.0,
+                    precipitation_chance: 0.12,
+                    snow_enabled: true,
+                },
+            },
+            ClimateZone::Subarctic => match season {
+                // Very cold, heavy snow. Winter low ~-34C (-30F).
+                Season::Spring => SeasonClimateParams {
+                    t_min: -10.0,
+                    t_max: 8.0,
+                    precipitation_chance: 0.10,
+                    snow_enabled: true,
+                },
+                Season::Summer => SeasonClimateParams {
+                    t_min: 8.0,
+                    t_max: 22.0,
+                    precipitation_chance: 0.12,
+                    snow_enabled: false,
+                },
+                Season::Autumn => SeasonClimateParams {
+                    t_min: -12.0,
+                    t_max: 5.0,
+                    precipitation_chance: 0.12,
+                    snow_enabled: true,
+                },
+                Season::Winter => SeasonClimateParams {
+                    t_min: -34.0,
+                    t_max: -12.0,
+                    precipitation_chance: 0.15,
+                    snow_enabled: true,
+                },
+            },
+            ClimateZone::Oceanic => match season {
+                // Mild, wet year-round, narrow temperature range.
+                Season::Spring => SeasonClimateParams {
+                    t_min: 8.0,
+                    t_max: 16.0,
+                    precipitation_chance: 0.18,
+                    snow_enabled: false,
+                },
+                Season::Summer => SeasonClimateParams {
+                    t_min: 14.0,
+                    t_max: 24.0,
+                    precipitation_chance: 0.14,
+                    snow_enabled: false,
+                },
+                Season::Autumn => SeasonClimateParams {
+                    t_min: 7.0,
+                    t_max: 16.0,
+                    precipitation_chance: 0.20,
+                    snow_enabled: false,
+                },
+                Season::Winter => SeasonClimateParams {
+                    t_min: 2.0,
+                    t_max: 10.0,
+                    precipitation_chance: 0.22,
+                    snow_enabled: true,
+                },
+            },
+        }
+    }
+
+    /// Seasonal baseline cloud cover for this climate zone and season.
+    pub fn baseline_cloud_cover(self, season: Season) -> f32 {
+        match self {
+            ClimateZone::Temperate => match season {
+                Season::Spring => 0.3,
+                Season::Summer => 0.15,
+                Season::Autumn => 0.4,
+                Season::Winter => 0.5,
+            },
+            ClimateZone::Tropical => match season {
+                Season::Spring => 0.4,
+                Season::Summer => 0.5,
+                Season::Autumn => 0.45,
+                Season::Winter => 0.3,
+            },
+            ClimateZone::Arid => match season {
+                Season::Spring => 0.1,
+                Season::Summer => 0.05,
+                Season::Autumn => 0.1,
+                Season::Winter => 0.15,
+            },
+            ClimateZone::Mediterranean => match season {
+                Season::Spring => 0.25,
+                Season::Summer => 0.1,
+                Season::Autumn => 0.3,
+                Season::Winter => 0.45,
+            },
+            ClimateZone::Continental => match season {
+                Season::Spring => 0.35,
+                Season::Summer => 0.2,
+                Season::Autumn => 0.4,
+                Season::Winter => 0.5,
+            },
+            ClimateZone::Subarctic => match season {
+                Season::Spring => 0.4,
+                Season::Summer => 0.3,
+                Season::Autumn => 0.5,
+                Season::Winter => 0.55,
+            },
+            ClimateZone::Oceanic => match season {
+                Season::Spring => 0.45,
+                Season::Summer => 0.35,
+                Season::Autumn => 0.5,
+                Season::Winter => 0.55,
+            },
+        }
+    }
+
+    /// Seasonal baseline humidity for this climate zone and season.
+    pub fn baseline_humidity(self, season: Season) -> f32 {
+        match self {
+            ClimateZone::Temperate => match season {
+                Season::Spring => 0.55,
+                Season::Summer => 0.4,
+                Season::Autumn => 0.6,
+                Season::Winter => 0.65,
+            },
+            ClimateZone::Tropical => match season {
+                Season::Spring => 0.75,
+                Season::Summer => 0.85,
+                Season::Autumn => 0.8,
+                Season::Winter => 0.65,
+            },
+            ClimateZone::Arid => match season {
+                Season::Spring => 0.2,
+                Season::Summer => 0.1,
+                Season::Autumn => 0.2,
+                Season::Winter => 0.25,
+            },
+            ClimateZone::Mediterranean => match season {
+                Season::Spring => 0.5,
+                Season::Summer => 0.3,
+                Season::Autumn => 0.55,
+                Season::Winter => 0.65,
+            },
+            ClimateZone::Continental => match season {
+                Season::Spring => 0.5,
+                Season::Summer => 0.45,
+                Season::Autumn => 0.55,
+                Season::Winter => 0.6,
+            },
+            ClimateZone::Subarctic => match season {
+                Season::Spring => 0.55,
+                Season::Summer => 0.5,
+                Season::Autumn => 0.6,
+                Season::Winter => 0.65,
+            },
+            ClimateZone::Oceanic => match season {
+                Season::Spring => 0.65,
+                Season::Summer => 0.6,
+                Season::Autumn => 0.7,
+                Season::Winter => 0.75,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Season {
     Spring,
@@ -52,14 +411,16 @@ impl Season {
         }
     }
 
-    /// Seasonal min/max temperature range: (T_min, T_max).
+    /// Seasonal min/max temperature range for Temperate (legacy default).
     fn temperature_range(self) -> (f32, f32) {
-        match self {
-            Season::Spring => (8.0, 22.0),
-            Season::Summer => (20.0, 36.0),
-            Season::Autumn => (5.0, 19.0),
-            Season::Winter => (-8.0, 6.0),
-        }
+        let params = ClimateZone::Temperate.season_params(self);
+        (params.t_min, params.t_max)
+    }
+
+    /// Seasonal min/max temperature range for a given climate zone.
+    pub fn temperature_range_for_zone(self, zone: ClimateZone) -> (f32, f32) {
+        let params = zone.season_params(self);
+        (params.t_min, params.t_max)
     }
 }
 
@@ -221,9 +582,14 @@ impl Default for Weather {
 }
 
 impl Weather {
-    /// Seasonal base temperature range: (T_min, T_max)
+    /// Seasonal base temperature range for Temperate (legacy default).
     fn seasonal_range(season: Season) -> (f32, f32) {
         season.temperature_range()
+    }
+
+    /// Seasonal base temperature range for a given climate zone.
+    fn seasonal_range_for_zone(season: Season, zone: ClimateZone) -> (f32, f32) {
+        season.temperature_range_for_zone(zone)
     }
 
     /// Derive the current weather condition from atmospheric state.
@@ -336,7 +702,12 @@ impl Weather {
 /// - Daily variation via deterministic hash on day
 /// - Atmospheric state updates (cloud_cover, humidity, precipitation)
 /// - Weather condition derived from atmospheric state
-pub fn update_weather(clock: Res<GameClock>, mut weather: ResMut<Weather>) {
+/// - All parameters driven by the active `ClimateZone`.
+pub fn update_weather(
+    clock: Res<GameClock>,
+    mut weather: ResMut<Weather>,
+    climate: Res<ClimateZone>,
+) {
     let current_hour = clock.hour_of_day();
 
     // Only update on hour boundaries (when the integer hour changes)
@@ -351,8 +722,12 @@ pub fn update_weather(clock: Res<GameClock>, mut weather: ResMut<Weather>) {
     // Update season
     weather.season = Season::from_day(clock.day);
 
+    // Get climate parameters for the current season and zone
+    let zone = *climate;
+    let climate_params = zone.season_params(weather.season);
+
     // --- Diurnal temperature ---
-    let (t_min, t_max) = Weather::seasonal_range(weather.season);
+    let (t_min, t_max) = (climate_params.t_min, climate_params.t_max);
     // Add daily variation (deterministic based on day) of +/- 3 degrees
     let day_variation = ((clock.day as f32 * 0.1).sin()) * 3.0;
     let effective_min = t_min + day_variation;
@@ -380,69 +755,58 @@ pub fn update_weather(clock: Res<GameClock>, mut weather: ResMut<Weather>) {
         // Random weather events (deterministic based on day hash)
         if weather.event_days_remaining == 0 {
             let hash = (clock.day.wrapping_mul(2654435761)) % 100;
-            match (weather.season, hash) {
-                (Season::Spring, 0..=8) => {
-                    // Spring rain
-                    weather.cloud_cover = 0.7 + (hash % 20) as f32 * 0.01;
-                    weather.precipitation_intensity = 0.2 + (hash % 15) as f32 * 0.02;
-                    weather.humidity = 0.8;
-                    weather.event_days_remaining = 2 + (hash % 3);
-                }
-                (Season::Summer, 0..=3) => {
-                    // Summer heat wave (high pressure, clear skies, extreme heat)
+
+            // Compute the precipitation threshold for the current season/zone.
+            // The base precipitation_chance (0.0..1.0) is scaled to a 0..99 hash range.
+            let precip_threshold = (climate_params.precipitation_chance * 100.0) as u32;
+
+            // Check if a precipitation event should occur
+            let is_precip_day = hash < precip_threshold;
+
+            // Check for extreme weather events (heat wave in summer, cold snap in winter)
+            let is_extreme_day = hash < 4; // ~4% chance for extreme events
+
+            match (weather.season, is_extreme_day, is_precip_day) {
+                // Summer heat wave (only if extreme day, any climate)
+                (Season::Summer, true, _) => {
                     weather.cloud_cover = 0.05;
                     weather.precipitation_intensity = 0.0;
                     weather.humidity = 0.3;
                     weather.event_days_remaining = 3 + (hash % 4);
-                    // Push temperature up beyond normal range
                     weather.temperature = t_max + 8.0;
                 }
-                (Season::Summer, 4..=7) => {
-                    // Summer storm
-                    weather.cloud_cover = 0.9;
-                    weather.precipitation_intensity = 0.8;
-                    weather.humidity = 0.95;
-                    weather.event_days_remaining = 1 + (hash % 2);
-                }
-                (Season::Autumn, 0..=10) => {
-                    // Autumn rain
-                    weather.cloud_cover = 0.75 + (hash % 15) as f32 * 0.01;
-                    weather.precipitation_intensity = 0.25 + (hash % 20) as f32 * 0.015;
-                    weather.humidity = 0.85;
-                    weather.event_days_remaining = 2 + (hash % 4);
-                }
-                (Season::Winter, 0..=5) => {
-                    // Winter cold snap (clear but frigid)
+                // Winter cold snap (only if extreme day and snow is enabled)
+                (Season::Winter, true, _) if climate_params.snow_enabled => {
                     weather.cloud_cover = 0.2;
                     weather.precipitation_intensity = 0.0;
                     weather.humidity = 0.4;
                     weather.event_days_remaining = 3 + (hash % 5);
-                    // Push temperature down below normal range
                     weather.temperature = t_min - 10.0;
                 }
-                (Season::Winter, 6..=8) => {
-                    // Winter storm / snow
-                    weather.cloud_cover = 0.9;
-                    weather.precipitation_intensity = 0.7;
-                    weather.humidity = 0.9;
-                    weather.event_days_remaining = 1 + (hash % 3);
+                // Precipitation event
+                (_, _, true) => {
+                    let is_storm = hash < (precip_threshold / 3).max(1);
+                    if is_storm {
+                        // Storm / heavy precipitation
+                        weather.cloud_cover = 0.9;
+                        weather.precipitation_intensity = 0.7 + (hash % 20) as f32 * 0.01;
+                        weather.humidity = 0.9 + (hash % 10) as f32 * 0.005;
+                        weather.event_days_remaining = 1 + (hash % 3);
+                    } else {
+                        // Normal rain/snow
+                        weather.cloud_cover = 0.7 + (hash % 20) as f32 * 0.01;
+                        weather.precipitation_intensity = 0.2 + (hash % 15) as f32 * 0.02;
+                        weather.humidity = 0.8;
+                        weather.event_days_remaining = 2 + (hash % 4);
+                    }
                 }
+                // No event: drift toward seasonal baseline
                 _ => {
-                    // No new event: drift cloud cover toward seasonal baseline
-                    let seasonal_baseline_cloud = match weather.season {
-                        Season::Spring => 0.3,
-                        Season::Summer => 0.15,
-                        Season::Autumn => 0.4,
-                        Season::Winter => 0.5,
-                    };
-                    weather.cloud_cover += (seasonal_baseline_cloud - weather.cloud_cover) * 0.2;
+                    let seasonal_baseline_cloud = zone.baseline_cloud_cover(weather.season);
+                    weather.cloud_cover +=
+                        (seasonal_baseline_cloud - weather.cloud_cover) * 0.2;
                     weather.precipitation_intensity *= 0.5; // decay precipitation
-                    let seasonal_humidity = match weather.season {
-                        Season::Spring => 0.55,
-                        Season::Summer => 0.4,
-                        Season::Autumn => 0.6,
-                        Season::Winter => 0.65,
-                    };
+                    let seasonal_humidity = zone.baseline_humidity(weather.season);
                     weather.humidity += (seasonal_humidity - weather.humidity) * 0.2;
                 }
             }
@@ -459,11 +823,20 @@ pub fn update_weather(clock: Res<GameClock>, mut weather: ResMut<Weather>) {
     weather.humidity = weather.humidity.clamp(0.0, 1.0);
     weather.precipitation_intensity = weather.precipitation_intensity.clamp(0.0, 1.0);
 
+    // If snow is disabled for this zone/season, convert snow to rain
+    let snow_enabled = zone.season_params(weather.season).snow_enabled;
+    let effective_temp = if !snow_enabled && weather.temperature < 0.0 {
+        // Force positive temperature so WeatherCondition::from_atmosphere won't produce Snow
+        0.1
+    } else {
+        weather.temperature
+    };
+
     // Derive weather condition from atmospheric state
     weather.current_event = WeatherCondition::from_atmosphere(
         weather.cloud_cover,
         weather.precipitation_intensity,
-        weather.temperature,
+        effective_temp,
     );
 }
 
@@ -721,5 +1094,181 @@ mod tests {
 
         w.current_event = WeatherCondition::Snow;
         assert!(w.park_multiplier() < 0.3);
+    }
+
+    // -----------------------------------------------------------------------
+    // Climate Zone tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_climate_zone_default_is_temperate() {
+        let zone = ClimateZone::default();
+        assert_eq!(zone, ClimateZone::Temperate);
+    }
+
+    #[test]
+    fn test_tropical_winter_low_about_18c_no_snow() {
+        // Issue requirement: Tropical zone has winter_low=65F (~18C), no snow
+        let params = ClimateZone::Tropical.season_params(Season::Winter);
+        assert!(
+            (params.t_min - 18.0).abs() < 1.0,
+            "Tropical winter low should be ~18C (65F), got {}",
+            params.t_min
+        );
+        assert!(
+            !params.snow_enabled,
+            "Tropical zone should have snow disabled"
+        );
+        // Verify no snow in any season for tropical
+        for &season in &[Season::Spring, Season::Summer, Season::Autumn, Season::Winter] {
+            let p = ClimateZone::Tropical.season_params(season);
+            assert!(
+                !p.snow_enabled,
+                "Tropical {:?} should not have snow",
+                season
+            );
+        }
+    }
+
+    #[test]
+    fn test_subarctic_winter_low_about_negative_34c_heavy_snow() {
+        // Issue requirement: Subarctic zone has winter_low=-30F (~-34C), heavy snow
+        let params = ClimateZone::Subarctic.season_params(Season::Winter);
+        assert!(
+            (params.t_min - (-34.0)).abs() < 2.0,
+            "Subarctic winter low should be ~-34C (-30F), got {}",
+            params.t_min
+        );
+        assert!(
+            params.snow_enabled,
+            "Subarctic winter should have snow enabled"
+        );
+        // Subarctic should have heavy precipitation chance in winter
+        assert!(
+            params.precipitation_chance >= 0.12,
+            "Subarctic winter should have high precipitation chance, got {}",
+            params.precipitation_chance
+        );
+    }
+
+    #[test]
+    fn test_arid_very_low_precipitation() {
+        // Issue requirement: Arid zone has very low precipitation chance
+        for &season in &[Season::Spring, Season::Summer, Season::Autumn, Season::Winter] {
+            let params = ClimateZone::Arid.season_params(season);
+            assert!(
+                params.precipitation_chance <= 0.05,
+                "Arid {:?} precipitation chance should be very low, got {}",
+                season,
+                params.precipitation_chance
+            );
+        }
+        // Summer should be the driest
+        let summer = ClimateZone::Arid.season_params(Season::Summer);
+        assert!(
+            summer.precipitation_chance <= 0.02,
+            "Arid summer should be extremely dry, got {}",
+            summer.precipitation_chance
+        );
+    }
+
+    #[test]
+    fn test_temperate_backward_compatible() {
+        // Temperate zone parameters should match the original hardcoded values
+        let spring = ClimateZone::Temperate.season_params(Season::Spring);
+        assert!((spring.t_min - 8.0).abs() < 0.01);
+        assert!((spring.t_max - 22.0).abs() < 0.01);
+
+        let summer = ClimateZone::Temperate.season_params(Season::Summer);
+        assert!((summer.t_min - 20.0).abs() < 0.01);
+        assert!((summer.t_max - 36.0).abs() < 0.01);
+
+        let autumn = ClimateZone::Temperate.season_params(Season::Autumn);
+        assert!((autumn.t_min - 5.0).abs() < 0.01);
+        assert!((autumn.t_max - 19.0).abs() < 0.01);
+
+        let winter = ClimateZone::Temperate.season_params(Season::Winter);
+        assert!((winter.t_min - (-8.0)).abs() < 0.01);
+        assert!((winter.t_max - 6.0).abs() < 0.01);
+        assert!(winter.snow_enabled);
+    }
+
+    #[test]
+    fn test_all_zones_have_valid_temperature_ranges() {
+        for &zone in ClimateZone::all() {
+            for &season in &[Season::Spring, Season::Summer, Season::Autumn, Season::Winter] {
+                let params = zone.season_params(season);
+                assert!(
+                    params.t_max > params.t_min,
+                    "{:?} {:?}: t_max ({}) should be > t_min ({})",
+                    zone,
+                    season,
+                    params.t_max,
+                    params.t_min
+                );
+                assert!(
+                    (0.0..=1.0).contains(&params.precipitation_chance),
+                    "{:?} {:?}: precipitation_chance {} out of range",
+                    zone,
+                    season,
+                    params.precipitation_chance
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_continental_extreme_temperature_swing() {
+        // Continental should have large temperature difference between winter and summer
+        let summer = ClimateZone::Continental.season_params(Season::Summer);
+        let winter = ClimateZone::Continental.season_params(Season::Winter);
+        let swing = summer.t_max - winter.t_min;
+        assert!(
+            swing > 50.0,
+            "Continental temperature swing should be >50C, got {}",
+            swing
+        );
+    }
+
+    #[test]
+    fn test_mediterranean_dry_summers_wet_winters() {
+        let summer = ClimateZone::Mediterranean.season_params(Season::Summer);
+        let winter = ClimateZone::Mediterranean.season_params(Season::Winter);
+        assert!(
+            winter.precipitation_chance > summer.precipitation_chance * 3.0,
+            "Mediterranean winters should be much wetter than summers: winter={}, summer={}",
+            winter.precipitation_chance,
+            summer.precipitation_chance
+        );
+    }
+
+    #[test]
+    fn test_oceanic_narrow_temperature_range() {
+        let summer = ClimateZone::Oceanic.season_params(Season::Summer);
+        let winter = ClimateZone::Oceanic.season_params(Season::Winter);
+        // Annual temperature range should be narrow (< 25C from coldest to hottest)
+        let annual_range = summer.t_max - winter.t_min;
+        assert!(
+            annual_range < 25.0,
+            "Oceanic annual temperature range should be < 25C, got {}",
+            annual_range
+        );
+    }
+
+    #[test]
+    fn test_climate_zone_names() {
+        assert_eq!(ClimateZone::Temperate.name(), "Temperate");
+        assert_eq!(ClimateZone::Tropical.name(), "Tropical");
+        assert_eq!(ClimateZone::Arid.name(), "Arid");
+        assert_eq!(ClimateZone::Mediterranean.name(), "Mediterranean");
+        assert_eq!(ClimateZone::Continental.name(), "Continental");
+        assert_eq!(ClimateZone::Subarctic.name(), "Subarctic");
+        assert_eq!(ClimateZone::Oceanic.name(), "Oceanic");
+    }
+
+    #[test]
+    fn test_climate_zone_all_variants() {
+        let all = ClimateZone::all();
+        assert_eq!(all.len(), 7);
     }
 }

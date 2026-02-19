@@ -4,11 +4,11 @@ use bevy::prelude::*;
 pub mod serialization;
 
 use serialization::{
-    create_save_data, migrate_save, restore_extended_budget, restore_life_sim_timer,
-    restore_lifecycle_timer, restore_loan_book, restore_policies, restore_road_segment_store,
-    restore_unlock_state, restore_virtual_population, restore_weather, u8_to_road_type,
-    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
-    CURRENT_SAVE_VERSION,
+    create_save_data, migrate_save, restore_climate_zone, restore_extended_budget,
+    restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
+    restore_road_segment_store, restore_unlock_state, restore_virtual_population, restore_weather,
+    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
+    SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
@@ -31,7 +31,7 @@ use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
-use simulation::weather::Weather;
+use simulation::weather::{ClimateZone, Weather};
 use simulation::zones::ZoneDemand;
 
 use rendering::building_render::BuildingMesh3d;
@@ -41,7 +41,7 @@ use rendering::citizen_render::CitizenSprite;
 // SystemParam bundles to keep system parameter counts under Bevy's 16 limit
 // ---------------------------------------------------------------------------
 
-/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer).
+/// Read-only access to the V2+ resources (policies, weather, unlocks, ext budget, loans, virtual pop, life sim timer, climate zone).
 #[derive(SystemParam)]
 struct V2ResourcesRead<'w> {
     policies: Res<'w, Policies>,
@@ -51,6 +51,7 @@ struct V2ResourcesRead<'w> {
     loan_book: Res<'w, LoanBook>,
     virtual_population: Res<'w, VirtualPopulation>,
     life_sim_timer: Res<'w, LifeSimTimer>,
+    climate_zone: Res<'w, ClimateZone>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -63,6 +64,7 @@ struct V2ResourcesWrite<'w> {
     loan_book: ResMut<'w, LoanBook>,
     virtual_population: ResMut<'w, VirtualPopulation>,
     life_sim_timer: ResMut<'w, LifeSimTimer>,
+    climate_zone: ResMut<'w, ClimateZone>,
 }
 
 pub struct SavePlugin;
@@ -159,6 +161,7 @@ fn handle_save(
             Some(&lifecycle_timer),
             Some(&v2.virtual_population),
             Some(&v2.life_sim_timer),
+            Some(&v2.climate_zone),
         );
 
         let bytes = save.encode();
@@ -475,8 +478,10 @@ fn handle_load(
 
         if let Some(ref saved_weather) = save.weather {
             *v2.weather = restore_weather(saved_weather);
+            *v2.climate_zone = restore_climate_zone(saved_weather);
         } else {
             *v2.weather = Weather::default();
+            *v2.climate_zone = ClimateZone::default();
         }
 
         if let Some(ref saved_unlocks) = save.unlock_state {
@@ -590,6 +595,7 @@ fn handle_new_game(
         // Reset V2 resources
         *v2.policies = Policies::default();
         *v2.weather = Weather::default();
+        *v2.climate_zone = ClimateZone::default();
         *v2.unlock_state = UnlockState::default();
         *v2.extended_budget = ExtendedBudget::default();
         *v2.loan_book = LoanBook::default();

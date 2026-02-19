@@ -128,7 +128,7 @@ use virtual_population::VirtualPopulation;
 use water_demand::WaterSupply;
 use water_pollution::WaterPollutionGrid;
 use wealth::WealthStats;
-use weather::Weather;
+use weather::{ClimateZone, Weather};
 use wind::WindState;
 use zones::ZoneDemand;
 
@@ -183,6 +183,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<VirtualPopulation>()
             .init_resource::<Policies>()
             .init_resource::<Weather>()
+            .init_resource::<ClimateZone>()
             .init_resource::<ResourceGrid>()
             .init_resource::<ResourceBalance>()
             .init_resource::<ExtendedBudget>()
