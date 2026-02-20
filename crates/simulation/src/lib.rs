@@ -85,6 +85,7 @@ pub mod urban_growth_boundary;
 pub mod urban_heat_island;
 pub mod utilities;
 pub mod virtual_population;
+pub mod walkability;
 pub mod waste_composition;
 pub mod waste_effects;
 pub mod waste_policies;
@@ -375,6 +376,7 @@ impl Plugin for SimulationPlugin {
             virtual_population::VirtualPopulationPlugin,
             urban_growth_boundary::UrbanGrowthBoundaryPlugin,
             nimby::NimbyPlugin,
+            walkability::WalkabilityPlugin,
         ));
     }
 }
