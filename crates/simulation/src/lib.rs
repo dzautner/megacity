@@ -33,6 +33,7 @@ pub mod flood_protection;
 pub mod flood_simulation;
 pub mod fog;
 pub mod forest_fire;
+pub mod form_transect;
 pub mod garbage;
 pub mod grid;
 pub mod groundwater;
@@ -393,6 +394,7 @@ impl Plugin for SimulationPlugin {
             urban_growth_boundary::UrbanGrowthBoundaryPlugin,
             nimby::NimbyPlugin,
             walkability::WalkabilityPlugin,
+            form_transect::FormTransectPlugin,
         ));
     }
 }
