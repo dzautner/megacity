@@ -31,6 +31,7 @@ pub enum Policy {
     HighRiseBan,
     NightShiftBan,
     IndustrialZoningRestriction,
+    EminentDomain,
 }
 
 impl Policy {
@@ -52,6 +53,7 @@ impl Policy {
             Policy::HighRiseBan => 0.0,
             Policy::NightShiftBan => 0.0,
             Policy::IndustrialZoningRestriction => 0.0,
+            Policy::EminentDomain => 20.0,
         }
     }
 
@@ -72,6 +74,7 @@ impl Policy {
             Policy::HighRiseBan => "High-Rise Ban",
             Policy::NightShiftBan => "Night Shift Ban",
             Policy::IndustrialZoningRestriction => "Industrial Zoning Restriction",
+            Policy::EminentDomain => "Eminent Domain",
         }
     }
 
@@ -94,6 +97,9 @@ impl Policy {
             Policy::HighRiseBan => "Caps building level at 2 city-wide",
             Policy::NightShiftBan => "Increases happiness +3, reduces commercial output",
             Policy::IndustrialZoningRestriction => "Limits new industrial zoning near residential",
+            Policy::EminentDomain => {
+                "Override citizen opposition to development at a happiness cost"
+            }
         }
     }
 
@@ -115,6 +121,7 @@ impl Policy {
             Policy::HighRiseBan,
             Policy::NightShiftBan,
             Policy::IndustrialZoningRestriction,
+            Policy::EminentDomain,
         ]
     }
 }
