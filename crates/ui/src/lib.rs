@@ -4,6 +4,7 @@ use bevy_egui::EguiPlugin;
 pub mod graphs;
 pub mod info_panel;
 pub mod milestones;
+pub mod oneway_ui;
 pub mod theme;
 pub mod toolbar;
 
@@ -45,6 +46,7 @@ impl Plugin for UiPlugin {
                     toolbar::speed_keybinds,
                     info_panel::groundwater_tooltip_ui,
                 ),
-            );
+            )
+            .add_plugins(oneway_ui::OneWayUiPlugin);
     }
 }

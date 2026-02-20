@@ -9,6 +9,7 @@ pub mod color_ramps;
 pub mod cursor_preview;
 pub mod day_night;
 pub mod input;
+pub mod oneway_arrows;
 pub mod overlay;
 pub mod props;
 pub mod terrain_render;
@@ -117,7 +118,8 @@ impl Plugin for RenderingPlugin {
                     selection_highlight::animate_selection_highlights,
                     selection_highlight::draw_connected_highlights,
                 ),
-            );
+            )
+            .add_systems(Update, oneway_arrows::draw_oneway_arrows);
     }
 }
 
