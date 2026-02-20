@@ -35,7 +35,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v21 = storm_drainage_state (StormDrainageState serialization for storm drainage infrastructure)
 /// v22 = landfill_capacity_state (LandfillCapacityState serialization for landfill warnings)
 /// v23 = flood_state (FloodState serialization for urban flooding simulation)
-pub const CURRENT_SAVE_VERSION: u32 = 23;
+/// v24 = reservoir_state (ReservoirState serialization for reservoir water level tracking)
+pub const CURRENT_SAVE_VERSION: u32 = 24;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -140,6 +141,8 @@ pub struct SaveData {
     pub landfill_capacity_state: Option<SaveLandfillCapacityState>,
     #[serde(default)]
     pub flood_state: Option<SaveFloodState>,
+    #[serde(default)]
+    pub reservoir_state: Option<SaveReservoirState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -638,6 +641,20 @@ pub struct SaveFloodState {
     pub total_flooded_cells: u32,
     pub total_damage: f64,
     pub max_depth: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveReservoirState {
+    pub total_storage_capacity_mg: f32,
+    pub current_level_mg: f32,
+    pub inflow_rate_mgd: f32,
+    pub outflow_rate_mgd: f32,
+    pub evaporation_rate_mgd: f32,
+    pub net_change_mgd: f32,
+    pub storage_days: f32,
+    pub reservoir_count: u32,
+    pub warning_tier: u8,
+    pub min_reserve_pct: f32,
 }
 
 impl SaveData {

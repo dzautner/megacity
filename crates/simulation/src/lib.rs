@@ -54,6 +54,7 @@ pub mod pollution;
 pub mod postal;
 pub mod production;
 pub mod recycling;
+pub mod reservoir;
 pub mod road_graph_csr;
 pub mod road_maintenance;
 pub mod road_segments;
@@ -132,6 +133,7 @@ use outside_connections::OutsideConnections;
 use policies::Policies;
 use pollution::PollutionGrid;
 use recycling::{RecyclingEconomics, RecyclingState};
+use reservoir::{ReservoirState, ReservoirWarningEvent};
 use road_graph_csr::CsrGraph;
 use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
@@ -287,12 +289,14 @@ impl Plugin for SimulationPlugin {
             .init_resource::<LandfillCapacityState>()
             .init_resource::<FloodGrid>()
             .init_resource::<FloodState>()
+            .init_resource::<ReservoirState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
             .add_event::<cold_snap::ColdSnapEvent>()
             .add_event::<LandfillWarningEvent>()
+            .add_event::<ReservoirWarningEvent>()
             .add_systems(Startup, world_init::init_world)
             .add_systems(
                 FixedUpdate,
@@ -446,6 +450,10 @@ impl Plugin for SimulationPlugin {
                     unlocks::award_development_points,
                 )
                     .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                reservoir::update_reservoir_levels.after(water_sources::replenish_reservoirs),
             )
             .add_systems(
                 FixedUpdate,
