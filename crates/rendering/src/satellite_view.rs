@@ -254,6 +254,7 @@ fn update_satellite_visibility(
 
 /// Fade out 3D objects as satellite view fades in. Uses `ParamSet` to avoid
 /// conflicting `Visibility` queries.
+#[allow(clippy::type_complexity)]
 fn fade_3d_objects(
     satellite: Res<SatelliteView>,
     mut set: ParamSet<(
