@@ -124,7 +124,6 @@ pub mod zones;
 
 use road_graph_csr::CsrGraph;
 use road_segments::RoadSegmentStore;
-use roads::RoadNetwork;
 use spatial_grid::SpatialGrid;
 
 // ---------------------------------------------------------------------------
