@@ -11,6 +11,7 @@ pub mod building_upgrade;
 pub mod buildings;
 pub mod citizen;
 pub mod citizen_spawner;
+pub mod climate_change;
 pub mod cold_snap;
 pub mod composting;
 pub mod config;
@@ -298,6 +299,7 @@ impl Plugin for SimulationPlugin {
             crime::CrimePlugin,
             health::HealthPlugin,
             death_care::DeathCarePlugin,
+            climate_change::ClimateChangePlugin,
         ));
 
         // Water systems
