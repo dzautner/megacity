@@ -1263,7 +1263,7 @@ mod tests {
     #[test]
     fn test_nimby_state_set_get_opposition() {
         let mut state = NimbyState::default();
-        state.set_opposition(10, 10, 25.0);
+        state.opposition_grid[10 * GRID_WIDTH + 10] = 25.0;
         assert_eq!(state.opposition_at(10, 10), 25.0);
         assert_eq!(state.opposition_at(0, 0), 0.0);
     }
