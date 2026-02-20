@@ -3,6 +3,7 @@ use bevy::time::common_conditions::on_timer;
 
 pub mod building_meshes;
 pub mod building_render;
+pub mod building_status_enhanced;
 pub mod camera;
 pub mod citizen_render;
 pub mod color_ramps;
@@ -108,6 +109,9 @@ impl Plugin for RenderingPlugin {
                         .run_if(on_timer(std::time::Duration::from_secs(1))),
                     status_icons::update_building_status_icons
                         .run_if(on_timer(std::time::Duration::from_secs(2))),
+                    building_status_enhanced::update_enhanced_status_icons
+                        .run_if(on_timer(std::time::Duration::from_secs(2))),
+                    building_status_enhanced::lod_enhanced_status_icons,
                 ),
             )
             .add_systems(
