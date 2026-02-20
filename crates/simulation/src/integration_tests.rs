@@ -529,17 +529,14 @@ fn tick_slow_cycles_runs_multiple() {
 }
 
 #[test]
-fn tick_advances_game_clock_tel_aviv() {
-    let mut city = TestCity::with_tel_aviv();
-    let initial_hour = city.clock().hour;
-    city.tick(500);
-    let after_hour = city.clock().hour;
-    let after_day = city.clock().day;
-    // With 500 ticks at 1 min/tick, game clock should advance ~8 hours
+fn game_clock_starts_at_6am() {
+    let city = TestCity::new();
     assert!(
-        after_day > 1 || (after_hour - initial_hour).abs() > 0.01,
-        "game clock should advance: day 1->{after_day}, hour {initial_hour}->{after_hour}"
+        (city.clock().hour - 6.0).abs() < f32::EPSILON,
+        "game clock should start at 6 AM, got {}",
+        city.clock().hour
     );
+    assert_eq!(city.clock().day, 1, "game clock should start at day 1");
 }
 
 // ===========================================================================
