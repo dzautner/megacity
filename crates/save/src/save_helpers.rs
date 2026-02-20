@@ -73,7 +73,6 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub urban_growth_boundary: Res<'w, UrbanGrowthBoundary>,
     pub snow_grid: Res<'w, SnowGrid>,
     pub snow_plowing_state: Res<'w, SnowPlowingState>,
-    pub snow_stats: Res<'w, SnowStats>,
 }
 
 /// Mutable access to the V2+ resources.
