@@ -684,14 +684,14 @@ mod tests {
 
     #[test]
     fn test_sea_level_rise_threshold_with_coastal_cells() {
-        let mut grid = WorldGrid::new(10, 10);
+        let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
         // Create a water body on the left edge
-        for y in 0..10 {
+        for y in 0..GRID_HEIGHT {
             grid.get_mut(0, y).cell_type = CellType::Water;
             grid.get_mut(0, y).elevation = 0.0;
         }
         // Set coastal cell elevations (cells at x=1 are adjacent to water)
-        for y in 0..10 {
+        for y in 0..GRID_HEIGHT {
             grid.get_mut(1, y).elevation = y as f32 * 0.1;
         }
         // The threshold should be at the 15th percentile of coastal elevations
