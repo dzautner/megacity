@@ -10,13 +10,13 @@ pub mod serialization;
 
 use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
-    create_save_data, migrate_save, restore_climate_zone, restore_construction_modifiers,
-    restore_degree_days, restore_drought, restore_extended_budget, restore_heat_wave,
-    restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
-    restore_recycling, restore_road_segment_store, restore_stormwater_grid, restore_uhi_grid,
-    restore_unlock_state, restore_virtual_population, restore_water_source, restore_weather,
-    restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
-    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    create_save_data, migrate_save, restore_climate_zone, restore_composting,
+    restore_construction_modifiers, restore_degree_days, restore_drought, restore_extended_budget,
+    restore_heat_wave, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
+    restore_policies, restore_recycling, restore_road_segment_store, restore_stormwater_grid,
+    restore_uhi_grid, restore_unlock_state, restore_virtual_population, restore_water_source,
+    restore_weather, restore_wind_damage_state, u8_to_road_type, u8_to_service_type,
+    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
