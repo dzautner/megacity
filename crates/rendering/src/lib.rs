@@ -9,6 +9,7 @@ pub mod color_ramps;
 pub mod cursor_preview;
 pub mod day_night;
 pub mod input;
+pub mod lane_markings;
 pub mod overlay;
 pub mod props;
 pub mod terrain_render;
@@ -80,6 +81,7 @@ impl Plugin for RenderingPlugin {
                     cursor_preview::update_cursor_preview,
                     cursor_preview::draw_bezier_preview,
                     road_render::sync_road_segment_meshes,
+                    lane_markings::sync_lane_marking_meshes,
                 ),
             )
             .add_systems(Update, day_night::update_day_night_cycle)
