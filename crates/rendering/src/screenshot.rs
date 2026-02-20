@@ -18,8 +18,9 @@ fn handle_screenshot_key(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut status: ResMut<StatusMessage>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
-    if keyboard.just_pressed(KeyCode::F12) {
+    if bindings.screenshot.just_pressed(&keyboard) {
         // Create screenshots directory if it doesn't exist
         let dir = "screenshots";
         if std::fs::create_dir_all(dir).is_err() {
@@ -52,8 +53,12 @@ fn handle_screenshot_key(
 }
 
 #[cfg(target_arch = "wasm32")]
-fn handle_screenshot_key(keyboard: Res<ButtonInput<KeyCode>>, mut status: ResMut<StatusMessage>) {
-    if keyboard.just_pressed(KeyCode::F12) {
+fn handle_screenshot_key(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut status: ResMut<StatusMessage>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
+) {
+    if bindings.screenshot.just_pressed(&keyboard) {
         status.set("Screenshots not supported in browser", true);
     }
 }

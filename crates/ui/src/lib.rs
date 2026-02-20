@@ -8,6 +8,7 @@ pub mod day_night_panel;
 pub mod district_inspect;
 pub mod graphs;
 pub mod info_panel;
+pub mod keybindings_panel;
 pub mod localization;
 pub mod milestones;
 pub mod multi_select;
@@ -41,6 +42,7 @@ impl Plugin for UiPlugin {
             .add_plugins(oneway_ui::OneWayUiPlugin)
             .add_plugins(settings_panel::SettingsPanelPlugin)
             .add_plugins(advisor_tips::AdvisorTipsPlugin)
+            .add_plugins(keybindings_panel::KeybindingsPanelPlugin)
             .add_plugins(search::SearchPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()

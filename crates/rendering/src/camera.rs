@@ -109,20 +109,21 @@ pub fn camera_pan_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut orbit: ResMut<OrbitCamera>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
     let scale = orbit.distance / 1000.0;
 
     let mut dir = Vec2::ZERO;
-    if keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) {
+    if bindings.camera_pan_up.pressed(&keys) || bindings.camera_pan_up_alt.pressed(&keys) {
         dir.y -= 1.0;
     }
-    if keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown) {
+    if bindings.camera_pan_down.pressed(&keys) || bindings.camera_pan_down_alt.pressed(&keys) {
         dir.y += 1.0;
     }
-    if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
+    if bindings.camera_pan_left.pressed(&keys) || bindings.camera_pan_left_alt.pressed(&keys) {
         dir.x -= 1.0;
     }
-    if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
+    if bindings.camera_pan_right.pressed(&keys) || bindings.camera_pan_right_alt.pressed(&keys) {
         dir.x += 1.0;
     }
 
@@ -267,12 +268,13 @@ pub fn camera_rotate_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut orbit: ResMut<OrbitCamera>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
     let mut yaw_delta = 0.0;
-    if keys.pressed(KeyCode::KeyQ) {
+    if bindings.camera_rotate_left.pressed(&keys) {
         yaw_delta -= 1.0;
     }
-    if keys.pressed(KeyCode::KeyE) {
+    if bindings.camera_rotate_right.pressed(&keys) {
         yaw_delta += 1.0;
     }
     if yaw_delta != 0.0 {
@@ -293,12 +295,16 @@ pub fn camera_zoom(mut scroll_evts: EventReader<MouseWheel>, mut orbit: ResMut<O
 }
 
 /// Numpad +/-: zoom in/out (same step as one scroll line).
-pub fn camera_zoom_keyboard(keys: Res<ButtonInput<KeyCode>>, mut orbit: ResMut<OrbitCamera>) {
+pub fn camera_zoom_keyboard(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut orbit: ResMut<OrbitCamera>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
+) {
     let mut dy = 0.0;
-    if keys.pressed(KeyCode::NumpadAdd) {
+    if bindings.camera_zoom_in.pressed(&keys) {
         dy += 1.0;
     }
-    if keys.pressed(KeyCode::NumpadSubtract) {
+    if bindings.camera_zoom_out.pressed(&keys) {
         dy -= 1.0;
     }
     if dy != 0.0 {

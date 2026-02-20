@@ -1088,28 +1088,36 @@ fn place_service_if_affordable(
 // ---------------------------------------------------------------------------
 
 /// Toggle grid snap mode with the F key.
-pub fn toggle_grid_snap(keys: Res<ButtonInput<KeyCode>>, mut grid_snap: ResMut<GridSnap>) {
-    if keys.just_pressed(KeyCode::KeyF) {
+pub fn toggle_grid_snap(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut grid_snap: ResMut<GridSnap>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
+) {
+    if bindings.toggle_grid_snap.just_pressed(&keys) {
         grid_snap.enabled = !grid_snap.enabled;
     }
 }
 
 /// Quick-access tool shortcuts (R/Z/B/I/V).
 /// Digit keys 1-3 are reserved for simulation speed; overlays use Tab cycling.
-pub fn keyboard_tool_switch(keys: Res<ButtonInput<KeyCode>>, mut tool: ResMut<ActiveTool>) {
-    if keys.just_pressed(KeyCode::KeyR) {
+pub fn keyboard_tool_switch(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut tool: ResMut<ActiveTool>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
+) {
+    if bindings.tool_road.just_pressed(&keys) {
         *tool = ActiveTool::Road;
     }
-    if keys.just_pressed(KeyCode::KeyZ) {
+    if bindings.tool_zone_res.just_pressed(&keys) {
         *tool = ActiveTool::ZoneResidentialLow;
     }
-    if keys.just_pressed(KeyCode::KeyB) {
+    if bindings.tool_bulldoze.just_pressed(&keys) {
         *tool = ActiveTool::Bulldoze;
     }
-    if keys.just_pressed(KeyCode::KeyI) {
+    if bindings.tool_inspect.just_pressed(&keys) {
         *tool = ActiveTool::Inspect;
     }
-    if keys.just_pressed(KeyCode::KeyV) {
+    if bindings.tool_zone_com.just_pressed(&keys) {
         *tool = ActiveTool::ZoneCommercialLow;
     }
 }
@@ -1121,6 +1129,7 @@ pub fn keyboard_tool_switch(keys: Res<ButtonInput<KeyCode>>, mut tool: ResMut<Ac
 #[allow(clippy::too_many_arguments)]
 pub fn delete_selected_building(
     keys: Res<ButtonInput<KeyCode>>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
     mut selected: ResMut<SelectedBuilding>,
     mut grid: ResMut<WorldGrid>,
     mut status: ResMut<StatusMessage>,
@@ -1128,7 +1137,9 @@ pub fn delete_selected_building(
     service_q: Query<&ServiceBuilding>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
 ) {
-    if !keys.just_pressed(KeyCode::Delete) && !keys.just_pressed(KeyCode::Backspace) {
+    if !bindings.delete_building.just_pressed(&keys)
+        && !bindings.delete_building_alt.just_pressed(&keys)
+    {
         return;
     }
 
@@ -1261,11 +1272,12 @@ pub fn handle_tree_tool(
 /// Each press handles exactly one level.
 pub fn handle_escape_key(
     keys: Res<ButtonInput<KeyCode>>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
     mut draw_state: ResMut<RoadDrawState>,
     mut selected: ResMut<SelectedBuilding>,
     mut tool: ResMut<ActiveTool>,
 ) {
-    if !keys.just_pressed(KeyCode::Escape) {
+    if !bindings.escape.just_pressed(&keys) {
         return;
     }
 

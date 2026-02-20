@@ -220,8 +220,7 @@ pub fn search_keybind(
         return;
     }
 
-    let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
-    if ctrl && keyboard.just_pressed(KeyCode::KeyF) {
+    if bindings.toggle_search.just_pressed(&keyboard) {
         state.visible = !state.visible;
         if state.visible {
             state.request_focus = true;
@@ -230,7 +229,7 @@ pub fn search_keybind(
     }
 
     // Also close on Escape
-    if state.visible && keyboard.just_pressed(KeyCode::Escape) {
+    if state.visible && bindings.escape.just_pressed(&keyboard) {
         state.visible = false;
     }
 }

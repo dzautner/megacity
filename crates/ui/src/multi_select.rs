@@ -91,13 +91,14 @@ pub fn handle_multi_select_input(
 /// Escape key clears multi-selection.
 pub fn multi_select_escape(
     keys: Res<ButtonInput<KeyCode>>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
     mut multi_select: ResMut<MultiSelectState>,
     mut contexts: EguiContexts,
 ) {
     if contexts.ctx_mut().wants_keyboard_input() {
         return;
     }
-    if keys.just_pressed(KeyCode::Escape) && !multi_select.is_empty() {
+    if bindings.escape.just_pressed(&keys) && !multi_select.is_empty() {
         multi_select.clear();
     }
 }
