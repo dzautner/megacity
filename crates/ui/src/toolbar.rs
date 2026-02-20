@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
+use simulation::budget::ExtendedBudget;
 use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
 use simulation::services::ServiceBuilding;
@@ -1293,6 +1294,7 @@ pub fn toolbar_ui(
     _milestones: Res<Milestones>,
     weather: Res<Weather>,
     grid_snap: Res<GridSnap>,
+    extended_budget: Res<ExtendedBudget>,
 ) {
     let categories = build_categories();
 
@@ -1330,6 +1332,55 @@ pub fn toolbar_ui(
 
                 // Money
                 ui.label(format!("${:.0}", budget.treasury));
+
+                // Net income indicator
+                {
+                    let net = budget.monthly_income - budget.monthly_expenses;
+                    let (sign, color) = if net >= 0.0 {
+                        ("+", egui::Color32::from_rgb(80, 200, 80))
+                    } else {
+                        ("", egui::Color32::from_rgb(220, 60, 60))
+                    };
+                    let label_text =
+                        egui::RichText::new(format!("{}${:.0}/mo", sign, net)).color(color);
+                    let resp = ui.label(label_text);
+                    let ib = &extended_budget.income_breakdown;
+                    let eb = &extended_budget.expense_breakdown;
+                    let total_income = budget.monthly_income;
+                    let total_expenses = budget.monthly_expenses;
+                    resp.on_hover_ui(|ui| {
+                        ui.heading("Monthly Budget");
+                        ui.separator();
+                        ui.label(
+                            egui::RichText::new(format!("Income: ${:.0}", total_income))
+                                .color(egui::Color32::from_rgb(80, 200, 80)),
+                        );
+                        ui.indent("income_details", |ui| {
+                            ui.label(format!("Residential Tax: ${:.0}", ib.residential_tax));
+                            ui.label(format!("Commercial Tax: ${:.0}", ib.commercial_tax));
+                            ui.label(format!("Industrial Tax: ${:.0}", ib.industrial_tax));
+                            ui.label(format!("Office Tax: ${:.0}", ib.office_tax));
+                            ui.label(format!("Tourism: ${:.0}", ib.trade_income));
+                        });
+                        ui.separator();
+                        ui.label(
+                            egui::RichText::new(format!("Expenses: ${:.0}", total_expenses))
+                                .color(egui::Color32::from_rgb(220, 60, 60)),
+                        );
+                        ui.indent("expense_details", |ui| {
+                            ui.label(format!("Road Maintenance: ${:.0}", eb.road_maintenance));
+                            ui.label(format!("Service Costs: ${:.0}", eb.service_costs));
+                            ui.label(format!("Policy Costs: ${:.0}", eb.policy_costs));
+                            ui.label(format!("Loan Payments: ${:.0}", eb.loan_payments));
+                        });
+                        ui.separator();
+                        ui.label(
+                            egui::RichText::new(format!("Net: {}${:.0}/mo", sign, net))
+                                .strong()
+                                .color(color),
+                        );
+                    });
+                }
 
                 ui.separator();
 
