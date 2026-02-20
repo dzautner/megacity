@@ -38,6 +38,7 @@ pub mod homelessness;
 pub mod immigration;
 pub mod imports_exports;
 pub mod land_value;
+pub mod landfill_gas;
 pub mod landfill_warning;
 pub mod life_simulation;
 pub mod lifecycle;
@@ -121,6 +122,7 @@ use heat_wave::HeatWaveState;
 use heating::{HeatingGrid, HeatingStats};
 use imports_exports::TradeConnections;
 use land_value::LandValueGrid;
+use landfill_gas::LandfillGasState;
 use landfill_warning::{LandfillCapacityState, LandfillWarningEvent};
 use life_simulation::LifeSimTimer;
 use lifecycle::LifecycleTimer;
@@ -286,6 +288,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<WastewaterState>()
             .init_resource::<HazardousWasteState>()
             .init_resource::<StormDrainageState>()
+            .init_resource::<LandfillGasState>()
             .init_resource::<LandfillCapacityState>()
             .init_resource::<FloodGrid>()
             .init_resource::<FloodState>()
@@ -438,6 +441,7 @@ impl Plugin for SimulationPlugin {
                     wastewater::update_wastewater,
                     wastewater::wastewater_health_penalty,
                     hazardous_waste::update_hazardous_waste,
+                    landfill_gas::update_landfill_gas,
                     landfill_warning::update_landfill_capacity,
                     storm_drainage::update_storm_drainage,
                     water_sources::update_water_sources,

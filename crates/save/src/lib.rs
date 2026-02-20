@@ -13,12 +13,13 @@ use serialization::{
     create_save_data, migrate_save, restore_climate_zone, restore_cold_snap, restore_composting,
     restore_construction_modifiers, restore_degree_days, restore_drought, restore_extended_budget,
     restore_flood_state, restore_groundwater_depletion, restore_hazardous_waste, restore_heat_wave,
-    restore_landfill_capacity, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
-    restore_policies, restore_recycling, restore_reservoir_state, restore_road_segment_store,
-    restore_storm_drainage, restore_stormwater_grid, restore_uhi_grid, restore_unlock_state,
-    restore_virtual_population, restore_wastewater, restore_water_source, restore_water_treatment,
-    restore_weather, restore_wind_damage_state, u8_to_road_type, u8_to_service_type,
-    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    restore_landfill_capacity, restore_landfill_gas, restore_life_sim_timer,
+    restore_lifecycle_timer, restore_loan_book, restore_policies, restore_recycling,
+    restore_reservoir_state, restore_road_segment_store, restore_storm_drainage,
+    restore_stormwater_grid, restore_uhi_grid, restore_unlock_state, restore_virtual_population,
+    restore_wastewater, restore_water_source, restore_water_treatment, restore_weather,
+    restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
+    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -36,6 +37,7 @@ use simulation::grid::WorldGrid;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
 use simulation::heat_wave::HeatWaveState;
+use simulation::landfill_gas::LandfillGasState;
 use simulation::landfill_warning::LandfillCapacityState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
@@ -200,6 +202,7 @@ fn handle_save(
             Some(&v2.landfill_capacity_state),
             Some(&v2.flood_state),
             Some(&v2.reservoir_state),
+            Some(&v2.landfill_gas_state),
         );
 
         let bytes = save.encode();
@@ -727,6 +730,11 @@ fn handle_load(
             *v2.reservoir_state = restore_reservoir_state(rs);
         }
 
+        // Restore landfill gas state
+        if let Some(ref lgs) = save.landfill_gas_state {
+            *v2.landfill_gas_state = restore_landfill_gas(lgs);
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -821,6 +829,7 @@ fn handle_new_game(
         *v2.flood_state = FloodState::default();
         *v2.flood_grid = FloodGrid::default();
         *v2.reservoir_state = ReservoirState::default();
+        *v2.landfill_gas_state = LandfillGasState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

@@ -36,7 +36,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v22 = landfill_capacity_state (LandfillCapacityState serialization for landfill warnings)
 /// v23 = flood_state (FloodState serialization for urban flooding simulation)
 /// v24 = reservoir_state (ReservoirState serialization for reservoir water level tracking)
-pub const CURRENT_SAVE_VERSION: u32 = 24;
+/// v25 = landfill_gas_state (LandfillGasState serialization for landfill gas collection and energy)
+pub const CURRENT_SAVE_VERSION: u32 = 25;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -143,6 +144,8 @@ pub struct SaveData {
     pub flood_state: Option<SaveFloodState>,
     #[serde(default)]
     pub reservoir_state: Option<SaveReservoirState>,
+    #[serde(default)]
+    pub landfill_gas_state: Option<SaveLandfillGasState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -655,6 +658,22 @@ pub struct SaveReservoirState {
     pub reservoir_count: u32,
     pub warning_tier: u8,
     pub min_reserve_pct: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveLandfillGasState {
+    pub total_gas_generation_cf_per_year: f64,
+    pub methane_fraction: f32,
+    pub co2_fraction: f32,
+    pub collection_active: bool,
+    pub collection_efficiency: f32,
+    pub electricity_generated_mw: f32,
+    pub uncaptured_methane_cf: f32,
+    pub infrastructure_cost: f64,
+    pub maintenance_cost_per_year: f64,
+    pub fire_explosion_risk: f32,
+    pub landfills_with_collection: u32,
+    pub total_landfills: u32,
 }
 
 impl SaveData {

@@ -17,6 +17,7 @@ use simulation::grid::WorldGrid;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
 use simulation::heat_wave::HeatWaveState;
+use simulation::landfill_gas::LandfillGasState;
 use simulation::landfill_warning::LandfillCapacityState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
@@ -85,6 +86,7 @@ pub fn create_save_data(
     landfill_capacity_state: Option<&LandfillCapacityState>,
     flood_state: Option<&FloodState>,
     reservoir_state: Option<&ReservoirState>,
+    landfill_gas_state: Option<&LandfillGasState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -532,6 +534,20 @@ pub fn create_save_data(
             warning_tier: reservoir_warning_tier_to_u8(rs.warning_tier),
             min_reserve_pct: rs.min_reserve_pct,
         }),
+        landfill_gas_state: landfill_gas_state.map(|lgs| SaveLandfillGasState {
+            total_gas_generation_cf_per_year: lgs.total_gas_generation_cf_per_year,
+            methane_fraction: lgs.methane_fraction,
+            co2_fraction: lgs.co2_fraction,
+            collection_active: lgs.collection_active,
+            collection_efficiency: lgs.collection_efficiency,
+            electricity_generated_mw: lgs.electricity_generated_mw,
+            uncaptured_methane_cf: lgs.uncaptured_methane_cf,
+            infrastructure_cost: lgs.infrastructure_cost,
+            maintenance_cost_per_year: lgs.maintenance_cost_per_year,
+            fire_explosion_risk: lgs.fire_explosion_risk,
+            landfills_with_collection: lgs.landfills_with_collection,
+            total_landfills: lgs.total_landfills,
+        }),
     }
 }
 
@@ -616,6 +632,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -664,6 +681,7 @@ mod tests {
         assert!(restored.landfill_capacity_state.is_none());
         assert!(restored.flood_state.is_none());
         assert!(restored.reservoir_state.is_none());
+        assert!(restored.landfill_gas_state.is_none());
     }
 
     #[test]
@@ -984,6 +1002,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1075,6 +1094,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1107,6 +1127,7 @@ mod tests {
         assert!(restored.landfill_capacity_state.is_none());
         assert!(restored.flood_state.is_none());
         assert!(restored.reservoir_state.is_none());
+        assert!(restored.landfill_gas_state.is_none());
     }
 
     #[test]
@@ -1178,6 +1199,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1202,6 +1224,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1287,6 +1310,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1314,6 +1338,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1398,6 +1423,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1425,6 +1451,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1599,6 +1626,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1641,6 +1669,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1789,6 +1818,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1856,6 +1886,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1882,6 +1913,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1988,6 +2020,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2142,6 +2175,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2169,6 +2203,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2230,6 +2265,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2321,6 +2357,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2360,6 +2397,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2489,6 +2527,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2556,6 +2595,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2578,6 +2618,7 @@ mod tests {
         assert!(restored.landfill_capacity_state.is_none());
         assert!(restored.flood_state.is_none());
         assert!(restored.reservoir_state.is_none());
+        assert!(restored.landfill_gas_state.is_none());
     }
 
     #[test]
@@ -2608,6 +2649,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
