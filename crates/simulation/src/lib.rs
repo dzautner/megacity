@@ -37,6 +37,7 @@ pub mod groundwater_depletion;
 pub mod happiness;
 pub mod hazardous_waste;
 pub mod health;
+pub mod heat_mitigation;
 pub mod heat_wave;
 pub mod heating;
 pub mod homelessness;
@@ -309,6 +310,7 @@ impl Plugin for SimulationPlugin {
             stormwater::StormwaterPlugin,
             water_demand::WaterDemandPlugin,
             heat_wave::HeatWavePlugin,
+            heat_mitigation::HeatMitigationPlugin,
             composting::CompostingPlugin,
             cold_snap::ColdSnapPlugin,
             cso::CsoPlugin,
