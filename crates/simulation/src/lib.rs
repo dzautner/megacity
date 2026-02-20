@@ -67,6 +67,7 @@ pub mod movement;
 pub mod multi_select;
 pub mod natural_resources;
 pub mod neighborhood_quality;
+pub mod network_viz;
 pub mod nimby;
 pub mod noise;
 pub mod oneway;
@@ -306,6 +307,7 @@ impl Plugin for SimulationPlugin {
             stats::StatsPlugin,
             chart_data::ChartDataPlugin,
             utilities::UtilitiesPlugin,
+            network_viz::NetworkVizPlugin,
             education::EducationPlugin,
         ));
 

@@ -17,6 +17,7 @@ use simulation::water_pollution::WaterPollutionGrid;
 use simulation::weather::{Season, Weather};
 
 use simulation::colorblind::{ColorblindMode, ColorblindSettings};
+use simulation::network_viz::NetworkVizData;
 
 use crate::color_ramps::{self, CIVIDIS, GROUNDWATER_LEVEL, GROUNDWATER_QUALITY, INFERNO, VIRIDIS};
 use crate::colorblind_palette;
@@ -69,6 +70,7 @@ pub fn spawn_terrain_chunks(
     segments: Res<RoadSegmentStore>,
     weather: Res<Weather>,
     snow_grid: Res<SnowGrid>,
+    network_viz: Res<NetworkVizData>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -87,6 +89,7 @@ pub fn spawn_terrain_chunks(
                 &overlay_grids,
                 weather.season,
                 ColorblindMode::Normal,
+                &network_viz,
             );
             let (wx, wz) = chunk_world_pos(cx, cy);
 
@@ -121,6 +124,7 @@ pub fn dirty_chunks_on_overlay_change(
     water_quality_grid: Res<WaterQualityGrid>,
     weather: Res<Weather>,
     snow_grid: Res<SnowGrid>,
+    network_viz: Res<NetworkVizData>,
     cb_settings: Res<ColorblindSettings>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
@@ -139,7 +143,7 @@ pub fn dirty_chunks_on_overlay_change(
     // When an overlay is active, dirty chunks if the underlying data changed
     let data_changed = match overlay.mode {
         OverlayMode::None => false,
-        OverlayMode::Power | OverlayMode::Water => false, // power/water is per-cell in WorldGrid, handled by grid changes
+        OverlayMode::Power | OverlayMode::Water => network_viz.is_changed(), // re-color by source when viz data updates
         OverlayMode::Pollution => pollution_grid.is_changed(),
         OverlayMode::LandValue => land_value_grid.is_changed(),
         OverlayMode::Education => education_grid.is_changed(),
@@ -163,7 +167,7 @@ pub fn rebuild_dirty_chunks(
     grid: Res<WorldGrid>,
     roads: Res<RoadNetwork>,
     segments: Res<RoadSegmentStore>,
-    overlay: Res<crate::overlay::OverlayState>,
+    overlay_params: (Res<crate::overlay::OverlayState>, Res<NetworkVizData>),
     pollution_grid: Res<PollutionGrid>,
     land_value_grid: Res<LandValueGrid>,
     education_grid: Res<EducationGrid>,
@@ -179,6 +183,7 @@ pub fn rebuild_dirty_chunks(
         ResMut<Assets<Mesh>>,
     ),
 ) {
+    let (overlay, network_viz) = overlay_params;
     let (groundwater_grid, water_quality_grid) = groundwater_grids;
     let (snow_grid, weather) = snow_params;
     let (query, mut meshes) = query;
@@ -206,6 +211,7 @@ pub fn rebuild_dirty_chunks(
             &overlay_grids,
             weather.season,
             cb_mode,
+            &network_viz,
         );
         meshes.insert(&mesh_handle.0, new_mesh);
         commands.entity(entity).remove::<ChunkDirty>();
@@ -229,6 +235,7 @@ pub fn build_chunk_mesh(
     overlay_grids: &OverlayGrids,
     season: Season,
     cb_mode: ColorblindMode,
+    network_viz: &NetworkVizData,
 ) -> Mesh {
     let cells_in_chunk = CHUNK_SIZE * CHUNK_SIZE;
     let mut positions: Vec<[f32; 3]> = Vec::with_capacity(cells_in_chunk * 4);
@@ -260,6 +267,7 @@ pub fn build_chunk_mesh(
                 overlay,
                 overlay_grids,
                 cb_mode,
+                network_viz,
             );
 
             let x0 = lx as f32 * CELL_SIZE;
@@ -421,6 +429,7 @@ fn apply_overlay(
     overlay: &OverlayMode,
     grids: &OverlayGrids,
     cb_mode: ColorblindMode,
+    network_viz: &NetworkVizData,
 ) -> Color {
     match overlay {
         OverlayMode::None => base,
@@ -428,15 +437,31 @@ fn apply_overlay(
             if cell.cell_type == CellType::Water {
                 return base;
             }
-            let palette = colorblind_palette::power_palette(cb_mode);
-            color_ramps::overlay_binary(base, &palette, cell.has_power)
+            if let Some(src_color) = network_viz.power_source_color(gx, gy) {
+                let tint = Color::srgba(src_color[0], src_color[1], src_color[2], 0.45);
+                color_ramps::blend_tint(base, tint)
+            } else if cell.has_power {
+                let palette = colorblind_palette::power_palette(cb_mode);
+                color_ramps::overlay_binary(base, &palette, true)
+            } else {
+                let palette = colorblind_palette::power_palette(cb_mode);
+                color_ramps::overlay_binary(base, &palette, false)
+            }
         }
         OverlayMode::Water => {
             if cell.cell_type == CellType::Water {
                 return base;
             }
-            let palette = colorblind_palette::water_palette(cb_mode);
-            color_ramps::overlay_binary(base, &palette, cell.has_water)
+            if let Some(src_color) = network_viz.water_source_color(gx, gy) {
+                let tint = Color::srgba(src_color[0], src_color[1], src_color[2], 0.45);
+                color_ramps::blend_tint(base, tint)
+            } else if cell.has_water {
+                let palette = colorblind_palette::water_palette(cb_mode);
+                color_ramps::overlay_binary(base, &palette, true)
+            } else {
+                let palette = colorblind_palette::water_palette(cb_mode);
+                color_ramps::overlay_binary(base, &palette, false)
+            }
         }
         OverlayMode::Traffic => {
             if cell.cell_type == CellType::Road {

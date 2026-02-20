@@ -14,6 +14,7 @@ pub mod cursor_preview;
 pub mod day_night;
 pub mod input;
 pub mod lane_markings;
+pub mod network_viz;
 pub mod oneway_arrows;
 pub mod overlay;
 pub mod props;
@@ -161,7 +162,8 @@ impl Plugin for RenderingPlugin {
             .add_plugins(traffic_los_render::TrafficLosRenderPlugin)
             .add_plugins(traffic_arrows::TrafficArrowsPlugin)
             .add_plugins(wind_streamlines::WindStreamlinesPlugin)
-            .add_plugins(tree_props::TreePropsPlugin);
+            .add_plugins(tree_props::TreePropsPlugin)
+            .add_plugins(network_viz::NetworkVizPlugin);
 
         // Screenshot plugin (F12 to capture)
         app.add_plugins(screenshot::ScreenshotPlugin);
