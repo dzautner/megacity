@@ -4,12 +4,9 @@
 //!
 //! 1. **Seasonal tree tinting** -- Modifies the `StandardMaterial` base color of
 //!    all tree prop meshes every slow tick to reflect the current season:
-//!    - Spring: light green (budding)
-//!    - Summer: lush green
-//!    - Autumn: orange-gold
-//!    - Winter: grey-brown (bare)
-//!    Tinting interpolates smoothly between seasons using the seasonal rendering
-//!    state that already tracks season transitions.
+//!    spring (light green/budding), summer (lush green), autumn (orange-gold),
+//!    and winter (grey-brown/bare). Tinting interpolates smoothly between
+//!    seasons using the seasonal rendering state.
 //!
 //! 2. **Intersection lamp posts** -- Spawns additional lamp posts specifically at
 //!    road intersections (cells where 3+ road neighbours meet). These complement
@@ -287,6 +284,7 @@ fn tint_descendants(
 ///
 /// Runs every frame and toggles `Visibility` for trees, lamps, and parked cars
 /// depending on the current orbit camera distance.
+#[allow(clippy::type_complexity)]
 pub fn update_prop_lod(
     orbit: Res<OrbitCamera>,
     mut trees: Query<&mut Visibility, (With<TreeProp>, Without<StreetLamp>, Without<ParkedCar>)>,
