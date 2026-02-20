@@ -231,7 +231,7 @@ fn sweep_expired_notifications(
     slow: Res<SlowTickTimer>,
 ) {
     // Run every 10 ticks (~1 second) rather than every tick, for efficiency
-    if tick.0 % 10 != 0 && !slow.should_run() {
+    if !tick.0.is_multiple_of(10) && !slow.should_run() {
         return;
     }
     log.sweep(tick.0);

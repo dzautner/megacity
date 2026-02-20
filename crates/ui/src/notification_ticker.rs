@@ -104,7 +104,7 @@ pub fn notification_ticker_ui(
 
             egui::Frame::new()
                 .fill(egui::Color32::from_rgba_premultiplied(20, 20, 30, 220))
-                .inner_margin(egui::Margin::symmetric(6.0, 4.0))
+                .inner_margin(egui::Margin::symmetric(6, 4))
                 .show(ui, |ui| {
                     ui.set_min_width(screen_width);
                     ui.set_max_height(TICKER_HEIGHT);
