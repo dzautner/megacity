@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
 pub mod cell_info_panel;
+pub mod citizen_info;
 pub mod graphs;
 pub mod info_panel;
 pub mod milestones;
@@ -18,6 +19,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
             .add_plugins(cell_info_panel::CellInfoPanelPlugin)
+            .add_plugins(citizen_info::CitizenInfoPlugin)
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
             .init_resource::<milestones::Milestones>()
