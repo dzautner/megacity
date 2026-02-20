@@ -74,6 +74,7 @@ pub mod waste_effects;
 pub mod water_demand;
 pub mod water_pollution;
 pub mod water_sources;
+pub mod water_treatment;
 pub mod wealth;
 pub mod weather;
 pub mod welfare;
@@ -140,6 +141,7 @@ use virtual_population::VirtualPopulation;
 use waste_effects::{WasteAccumulation, WasteCrisisEvent};
 use water_demand::WaterSupply;
 use water_pollution::WaterPollutionGrid;
+use water_treatment::WaterTreatmentState;
 use wealth::WealthStats;
 use weather::{ClimateZone, ConstructionModifiers, Weather, WeatherChangeEvent};
 use wind::WindState;
@@ -265,6 +267,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<HeatWaveState>()
             .init_resource::<CompostingState>()
             .init_resource::<ColdSnapState>()
+            .init_resource::<WaterTreatmentState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -406,6 +409,7 @@ impl Plugin for SimulationPlugin {
                     heat_wave::update_heat_wave,
                     composting::update_composting,
                     cold_snap::update_cold_snap,
+                    water_treatment::update_water_treatment,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,

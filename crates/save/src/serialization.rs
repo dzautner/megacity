@@ -28,6 +28,7 @@ use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
+use simulation::water_treatment::WaterTreatmentState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
 use simulation::zones::ZoneDemand;
@@ -69,6 +70,7 @@ pub fn create_save_data(
     heat_wave_state: Option<&HeatWaveState>,
     composting_state: Option<&simulation::composting::CompostingState>,
     cold_snap_state: Option<&ColdSnapState>,
+    water_treatment_state: Option<&WaterTreatmentState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -418,6 +420,27 @@ pub fn create_save_data(
             water_service_modifier: cs.water_service_modifier,
             last_check_day: cs.last_check_day,
         }),
+        water_treatment_state: water_treatment_state.map(|wts| SaveWaterTreatmentState {
+            plants: wts
+                .plants
+                .values()
+                .map(|p| SavePlantState {
+                    level: treatment_level_to_u8(p.level),
+                    capacity_mgd: p.capacity_mgd,
+                    current_flow_mgd: p.current_flow_mgd,
+                    effluent_quality: p.effluent_quality,
+                    period_cost: p.period_cost,
+                })
+                .collect(),
+            total_capacity_mgd: wts.total_capacity_mgd,
+            total_flow_mgd: wts.total_flow_mgd,
+            avg_effluent_quality: wts.avg_effluent_quality,
+            total_period_cost: wts.total_period_cost,
+            city_demand_mgd: wts.city_demand_mgd,
+            treatment_coverage: wts.treatment_coverage,
+            avg_input_quality: wts.avg_input_quality,
+            disease_risk: wts.disease_risk,
+        }),
     }
 }
 
@@ -494,6 +517,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -534,6 +558,7 @@ mod tests {
         assert!(restored.heat_wave_state.is_none());
         assert!(restored.composting_state.is_none());
         assert!(restored.cold_snap_state.is_none());
+        assert!(restored.water_treatment_state.is_none());
     }
 
     #[test]
@@ -846,6 +871,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -929,6 +955,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -953,6 +980,7 @@ mod tests {
         assert!(restored.heat_wave_state.is_none());
         assert!(restored.composting_state.is_none());
         assert!(restored.cold_snap_state.is_none());
+        assert!(restored.water_treatment_state.is_none());
     }
 
     #[test]
@@ -1016,6 +1044,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1040,6 +1069,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1109,6 +1139,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1136,6 +1167,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1204,6 +1236,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1231,6 +1264,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1389,6 +1423,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1431,6 +1466,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1563,6 +1599,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1622,6 +1659,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1648,6 +1686,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1746,6 +1785,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1884,6 +1924,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1911,6 +1952,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1964,6 +2006,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2039,6 +2082,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2078,6 +2122,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2191,6 +2236,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2250,6 +2296,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2264,6 +2311,7 @@ mod tests {
         assert!(restored.heat_wave_state.is_none());
         assert!(restored.composting_state.is_none());
         assert!(restored.cold_snap_state.is_none());
+        assert!(restored.water_treatment_state.is_none());
     }
 
     #[test]
@@ -2294,6 +2342,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

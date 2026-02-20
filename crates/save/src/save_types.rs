@@ -28,7 +28,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v14 = heat_wave_state (HeatWaveState serialization for heat wave effects)
 /// v15 = composting_state (CompostingState serialization for composting facilities)
 /// v16 = cold_snap_state (ColdSnapState serialization for cold snap effects)
-pub const CURRENT_SAVE_VERSION: u32 = 16;
+/// v17 = water_treatment_state (WaterTreatmentState serialization for water treatment plants)
+pub const CURRENT_SAVE_VERSION: u32 = 17;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -119,6 +120,8 @@ pub struct SaveData {
     pub composting_state: Option<SaveCompostingState>,
     #[serde(default)]
     pub cold_snap_state: Option<SaveColdSnapState>,
+    #[serde(default)]
+    pub water_treatment_state: Option<SaveWaterTreatmentState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -521,6 +524,28 @@ pub struct SaveColdSnapState {
     pub homeless_mortality_rate: f32,
     pub water_service_modifier: f32,
     pub last_check_day: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SavePlantState {
+    pub level: u8,
+    pub capacity_mgd: f32,
+    pub current_flow_mgd: f32,
+    pub effluent_quality: f32,
+    pub period_cost: f64,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveWaterTreatmentState {
+    pub plants: Vec<SavePlantState>,
+    pub total_capacity_mgd: f32,
+    pub total_flow_mgd: f32,
+    pub avg_effluent_quality: f32,
+    pub total_period_cost: f64,
+    pub city_demand_mgd: f32,
+    pub treatment_coverage: f32,
+    pub avg_input_quality: f32,
+    pub disease_risk: f32,
 }
 
 impl SaveData {

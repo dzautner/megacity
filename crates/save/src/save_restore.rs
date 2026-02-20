@@ -368,3 +368,22 @@ pub fn restore_cold_snap(
         last_check_day: save.last_check_day,
     }
 }
+
+/// Restore a `WaterTreatmentState` resource from saved data.
+pub fn restore_water_treatment(
+    save: &crate::save_types::SaveWaterTreatmentState,
+) -> simulation::water_treatment::WaterTreatmentState {
+    use std::collections::HashMap;
+
+    simulation::water_treatment::WaterTreatmentState {
+        plants: HashMap::new(), // Plants will be re-discovered from entities on next tick
+        total_capacity_mgd: save.total_capacity_mgd,
+        total_flow_mgd: save.total_flow_mgd,
+        avg_effluent_quality: save.avg_effluent_quality,
+        total_period_cost: save.total_period_cost,
+        city_demand_mgd: save.city_demand_mgd,
+        treatment_coverage: save.treatment_coverage,
+        avg_input_quality: save.avg_input_quality,
+        disease_risk: save.disease_risk,
+    }
+}
