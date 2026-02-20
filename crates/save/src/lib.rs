@@ -1084,13 +1084,24 @@ fn save_file_path() -> String {
 
 #[cfg(target_arch = "wasm32")]
 fn wasm_save_bytes(bytes: &[u8]) -> Result<(), String> {
+    use flate2::write::DeflateEncoder;
+    use flate2::Compression;
+    use std::io::Write;
+
     let window = web_sys::window().ok_or("no window")?;
     let storage = window
         .local_storage()
         .map_err(|_| "localStorage error")?
         .ok_or("no localStorage")?;
-    // Encode as base64 since localStorage only stores strings
-    let encoded = base64_encode(bytes);
+    // Compress with deflate, then encode as base64 for localStorage
+    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+    encoder
+        .write_all(bytes)
+        .map_err(|e| format!("compression write error: {}", e))?;
+    let compressed = encoder
+        .finish()
+        .map_err(|e| format!("compression finish error: {}", e))?;
+    let encoded = base64_encode(&compressed);
     storage
         .set_item(SAVE_KEY, &encoded)
         .map_err(|_| "failed to set localStorage item")?;
@@ -1099,6 +1110,9 @@ fn wasm_save_bytes(bytes: &[u8]) -> Result<(), String> {
 
 #[cfg(target_arch = "wasm32")]
 fn wasm_load_bytes() -> Result<Vec<u8>, String> {
+    use flate2::read::DeflateDecoder;
+    use std::io::Read;
+
     let window = web_sys::window().ok_or("no window")?;
     let storage = window
         .local_storage()
@@ -1108,7 +1122,15 @@ fn wasm_load_bytes() -> Result<Vec<u8>, String> {
         .get_item(SAVE_KEY)
         .map_err(|_| "failed to get localStorage item")?
         .ok_or("no save found")?;
-    base64_decode(&encoded).map_err(|e| format!("base64 decode error: {}", e))
+    let raw = base64_decode(&encoded).map_err(|e| format!("base64 decode error: {}", e))?;
+
+    // Try to decompress; fall back to raw bytes for old uncompressed saves
+    let mut decoder = DeflateDecoder::new(&raw[..]);
+    let mut decompressed = Vec::new();
+    match decoder.read_to_end(&mut decompressed) {
+        Ok(_) => Ok(decompressed),
+        Err(_) => Ok(raw),
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
