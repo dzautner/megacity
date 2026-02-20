@@ -104,7 +104,7 @@ pub fn parking_cost_per_space(zone: ZoneType) -> f64 {
 /// Controls whether parking minimums are enforced and whether a parking
 /// maximum cap is in effect. These policies affect building construction
 /// costs and transit dependency.
-#[derive(Resource, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct ParkingPolicyState {
     /// When true, parking minimums are eliminated (no required parking).
     /// Reduces construction costs but increases transit dependency.
@@ -112,15 +112,6 @@ pub struct ParkingPolicyState {
     /// When true, a parking maximum is enforced (caps parking at a fraction
     /// of the minimum ratio). Encourages transit use.
     pub parking_maximum: bool,
-}
-
-impl Default for ParkingPolicyState {
-    fn default() -> Self {
-        Self {
-            eliminate_minimums: false,
-            parking_maximum: false,
-        }
-    }
 }
 
 // =============================================================================
