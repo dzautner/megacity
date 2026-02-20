@@ -1979,7 +1979,7 @@ fn test_extension_map_roundtrip_via_registry() {
 
     // Create a minimal Bevy app with a SaveableRegistry.
     let mut app = bevy::app::App::new();
-    app.add_plugins(bevy::app::MinimalPlugins);
+    app.add_plugins(bevy::MinimalPlugins);
     app.init_resource::<SaveableRegistry>();
 
     // Define a test resource that implements Saveable.
