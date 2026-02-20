@@ -37,8 +37,8 @@ use crate::policies::{Policies, Policy};
 use crate::time_of_day::GameClock;
 use crate::wealth::WealthTier;
 use crate::zones::ZoneDemand;
-use crate::Saveable;
 use crate::SlowTickTimer;
+use crate::{Saveable, SaveableRegistry};
 
 // =============================================================================
 // Constants
@@ -762,6 +762,10 @@ impl Plugin for NimbyPlugin {
                     .chain()
                     .after(crate::zones::update_zone_demand),
             );
+        app.init_resource::<SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<SaveableRegistry>()
+            .register::<NimbyState>();
     }
 }
 

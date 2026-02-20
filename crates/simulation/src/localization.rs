@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use crate::Saveable;
+use crate::{Saveable, SaveableRegistry};
 
 // =============================================================================
 // Constants
@@ -705,6 +705,10 @@ pub struct LocalizationPlugin;
 impl Plugin for LocalizationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LocalizationState>();
+        app.init_resource::<SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<SaveableRegistry>()
+            .register::<LocalizationState>();
     }
 }
 
