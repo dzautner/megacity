@@ -84,6 +84,7 @@ pub fn citizen_state_machine(
             &Needs,
             &mut ActivityTimer,
             Option<&LodTier>,
+            &Position,
         ),
         (With<Citizen>, Without<PathRequest>),
     >,
@@ -98,7 +99,7 @@ pub fn citizen_state_machine(
     let leisure_spots = &dest_cache.leisure;
     let school_spots = &dest_cache.schools;
 
-    for (entity, mut state, path, home, work, details, needs, mut timer, lod) in &mut query {
+    for (entity, mut state, path, home, work, details, needs, mut timer, lod, pos) in &mut query {
         // Per-entity departure jitter: spread departures across the commute window
         let jitter = entity.index() % 120;
 
@@ -268,9 +269,10 @@ pub fn citizen_state_machine(
             CitizenState::Shopping => {
                 timer.0 += 1;
                 if timer.0 >= SHOPPING_DURATION {
+                    let (gx, gy) = WorldGrid::world_to_grid(pos.x, pos.y);
                     commands.entity(entity).insert(PathRequest {
-                        from_gx: home.grid_x,
-                        from_gy: home.grid_y,
+                        from_gx: gx.max(0) as usize,
+                        from_gy: gy.max(0) as usize,
                         to_gx: home.grid_x,
                         to_gy: home.grid_y,
                         target_state: CitizenState::CommutingHome,
@@ -290,9 +292,10 @@ pub fn citizen_state_machine(
             CitizenState::AtLeisure => {
                 timer.0 += 1;
                 if timer.0 >= LEISURE_DURATION || hour >= 21 {
+                    let (gx, gy) = WorldGrid::world_to_grid(pos.x, pos.y);
                     commands.entity(entity).insert(PathRequest {
-                        from_gx: home.grid_x,
-                        from_gy: home.grid_y,
+                        from_gx: gx.max(0) as usize,
+                        from_gy: gy.max(0) as usize,
                         to_gx: home.grid_x,
                         to_gy: home.grid_y,
                         target_state: CitizenState::CommutingHome,
@@ -310,9 +313,10 @@ pub fn citizen_state_machine(
             // ---- AT SCHOOL ----
             CitizenState::AtSchool => {
                 if hour >= SCHOOL_HOURS_END {
+                    let (gx, gy) = WorldGrid::world_to_grid(pos.x, pos.y);
                     commands.entity(entity).insert(PathRequest {
-                        from_gx: home.grid_x,
-                        from_gy: home.grid_y,
+                        from_gx: gx.max(0) as usize,
+                        from_gy: gy.max(0) as usize,
                         to_gx: home.grid_x,
                         to_gy: home.grid_y,
                         target_state: CitizenState::CommutingHome,
