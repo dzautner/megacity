@@ -365,7 +365,7 @@ pub fn update_cold_snap(
         // For now, use a conservative estimate of 5000 road cells (~15 miles).
         let estimated_road_cells: u32 = 5000;
         let water_main_miles = estimate_water_main_miles(estimated_road_cells);
-        let seed = current_day as u64 * 0xdeadbeef_cafebabe;
+        let seed = (current_day as u64).wrapping_mul(0xdeadbeef_cafebabe);
         new_bursts = calculate_pipe_bursts(temp, water_main_miles, seed);
         state.pipe_burst_count = state.pipe_burst_count.saturating_add(new_bursts);
 
