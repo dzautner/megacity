@@ -4,6 +4,7 @@ use bevy_egui::EguiPlugin;
 pub mod cell_info_panel;
 pub mod graphs;
 pub mod info_panel;
+pub mod localization;
 pub mod milestones;
 pub mod road_segment_info;
 pub mod theme;
@@ -20,6 +21,7 @@ impl Plugin for UiPlugin {
             .add_plugins(cell_info_panel::CellInfoPanelPlugin)
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
+            .add_plugins(localization::LocalizationUiPlugin)
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
             .init_resource::<toolbar::OpenCategory>()

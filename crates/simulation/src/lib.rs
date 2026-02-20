@@ -57,6 +57,7 @@ pub mod landfill_warning;
 pub mod life_simulation;
 pub mod lifecycle;
 pub mod loans;
+pub mod localization;
 pub mod lod;
 pub mod market;
 pub mod movement;
@@ -406,6 +407,9 @@ impl Plugin for SimulationPlugin {
             parking::ParkingPlugin,
             tutorial::TutorialPlugin,
         ));
+
+        // Localization infrastructure
+        app.add_plugins(localization::LocalizationPlugin);
     }
 }
 
