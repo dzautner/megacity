@@ -3,6 +3,7 @@ use bevy_egui::EguiPlugin;
 
 pub mod cell_info_panel;
 pub mod citizen_info;
+pub mod district_inspect;
 pub mod graphs;
 pub mod info_panel;
 pub mod localization;
@@ -21,6 +22,7 @@ impl Plugin for UiPlugin {
         app.add_plugins(EguiPlugin)
             .add_plugins(cell_info_panel::CellInfoPanelPlugin)
             .add_plugins(citizen_info::CitizenInfoPlugin)
+            .add_plugins(district_inspect::DistrictInspectPlugin)
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
             .add_plugins(localization::LocalizationUiPlugin)
