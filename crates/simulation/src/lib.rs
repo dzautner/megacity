@@ -9,6 +9,7 @@ pub mod building_upgrade;
 pub mod buildings;
 pub mod citizen;
 pub mod citizen_spawner;
+pub mod cold_snap;
 pub mod composting;
 pub mod config;
 pub mod crime;
@@ -88,6 +89,7 @@ use budget::ExtendedBudget;
 use building_upgrade::UpgradeTimer;
 use buildings::{BuildingSpawnTimer, EligibleCells};
 use citizen_spawner::CitizenSpawnTimer;
+use cold_snap::ColdSnapState;
 use composting::CompostingState;
 use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
@@ -262,10 +264,12 @@ impl Plugin for SimulationPlugin {
             .init_resource::<DroughtState>()
             .init_resource::<HeatWaveState>()
             .init_resource::<CompostingState>()
+            .init_resource::<ColdSnapState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
+            .add_event::<cold_snap::ColdSnapEvent>()
             .add_systems(Startup, world_init::init_world)
             .add_systems(
                 FixedUpdate,
@@ -401,6 +405,7 @@ impl Plugin for SimulationPlugin {
                 (
                     heat_wave::update_heat_wave,
                     composting::update_composting,
+                    cold_snap::update_cold_snap,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,

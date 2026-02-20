@@ -349,3 +349,22 @@ pub fn restore_composting(
         daily_biogas_mwh: save.daily_biogas_mwh,
     }
 }
+
+/// Restore a `ColdSnapState` resource from saved data.
+pub fn restore_cold_snap(
+    save: &crate::save_types::SaveColdSnapState,
+) -> simulation::cold_snap::ColdSnapState {
+    simulation::cold_snap::ColdSnapState {
+        consecutive_cold_days: save.consecutive_cold_days,
+        pipe_burst_count: save.pipe_burst_count,
+        is_active: save.is_active,
+        current_tier: u8_to_cold_snap_tier(save.current_tier),
+        heating_demand_modifier: save.heating_demand_modifier,
+        traffic_capacity_modifier: save.traffic_capacity_modifier,
+        schools_closed: save.schools_closed,
+        construction_halted: save.construction_halted,
+        homeless_mortality_rate: save.homeless_mortality_rate,
+        water_service_modifier: save.water_service_modifier,
+        last_check_day: save.last_check_day,
+    }
+}

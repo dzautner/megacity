@@ -33,6 +33,7 @@ use simulation::wind_damage::WindDamageState;
 use simulation::zones::ZoneDemand;
 
 use simulation::budget::ExtendedBudget;
+use simulation::cold_snap::ColdSnapState;
 use simulation::degree_days::DegreeDays;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
 
@@ -67,6 +68,7 @@ pub fn create_save_data(
     drought_state: Option<&DroughtState>,
     heat_wave_state: Option<&HeatWaveState>,
     composting_state: Option<&simulation::composting::CompostingState>,
+    cold_snap_state: Option<&ColdSnapState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -403,6 +405,19 @@ pub fn create_save_data(
             biogas_mwh_per_ton: cs.biogas_mwh_per_ton,
             daily_biogas_mwh: cs.daily_biogas_mwh,
         }),
+        cold_snap_state: cold_snap_state.map(|cs| SaveColdSnapState {
+            consecutive_cold_days: cs.consecutive_cold_days,
+            pipe_burst_count: cs.pipe_burst_count,
+            is_active: cs.is_active,
+            current_tier: cold_snap_tier_to_u8(cs.current_tier),
+            heating_demand_modifier: cs.heating_demand_modifier,
+            traffic_capacity_modifier: cs.traffic_capacity_modifier,
+            schools_closed: cs.schools_closed,
+            construction_halted: cs.construction_halted,
+            homeless_mortality_rate: cs.homeless_mortality_rate,
+            water_service_modifier: cs.water_service_modifier,
+            last_check_day: cs.last_check_day,
+        }),
     }
 }
 
@@ -478,6 +493,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -517,6 +533,7 @@ mod tests {
         assert!(restored.drought_state.is_none());
         assert!(restored.heat_wave_state.is_none());
         assert!(restored.composting_state.is_none());
+        assert!(restored.cold_snap_state.is_none());
     }
 
     #[test]
@@ -828,6 +845,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -910,6 +928,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -933,6 +952,7 @@ mod tests {
         assert!(restored.drought_state.is_none());
         assert!(restored.heat_wave_state.is_none());
         assert!(restored.composting_state.is_none());
+        assert!(restored.cold_snap_state.is_none());
     }
 
     #[test]
@@ -995,6 +1015,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1019,6 +1040,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1086,6 +1108,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1113,6 +1136,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1179,6 +1203,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1206,6 +1231,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1362,6 +1388,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1404,6 +1431,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1534,6 +1562,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1592,6 +1621,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1618,6 +1648,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1715,6 +1746,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1851,6 +1883,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1878,6 +1911,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1930,6 +1964,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2003,6 +2038,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2042,6 +2078,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2153,6 +2190,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2211,6 +2249,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2224,6 +2263,7 @@ mod tests {
         assert!(restored.drought_state.is_none());
         assert!(restored.heat_wave_state.is_none());
         assert!(restored.composting_state.is_none());
+        assert!(restored.cold_snap_state.is_none());
     }
 
     #[test]
@@ -2254,6 +2294,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
