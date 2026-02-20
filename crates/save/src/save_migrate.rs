@@ -12,8 +12,25 @@ use crate::save_types::{SaveData, CURRENT_SAVE_VERSION};
 /// the next save.
 ///
 /// Returns the original version so callers can log the migration.
-pub fn migrate_save(save: &mut SaveData) -> u32 {
+///
+/// # Errors
+///
+/// Returns an error if the save file was created by a newer version of the game
+/// (i.e. `save.version > CURRENT_SAVE_VERSION`).
+pub fn migrate_save(save: &mut SaveData) -> Result<u32, String> {
     let original_version = save.version;
+
+    // Reject saves from a newer (future) version of the game.  The debug_assert
+    // below only fires in debug builds; this explicit check protects release
+    // builds from silently loading incompatible data.
+    if save.version > CURRENT_SAVE_VERSION {
+        return Err(format!(
+            "This save file was created by a newer version of the game (save version {}, \
+             but this build only supports up to version {}). Please update the game to \
+             load this save.",
+            save.version, CURRENT_SAVE_VERSION,
+        ));
+    }
 
     // v0 -> v1: Legacy unversioned saves. All required fields (grid, roads,
     // clock, budget, demand, buildings, citizens, etc.) are already present
@@ -210,5 +227,122 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
     }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
-    original_version
+    Ok(original_version)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::save_types::*;
+    use std::collections::BTreeMap;
+
+    /// Helper to create a minimal `SaveData` for migration tests.
+    fn minimal_save(version: u32) -> SaveData {
+        SaveData {
+            version,
+            grid: SaveGrid {
+                cells: vec![],
+                width: 1,
+                height: 1,
+            },
+            roads: SaveRoadNetwork {
+                road_positions: vec![],
+            },
+            clock: SaveClock {
+                day: 0,
+                hour: 0.0,
+                speed: 1.0,
+            },
+            budget: SaveBudget {
+                treasury: 0.0,
+                tax_rate: 0.0,
+                last_collection_day: 0,
+            },
+            demand: SaveDemand {
+                residential: 0.0,
+                commercial: 0.0,
+                industrial: 0.0,
+                office: 0.0,
+                vacancy_residential: 0.0,
+                vacancy_commercial: 0.0,
+                vacancy_industrial: 0.0,
+                vacancy_office: 0.0,
+            },
+            buildings: vec![],
+            citizens: vec![],
+            utility_sources: vec![],
+            service_buildings: vec![],
+            road_segments: None,
+            policies: None,
+            weather: None,
+            unlock_state: None,
+            extended_budget: None,
+            loan_book: None,
+            lifecycle_timer: None,
+            virtual_population: None,
+            life_sim_timer: None,
+            stormwater_grid: None,
+            water_sources: None,
+            degree_days: None,
+            construction_modifiers: None,
+            recycling_state: None,
+            wind_damage_state: None,
+            uhi_grid: None,
+            drought_state: None,
+            heat_wave_state: None,
+            composting_state: None,
+            cold_snap_state: None,
+            water_treatment_state: None,
+            groundwater_depletion_state: None,
+            wastewater_state: None,
+            hazardous_waste_state: None,
+            storm_drainage_state: None,
+            landfill_capacity_state: None,
+            flood_state: None,
+            reservoir_state: None,
+            landfill_gas_state: None,
+            cso_state: None,
+            water_conservation_state: None,
+            fog_state: None,
+            urban_growth_boundary: None,
+            snow_state: None,
+            agriculture_state: None,
+            extensions: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_migrate_save_rejects_future_version() {
+        let mut save = minimal_save(CURRENT_SAVE_VERSION + 1);
+
+        let result = migrate_save(&mut save);
+        assert!(result.is_err());
+
+        let err_msg = result.unwrap_err();
+        assert!(
+            err_msg.contains("newer version"),
+            "Error message should mention newer version, got: {err_msg}"
+        );
+        assert!(
+            err_msg.contains(&(CURRENT_SAVE_VERSION + 1).to_string()),
+            "Error message should contain the future version number, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_migrate_save_rejects_far_future_version() {
+        let mut save = minimal_save(CURRENT_SAVE_VERSION + 100);
+
+        let result = migrate_save(&mut save);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_migrate_save_accepts_current_version() {
+        let mut save = minimal_save(CURRENT_SAVE_VERSION);
+
+        let result = migrate_save(&mut save);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), CURRENT_SAVE_VERSION);
+    }
 }
