@@ -38,6 +38,7 @@ impl Plugin for UiPlugin {
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
+            .init_resource::<graphs::ChartsState>()
             .init_resource::<toolbar::OpenCategory>()
             .init_resource::<info_panel::JournalVisible>()
             .init_resource::<info_panel::ChartsVisible>()

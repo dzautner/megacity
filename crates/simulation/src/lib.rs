@@ -9,6 +9,7 @@ pub mod airport;
 pub mod budget;
 pub mod building_upgrade;
 pub mod buildings;
+pub mod chart_data;
 pub mod citizen;
 pub mod citizen_spawner;
 pub mod climate_change;
@@ -285,6 +286,7 @@ impl Plugin for SimulationPlugin {
             happiness::HappinessPlugin,
             economy::EconomyPlugin,
             stats::StatsPlugin,
+            chart_data::ChartDataPlugin,
             utilities::UtilitiesPlugin,
             education::EducationPlugin,
         ));
