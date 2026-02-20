@@ -20,6 +20,7 @@ pub mod cso;
 pub mod death_care;
 pub mod degree_days;
 pub mod disasters;
+pub mod district_policies;
 pub mod districts;
 pub mod drought;
 pub mod economy;
@@ -278,6 +279,7 @@ impl Plugin for SimulationPlugin {
             land_value::LandValuePlugin,
             garbage::GarbagePlugin,
             districts::DistrictsPlugin,
+            district_policies::DistrictPoliciesPlugin,
             neighborhood_quality::NeighborhoodQualityPlugin,
             lifecycle::LifecyclePlugin,
             building_upgrade::BuildingUpgradePlugin,
