@@ -624,13 +624,13 @@ mod tests {
     #[test]
     fn test_y_factor_range() {
         // y_factor should range from 0.3 (progress=0) to 1.0 (progress=1)
-        let y_at_start = 0.3 + 0.0 * 0.7;
-        assert!((y_at_start - 0.3).abs() < f32::EPSILON);
+        let y_at_start: f32 = 0.3 + 0.0 * 0.7;
+        assert!((y_at_start - 0.3_f32).abs() < f32::EPSILON);
 
-        let y_at_end = 0.3 + 1.0 * 0.7;
-        assert!((y_at_end - 1.0).abs() < f32::EPSILON);
+        let y_at_end: f32 = 0.3 + 1.0 * 0.7;
+        assert!((y_at_end - 1.0_f32).abs() < f32::EPSILON);
 
-        let y_at_mid = 0.3 + 0.5 * 0.7;
-        assert!((y_at_mid - 0.65).abs() < f32::EPSILON);
+        let y_at_mid: f32 = 0.3 + 0.5 * 0.7;
+        assert!((y_at_mid - 0.65_f32).abs() < f32::EPSILON);
     }
 }
