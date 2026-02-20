@@ -27,6 +27,7 @@ pub mod economy;
 pub mod education;
 pub mod education_jobs;
 pub mod events;
+pub mod far_transfer;
 pub mod fire;
 pub mod flood_protection;
 pub mod flood_simulation;
@@ -288,6 +289,7 @@ impl Plugin for SimulationPlugin {
             imports_exports::ImportsExportsPlugin,
             historic_preservation::HistoricPreservationPlugin,
             inclusionary_zoning::InclusionaryZoningPlugin,
+            far_transfer::FarTransferPlugin,
         ));
 
         // Waste and recycling
