@@ -3,6 +3,7 @@ use bevy_egui::EguiPlugin;
 
 pub mod graphs;
 pub mod info_panel;
+pub mod localization;
 pub mod milestones;
 pub mod theme;
 pub mod toolbar;
@@ -15,6 +16,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
+            .add_plugins(localization::LocalizationUiPlugin)
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
             .init_resource::<toolbar::OpenCategory>()
