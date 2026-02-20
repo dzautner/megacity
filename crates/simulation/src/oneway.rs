@@ -221,6 +221,11 @@ impl Saveable for OneWayDirectionMap {
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
         if bytes.len() < 4 {
+            warn!(
+                "Saveable {}: expected >= 4 bytes, got {}, falling back to default",
+                Self::SAVE_KEY,
+                bytes.len()
+            );
             return Self::default();
         }
 

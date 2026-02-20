@@ -521,7 +521,7 @@ impl crate::Saveable for LandfillState {
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
-        bitcode::decode(bytes).unwrap_or_default()
+        crate::decode_or_warn(Self::SAVE_KEY, bytes)
     }
 }
 

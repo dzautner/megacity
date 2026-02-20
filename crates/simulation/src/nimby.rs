@@ -175,6 +175,11 @@ impl Saveable for NimbyState {
         let mut state = NimbyState::default();
 
         if bytes.len() < 16 {
+            warn!(
+                "Saveable {}: expected >= 16 bytes, got {}, falling back to default",
+                Self::SAVE_KEY,
+                bytes.len()
+            );
             return state;
         }
 

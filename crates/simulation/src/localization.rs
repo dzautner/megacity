@@ -158,7 +158,18 @@ impl Saveable for LocalizationState {
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
-        let locale = std::str::from_utf8(bytes).unwrap_or(DEFAULT_LOCALE);
+        let locale = match std::str::from_utf8(bytes) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!(
+                    "Saveable {}: failed to decode locale from {} bytes, using default: {}",
+                    Self::SAVE_KEY,
+                    bytes.len(),
+                    e
+                );
+                DEFAULT_LOCALE
+            }
+        };
         let mut state = Self::default();
         state.set_locale(locale);
         state

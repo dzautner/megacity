@@ -158,6 +158,11 @@ impl crate::Saveable for HeatMitigationState {
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
         if bytes.len() < 30 {
+            warn!(
+                "Saveable {}: expected >= 30 bytes, got {}, falling back to default",
+                Self::SAVE_KEY,
+                bytes.len()
+            );
             return Self::default();
         }
         let cooling = bytes[0] != 0;

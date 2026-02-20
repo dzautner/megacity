@@ -154,7 +154,7 @@ impl Saveable for MultiSelectState {
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
-        let save: MultiSelectSave = bitcode::decode(bytes).unwrap_or_default();
+        let save: MultiSelectSave = crate::decode_or_warn(Self::SAVE_KEY, bytes);
         let mut state = MultiSelectState::default();
         for (x, y) in save.road_cells {
             state.add(SelectableItem::RoadCell {
