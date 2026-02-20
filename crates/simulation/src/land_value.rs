@@ -38,6 +38,7 @@ impl LandValueGrid {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_land_value(
     slow_timer: Res<crate::SlowTickTimer>,
     mut land_value: ResMut<LandValueGrid>,
