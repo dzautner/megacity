@@ -27,6 +27,7 @@ pub mod forest_fire;
 pub mod garbage;
 pub mod grid;
 pub mod groundwater;
+pub mod groundwater_depletion;
 pub mod happiness;
 pub mod health;
 pub mod heat_wave;
@@ -106,6 +107,7 @@ use fire::FireGrid;
 use forest_fire::{ForestFireGrid, ForestFireStats};
 use garbage::{GarbageGrid, WasteCollectionGrid, WasteSystem};
 use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
+use groundwater_depletion::GroundwaterDepletionState;
 use health::HealthGrid;
 use heat_wave::HeatWaveState;
 use heating::{HeatingGrid, HeatingStats};
@@ -268,6 +270,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<CompostingState>()
             .init_resource::<ColdSnapState>()
             .init_resource::<WaterTreatmentState>()
+            .init_resource::<GroundwaterDepletionState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -410,6 +413,7 @@ impl Plugin for SimulationPlugin {
                     composting::update_composting,
                     cold_snap::update_cold_snap,
                     water_treatment::update_water_treatment,
+                    groundwater_depletion::update_groundwater_depletion,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,

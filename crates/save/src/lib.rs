@@ -15,7 +15,7 @@ use serialization::{
     restore_heat_wave, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
     restore_policies, restore_recycling, restore_road_segment_store, restore_stormwater_grid,
     restore_uhi_grid, restore_unlock_state, restore_virtual_population, restore_water_source,
-    restore_water_treatment, restore_weather, restore_wind_damage_state, u8_to_road_type,
+    restore_groundwater_depletion, restore_water_treatment, restore_weather, restore_wind_damage_state, u8_to_road_type,
     u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
     CURRENT_SAVE_VERSION,
 };
@@ -50,6 +50,7 @@ use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
 use simulation::water_treatment::WaterTreatmentState;
+use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
 use simulation::zones::ZoneDemand;
@@ -185,6 +186,7 @@ fn handle_save(
             Some(&v2.composting_state),
             Some(&v2.cold_snap_state),
             Some(&v2.water_treatment_state),
+            Some(&v2.groundwater_depletion_state),
         );
 
         let bytes = save.encode();
@@ -664,6 +666,13 @@ fn handle_load(
         } else {
             *v2.water_treatment_state = WaterTreatmentState::default();
         }
+
+        // Restore groundwater depletion state
+        if let Some(ref gds) = save.groundwater_depletion_state {
+            *v2.groundwater_depletion_state = restore_groundwater_depletion(gds);
+        } else {
+            *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -750,6 +759,7 @@ fn handle_new_game(
         *v2.composting_state = CompostingState::default();
         *v2.cold_snap_state = ColdSnapState::default();
         *v2.water_treatment_state = WaterTreatmentState::default();
+        *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
