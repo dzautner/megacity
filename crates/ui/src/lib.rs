@@ -3,6 +3,7 @@ use bevy_egui::EguiPlugin;
 
 pub mod advisor_tips;
 pub mod cell_info_panel;
+pub mod cell_tooltip;
 pub mod citizen_info;
 pub mod day_night_panel;
 pub mod district_inspect;
@@ -30,6 +31,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
             .add_plugins(cell_info_panel::CellInfoPanelPlugin)
+            .add_plugins(cell_tooltip::CellTooltipPlugin)
             .add_plugins(citizen_info::CitizenInfoPlugin)
             .add_plugins(district_inspect::DistrictInspectPlugin)
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
