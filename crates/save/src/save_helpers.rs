@@ -23,6 +23,7 @@ use simulation::loans::LoanBook;
 use simulation::policies::Policies;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
 use simulation::reservoir::ReservoirState;
+use simulation::snow::{SnowGrid, SnowPlowingState, SnowStats};
 use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
@@ -70,6 +71,9 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub water_conservation_state: Res<'w, WaterConservationState>,
     pub fog_state: Res<'w, FogState>,
     pub urban_growth_boundary: Res<'w, UrbanGrowthBoundary>,
+    pub snow_grid: Res<'w, SnowGrid>,
+    pub snow_plowing_state: Res<'w, SnowPlowingState>,
+    pub snow_stats: Res<'w, SnowStats>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -108,4 +112,7 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub water_conservation_state: ResMut<'w, WaterConservationState>,
     pub fog_state: ResMut<'w, FogState>,
     pub urban_growth_boundary: ResMut<'w, UrbanGrowthBoundary>,
+    pub snow_grid: ResMut<'w, SnowGrid>,
+    pub snow_plowing_state: ResMut<'w, SnowPlowingState>,
+    pub snow_stats: ResMut<'w, SnowStats>,
 }

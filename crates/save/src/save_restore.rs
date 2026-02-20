@@ -589,3 +589,25 @@ pub fn restore_urban_growth_boundary(state: &SaveUrbanGrowthBoundary) -> UrbanGr
         vertices,
     }
 }
+
+/// Restore `SnowGrid` and `SnowPlowingState` from saved data.
+pub fn restore_snow(
+    state: &SaveSnowState,
+) -> (
+    simulation::snow::SnowGrid,
+    simulation::snow::SnowPlowingState,
+) {
+    let grid = simulation::snow::SnowGrid {
+        depths: state.depths.clone(),
+        width: state.width,
+        height: state.height,
+    };
+    let plowing = simulation::snow::SnowPlowingState {
+        enabled: state.plowing_enabled,
+        season_cost: state.season_cost,
+        cells_plowed_season: state.cells_plowed_season,
+        cells_plowed_last: 0,
+        last_plow_cost: 0.0,
+    };
+    (grid, plowing)
+}

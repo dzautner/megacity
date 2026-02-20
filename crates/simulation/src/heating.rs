@@ -142,6 +142,7 @@ pub fn update_heating(
     timer: Res<SlowTickTimer>,
     world_grid: Res<WorldGrid>,
     weather: Res<Weather>,
+    snow_stats: Res<crate::snow::SnowStats>,
     plants: Query<&HeatingPlant>,
     mut heating_grid: ResMut<HeatingGrid>,
     mut heating_stats: ResMut<HeatingStats>,
@@ -151,7 +152,8 @@ pub fn update_heating(
         return;
     }
 
-    let demand = heating_demand(&weather);
+    // Snow increases heating demand: +10% per 6 inches of snow
+    let demand = heating_demand(&weather) * snow_stats.heating_demand_modifier;
 
     // Clear grid
     heating_grid.levels.fill(0);
