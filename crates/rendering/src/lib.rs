@@ -18,6 +18,7 @@ pub mod props;
 pub mod terrain_render;
 pub mod tree_props;
 
+pub mod road_grade;
 pub mod road_render;
 pub mod selection_highlight;
 pub mod status_icons;
@@ -87,6 +88,7 @@ impl Plugin for RenderingPlugin {
                     cursor_preview::draw_bezier_preview,
                     road_render::sync_road_segment_meshes,
                     lane_markings::sync_lane_marking_meshes,
+                    road_grade::draw_road_grade_indicators,
                 ),
             )
             .add_systems(Update, day_night::update_day_night_cycle)
