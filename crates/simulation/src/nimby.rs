@@ -133,12 +133,6 @@ impl NimbyState {
     pub fn opposition_at(&self, x: usize, y: usize) -> f32 {
         self.opposition_grid[y * GRID_WIDTH + x]
     }
-
-    /// Set the opposition score at a given cell.
-    #[inline]
-    fn set_opposition(&mut self, x: usize, y: usize, val: f32) {
-        self.opposition_grid[y * GRID_WIDTH + x] = val;
-    }
 }
 
 impl Saveable for NimbyState {
@@ -298,6 +292,7 @@ pub fn is_residential(zone: ZoneType) -> bool {
 /// of a citizen at a given distance with certain characteristics.
 ///
 /// Returns a value where positive = opposition, negative = support.
+#[allow(clippy::too_many_arguments)]
 pub fn calculate_opinion(
     old_zone: ZoneType,
     new_zone: ZoneType,
@@ -460,6 +455,7 @@ pub fn detect_zone_changes(
 /// Decays old events and computes per-cell opposition scores.
 ///
 /// Runs on the slow tick timer to avoid per-frame cost.
+#[allow(clippy::too_many_arguments)]
 pub fn update_nimby_opinions(
     timer: Res<SlowTickTimer>,
     mut nimby: ResMut<NimbyState>,
@@ -498,7 +494,7 @@ pub fn update_nimby_opinions(
 
     // For each active zone change, compute opposition at surrounding cells
     // Clone to avoid borrow conflict with opposition_grid mutation
-    let zone_changes_snapshot: Vec<_> = nimby.zone_changes.iter().cloned().collect();
+    let zone_changes_snapshot = nimby.zone_changes.to_vec();
     for event in &zone_changes_snapshot {
         let ex = event.grid_x as i32;
         let ey = event.grid_y as i32;
