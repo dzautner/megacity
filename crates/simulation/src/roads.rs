@@ -12,6 +12,10 @@ pub struct RoadNode(pub usize, pub usize);
 pub struct RoadNetwork {
     pub edges: HashMap<RoadNode, HashSet<RoadNode>>,
     pub intersections: HashSet<RoadNode>,
+    /// Nodes removed since the last drain. Movement systems drain this to
+    /// invalidate stale `PathCache` entries that reference deleted roads.
+    #[serde(skip)]
+    pub recently_removed: Vec<RoadNode>,
 }
 
 impl RoadNetwork {
@@ -71,6 +75,9 @@ impl RoadNetwork {
 
         let node = RoadNode(x, y);
 
+        // Record the removed node so movement systems can invalidate caches
+        self.recently_removed.push(node);
+
         // Remove edges from neighbors pointing to this node
         if let Some(neighbors) = self.edges.remove(&node) {
             for neighbor in &neighbors {
@@ -87,6 +94,12 @@ impl RoadNetwork {
         grid.get_mut(x, y).building_id = None;
 
         true
+    }
+
+    /// Drain all recently-removed nodes. Returns the removed set for checking
+    /// against cached paths.
+    pub fn drain_removed(&mut self) -> HashSet<RoadNode> {
+        self.recently_removed.drain(..).collect()
     }
 
     fn update_intersection(&mut self, node: RoadNode) {
@@ -177,5 +190,24 @@ mod tests {
 
         assert!(roads.place_road(&mut grid, 10, 10));
         assert!(!roads.place_road(&mut grid, 10, 10)); // already road
+    }
+
+    #[test]
+    fn test_remove_road_tracks_removed_nodes() {
+        let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        let mut roads = RoadNetwork::default();
+
+        roads.place_road(&mut grid, 10, 10);
+        roads.place_road(&mut grid, 11, 10);
+        roads.place_road(&mut grid, 12, 10);
+
+        assert!(roads.recently_removed.is_empty());
+        roads.remove_road(&mut grid, 11, 10);
+        assert_eq!(roads.recently_removed.len(), 1);
+        assert_eq!(roads.recently_removed[0], RoadNode(11, 10));
+
+        let removed = roads.drain_removed();
+        assert!(removed.contains(&RoadNode(11, 10)));
+        assert!(roads.recently_removed.is_empty());
     }
 }

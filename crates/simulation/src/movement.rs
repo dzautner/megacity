@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
 use std::time::{Duration, Instant};
 
@@ -10,7 +12,7 @@ use crate::grid::WorldGrid;
 use crate::lod::LodTier;
 use crate::pathfinding_sys::nearest_road_grid;
 use crate::road_graph_csr::{csr_find_path, CsrGraph};
-use crate::roads::RoadNode;
+use crate::roads::{RoadNetwork, RoadNode};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
 
@@ -78,6 +80,42 @@ pub fn refresh_destination_cache(
             .filter(|s| is_school_service(s.service_type))
             .map(|s| (s.grid_x, s.grid_y))
             .collect();
+    }
+}
+
+/// Invalidate cached paths that reference recently-deleted road nodes.
+///
+/// When a road is bulldozed, `RoadNetwork::remove_road` pushes the deleted
+/// node into `recently_removed`. This system drains that buffer, builds a
+/// lookup set, and clears the `PathCache` of any commuting citizen whose
+/// remaining waypoints overlap the deleted nodes. Affected citizens are sent
+/// home immediately.
+pub fn invalidate_paths_on_road_removal(
+    mut roads: ResMut<RoadNetwork>,
+    mut query: Query<(&mut PathCache, &mut CitizenStateComp), With<Citizen>>,
+) {
+    if roads.recently_removed.is_empty() {
+        return;
+    }
+
+    let removed: HashSet<RoadNode> = roads.drain_removed();
+
+    for (mut path, mut state) in &mut query {
+        // Only invalidate citizens that are actively commuting with a non-empty path
+        if !state.0.is_commuting() || path.is_complete() {
+            continue;
+        }
+
+        // Check remaining waypoints (from current_index onward) against removed set
+        let stale = path.waypoints[path.current_index..]
+            .iter()
+            .any(|wp| removed.contains(wp));
+
+        if stale {
+            // Clear the path and send citizen home
+            *path = PathCache::new(Vec::new());
+            state.0 = CitizenState::AtHome;
+        }
     }
 }
 
@@ -563,6 +601,7 @@ impl Plugin for MovementPlugin {
         app.init_resource::<DestinationCache>().add_systems(
             FixedUpdate,
             (
+                invalidate_paths_on_road_removal,
                 refresh_destination_cache,
                 citizen_state_machine,
                 bevy::ecs::schedule::apply_deferred,
