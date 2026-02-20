@@ -214,6 +214,7 @@ pub fn search_keybind(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut contexts: EguiContexts,
     mut state: ResMut<SearchState>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
     // Don't intercept when egui already wants keyboard (except for our own search field)
     if contexts.ctx_mut().wants_keyboard_input() && !state.visible {
