@@ -16,6 +16,7 @@ pub mod terrain_render;
 pub mod road_render;
 pub mod selection_highlight;
 pub mod status_icons;
+pub mod traffic_los_render;
 
 use camera::{CameraDrag, LeftClickDrag};
 use input::{ActiveTool, CursorGridPos, GridSnap, RoadDrawState, SelectedBuilding, StatusMessage};
@@ -117,7 +118,8 @@ impl Plugin for RenderingPlugin {
                     selection_highlight::animate_selection_highlights,
                     selection_highlight::draw_connected_highlights,
                 ),
-            );
+            )
+            .add_plugins(traffic_los_render::TrafficLosRenderPlugin);
     }
 }
 

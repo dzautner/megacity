@@ -90,6 +90,7 @@ pub mod time_of_day;
 pub mod tourism;
 pub mod traffic;
 pub mod traffic_accidents;
+pub mod traffic_los;
 pub mod trees;
 pub mod uhi_mitigation;
 pub mod unlocks;
@@ -302,6 +303,7 @@ impl Plugin for SimulationPlugin {
             recycling::RecyclingPlugin,
             road_maintenance::RoadMaintenancePlugin,
             traffic_accidents::TrafficAccidentsPlugin,
+            traffic_los::TrafficLosPlugin,
             loans::LoansPlugin,
         ));
 
