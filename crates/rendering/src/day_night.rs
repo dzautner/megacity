@@ -1,4 +1,6 @@
+use bevy::pbr::{DistanceFog, FogFalloff};
 use bevy::prelude::*;
+use simulation::fog::FogState;
 use simulation::time_of_day::GameClock;
 use std::f32::consts::PI;
 
@@ -138,4 +140,46 @@ fn color_lerp(a: Color, b: Color, t: f32) -> Color {
         lerp(a.green, b.green, t),
         lerp(a.blue, b.blue, t),
     )
+}
+
+/// Updates distance fog on the camera based on the current fog state.
+///
+/// When fog is active, adds a `DistanceFog` component to the camera with
+/// exponential falloff tuned to the visibility distance. When fog clears,
+/// removes the component.
+pub fn update_fog_rendering(
+    fog: Res<FogState>,
+    mut commands: Commands,
+    cameras: Query<(Entity, Option<&DistanceFog>), With<Camera3d>>,
+) {
+    for (entity, existing_fog) in &cameras {
+        if fog.active {
+            // Fog color: grey-white during day, blue-grey at night
+            let fog_color = Color::srgba(0.85, 0.87, 0.90, 1.0);
+
+            // Exponential fog density inversely proportional to visibility
+            // density = 3.0 / visibility_m gives good visual results:
+            //   Dense (100m vis) -> density 0.03 (thick)
+            //   Moderate (500m vis) -> density 0.006
+            //   Mist (3000m vis) -> density 0.001
+            let density = (3.0 / fog.visibility_m).clamp(0.0005, 0.05);
+
+            let distance_fog = DistanceFog {
+                color: fog_color,
+                falloff: FogFalloff::Exponential { density },
+                ..default()
+            };
+
+            if existing_fog.is_some() {
+                // Update existing fog
+                commands.entity(entity).insert(distance_fog);
+            } else {
+                // Add fog component
+                commands.entity(entity).insert(distance_fog);
+            }
+        } else if existing_fog.is_some() {
+            // Fog cleared: remove the component
+            commands.entity(entity).remove::<DistanceFog>();
+        }
+    }
 }

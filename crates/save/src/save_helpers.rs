@@ -12,6 +12,7 @@ use simulation::cso::SewerSystemState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::flood_simulation::{FloodGrid, FloodState};
+use simulation::fog::FogState;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
 use simulation::heat_wave::HeatWaveState;
@@ -66,6 +67,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub landfill_gas_state: Res<'w, LandfillGasState>,
     pub cso_state: Res<'w, SewerSystemState>,
     pub water_conservation_state: Res<'w, WaterConservationState>,
+    pub fog_state: Res<'w, FogState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -102,4 +104,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub landfill_gas_state: ResMut<'w, LandfillGasState>,
     pub cso_state: ResMut<'w, SewerSystemState>,
     pub water_conservation_state: ResMut<'w, WaterConservationState>,
+    pub fog_state: ResMut<'w, FogState>,
 }

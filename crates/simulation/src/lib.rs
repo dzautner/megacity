@@ -25,6 +25,7 @@ pub mod education_jobs;
 pub mod events;
 pub mod fire;
 pub mod flood_simulation;
+pub mod fog;
 pub mod forest_fire;
 pub mod garbage;
 pub mod grid;
@@ -115,6 +116,7 @@ use education_jobs::EmploymentStats;
 use events::{ActiveCityEffects, EventJournal, MilestoneTracker};
 use fire::FireGrid;
 use flood_simulation::{FloodGrid, FloodState};
+use fog::FogState;
 use forest_fire::{ForestFireGrid, ForestFireStats};
 use garbage::{GarbageGrid, WasteCollectionGrid, WasteSystem};
 use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
@@ -298,6 +300,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<LandfillCapacityState>()
             .init_resource::<FloodGrid>()
             .init_resource::<FloodState>()
+            .init_resource::<FogState>()
             .init_resource::<ReservoirState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
@@ -416,6 +419,7 @@ impl Plugin for SimulationPlugin {
                 (
                     weather::update_weather,
                     weather::update_precipitation,
+                    fog::update_fog,
                     degree_days::update_degree_days,
                     weather::update_construction_modifiers,
                     heating::update_heating,

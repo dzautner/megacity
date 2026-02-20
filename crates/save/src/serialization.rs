@@ -14,6 +14,7 @@ use simulation::cso::SewerSystemState;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
 use simulation::flood_simulation::FloodState;
+use simulation::fog::FogState;
 use simulation::grid::WorldGrid;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
@@ -91,6 +92,7 @@ pub fn create_save_data(
     landfill_gas_state: Option<&LandfillGasState>,
     cso_state: Option<&SewerSystemState>,
     water_conservation_state: Option<&WaterConservationState>,
+    fog_state: Option<&FogState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -578,6 +580,17 @@ pub fn create_save_data(
             annual_savings_gallons: s.annual_savings_gallons,
             buildings_retrofitted: s.buildings_retrofitted,
         }),
+        fog_state: fog_state.map(|s| SaveFogState {
+            active: s.active,
+            density: fog_density_to_u8(s.density),
+            visibility_m: s.visibility_m,
+            hours_active: s.hours_active,
+            max_duration_hours: s.max_duration_hours,
+            water_fraction: s.water_fraction,
+            traffic_speed_modifier: s.traffic_speed_modifier,
+            flights_suspended: s.flights_suspended,
+            last_update_hour: s.last_update_hour,
+        }),
     }
 }
 
@@ -665,6 +678,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -716,6 +730,7 @@ mod tests {
         assert!(restored.landfill_gas_state.is_none());
         assert!(restored.cso_state.is_none());
         assert!(restored.water_conservation_state.is_none());
+        assert!(restored.fog_state.is_none());
     }
 
     #[test]
@@ -1039,6 +1054,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1133,6 +1149,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1168,6 +1185,7 @@ mod tests {
         assert!(restored.landfill_gas_state.is_none());
         assert!(restored.cso_state.is_none());
         assert!(restored.water_conservation_state.is_none());
+        assert!(restored.fog_state.is_none());
     }
 
     #[test]
@@ -1242,6 +1260,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1266,6 +1285,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1357,6 +1377,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1384,6 +1405,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1474,6 +1496,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1501,6 +1524,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1681,6 +1705,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1723,6 +1748,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1877,6 +1903,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1947,6 +1974,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1973,6 +2001,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2082,6 +2111,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2242,6 +2272,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2269,6 +2300,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2333,6 +2365,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2430,6 +2463,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2469,6 +2503,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2604,6 +2639,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2674,6 +2710,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2699,6 +2736,7 @@ mod tests {
         assert!(restored.landfill_gas_state.is_none());
         assert!(restored.cso_state.is_none());
         assert!(restored.water_conservation_state.is_none());
+        assert!(restored.fog_state.is_none());
     }
 
     #[test]
@@ -2729,6 +2767,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
