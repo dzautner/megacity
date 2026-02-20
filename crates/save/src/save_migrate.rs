@@ -202,6 +202,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.snow_state = None;
         save.version = 30;
     }
+    // v30 -> v31: Added agriculture_state (AgricultureState serialization for growing season and crop yield).
+    // Uses `#[serde(default)]` so it deserializes as None from a v30 save.
+    if save.version == 30 {
+        save.agriculture_state = None;
+        save.version = 31;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

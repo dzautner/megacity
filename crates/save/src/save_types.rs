@@ -42,7 +42,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v28 = fog_state (FogState serialization for fog and visibility)
 /// v29 = urban_growth_boundary (UrbanGrowthBoundary serialization for UGB polygon)
 /// v30 = snow_state (SnowGrid + SnowPlowingState serialization for snow accumulation and plowing)
-pub const CURRENT_SAVE_VERSION: u32 = 30; // v30: Snow accumulation and plowing
+/// v31 = agriculture_state (AgricultureState serialization for growing season and crop yield)
+pub const CURRENT_SAVE_VERSION: u32 = 31; // v31: Agriculture growing season
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -161,6 +162,8 @@ pub struct SaveData {
     pub urban_growth_boundary: Option<SaveUrbanGrowthBoundary>,
     #[serde(default)]
     pub snow_state: Option<SaveSnowState>,
+    #[serde(default)]
+    pub agriculture_state: Option<SaveAgricultureState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -731,6 +734,24 @@ pub struct SaveFogState {
     pub traffic_speed_modifier: f32,
     pub flights_suspended: bool,
     pub last_update_hour: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveAgricultureState {
+    pub growing_season_active: bool,
+    pub crop_yield_modifier: f32,
+    pub rainfall_adequacy: f32,
+    pub temperature_suitability: f32,
+    pub soil_quality: f32,
+    pub fertilizer_bonus: f32,
+    pub frost_risk: f32,
+    pub frost_events_this_year: u32,
+    pub frost_damage_total: f32,
+    pub has_irrigation: bool,
+    pub farm_count: u32,
+    pub annual_rainfall_estimate: f32,
+    pub last_frost_check_day: u32,
+    pub last_rainfall_day: u32,
 }
 #[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
 pub struct SaveSnowState {

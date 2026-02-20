@@ -5,6 +5,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use simulation::agriculture::AgricultureState;
 use simulation::budget::ExtendedBudget;
 use simulation::cold_snap::ColdSnapState;
 use simulation::composting::CompostingState;
@@ -73,6 +74,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub urban_growth_boundary: Res<'w, UrbanGrowthBoundary>,
     pub snow_grid: Res<'w, SnowGrid>,
     pub snow_plowing_state: Res<'w, SnowPlowingState>,
+    pub agriculture_state: Res<'w, AgricultureState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -114,4 +116,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub snow_grid: ResMut<'w, SnowGrid>,
     pub snow_plowing_state: ResMut<'w, SnowPlowingState>,
     pub snow_stats: ResMut<'w, SnowStats>,
+    pub agriculture_state: ResMut<'w, AgricultureState>,
 }

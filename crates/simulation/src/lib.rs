@@ -3,6 +3,7 @@ use bevy::prelude::*;
 pub mod abandonment;
 pub mod achievements;
 pub mod advisors;
+pub mod agriculture;
 pub mod airport;
 pub mod budget;
 pub mod building_upgrade;
@@ -98,6 +99,7 @@ pub mod zones;
 
 use achievements::{AchievementNotification, AchievementTracker};
 use advisors::AdvisorPanel;
+use agriculture::{AgricultureState, FrostEvent};
 use airport::AirportStats;
 use budget::ExtendedBudget;
 use building_upgrade::UpgradeTimer;
@@ -310,7 +312,9 @@ impl Plugin for SimulationPlugin {
             .init_resource::<SnowGrid>()
             .init_resource::<SnowPlowingState>()
             .init_resource::<SnowStats>()
+            .init_resource::<AgricultureState>()
             .add_event::<BankruptcyEvent>()
+            .add_event::<FrostEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
@@ -517,13 +521,18 @@ impl Plugin for SimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
+                agriculture::update_agriculture
+                    .after(natural_resources::update_resource_production),
+            )
+            .add_systems(
+                FixedUpdate,
                 (
                     production::assign_industry_type,
                     production::update_production_chains,
                     market::update_market_prices,
                 )
                     .chain()
-                    .after(natural_resources::update_resource_production),
+                    .after(agriculture::update_agriculture),
             )
             .add_systems(
                 FixedUpdate,
