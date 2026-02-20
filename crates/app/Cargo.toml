@@ -3,12 +3,23 @@ name = "megacity"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+bench = ["simulation/bench"]
+
 [dependencies]
 bevy = { workspace = true }
 simulation = { path = "../simulation" }
 rendering = { path = "../rendering" }
 ui = { path = "../ui" }
 save = { path = "../save" }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "frame_perf"
+harness = false
+required-features = ["bench"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bevy = { workspace = true, features = ["wayland"] }
