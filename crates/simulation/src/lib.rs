@@ -80,6 +80,7 @@ pub mod virtual_population;
 pub mod waste_composition;
 pub mod waste_effects;
 pub mod wastewater;
+pub mod water_conservation;
 pub mod water_demand;
 pub mod water_pollution;
 pub mod water_sources;
@@ -157,6 +158,7 @@ use urban_heat_island::UhiGrid;
 use virtual_population::VirtualPopulation;
 use waste_effects::{WasteAccumulation, WasteCrisisEvent};
 use wastewater::WastewaterState;
+use water_conservation::WaterConservationState;
 use water_demand::WaterSupply;
 use water_pollution::WaterPollutionGrid;
 use water_treatment::WaterTreatmentState;
@@ -289,6 +291,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<WaterTreatmentState>()
             .init_resource::<GroundwaterDepletionState>()
             .init_resource::<WastewaterState>()
+            .init_resource::<WaterConservationState>()
             .init_resource::<HazardousWasteState>()
             .init_resource::<StormDrainageState>()
             .init_resource::<LandfillGasState>()
@@ -442,12 +445,19 @@ impl Plugin for SimulationPlugin {
                     cold_snap::update_cold_snap,
                     cso::update_sewer_overflow,
                     water_treatment::update_water_treatment,
+                    water_conservation::update_water_conservation,
                     groundwater_depletion::update_groundwater_depletion,
                     wastewater::update_wastewater,
                     wastewater::wastewater_health_penalty,
                     hazardous_waste::update_hazardous_waste,
                     landfill_gas::update_landfill_gas,
                     landfill_warning::update_landfill_capacity,
+                )
+                    .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     storm_drainage::update_storm_drainage,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,

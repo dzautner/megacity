@@ -36,6 +36,7 @@ use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::wastewater::WastewaterState;
+use simulation::water_conservation::WaterConservationState;
 use simulation::water_sources::WaterSource;
 use simulation::water_treatment::WaterTreatmentState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
@@ -89,6 +90,7 @@ pub fn create_save_data(
     reservoir_state: Option<&ReservoirState>,
     landfill_gas_state: Option<&LandfillGasState>,
     cso_state: Option<&SewerSystemState>,
+    water_conservation_state: Option<&WaterConservationState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -564,6 +566,18 @@ pub fn create_save_data(
             annual_cso_volume: s.annual_cso_volume,
             pollution_contribution: s.pollution_contribution,
         }),
+        water_conservation_state: water_conservation_state.map(|s| SaveWaterConservationState {
+            low_flow_fixtures: s.low_flow_fixtures,
+            xeriscaping: s.xeriscaping,
+            tiered_pricing: s.tiered_pricing,
+            greywater_recycling: s.greywater_recycling,
+            rainwater_harvesting: s.rainwater_harvesting,
+            demand_reduction_pct: s.demand_reduction_pct,
+            sewage_reduction_pct: s.sewage_reduction_pct,
+            total_retrofit_cost: s.total_retrofit_cost,
+            annual_savings_gallons: s.annual_savings_gallons,
+            buildings_retrofitted: s.buildings_retrofitted,
+        }),
     }
 }
 
@@ -650,6 +664,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -700,6 +715,7 @@ mod tests {
         assert!(restored.reservoir_state.is_none());
         assert!(restored.landfill_gas_state.is_none());
         assert!(restored.cso_state.is_none());
+        assert!(restored.water_conservation_state.is_none());
     }
 
     #[test]
@@ -1022,6 +1038,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1115,6 +1132,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1149,6 +1167,7 @@ mod tests {
         assert!(restored.reservoir_state.is_none());
         assert!(restored.landfill_gas_state.is_none());
         assert!(restored.cso_state.is_none());
+        assert!(restored.water_conservation_state.is_none());
     }
 
     #[test]
@@ -1222,6 +1241,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1246,6 +1266,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1335,6 +1356,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1362,6 +1384,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1450,6 +1473,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1477,6 +1501,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1655,6 +1680,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1697,6 +1723,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1849,6 +1876,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1918,6 +1946,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1944,6 +1973,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2052,6 +2082,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2210,6 +2241,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2237,6 +2269,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2300,6 +2333,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2395,6 +2429,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2434,6 +2469,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2567,6 +2603,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2636,6 +2673,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2660,6 +2698,7 @@ mod tests {
         assert!(restored.reservoir_state.is_none());
         assert!(restored.landfill_gas_state.is_none());
         assert!(restored.cso_state.is_none());
+        assert!(restored.water_conservation_state.is_none());
     }
 
     #[test]
@@ -2690,6 +2729,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

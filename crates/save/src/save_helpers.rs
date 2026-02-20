@@ -28,6 +28,7 @@ use simulation::unlocks::UnlockState;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::wastewater::WastewaterState;
+use simulation::water_conservation::WaterConservationState;
 use simulation::water_treatment::WaterTreatmentState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
@@ -64,6 +65,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub reservoir_state: Res<'w, ReservoirState>,
     pub landfill_gas_state: Res<'w, LandfillGasState>,
     pub cso_state: Res<'w, SewerSystemState>,
+    pub water_conservation_state: Res<'w, WaterConservationState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -99,4 +101,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub reservoir_state: ResMut<'w, ReservoirState>,
     pub landfill_gas_state: ResMut<'w, LandfillGasState>,
     pub cso_state: ResMut<'w, SewerSystemState>,
+    pub water_conservation_state: ResMut<'w, WaterConservationState>,
 }
