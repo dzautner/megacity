@@ -539,6 +539,20 @@ fn game_clock_starts_at_6am() {
     assert_eq!(city.clock().day, 1, "game clock should start at day 1");
 }
 
+#[test]
+fn tick_advances_game_clock() {
+    let mut city = TestCity::new();
+    let initial_hour = city.clock().hour;
+    // 500 ticks at 1 min/tick = ~8.33 hours advancement
+    city.tick(500);
+    let after_hour = city.clock().hour;
+    let after_day = city.clock().day;
+    assert!(
+        after_day > 1 || (after_hour - initial_hour).abs() > 0.01,
+        "game clock should advance after 500 ticks: day 1->{after_day}, hour {initial_hour}->{after_hour}"
+    );
+}
+
 // ===========================================================================
 // 11. Tel Aviv simulation smoke tests
 // ===========================================================================

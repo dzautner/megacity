@@ -21,6 +21,7 @@ use crate::road_segments::RoadSegmentStore;
 use crate::roads::{RoadNetwork, RoadNode};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
+use crate::tutorial::TutorialState;
 use crate::utilities::{UtilitySource, UtilityType};
 use crate::weather::Weather;
 use crate::world_init::SkipWorldInit;
@@ -48,6 +49,12 @@ impl TestCity {
 
         // Insert the marker BEFORE SimulationPlugin so init_world skips.
         app.insert_resource(SkipWorldInit);
+        // Skip the tutorial so it doesn't pause the GameClock on first update.
+        app.insert_resource(TutorialState {
+            completed: true,
+            active: false,
+            ..Default::default()
+        });
         app.add_plugins(SimulationPlugin);
 
         // Insert blank world resources BEFORE the first update, so that
@@ -64,6 +71,19 @@ impl TestCity {
         // Run one update so Startup systems execute (init_world will no-op).
         app.update();
 
+        // After the first update, `activate_tutorial_on_new_game` may have
+        // re-activated the tutorial (day==1, pop==0, roads==0, completed==true,
+        // clock.is_changed()) which causes `check_tutorial_progress` to pause
+        // the GameClock. Force both back to a clean state.
+        if let Some(mut tutorial) = app.world_mut().get_resource_mut::<TutorialState>() {
+            tutorial.completed = true;
+            tutorial.active = false;
+            tutorial.paused_by_tutorial = false;
+        }
+        if let Some(mut clock) = app.world_mut().get_resource_mut::<GameClock>() {
+            clock.paused = false;
+        }
+
         Self { app }
     }
 
@@ -72,9 +92,26 @@ impl TestCity {
     pub fn with_tel_aviv() -> Self {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
+        // Skip the tutorial so it doesn't pause the GameClock on first update.
+        app.insert_resource(TutorialState {
+            completed: true,
+            active: false,
+            ..Default::default()
+        });
         app.add_plugins(SimulationPlugin);
         // Run one update so Startup systems execute (init_world runs fully).
         app.update();
+
+        // Ensure tutorial doesn't interfere with test simulation.
+        if let Some(mut tutorial) = app.world_mut().get_resource_mut::<TutorialState>() {
+            tutorial.completed = true;
+            tutorial.active = false;
+            tutorial.paused_by_tutorial = false;
+        }
+        if let Some(mut clock) = app.world_mut().get_resource_mut::<GameClock>() {
+            clock.paused = false;
+        }
+
         Self { app }
     }
 
