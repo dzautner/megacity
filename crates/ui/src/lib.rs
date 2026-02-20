@@ -3,6 +3,7 @@ use bevy_egui::EguiPlugin;
 
 pub mod cell_info_panel;
 pub mod citizen_info;
+pub mod day_night_panel;
 pub mod district_inspect;
 pub mod graphs;
 pub mod info_panel;
@@ -26,6 +27,7 @@ impl Plugin for UiPlugin {
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
             .add_plugins(localization::LocalizationUiPlugin)
+            .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
             .init_resource::<toolbar::OpenCategory>()
@@ -62,6 +64,8 @@ impl Plugin for UiPlugin {
                     water_dashboard::water_dashboard_ui,
                     water_dashboard::water_dashboard_keybind,
                     tutorial::tutorial_ui,
+                    day_night_panel::day_night_panel_keybind,
+                    day_night_panel::day_night_panel_ui,
                 ),
             );
     }
