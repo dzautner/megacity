@@ -359,7 +359,7 @@ fn handle_load(
         // Clear existing entities -- deduplicate to avoid double-despawn when
         // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
         for entity in existing.all_entities() {
-            if let Ok(ec) = commands.get_entity(entity) {
+            if let Some(ec) = commands.get_entity(entity) {
                 ec.despawn();
             }
         }
@@ -910,7 +910,7 @@ fn handle_new_game(
         // Despawn all game entities -- deduplicate to avoid double-despawn when
         // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
         for entity in existing.all_entities() {
-            if let Ok(ec) = commands.get_entity(entity) {
+            if let Some(ec) = commands.get_entity(entity) {
                 ec.despawn();
             }
         }
