@@ -35,7 +35,7 @@ pub mod parallel_snap;
 pub mod screenshot;
 
 use angle_snap::AngleSnapState;
-use camera::{CameraDrag, LeftClickDrag};
+use camera::{CameraDrag, LeftClickDrag, RightClickDrag};
 use input::{
     ActiveTool, CursorGridPos, GridSnap, IntersectionSnap, RoadDrawState, SelectedBuilding,
     StatusMessage,
@@ -49,6 +49,7 @@ impl Plugin for RenderingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraDrag>()
             .init_resource::<LeftClickDrag>()
+            .init_resource::<RightClickDrag>()
             .init_resource::<CursorGridPos>()
             .init_resource::<ActiveTool>()
             .init_resource::<OverlayState>()
