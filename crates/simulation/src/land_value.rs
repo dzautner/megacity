@@ -2,6 +2,7 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::pollution::PollutionGrid;
 use crate::services::ServiceBuilding;
+use crate::urban_growth_boundary::UrbanGrowthBoundary;
 use bevy::prelude::*;
 
 #[derive(Resource)]
@@ -45,6 +46,7 @@ pub fn update_land_value(
     services: Query<&ServiceBuilding>,
     waste_collection: Res<crate::garbage::WasteCollectionGrid>,
     waste_accumulation: Res<crate::waste_effects::WasteAccumulation>,
+    ugb: Res<UrbanGrowthBoundary>,
 ) {
     if !slow_timer.should_run() {
         return;
@@ -92,6 +94,9 @@ pub fn update_land_value(
             if waste_modifier < 1.0 {
                 value = (value as f32 * waste_modifier) as i32;
             }
+
+            // Urban Growth Boundary: premium inside, penalty outside (ZONE-009).
+            value += ugb.land_value_modifier(x, y);
 
             land_value.set(x, y, value.clamp(0, 255) as u8);
         }

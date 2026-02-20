@@ -16,10 +16,11 @@ use serialization::{
     restore_hazardous_waste, restore_heat_wave, restore_landfill_capacity, restore_landfill_gas,
     restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
     restore_recycling, restore_reservoir_state, restore_road_segment_store, restore_storm_drainage,
-    restore_stormwater_grid, restore_uhi_grid, restore_unlock_state, restore_virtual_population,
-    restore_wastewater, restore_water_conservation, restore_water_source, restore_water_treatment,
-    restore_weather, restore_wind_damage_state, u8_to_road_type, u8_to_service_type,
-    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    restore_stormwater_grid, restore_uhi_grid, restore_unlock_state, restore_urban_growth_boundary,
+    restore_virtual_population, restore_wastewater, restore_water_conservation,
+    restore_water_source, restore_water_treatment, restore_weather, restore_wind_damage_state,
+    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
+    SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -56,6 +57,7 @@ use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
+use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
@@ -209,6 +211,7 @@ fn handle_save(
             Some(&v2.cso_state),
             Some(&v2.water_conservation_state),
             Some(&v2.fog_state),
+            Some(&v2.urban_growth_boundary),
         );
 
         let bytes = save.encode();
@@ -756,6 +759,13 @@ fn handle_load(
             *v2.fog_state = restore_fog_state(s);
         }
 
+        // Restore urban growth boundary
+        if let Some(ref s) = save.urban_growth_boundary {
+            *v2.urban_growth_boundary = restore_urban_growth_boundary(s);
+        } else {
+            *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -854,6 +864,7 @@ fn handle_new_game(
         *v2.cso_state = SewerSystemState::default();
         *v2.water_conservation_state = WaterConservationState::default();
         *v2.fog_state = FogState::default();
+        *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

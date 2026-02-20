@@ -33,6 +33,7 @@ use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
+use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
@@ -93,6 +94,7 @@ pub fn create_save_data(
     cso_state: Option<&SewerSystemState>,
     water_conservation_state: Option<&WaterConservationState>,
     fog_state: Option<&FogState>,
+    urban_growth_boundary: Option<&UrbanGrowthBoundary>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -591,6 +593,11 @@ pub fn create_save_data(
             flights_suspended: s.flights_suspended,
             last_update_hour: s.last_update_hour,
         }),
+        urban_growth_boundary: urban_growth_boundary.map(|u| SaveUrbanGrowthBoundary {
+            enabled: u.enabled,
+            vertices_x: u.vertices.iter().map(|(x, _)| *x).collect(),
+            vertices_y: u.vertices.iter().map(|(_, y)| *y).collect(),
+        }),
     }
 }
 
@@ -731,6 +738,7 @@ mod tests {
         assert!(restored.cso_state.is_none());
         assert!(restored.water_conservation_state.is_none());
         assert!(restored.fog_state.is_none());
+        assert!(restored.urban_growth_boundary.is_none());
     }
 
     #[test]
@@ -1186,6 +1194,7 @@ mod tests {
         assert!(restored.cso_state.is_none());
         assert!(restored.water_conservation_state.is_none());
         assert!(restored.fog_state.is_none());
+        assert!(restored.urban_growth_boundary.is_none());
     }
 
     #[test]
@@ -2737,6 +2746,7 @@ mod tests {
         assert!(restored.cso_state.is_none());
         assert!(restored.water_conservation_state.is_none());
         assert!(restored.fog_state.is_none());
+        assert!(restored.urban_growth_boundary.is_none());
     }
 
     #[test]

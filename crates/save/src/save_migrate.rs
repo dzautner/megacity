@@ -190,6 +190,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.fog_state = None;
         save.version = 28;
     }
+    // v28 -> v29: Added urban_growth_boundary (UrbanGrowthBoundary serialization for UGB polygon).
+    // Uses `#[serde(default)]` so it deserializes as None from a v28 save.
+    if save.version == 28 {
+        save.urban_growth_boundary = None;
+        save.version = 29;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

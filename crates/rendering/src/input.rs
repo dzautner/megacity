@@ -6,6 +6,7 @@ use simulation::grid::{RoadType, WorldGrid, ZoneType};
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::services::{self, ServiceBuilding, ServiceType};
+use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::utilities::UtilityType;
 
 use crate::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
@@ -400,6 +401,7 @@ pub fn handle_tool_input(
     service_q: Query<&ServiceBuilding>,
     left_drag: Res<crate::camera::LeftClickDrag>,
     mut district_map: ResMut<simulation::districts::DistrictMap>,
+    ugb: Res<UrbanGrowthBoundary>,
 ) {
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
@@ -614,6 +616,7 @@ pub fn handle_tool_input(
             gx,
             gy,
             ZoneType::ResidentialLow,
+            &ugb,
         ),
         ActiveTool::ZoneResidentialMedium => apply_zone(
             &mut grid,
@@ -622,6 +625,7 @@ pub fn handle_tool_input(
             gx,
             gy,
             ZoneType::ResidentialMedium,
+            &ugb,
         ),
         ActiveTool::ZoneResidentialHigh => apply_zone(
             &mut grid,
@@ -630,6 +634,7 @@ pub fn handle_tool_input(
             gx,
             gy,
             ZoneType::ResidentialHigh,
+            &ugb,
         ),
         ActiveTool::ZoneCommercialLow => apply_zone(
             &mut grid,
@@ -638,6 +643,7 @@ pub fn handle_tool_input(
             gx,
             gy,
             ZoneType::CommercialLow,
+            &ugb,
         ),
         ActiveTool::ZoneCommercialHigh => apply_zone(
             &mut grid,
@@ -646,6 +652,7 @@ pub fn handle_tool_input(
             gx,
             gy,
             ZoneType::CommercialHigh,
+            &ugb,
         ),
         ActiveTool::ZoneIndustrial => apply_zone(
             &mut grid,
@@ -654,13 +661,26 @@ pub fn handle_tool_input(
             gx,
             gy,
             ZoneType::Industrial,
+            &ugb,
         ),
-        ActiveTool::ZoneOffice => {
-            apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::Office)
-        }
-        ActiveTool::ZoneMixedUse => {
-            apply_zone(&mut grid, &mut status, &buttons, gx, gy, ZoneType::MixedUse)
-        }
+        ActiveTool::ZoneOffice => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::Office,
+            &ugb,
+        ),
+        ActiveTool::ZoneMixedUse => apply_zone(
+            &mut grid,
+            &mut status,
+            &buttons,
+            gx,
+            gy,
+            ZoneType::MixedUse,
+            &ugb,
+        ),
 
         // --- Utilities ---
         ActiveTool::PlacePowerPlant => place_utility_if_affordable(
@@ -928,16 +948,27 @@ fn place_road_if_affordable(
 enum ZoneResult {
     Success,
     NotAdjacentToRoad,
+    OutsideUgb,
     InvalidCell,
 }
 
-fn try_zone(grid: &WorldGrid, x: usize, y: usize, zone: ZoneType) -> ZoneResult {
+fn try_zone(
+    grid: &WorldGrid,
+    x: usize,
+    y: usize,
+    zone: ZoneType,
+    ugb: &UrbanGrowthBoundary,
+) -> ZoneResult {
     let cell = grid.get(x, y);
     if cell.cell_type != simulation::grid::CellType::Grass {
         return ZoneResult::InvalidCell;
     }
     if cell.zone == zone {
         return ZoneResult::InvalidCell;
+    }
+    // Urban Growth Boundary: block zoning outside the boundary (ZONE-009).
+    if !ugb.allows_zoning(x, y) {
+        return ZoneResult::OutsideUgb;
     }
     let (n4, n4c) = grid.neighbors4(x, y);
     let has_road = n4[..n4c]
@@ -956,8 +987,9 @@ fn apply_zone(
     gx: usize,
     gy: usize,
     zone: ZoneType,
+    ugb: &UrbanGrowthBoundary,
 ) -> bool {
-    let result = try_zone(grid, gx, gy, zone);
+    let result = try_zone(grid, gx, gy, zone, ugb);
     match result {
         ZoneResult::Success => {
             grid.get_mut(gx, gy).zone = zone;
@@ -966,6 +998,12 @@ fn apply_zone(
         ZoneResult::NotAdjacentToRoad => {
             if buttons.just_pressed(MouseButton::Left) {
                 status.set("Zone must be adjacent to road", true);
+            }
+            false
+        }
+        ZoneResult::OutsideUgb => {
+            if buttons.just_pressed(MouseButton::Left) {
+                status.set("Cannot zone outside urban growth boundary", true);
             }
             false
         }

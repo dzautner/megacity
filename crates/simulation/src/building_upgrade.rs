@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::buildings::{max_level_for_far, Building, MixedUseBuilding};
 use crate::stats::CityStats;
+use crate::urban_growth_boundary::UrbanGrowthBoundary;
 
 const UPGRADE_INTERVAL: u32 = 30; // sim ticks between upgrade checks
 
@@ -16,6 +17,7 @@ pub fn upgrade_buildings(
     mut timer: ResMut<UpgradeTimer>,
     mut buildings: Query<(&mut Building, Option<&mut MixedUseBuilding>)>,
     policies: Res<crate::policies::Policies>,
+    ugb: Res<UrbanGrowthBoundary>,
 ) {
     timer.tick += 1;
     if timer.tick < UPGRADE_INTERVAL {
@@ -31,6 +33,11 @@ pub fn upgrade_buildings(
     for (mut building, mixed_use) in &mut buildings {
         if upgraded >= max_upgrades_per_tick {
             break;
+        }
+
+        // Buildings outside the UGB cannot be upgraded (ZONE-009).
+        if !ugb.allows_upgrade(building.grid_x, building.grid_y) {
+            continue;
         }
 
         let far_cap = max_level_for_far(building.zone_type) as u8;
