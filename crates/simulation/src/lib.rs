@@ -76,6 +76,7 @@ pub mod road_graph_csr;
 pub mod road_maintenance;
 pub mod road_segments;
 pub mod roads;
+pub mod seasonal_rendering;
 pub mod services;
 pub mod snow;
 pub mod spatial_grid;
@@ -319,6 +320,7 @@ impl Plugin for SimulationPlugin {
             health::HealthPlugin,
             death_care::DeathCarePlugin,
             climate_change::ClimateChangePlugin,
+            seasonal_rendering::SeasonalRenderingPlugin,
         ));
 
         // Water systems
