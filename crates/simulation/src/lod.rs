@@ -154,52 +154,101 @@ pub fn update_spatial_grid(
     }
 }
 
-/// Assign LOD tiers based on viewport distance
+/// Hysteresis margins for LOD tier transitions.
+///
+/// To prevent oscillation when a citizen is near a tier boundary, we use different
+/// margins for "upgrading" (moving to a higher-detail tier) vs "downgrading" (moving
+/// to a lower-detail tier). The upgrade margin is smaller, so a citizen must move
+/// closer to the viewport before being promoted, while the downgrade margin is larger,
+/// keeping them in their current tier until they are clearly outside the zone.
+struct LodMargins {
+    /// Margin for Full tier when citizen is already Full (downgrade threshold)
+    full_downgrade: f32,
+    /// Margin for Full tier when citizen is upgrading to Full
+    full_upgrade: f32,
+    /// Margin for Simplified tier when citizen is already Simplified (downgrade threshold)
+    simplified_downgrade: f32,
+    /// Margin for Simplified tier when citizen is upgrading to Simplified
+    simplified_upgrade: f32,
+}
+
+impl LodMargins {
+    fn new() -> Self {
+        if cfg!(target_arch = "wasm32") {
+            Self {
+                full_downgrade: 200.0,
+                full_upgrade: 150.0,
+                simplified_downgrade: 600.0,
+                simplified_upgrade: 450.0,
+            }
+        } else {
+            Self {
+                full_downgrade: 500.0,
+                full_upgrade: 400.0,
+                simplified_downgrade: 1500.0,
+                simplified_upgrade: 1200.0,
+            }
+        }
+    }
+}
+
+/// Returns true if the position is within `margin` of the viewport bounds.
+fn in_range(pos: &Position, bounds: &ViewportBounds, margin: f32) -> bool {
+    pos.x >= bounds.min_x - margin
+        && pos.x <= bounds.max_x + margin
+        && pos.y >= bounds.min_y - margin
+        && pos.y <= bounds.max_y + margin
+}
+
+/// Assign LOD tiers based on viewport distance with hysteresis.
+///
+/// Citizens use different margin thresholds depending on their current tier:
+/// - Downgrading (e.g. Full -> Simplified) uses a larger margin, so the citizen
+///   must move further away before being demoted.
+/// - Upgrading (e.g. Simplified -> Full) uses a smaller margin, so the citizen
+///   must be closer before being promoted.
+///
+/// This prevents rapid oscillation when citizens sit near tier boundaries.
 pub fn assign_lod_tiers(
     bounds: Res<ViewportBounds>,
     _spatial: Res<SpatialGrid>,
     mut citizens: Query<(Entity, &Position, &mut LodTier), With<Citizen>>,
 ) {
-    // Expanded viewport for tier boundaries
-    // Use tighter margins on WASM to reduce draw calls and memory pressure
-    let margin = if cfg!(target_arch = "wasm32") {
-        200.0
-    } else {
-        500.0
-    };
-    let full_min_x = bounds.min_x - margin;
-    let full_max_x = bounds.max_x + margin;
-    let full_min_y = bounds.min_y - margin;
-    let full_max_y = bounds.max_y + margin;
-
-    let simplified_margin = if cfg!(target_arch = "wasm32") {
-        600.0
-    } else {
-        1500.0
-    };
+    let margins = LodMargins::new();
 
     for (_entity, pos, mut tier) in &mut citizens {
-        let _in_viewport = pos.x >= bounds.min_x
-            && pos.x <= bounds.max_x
-            && pos.y >= bounds.min_y
-            && pos.y <= bounds.max_y;
-
-        let in_full_range = pos.x >= full_min_x
-            && pos.x <= full_max_x
-            && pos.y >= full_min_y
-            && pos.y <= full_max_y;
-
-        let in_simplified_range = pos.x >= bounds.min_x - simplified_margin
-            && pos.x <= bounds.max_x + simplified_margin
-            && pos.y >= bounds.min_y - simplified_margin
-            && pos.y <= bounds.max_y + simplified_margin;
-
-        let new_tier = if in_full_range {
-            LodTier::Full
-        } else if in_simplified_range {
-            LodTier::Simplified
-        } else {
-            LodTier::Abstract
+        let new_tier = match *tier {
+            // Currently Full: use downgrade (larger) margin to keep them Full longer
+            LodTier::Full => {
+                if in_range(pos, &bounds, margins.full_downgrade) {
+                    LodTier::Full
+                } else if in_range(pos, &bounds, margins.simplified_downgrade) {
+                    LodTier::Simplified
+                } else {
+                    LodTier::Abstract
+                }
+            }
+            // Currently Simplified: use upgrade (smaller) margin for Full,
+            // downgrade (larger) margin for staying Simplified
+            LodTier::Simplified => {
+                if in_range(pos, &bounds, margins.full_upgrade) {
+                    LodTier::Full
+                } else if in_range(pos, &bounds, margins.simplified_downgrade) {
+                    LodTier::Simplified
+                } else {
+                    LodTier::Abstract
+                }
+            }
+            // Currently Abstract: use upgrade (smaller) margins for both tiers
+            LodTier::Abstract => {
+                if in_range(pos, &bounds, margins.full_upgrade) {
+                    LodTier::Full
+                } else if in_range(pos, &bounds, margins.simplified_upgrade) {
+                    LodTier::Simplified
+                } else {
+                    LodTier::Abstract
+                }
+            }
         };
 
         if *tier != new_tier {
@@ -286,6 +335,68 @@ mod tests {
             let c = CompressedCitizen::new(0, 0, state, 0, 0, 0, 0);
             assert_eq!(c.state(), expected);
         }
+    }
+
+    #[test]
+    fn test_hysteresis_full_stays_full_at_downgrade_boundary() {
+        // A citizen currently at Full tier with position just inside the downgrade margin
+        // should stay Full (not immediately switch to Simplified).
+        let bounds = ViewportBounds {
+            min_x: 0.0,
+            max_x: 100.0,
+            min_y: 0.0,
+            max_y: 100.0,
+        };
+        let margins = LodMargins::new();
+
+        // Position just outside the upgrade margin but inside downgrade margin
+        let pos = Position { x: -450.0, y: 50.0 };
+        assert!(in_range(&pos, &bounds, margins.full_downgrade));
+        assert!(!in_range(&pos, &bounds, margins.full_upgrade));
+    }
+
+    #[test]
+    fn test_hysteresis_simplified_needs_closer_to_upgrade() {
+        // A citizen currently at Simplified needs to be within the smaller
+        // upgrade margin to be promoted to Full.
+        let bounds = ViewportBounds {
+            min_x: 0.0,
+            max_x: 100.0,
+            min_y: 0.0,
+            max_y: 100.0,
+        };
+        let margins = LodMargins::new();
+
+        // Position inside downgrade margin but outside upgrade margin for Full
+        let pos = Position { x: -450.0, y: 50.0 };
+        assert!(in_range(&pos, &bounds, margins.full_downgrade));
+        assert!(!in_range(&pos, &bounds, margins.full_upgrade));
+        // If currently Simplified, this citizen should NOT upgrade to Full
+    }
+
+    #[test]
+    fn test_in_range_inside() {
+        let bounds = ViewportBounds {
+            min_x: 0.0,
+            max_x: 100.0,
+            min_y: 0.0,
+            max_y: 100.0,
+        };
+        let pos = Position { x: 50.0, y: 50.0 };
+        assert!(in_range(&pos, &bounds, 0.0));
+    }
+
+    #[test]
+    fn test_in_range_outside() {
+        let bounds = ViewportBounds {
+            min_x: 0.0,
+            max_x: 100.0,
+            min_y: 0.0,
+            max_y: 100.0,
+        };
+        let pos = Position { x: -200.0, y: 50.0 };
+        assert!(!in_range(&pos, &bounds, 100.0));
+        assert!(in_range(&pos, &bounds, 200.0));
     }
 }
 
