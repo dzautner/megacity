@@ -24,6 +24,7 @@ pub mod road_grade;
 pub mod road_render;
 pub mod selection_highlight;
 pub mod status_icons;
+pub mod traffic_arrows;
 pub mod traffic_los_render;
 
 pub mod screenshot;
@@ -156,6 +157,7 @@ impl Plugin for RenderingPlugin {
             )
             .add_systems(Update, oneway_arrows::draw_oneway_arrows)
             .add_plugins(traffic_los_render::TrafficLosRenderPlugin)
+            .add_plugins(traffic_arrows::TrafficArrowsPlugin)
             .add_plugins(tree_props::TreePropsPlugin);
 
         // Screenshot plugin (F12 to capture)
