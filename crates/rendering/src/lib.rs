@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 
+pub mod building_mesh_variants;
 pub mod building_meshes;
 pub mod building_render;
 pub mod camera;
@@ -134,6 +135,9 @@ impl Plugin for RenderingPlugin {
                 ),
             )
             .add_plugins(traffic_los_render::TrafficLosRenderPlugin);
+
+        // Building mesh variant plugin (level-aware model selection)
+        app.add_plugins(building_mesh_variants::BuildingMeshVariantsPlugin);
     }
 }
 
