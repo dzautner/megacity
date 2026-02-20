@@ -156,7 +156,7 @@ pub fn dirty_chunks_on_overlay_change(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn rebuild_dirty_chunks(
     mut commands: Commands,
     grid: Res<WorldGrid>,
@@ -410,6 +410,7 @@ fn terrain_color(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_overlay(
     base: Color,
     cell: &simulation::grid::Cell,
