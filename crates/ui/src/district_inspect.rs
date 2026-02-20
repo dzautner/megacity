@@ -16,7 +16,7 @@ use bevy_egui::{egui, EguiContexts};
 
 use rendering::input::{ActiveTool, CursorGridPos};
 use simulation::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
-use simulation::districts::{DistrictMap, Districts, DISTRICT_SIZE};
+use simulation::districts::{DistrictMap, Districts};
 use simulation::services::ServiceBuilding;
 
 // =============================================================================
@@ -259,18 +259,17 @@ pub fn refresh_district_inspect(
             .any(|&(cx, cy)| service_covers_cell(service.grid_x, service.grid_y, radius, cx, cy));
 
         if covers {
-            use simulation::services::ServiceType;
-            if ServiceType::is_fire(stype) {
+            if ServiceBuilding::is_fire(stype) {
                 fire += 1;
-            } else if ServiceType::is_police(stype) {
+            } else if ServiceBuilding::is_police(stype) {
                 police += 1;
-            } else if ServiceType::is_health(stype) {
+            } else if ServiceBuilding::is_health(stype) {
                 health += 1;
-            } else if ServiceType::is_education(stype) {
+            } else if ServiceBuilding::is_education(stype) {
                 education += 1;
-            } else if ServiceType::is_park(stype) {
+            } else if ServiceBuilding::is_park(stype) {
                 parks += 1;
-            } else if ServiceType::is_transport(stype) {
+            } else if ServiceBuilding::is_transport(stype) {
                 transport += 1;
             }
         }
@@ -417,6 +416,7 @@ impl Plugin for DistrictInspectPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simulation::districts::DISTRICT_SIZE;
 
     #[test]
     fn test_grid_to_world_center() {
