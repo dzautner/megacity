@@ -34,7 +34,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v20 = hazardous_waste_state (HazardousWasteState serialization)
 /// v21 = storm_drainage_state (StormDrainageState serialization for storm drainage infrastructure)
 /// v22 = landfill_capacity_state (LandfillCapacityState serialization for landfill warnings)
-pub const CURRENT_SAVE_VERSION: u32 = 22;
+/// v23 = flood_state (FloodState serialization for urban flooding simulation)
+pub const CURRENT_SAVE_VERSION: u32 = 23;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -137,6 +138,8 @@ pub struct SaveData {
     pub storm_drainage_state: Option<SaveStormDrainageState>,
     #[serde(default)]
     pub landfill_capacity_state: Option<SaveLandfillCapacityState>,
+    #[serde(default)]
+    pub flood_state: Option<SaveFloodState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -627,6 +630,14 @@ pub struct SaveLandfillCapacityState {
     pub current_tier: u8,
     pub collection_halted: bool,
     pub landfill_count: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveFloodState {
+    pub is_flooding: bool,
+    pub total_flooded_cells: u32,
+    pub total_damage: f64,
+    pub max_depth: f32,
 }
 
 impl SaveData {

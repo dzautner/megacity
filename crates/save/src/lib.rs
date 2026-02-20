@@ -12,7 +12,7 @@ use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
     create_save_data, migrate_save, restore_climate_zone, restore_cold_snap, restore_composting,
     restore_construction_modifiers, restore_degree_days, restore_drought, restore_extended_budget,
-    restore_groundwater_depletion, restore_hazardous_waste, restore_heat_wave,
+    restore_flood_state, restore_groundwater_depletion, restore_hazardous_waste, restore_heat_wave,
     restore_landfill_capacity, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
     restore_policies, restore_recycling, restore_road_segment_store, restore_storm_drainage,
     restore_stormwater_grid, restore_uhi_grid, restore_unlock_state, restore_virtual_population,
@@ -31,6 +31,7 @@ use simulation::composting::CompostingState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
+use simulation::flood_simulation::{FloodGrid, FloodState};
 use simulation::grid::WorldGrid;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
@@ -196,6 +197,7 @@ fn handle_save(
             Some(&v2.hazardous_waste_state),
             Some(&v2.storm_drainage_state),
             Some(&v2.landfill_capacity_state),
+            Some(&v2.flood_state),
         );
 
         let bytes = save.encode();
@@ -710,6 +712,14 @@ fn handle_load(
         } else {
             *v2.landfill_capacity_state = LandfillCapacityState::default();
         }
+
+        // Restore flood state
+        if let Some(ref fs) = save.flood_state {
+            *v2.flood_state = restore_flood_state(fs);
+        }
+        // FloodGrid is transient, always reset to default
+        *v2.flood_grid = FloodGrid::default();
+
         println!("Loaded save from {}", path);
     }
 }
@@ -801,6 +811,8 @@ fn handle_new_game(
         *v2.hazardous_waste_state = HazardousWasteState::default();
         *v2.storm_drainage_state = StormDrainageState::default();
         *v2.landfill_capacity_state = LandfillCapacityState::default();
+        *v2.flood_state = FloodState::default();
+        *v2.flood_grid = FloodGrid::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
