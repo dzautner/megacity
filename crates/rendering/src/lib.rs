@@ -137,7 +137,8 @@ impl Plugin for RenderingPlugin {
                     citizen_render::update_citizen_sprites,
                     citizen_render::update_lod_fade,
                     citizen_render::despawn_abstract_sprites,
-                ),
+                )
+                    .chain(),
             )
             .add_systems(
                 Update,
