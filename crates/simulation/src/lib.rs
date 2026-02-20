@@ -82,6 +82,7 @@ pub mod tourism;
 pub mod traffic;
 pub mod traffic_accidents;
 pub mod trees;
+pub mod uhi_mitigation;
 pub mod unlocks;
 pub mod urban_growth_boundary;
 pub mod urban_heat_island;
@@ -301,6 +302,7 @@ impl Plugin for SimulationPlugin {
             wind::WindPlugin,
             wind_damage::WindDamagePlugin,
             urban_heat_island::UrbanHeatIslandPlugin,
+            uhi_mitigation::UhiMitigationPlugin,
             drought::DroughtPlugin,
             noise::NoisePlugin,
             crime::CrimePlugin,
