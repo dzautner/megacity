@@ -13,6 +13,7 @@ pub mod milestones;
 pub mod multi_select;
 pub mod oneway_ui;
 pub mod progressive_disclosure;
+pub mod road_cost_display;
 pub mod road_segment_info;
 pub mod search;
 pub mod service_coverage_panel;
@@ -80,6 +81,7 @@ impl Plugin for UiPlugin {
                     tutorial::tutorial_ui,
                     day_night_panel::day_night_panel_keybind,
                     day_night_panel::day_night_panel_ui,
+                    road_cost_display::road_cost_display_ui,
                 ),
             );
     }

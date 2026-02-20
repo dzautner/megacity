@@ -268,6 +268,19 @@ impl ActiveTool {
             ActiveTool::TreeRemove => "Remove Tree",
         }
     }
+
+    /// Returns the `RoadType` for road tools, or `None` for non-road tools.
+    pub fn road_type(&self) -> Option<RoadType> {
+        match self {
+            ActiveTool::Road => Some(RoadType::Local),
+            ActiveTool::RoadAvenue => Some(RoadType::Avenue),
+            ActiveTool::RoadBoulevard => Some(RoadType::Boulevard),
+            ActiveTool::RoadHighway => Some(RoadType::Highway),
+            ActiveTool::RoadOneWay => Some(RoadType::OneWay),
+            ActiveTool::RoadPath => Some(RoadType::Path),
+            _ => None,
+        }
+    }
 }
 
 /// Grid snap mode: when enabled, cursor snaps to cell centers for precise placement.
