@@ -153,6 +153,23 @@ pub trait Saveable: Resource + Default + Send + Sync + 'static {
     fn load_from_bytes(bytes: &[u8]) -> Self;
 }
 
+/// Decode bytes via `bitcode::decode`, logging a warning and returning `Default` on failure.
+/// Use this in `Saveable::load_from_bytes` implementations to surface decode errors.
+pub fn decode_or_warn<T: bitcode::DecodeOwned + Default>(key: &str, bytes: &[u8]) -> T {
+    match bitcode::decode(bytes) {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(
+                "Saveable {}: failed to decode {} bytes, falling back to default: {}",
+                key,
+                bytes.len(),
+                e
+            );
+            T::default()
+        }
+    }
+}
+
 /// Type alias for the save function stored in a `SaveableEntry`.
 pub type SaveFn = Box<dyn Fn(&World) -> Option<Vec<u8>> + Send + Sync>;
 /// Type alias for the load function stored in a `SaveableEntry`.
