@@ -60,6 +60,7 @@ pub mod services;
 pub mod spatial_grid;
 pub mod specialization;
 pub mod stats;
+pub mod storm_drainage;
 pub mod stormwater;
 pub mod terrain;
 pub mod time_of_day;
@@ -134,6 +135,7 @@ use roads::RoadNetwork;
 use spatial_grid::SpatialGrid;
 use specialization::{CitySpecializations, SpecializationBonuses};
 use stats::CityStats;
+use storm_drainage::StormDrainageState;
 use stormwater::StormwaterGrid;
 use time_of_day::GameClock;
 use tourism::Tourism;
@@ -277,6 +279,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<GroundwaterDepletionState>()
             .init_resource::<WastewaterState>()
             .init_resource::<HazardousWasteState>()
+            .init_resource::<StormDrainageState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -423,6 +426,7 @@ impl Plugin for SimulationPlugin {
                     wastewater::update_wastewater,
                     wastewater::wastewater_health_penalty,
                     hazardous_waste::update_hazardous_waste,
+                    storm_drainage::update_storm_drainage,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,

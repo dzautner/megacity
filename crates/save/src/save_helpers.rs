@@ -17,6 +17,7 @@ use simulation::life_simulation::LifeSimTimer;
 use simulation::loans::LoanBook;
 use simulation::policies::Policies;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
+use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
 use simulation::urban_heat_island::UhiGrid;
@@ -52,6 +53,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub groundwater_depletion_state: Res<'w, GroundwaterDepletionState>,
     pub wastewater_state: Res<'w, WastewaterState>,
     pub hazardous_waste_state: Res<'w, HazardousWasteState>,
+    pub storm_drainage_state: Res<'w, StormDrainageState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -80,4 +82,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub groundwater_depletion_state: ResMut<'w, GroundwaterDepletionState>,
     pub wastewater_state: ResMut<'w, WastewaterState>,
     pub hazardous_waste_state: ResMut<'w, HazardousWasteState>,
+    pub storm_drainage_state: ResMut<'w, StormDrainageState>,
 }

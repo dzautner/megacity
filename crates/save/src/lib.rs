@@ -14,11 +14,11 @@ use serialization::{
     restore_construction_modifiers, restore_degree_days, restore_drought, restore_extended_budget,
     restore_groundwater_depletion, restore_hazardous_waste, restore_heat_wave,
     restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
-    restore_recycling, restore_road_segment_store, restore_stormwater_grid, restore_uhi_grid,
-    restore_unlock_state, restore_virtual_population, restore_wastewater, restore_water_source,
-    restore_water_treatment, restore_weather, restore_wind_damage_state, u8_to_road_type,
-    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
-    CURRENT_SAVE_VERSION,
+    restore_recycling, restore_road_segment_store, restore_storm_drainage, restore_stormwater_grid,
+    restore_uhi_grid, restore_unlock_state, restore_virtual_population, restore_wastewater,
+    restore_water_source, restore_water_treatment, restore_weather, restore_wind_damage_state,
+    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
+    SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -45,6 +45,7 @@ use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::roads::RoadNode;
 use simulation::services::ServiceBuilding;
+use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
@@ -192,6 +193,7 @@ fn handle_save(
             Some(&v2.groundwater_depletion_state),
             Some(&v2.wastewater_state),
             Some(&v2.hazardous_waste_state),
+            Some(&v2.storm_drainage_state),
         );
 
         let bytes = save.encode();
@@ -692,6 +694,13 @@ fn handle_load(
         } else {
             *v2.hazardous_waste_state = HazardousWasteState::default();
         }
+
+        // Restore storm drainage state
+        if let Some(ref sds) = save.storm_drainage_state {
+            *v2.storm_drainage_state = restore_storm_drainage(sds);
+        } else {
+            *v2.storm_drainage_state = StormDrainageState::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -781,6 +790,7 @@ fn handle_new_game(
         *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
         *v2.wastewater_state = WastewaterState::default();
         *v2.hazardous_waste_state = HazardousWasteState::default();
+        *v2.storm_drainage_state = StormDrainageState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

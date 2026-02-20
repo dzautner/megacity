@@ -23,6 +23,7 @@ use simulation::policies::Policies;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
+use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
 use simulation::unlocks::UnlockState;
@@ -77,6 +78,7 @@ pub fn create_save_data(
     groundwater_depletion_state: Option<&GroundwaterDepletionState>,
     wastewater_state: Option<&WastewaterState>,
     hazardous_waste_state: Option<&HazardousWasteState>,
+    storm_drainage_state: Option<&StormDrainageState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -485,6 +487,16 @@ pub fn create_save_data(
             biological_treated: hws.biological_treated,
             stabilization_treated: hws.stabilization_treated,
         }),
+        storm_drainage_state: storm_drainage_state.map(|sds| SaveStormDrainageState {
+            total_drain_capacity: sds.total_drain_capacity,
+            total_retention_capacity: sds.total_retention_capacity,
+            current_retention_stored: sds.current_retention_stored,
+            drain_count: sds.drain_count,
+            retention_pond_count: sds.retention_pond_count,
+            rain_garden_count: sds.rain_garden_count,
+            overflow_cells: sds.overflow_cells,
+            drainage_coverage: sds.drainage_coverage,
+        }),
     }
 }
 
@@ -565,6 +577,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -609,6 +622,7 @@ mod tests {
         assert!(restored.groundwater_depletion_state.is_none());
         assert!(restored.wastewater_state.is_none());
         assert!(restored.hazardous_waste_state.is_none());
+        assert!(restored.storm_drainage_state.is_none());
     }
 
     #[test]
@@ -925,6 +939,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1012,6 +1027,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1040,6 +1056,7 @@ mod tests {
         assert!(restored.groundwater_depletion_state.is_none());
         assert!(restored.wastewater_state.is_none());
         assert!(restored.hazardous_waste_state.is_none());
+        assert!(restored.storm_drainage_state.is_none());
     }
 
     #[test]
@@ -1107,6 +1124,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1131,6 +1149,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1208,6 +1227,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1235,6 +1255,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1311,6 +1332,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1338,6 +1360,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1504,6 +1527,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1546,6 +1570,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1686,6 +1711,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1749,6 +1775,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1775,6 +1802,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1877,6 +1905,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2023,6 +2052,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2050,6 +2080,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2107,6 +2138,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2190,6 +2222,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2229,6 +2262,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2350,6 +2384,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2413,6 +2448,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2431,6 +2467,7 @@ mod tests {
         assert!(restored.groundwater_depletion_state.is_none());
         assert!(restored.wastewater_state.is_none());
         assert!(restored.hazardous_waste_state.is_none());
+        assert!(restored.storm_drainage_state.is_none());
     }
 
     #[test]
@@ -2461,6 +2498,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
