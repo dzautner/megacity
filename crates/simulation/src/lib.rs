@@ -46,6 +46,7 @@ pub mod historic_preservation;
 pub mod homelessness;
 pub mod immigration;
 pub mod imports_exports;
+pub mod inclusionary_zoning;
 pub mod land_value;
 pub mod landfill;
 pub mod landfill_gas;
@@ -286,6 +287,7 @@ impl Plugin for SimulationPlugin {
             building_upgrade::BuildingUpgradePlugin,
             imports_exports::ImportsExportsPlugin,
             historic_preservation::HistoricPreservationPlugin,
+            inclusionary_zoning::InclusionaryZoningPlugin,
         ));
 
         // Waste and recycling
