@@ -8,6 +8,7 @@ pub mod building_status_enhanced;
 pub mod camera;
 pub mod citizen_render;
 pub mod color_ramps;
+pub mod colorblind_palette;
 pub mod construction_anim;
 pub mod cursor_preview;
 pub mod day_night;

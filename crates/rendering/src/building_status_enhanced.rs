@@ -3,12 +3,14 @@ use std::collections::HashMap;
 
 use simulation::abandonment::Abandoned;
 use simulation::buildings::{Building, UnderConstruction};
+use simulation::colorblind::ColorblindSettings;
 use simulation::config::CELL_SIZE;
 use simulation::crime::CrimeGrid;
 use simulation::fire::OnFire;
 use simulation::grid::WorldGrid;
 
 use crate::camera::OrbitCamera;
+use crate::colorblind_palette::{self, EnhancedIconKindCb};
 
 // =============================================================================
 // Components
@@ -58,14 +60,15 @@ const MAX_VISIBLE_DISTANCE: f32 = 800.0;
 /// Crime level threshold (0-255) above which the high-crime icon is shown.
 const HIGH_CRIME_THRESHOLD: u8 = 60;
 
-fn icon_color(kind: EnhancedIconKind) -> Color {
-    match kind {
-        EnhancedIconKind::Fire => Color::srgb(1.0, 0.35, 0.0), // bright orange-red
-        EnhancedIconKind::UnderConstruction => Color::srgb(1.0, 0.75, 0.0), // amber
-        EnhancedIconKind::HighCrime => Color::srgb(0.6, 0.0, 0.1), // dark maroon
-        EnhancedIconKind::CapacityFull => Color::srgb(0.0, 0.8, 0.6), // teal
-        EnhancedIconKind::AbandonedIcon => Color::srgb(0.5, 0.5, 0.5), // grey
-    }
+fn icon_color(kind: EnhancedIconKind, cb_settings: &ColorblindSettings) -> Color {
+    let cb_kind = match kind {
+        EnhancedIconKind::Fire => EnhancedIconKindCb::Fire,
+        EnhancedIconKind::UnderConstruction => EnhancedIconKindCb::UnderConstruction,
+        EnhancedIconKind::HighCrime => EnhancedIconKindCb::HighCrime,
+        EnhancedIconKind::CapacityFull => EnhancedIconKindCb::CapacityFull,
+        EnhancedIconKind::AbandonedIcon => EnhancedIconKindCb::Abandoned,
+    };
+    colorblind_palette::enhanced_icon_color(cb_kind, cb_settings.mode)
 }
 
 /// Determines the highest-priority enhanced status for a building.
@@ -153,6 +156,7 @@ pub fn update_enhanced_status_icons(
     grid: Res<WorldGrid>,
     crime_grid: Res<CrimeGrid>,
     orbit: Res<OrbitCamera>,
+    cb_settings: Res<ColorblindSettings>,
     existing_icons: Query<(Entity, &EnhancedStatusIcon, &LastEnhancedStatus)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -194,6 +198,7 @@ pub fn update_enhanced_status_icons(
                         &mut commands,
                         &mut meshes,
                         &mut materials,
+                        &cb_settings,
                         building_entity,
                         building.grid_x,
                         building.grid_y,
@@ -212,6 +217,7 @@ pub fn update_enhanced_status_icons(
                 &mut commands,
                 &mut meshes,
                 &mut materials,
+                &cb_settings,
                 building_entity,
                 building.grid_x,
                 building.grid_y,
@@ -232,6 +238,7 @@ fn spawn_enhanced_icon(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
+    cb_settings: &ColorblindSettings,
     building_entity: Entity,
     gx: usize,
     gy: usize,
@@ -241,7 +248,7 @@ fn spawn_enhanced_icon(
     let (wx, _wy) = WorldGrid::grid_to_world(gx, gy);
     let wz = gy as f32 * CELL_SIZE + CELL_SIZE * 0.5;
 
-    let color = icon_color(kind);
+    let color = icon_color(kind, cb_settings);
     let mesh = meshes.add(Cuboid::new(
         ICON_HALF_SIZE * 2.0,
         ICON_HALF_SIZE * 2.0,
@@ -302,8 +309,9 @@ mod tests {
             EnhancedIconKind::AbandonedIcon,
         ];
 
+        let settings = ColorblindSettings::default();
         // Each kind should have a unique color
-        let colors: Vec<Color> = kinds.iter().map(|k| icon_color(*k)).collect();
+        let colors: Vec<Color> = kinds.iter().map(|k| icon_color(*k, &settings)).collect();
         for i in 0..colors.len() {
             for j in (i + 1)..colors.len() {
                 assert_ne!(

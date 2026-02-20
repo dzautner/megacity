@@ -1,8 +1,11 @@
 use bevy::prelude::*;
 
 use simulation::buildings::Building;
+use simulation::colorblind::ColorblindSettings;
 use simulation::config::CELL_SIZE;
 use simulation::grid::WorldGrid;
+
+use crate::colorblind_palette::{self, UtilityIconKind};
 
 /// Marker component for status-icon entities floating above buildings.
 #[derive(Component)]
@@ -27,12 +30,13 @@ enum IconKind {
     NoPowerNoWater,
 }
 
-fn icon_color(kind: IconKind) -> Color {
-    match kind {
-        IconKind::NoPower => Color::srgb(1.0, 0.15, 0.15), // red
-        IconKind::NoWater => Color::srgb(0.2, 0.45, 1.0),  // blue
-        IconKind::NoPowerNoWater => Color::srgb(1.0, 0.85, 0.1), // yellow
-    }
+fn icon_color(kind: IconKind, settings: &ColorblindSettings) -> Color {
+    let cb_kind = match kind {
+        IconKind::NoPower => UtilityIconKind::NoPower,
+        IconKind::NoWater => UtilityIconKind::NoWater,
+        IconKind::NoPowerNoWater => UtilityIconKind::NoPowerNoWater,
+    };
+    colorblind_palette::utility_icon_color(cb_kind, settings.mode)
 }
 
 fn classify(has_power: bool, has_water: bool) -> Option<IconKind> {
@@ -59,6 +63,7 @@ pub fn update_building_status_icons(
     mut commands: Commands,
     buildings: Query<(Entity, &Building)>,
     grid: Res<WorldGrid>,
+    cb_settings: Res<ColorblindSettings>,
     existing_icons: Query<(Entity, &BuildingStatusIcon, &LastUtilityStatus)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -102,6 +107,7 @@ pub fn update_building_status_icons(
                     &mut commands,
                     &mut meshes,
                     &mut materials,
+                    &cb_settings,
                     building_entity,
                     gx,
                     gy,
@@ -117,6 +123,7 @@ pub fn update_building_status_icons(
                     &mut commands,
                     &mut meshes,
                     &mut materials,
+                    &cb_settings,
                     building_entity,
                     gx,
                     gy,
@@ -139,6 +146,7 @@ fn spawn_icon(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
+    cb_settings: &ColorblindSettings,
     building_entity: Entity,
     gx: usize,
     gy: usize,
@@ -149,14 +157,15 @@ fn spawn_icon(
     let (wx, _wy) = WorldGrid::grid_to_world(gx, gy);
     let wz = gy as f32 * CELL_SIZE + CELL_SIZE * 0.5;
 
+    let color = icon_color(kind, cb_settings);
     let mesh = meshes.add(Cuboid::new(
         ICON_HALF_SIZE * 2.0,
         ICON_HALF_SIZE * 2.0,
         ICON_HALF_SIZE * 2.0,
     ));
     let material = materials.add(StandardMaterial {
-        base_color: icon_color(kind),
-        emissive: icon_color(kind).to_linear() * 2.0,
+        base_color: color,
+        emissive: color.to_linear() * 2.0,
         unlit: true,
         ..default()
     });

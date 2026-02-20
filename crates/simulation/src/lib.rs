@@ -13,6 +13,7 @@ pub mod citizen;
 pub mod citizen_spawner;
 pub mod climate_change;
 pub mod cold_snap;
+pub mod colorblind;
 pub mod composting;
 pub mod config;
 pub mod crime;
@@ -438,6 +439,9 @@ impl Plugin for SimulationPlugin {
 
         // Localization infrastructure
         app.add_plugins(localization::LocalizationPlugin);
+
+        // Accessibility
+        app.add_plugins(colorblind::ColorblindPlugin);
     }
 }
 
