@@ -142,6 +142,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.hazardous_waste_state = None;
         save.version = 20;
     }
+    // v20 -> v21: Added storm_drainage_state (StormDrainageState serialization for storm drainage infrastructure).
+    // Uses `#[serde(default)]` so it deserializes as None from a v20 save.
+    if save.version == 20 {
+        save.storm_drainage_state = None;
+        save.version = 21;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

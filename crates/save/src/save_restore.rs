@@ -441,3 +441,19 @@ pub fn restore_hazardous_waste(
         stabilization_treated: save.stabilization_treated,
     }
 }
+
+/// Restore a `StormDrainageState` resource from saved data.
+pub fn restore_storm_drainage(
+    save: &crate::save_types::SaveStormDrainageState,
+) -> simulation::storm_drainage::StormDrainageState {
+    simulation::storm_drainage::StormDrainageState {
+        total_drain_capacity: save.total_drain_capacity,
+        total_retention_capacity: save.total_retention_capacity,
+        current_retention_stored: save.current_retention_stored,
+        drain_count: save.drain_count,
+        retention_pond_count: save.retention_pond_count,
+        rain_garden_count: save.rain_garden_count,
+        overflow_cells: save.overflow_cells,
+        drainage_coverage: save.drainage_coverage,
+    }
+}
