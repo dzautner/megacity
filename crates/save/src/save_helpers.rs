@@ -19,6 +19,7 @@ use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::VirtualPopulation;
+use simulation::water_treatment::WaterTreatmentState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
 
@@ -44,6 +45,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub heat_wave_state: Res<'w, HeatWaveState>,
     pub composting_state: Res<'w, CompostingState>,
     pub cold_snap_state: Res<'w, ColdSnapState>,
+    pub water_treatment_state: Res<'w, WaterTreatmentState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -68,4 +70,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub heat_wave_state: ResMut<'w, HeatWaveState>,
     pub composting_state: ResMut<'w, CompostingState>,
     pub cold_snap_state: ResMut<'w, ColdSnapState>,
+    pub water_treatment_state: ResMut<'w, WaterTreatmentState>,
 }

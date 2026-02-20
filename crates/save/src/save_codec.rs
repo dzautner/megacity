@@ -9,6 +9,7 @@ use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
 use simulation::water_sources::WaterSourceType;
+use simulation::water_treatment::TreatmentLevel;
 use simulation::weather::{ClimateZone, Season, WeatherCondition, WeatherEvent};
 
 pub fn zone_type_to_u8(z: ZoneType) -> u8 {
@@ -553,5 +554,26 @@ pub fn u8_to_cold_snap_tier(v: u8) -> simulation::cold_snap::ColdSnapTier {
         2 => ColdSnapTier::Warning,
         3 => ColdSnapTier::Emergency,
         _ => ColdSnapTier::Normal, // fallback
+    }
+}
+
+pub fn treatment_level_to_u8(t: TreatmentLevel) -> u8 {
+    match t {
+        TreatmentLevel::None => 0,
+        TreatmentLevel::Primary => 1,
+        TreatmentLevel::Secondary => 2,
+        TreatmentLevel::Tertiary => 3,
+        TreatmentLevel::Advanced => 4,
+    }
+}
+
+pub fn u8_to_treatment_level(v: u8) -> TreatmentLevel {
+    match v {
+        0 => TreatmentLevel::None,
+        1 => TreatmentLevel::Primary,
+        2 => TreatmentLevel::Secondary,
+        3 => TreatmentLevel::Tertiary,
+        4 => TreatmentLevel::Advanced,
+        _ => TreatmentLevel::None, // fallback
     }
 }

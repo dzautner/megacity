@@ -15,8 +15,9 @@ use serialization::{
     restore_heat_wave, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
     restore_policies, restore_recycling, restore_road_segment_store, restore_stormwater_grid,
     restore_uhi_grid, restore_unlock_state, restore_virtual_population, restore_water_source,
-    restore_weather, restore_wind_damage_state, u8_to_road_type, u8_to_service_type,
-    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    restore_water_treatment, restore_weather, restore_wind_damage_state, u8_to_road_type,
+    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
+    CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -48,6 +49,7 @@ use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
+use simulation::water_treatment::WaterTreatmentState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
 use simulation::zones::ZoneDemand;
@@ -182,6 +184,7 @@ fn handle_save(
             Some(&v2.heat_wave_state),
             Some(&v2.composting_state),
             Some(&v2.cold_snap_state),
+            Some(&v2.water_treatment_state),
         );
 
         let bytes = save.encode();
@@ -654,6 +657,13 @@ fn handle_load(
         } else {
             *v2.cold_snap_state = ColdSnapState::default();
         }
+
+        // Restore water treatment state
+        if let Some(ref wts) = save.water_treatment_state {
+            *v2.water_treatment_state = restore_water_treatment(wts);
+        } else {
+            *v2.water_treatment_state = WaterTreatmentState::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -739,6 +749,7 @@ fn handle_new_game(
         *v2.heat_wave_state = HeatWaveState::default();
         *v2.composting_state = CompostingState::default();
         *v2.cold_snap_state = ColdSnapState::default();
+        *v2.water_treatment_state = WaterTreatmentState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

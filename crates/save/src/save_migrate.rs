@@ -115,6 +115,13 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 16;
     }
 
+    // v16 -> v17: Added water_treatment_state (WaterTreatmentState serialization for water treatment plants).
+    // Uses `#[serde(default)]` so it deserializes as None from a v16 save.
+    if save.version == 16 {
+        save.water_treatment_state = None;
+        save.version = 17;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
