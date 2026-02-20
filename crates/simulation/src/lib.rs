@@ -240,11 +240,18 @@ impl SaveableRegistry {
     }
 
     /// Load registered resources from an extension map.
-    /// Resources whose key is absent are left unchanged (they keep their init_resource default).
+    ///
+    /// Every registered resource is first reset to its default, then any
+    /// matching key from the extension map is applied on top. This ensures
+    /// that resources whose key is absent in the loaded save are returned to
+    /// defaults rather than silently retaining stale values from a previous
+    /// session (cross-save contamination).
     pub fn load_all(&self, world: &mut World, extensions: &BTreeMap<String, Vec<u8>>) {
         for entry in &self.entries {
             if let Some(bytes) = extensions.get(&entry.key) {
                 (entry.load_fn)(world, bytes);
+            } else {
+                (entry.reset_fn)(world);
             }
         }
     }
@@ -580,9 +587,34 @@ mod saveable_tests {
 
         registry.load_all(&mut world, &extensions);
 
-        // TestCounter should be unchanged since its key wasn't in extensions
+        // TestCounter key is absent from extensions, so it should be reset to default
         let counter = world.resource::<TestCounter>();
-        assert_eq!(counter.value, 5);
+        assert_eq!(counter.value, 0);
+    }
+
+    #[test]
+    fn test_registry_load_resets_missing_keys_to_default() {
+        // Simulates cross-save contamination: load save A (with extension data),
+        // then load save B (without that extension). The resource must reset to
+        // default, not retain save A's value.
+        let mut world = World::new();
+        world.insert_resource(TestCounter::default());
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        // "Load" save A -- has the extension key with value 42
+        let mut save_a = BTreeMap::new();
+        save_a.insert("test_counter".to_string(), 42u32.to_le_bytes().to_vec());
+        registry.load_all(&mut world, &save_a);
+        assert_eq!(world.resource::<TestCounter>().value, 42);
+
+        // "Load" save B -- empty extension map (older save without this feature)
+        let save_b = BTreeMap::new();
+        registry.load_all(&mut world, &save_b);
+
+        // Resource must be reset to default, NOT retain value 42 from save A
+        assert_eq!(world.resource::<TestCounter>().value, 0);
     }
 
     #[test]
