@@ -10,9 +10,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::camera::OrbitCamera;
-use simulation::advisors::{
-    AdvisorJumpToLocation, AdvisorPanel, AdvisorType, DismissedAdvisorTips,
-};
+use simulation::advisors::{AdvisorJumpToLocation, AdvisorPanel, DismissedAdvisorTips};
 use simulation::config::CELL_SIZE;
 
 use save::SaveableAppExt;
