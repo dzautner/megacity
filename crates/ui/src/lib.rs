@@ -10,6 +10,7 @@ pub mod info_panel;
 pub mod localization;
 pub mod milestones;
 pub mod multi_select;
+pub mod progressive_disclosure;
 pub mod road_segment_info;
 pub mod theme;
 pub mod toolbar;
@@ -29,6 +30,7 @@ impl Plugin for UiPlugin {
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
             .add_plugins(localization::LocalizationUiPlugin)
             .add_plugins(multi_select::MultiSelectUiPlugin)
+            .add_plugins(progressive_disclosure::ProgressiveDisclosurePlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
@@ -47,7 +49,6 @@ impl Plugin for UiPlugin {
                     graphs::record_history,
                     toolbar::toolbar_ui,
                     info_panel::info_panel_ui,
-                    info_panel::building_inspection_ui,
                 ),
             )
             .add_systems(
