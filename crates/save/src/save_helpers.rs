@@ -26,6 +26,7 @@ use simulation::reservoir::ReservoirState;
 use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
+use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::wastewater::WastewaterState;
@@ -68,6 +69,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub cso_state: Res<'w, SewerSystemState>,
     pub water_conservation_state: Res<'w, WaterConservationState>,
     pub fog_state: Res<'w, FogState>,
+    pub urban_growth_boundary: Res<'w, UrbanGrowthBoundary>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -105,4 +107,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub cso_state: ResMut<'w, SewerSystemState>,
     pub water_conservation_state: ResMut<'w, WaterConservationState>,
     pub fog_state: ResMut<'w, FogState>,
+    pub urban_growth_boundary: ResMut<'w, UrbanGrowthBoundary>,
 }

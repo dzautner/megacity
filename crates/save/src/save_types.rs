@@ -40,7 +40,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v26 = cso_state (SewerSystemState serialization for CSO events)
 /// v27 = water_conservation_state (WaterConservationState serialization for water conservation)
 /// v28 = fog_state (FogState serialization for fog and visibility)
-pub const CURRENT_SAVE_VERSION: u32 = 28; // v28: Fog and visibility
+/// v29 = urban_growth_boundary (UrbanGrowthBoundary serialization for UGB polygon)
+pub const CURRENT_SAVE_VERSION: u32 = 29; // v29: Urban Growth Boundary
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -155,6 +156,8 @@ pub struct SaveData {
     pub water_conservation_state: Option<SaveWaterConservationState>,
     #[serde(default)]
     pub fog_state: Option<SaveFogState>,
+    #[serde(default)]
+    pub urban_growth_boundary: Option<SaveUrbanGrowthBoundary>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -725,6 +728,13 @@ pub struct SaveFogState {
     pub traffic_speed_modifier: f32,
     pub flights_suspended: bool,
     pub last_update_hour: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveUrbanGrowthBoundary {
+    pub enabled: bool,
+    pub vertices_x: Vec<f32>,
+    pub vertices_y: Vec<f32>,
 }
 
 impl SaveData {

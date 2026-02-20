@@ -22,6 +22,7 @@ use simulation::road_segments::{
 };
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
+use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
 use simulation::water_conservation::WaterConservationState;
@@ -572,5 +573,19 @@ pub fn restore_fog_state(save: &SaveFogState) -> FogState {
         flights_suspended: save.flights_suspended,
         last_update_hour: save.last_update_hour,
         water_fraction_last_day: 0, // Will be recomputed on next day
+    }
+}
+
+/// Restore an `UrbanGrowthBoundary` resource from saved data.
+pub fn restore_urban_growth_boundary(state: &SaveUrbanGrowthBoundary) -> UrbanGrowthBoundary {
+    let vertices: Vec<(f32, f32)> = state
+        .vertices_x
+        .iter()
+        .zip(state.vertices_y.iter())
+        .map(|(&x, &y)| (x, y))
+        .collect();
+    UrbanGrowthBoundary {
+        enabled: state.enabled,
+        vertices,
     }
 }

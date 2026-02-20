@@ -75,6 +75,7 @@ pub mod traffic;
 pub mod traffic_accidents;
 pub mod trees;
 pub mod unlocks;
+pub mod urban_growth_boundary;
 pub mod urban_heat_island;
 pub mod utilities;
 pub mod virtual_population;
@@ -156,6 +157,7 @@ use traffic::TrafficGrid;
 use traffic_accidents::AccidentTracker;
 use trees::TreeGrid;
 use unlocks::UnlockState;
+use urban_growth_boundary::UrbanGrowthBoundary;
 use urban_heat_island::UhiGrid;
 use virtual_population::VirtualPopulation;
 use waste_effects::{WasteAccumulation, WasteCrisisEvent};
@@ -302,6 +304,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<FloodState>()
             .init_resource::<FogState>()
             .init_resource::<ReservoirState>()
+            .init_resource::<UrbanGrowthBoundary>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
