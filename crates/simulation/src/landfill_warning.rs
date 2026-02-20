@@ -31,9 +31,10 @@ const DAYS_PER_YEAR: f32 = 365.0;
 /// Warning tier indicating how much landfill capacity remains.
 ///
 /// Ordered from least severe (Normal) to most severe (Emergency).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LandfillWarningTier {
     /// More than 25% capacity remaining. No warnings needed.
+    #[default]
     Normal,
     /// 10%--25% capacity remaining. Advisory warning.
     Low,
@@ -43,12 +44,6 @@ pub enum LandfillWarningTier {
     VeryLow,
     /// 0% capacity remaining. Collection halted.
     Emergency,
-}
-
-impl Default for LandfillWarningTier {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 impl LandfillWarningTier {
