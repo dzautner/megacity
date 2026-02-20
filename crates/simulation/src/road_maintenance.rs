@@ -71,10 +71,8 @@ impl RoadConditionGrid {
 pub struct RoadMaintenanceBudget {
     /// Slider value: 0.0 = no maintenance, 1.0 = normal, 2.0 = double budget.
     pub budget_level: f32,
-    /// Computed monthly cost: total_road_cells * cost_per_cell * budget_level.
+    /// Computed monthly cost: sum of per-cell maintenance costs * budget_level.
     pub monthly_cost: f64,
-    /// Cost per road cell per month at budget_level=1.0.
-    pub cost_per_cell: f64,
 }
 
 impl Default for RoadMaintenanceBudget {
@@ -82,7 +80,6 @@ impl Default for RoadMaintenanceBudget {
         Self {
             budget_level: 1.0,
             monthly_cost: 0.0,
-            cost_per_cell: 0.5,
         }
     }
 }
@@ -206,9 +203,17 @@ pub fn update_road_maintenance_stats(
     stats.poor_roads_count = poor_count;
     stats.critical_roads_count = critical_count;
 
-    // Update monthly cost
-    maint_budget.monthly_cost =
-        road_cell_count as f64 * maint_budget.cost_per_cell * maint_budget.budget_level as f64;
+    // Update monthly cost (sum per-cell maintenance costs scaled by budget level)
+    let mut total_maintenance_cost: f64 = 0.0;
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
+            let cell = grid.get(x, y);
+            if cell.cell_type == CellType::Road {
+                total_maintenance_cost += cell.road_type.maintenance_cost();
+            }
+        }
+    }
+    maint_budget.monthly_cost = total_maintenance_cost * maint_budget.budget_level as f64;
 }
 
 #[cfg(test)]
@@ -352,7 +357,6 @@ mod tests {
     fn test_maintenance_budget_default() {
         let budget = RoadMaintenanceBudget::default();
         assert_eq!(budget.budget_level, 1.0);
-        assert_eq!(budget.cost_per_cell, 0.5);
         assert_eq!(budget.monthly_cost, 0.0);
     }
 

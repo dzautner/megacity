@@ -117,13 +117,13 @@ pub fn collect_taxes(
     // Tourism income
     income += tourism.monthly_tourism_income;
 
-    // Expenses: road maintenance ($0.5 per road cell per month)
-    let road_cells = grid_res
+    // Expenses: road maintenance (scaled by road type)
+    let road_expense: f64 = grid_res
         .cells
         .iter()
         .filter(|c| c.cell_type == CellType::Road)
-        .count() as f64;
-    let road_expense = road_cells * 0.5;
+        .map(|c| c.road_type.maintenance_cost())
+        .sum();
 
     // Service maintenance costs
     let service_expense: f64 = services_q
