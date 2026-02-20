@@ -8,6 +8,7 @@ use crate::save_types::*;
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::degree_days::DegreeDays;
 use simulation::flood_simulation::FloodState;
+use simulation::landfill_gas::LandfillGasState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
@@ -483,6 +484,24 @@ pub fn restore_reservoir_state(save: &SaveReservoirState) -> ReservoirState {
         reservoir_count: save.reservoir_count,
         warning_tier: u8_to_reservoir_warning_tier(save.warning_tier),
         min_reserve_pct: save.min_reserve_pct,
+    }
+}
+
+/// Restore a `LandfillGasState` resource from saved data.
+pub fn restore_landfill_gas(save: &SaveLandfillGasState) -> LandfillGasState {
+    LandfillGasState {
+        total_gas_generation_cf_per_year: save.total_gas_generation_cf_per_year,
+        methane_fraction: save.methane_fraction,
+        co2_fraction: save.co2_fraction,
+        collection_active: save.collection_active,
+        collection_efficiency: save.collection_efficiency,
+        electricity_generated_mw: save.electricity_generated_mw,
+        uncaptured_methane_cf: save.uncaptured_methane_cf,
+        infrastructure_cost: save.infrastructure_cost,
+        maintenance_cost_per_year: save.maintenance_cost_per_year,
+        fire_explosion_risk: save.fire_explosion_risk,
+        landfills_with_collection: save.landfills_with_collection,
+        total_landfills: save.total_landfills,
     }
 }
 

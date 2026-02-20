@@ -166,6 +166,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.reservoir_state = None;
         save.version = 24;
     }
+    // v24 -> v25: Added landfill_gas_state (LandfillGasState serialization for landfill gas collection and energy).
+    // Uses `#[serde(default)]` so it deserializes as None from a v24 save.
+    if save.version == 24 {
+        save.landfill_gas_state = None;
+        save.version = 25;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version
