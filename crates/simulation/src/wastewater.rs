@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-use crate::grid::{CellType, WorldGrid, ZoneType};
+use crate::grid::{CellType, WorldGrid};
 use crate::utilities::{UtilitySource, UtilityType};
 use crate::water_demand::WaterDemand;
 use crate::water_pollution::WaterPollutionGrid;
@@ -194,7 +194,7 @@ pub fn update_wastewater(
 
         let water_cells = find_discharge_water_cells(&grid, &sewage_plants);
         // Scale pollution by overflow severity (more overflow = more pollution per cell)
-        let severity_mult = (overflow / TREATMENT_CAPACITY_PER_PLANT).min(3.0).max(0.5);
+        let severity_mult = (overflow / TREATMENT_CAPACITY_PER_PLANT).clamp(0.5, 3.0);
         let pollution_amount = (DISCHARGE_POLLUTION_AMOUNT as f32 * severity_mult) as u8;
 
         for &(wx, wy) in &water_cells {
@@ -279,6 +279,7 @@ pub fn wastewater_health_penalty(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::grid::ZoneType;
 
     // -------------------------------------------------------------------------
     // WastewaterState default tests
@@ -553,21 +554,17 @@ mod tests {
     fn test_pollution_severity_scaling() {
         // Overflow equal to one plant's capacity => severity_mult = 1.0
         let overflow = TREATMENT_CAPACITY_PER_PLANT;
-        let severity = (overflow / TREATMENT_CAPACITY_PER_PLANT).min(3.0).max(0.5);
+        let severity = (overflow / TREATMENT_CAPACITY_PER_PLANT).clamp(0.5, 3.0);
         assert!((severity - 1.0).abs() < 0.01);
 
         // Large overflow (3x capacity) => capped at 3.0
         let overflow_large = TREATMENT_CAPACITY_PER_PLANT * 5.0;
-        let severity_large = (overflow_large / TREATMENT_CAPACITY_PER_PLANT)
-            .min(3.0)
-            .max(0.5);
+        let severity_large = (overflow_large / TREATMENT_CAPACITY_PER_PLANT).clamp(0.5, 3.0);
         assert!((severity_large - 3.0).abs() < 0.01);
 
         // Small overflow => clamped to 0.5 minimum
         let overflow_small = TREATMENT_CAPACITY_PER_PLANT * 0.1;
-        let severity_small = (overflow_small / TREATMENT_CAPACITY_PER_PLANT)
-            .min(3.0)
-            .max(0.5);
+        let severity_small = (overflow_small / TREATMENT_CAPACITY_PER_PLANT).clamp(0.5, 3.0);
         assert!((severity_small - 0.5).abs() < 0.01);
     }
 
