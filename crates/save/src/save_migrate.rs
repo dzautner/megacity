@@ -172,6 +172,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.landfill_gas_state = None;
         save.version = 25;
     }
+    // v25 -> v26: Added cso_state (SewerSystemState serialization for CSO events).
+    // Uses `#[serde(default)]` so it deserializes as None from a v25 save.
+    if save.version == 25 {
+        save.cso_state = None;
+        save.version = 26;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

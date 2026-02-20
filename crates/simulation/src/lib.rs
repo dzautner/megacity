@@ -13,6 +13,7 @@ pub mod cold_snap;
 pub mod composting;
 pub mod config;
 pub mod crime;
+pub mod cso;
 pub mod death_care;
 pub mod degree_days;
 pub mod disasters;
@@ -101,6 +102,7 @@ use citizen_spawner::CitizenSpawnTimer;
 use cold_snap::ColdSnapState;
 use composting::CompostingState;
 use crime::CrimeGrid;
+use cso::{CsoEvent, SewerSystemState};
 use death_care::{DeathCareGrid, DeathCareStats};
 use degree_days::DegreeDays;
 use disasters::ActiveDisaster;
@@ -221,6 +223,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<ExtendedBudget>()
             .init_resource::<WealthStats>()
             .init_resource::<CrimeGrid>()
+            .init_resource::<SewerSystemState>()
             .init_resource::<FireGrid>()
             .init_resource::<ForestFireGrid>()
             .init_resource::<ForestFireStats>()
@@ -298,6 +301,7 @@ impl Plugin for SimulationPlugin {
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
             .add_event::<cold_snap::ColdSnapEvent>()
+            .add_event::<CsoEvent>()
             .add_event::<LandfillWarningEvent>()
             .add_event::<ReservoirWarningEvent>()
             .add_systems(Startup, world_init::init_world)
@@ -436,6 +440,7 @@ impl Plugin for SimulationPlugin {
                     heat_wave::update_heat_wave,
                     composting::update_composting,
                     cold_snap::update_cold_snap,
+                    cso::update_sewer_overflow,
                     water_treatment::update_water_treatment,
                     groundwater_depletion::update_groundwater_depletion,
                     wastewater::update_wastewater,

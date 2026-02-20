@@ -620,3 +620,17 @@ pub fn u8_to_reservoir_warning_tier(val: u8) -> ReservoirWarningTier {
         _ => ReservoirWarningTier::Normal,
     }
 }
+
+pub fn sewer_type_to_u8(st: &simulation::cso::SewerType) -> u8 {
+    match st {
+        simulation::cso::SewerType::Combined => 0,
+        simulation::cso::SewerType::Separated => 1,
+    }
+}
+
+pub fn u8_to_sewer_type(v: u8) -> simulation::cso::SewerType {
+    match v {
+        1 => simulation::cso::SewerType::Separated,
+        _ => simulation::cso::SewerType::Combined,
+    }
+}
