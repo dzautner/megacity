@@ -13,6 +13,7 @@ pub mod info_panel;
 pub mod keybindings_panel;
 pub mod localization;
 pub mod milestones;
+pub mod minimap;
 pub mod multi_select;
 pub mod oneway_ui;
 pub mod overlay_legend;
@@ -52,6 +53,7 @@ impl Plugin for UiPlugin {
             .add_plugins(search::SearchPlugin)
             .add_plugins(overlay_legend::OverlayLegendPlugin)
             .add_plugins(two_key_shortcuts::TwoKeyShortcutPlugin)
+            .add_plugins(minimap::MinimapPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
