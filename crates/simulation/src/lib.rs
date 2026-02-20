@@ -27,6 +27,7 @@ pub mod education;
 pub mod education_jobs;
 pub mod events;
 pub mod fire;
+pub mod flood_protection;
 pub mod flood_simulation;
 pub mod fog;
 pub mod forest_fire;
@@ -347,6 +348,7 @@ impl Plugin for SimulationPlugin {
             unlocks::UnlocksPlugin,
             reservoir::ReservoirPlugin,
             flood_simulation::FloodSimulationPlugin,
+            flood_protection::FloodProtectionPlugin,
             trees::TreesPlugin,
             airport::AirportPlugin,
             outside_connections::OutsideConnectionsPlugin,
