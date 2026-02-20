@@ -31,6 +31,7 @@ pub mod traffic_arrows;
 pub mod traffic_los_render;
 pub mod wind_streamlines;
 
+pub mod parallel_snap;
 pub mod screenshot;
 
 use angle_snap::AngleSnapState;
@@ -179,6 +180,9 @@ impl Plugin for RenderingPlugin {
 
         // Satellite view at maximum zoom-out
         app.add_plugins(satellite_view::SatelliteViewPlugin);
+
+        // Parallel road snapping (UX-026)
+        app.add_plugins(parallel_snap::ParallelSnapPlugin);
     }
 }
 
