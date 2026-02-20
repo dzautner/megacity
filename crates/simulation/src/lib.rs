@@ -71,6 +71,7 @@ pub mod neighborhood_quality;
 pub mod network_viz;
 pub mod nimby;
 pub mod noise;
+pub mod notifications;
 pub mod oneway;
 pub mod outside_connections;
 pub mod parking;
@@ -430,6 +431,7 @@ impl Plugin for SimulationPlugin {
             production::ProductionPlugin,
             market::MarketPlugin,
             events::EventsPlugin,
+            notifications::NotificationsPlugin,
             specialization::SpecializationPlugin,
             advisors::AdvisorsPlugin,
             achievements::AchievementsPlugin,
