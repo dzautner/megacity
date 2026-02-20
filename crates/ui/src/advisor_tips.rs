@@ -13,8 +13,6 @@ use rendering::camera::OrbitCamera;
 use simulation::advisors::{AdvisorJumpToLocation, AdvisorPanel, DismissedAdvisorTips};
 use simulation::config::CELL_SIZE;
 
-use save::SaveableAppExt;
-
 // ---------------------------------------------------------------------------
 // Resources
 // ---------------------------------------------------------------------------
@@ -233,7 +231,6 @@ pub struct AdvisorTipsPlugin;
 impl Plugin for AdvisorTipsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AdvisorTipsPanelOpen>()
-            .add_systems(Update, (advisor_tips_ui, handle_advisor_jump))
-            .register_saveable::<DismissedAdvisorTips>();
+            .add_systems(Update, (advisor_tips_ui, handle_advisor_jump));
     }
 }

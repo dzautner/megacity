@@ -1053,13 +1053,17 @@ pub struct AdvisorsPlugin;
 
 impl Plugin for AdvisorsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AdvisorPanel>()
+        app.init_resource::<crate::SaveableRegistry>()
+            .init_resource::<AdvisorPanel>()
             .init_resource::<DismissedAdvisorTips>()
             .add_event::<AdvisorJumpToLocation>()
             .add_systems(
                 FixedUpdate,
                 update_advisors.after(crate::stats::update_stats),
             );
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<DismissedAdvisorTips>();
     }
 }
 
