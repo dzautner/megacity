@@ -686,6 +686,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1063,6 +1064,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1125,6 +1127,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1270,6 +1273,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1294,6 +1298,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1387,6 +1392,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1414,6 +1420,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1506,6 +1513,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1533,6 +1541,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1715,6 +1724,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1757,6 +1767,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1913,6 +1924,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1984,6 +1996,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2010,6 +2023,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2120,6 +2134,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2282,6 +2297,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2309,6 +2325,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2374,6 +2391,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2473,6 +2491,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2512,6 +2531,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2649,6 +2669,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2687,6 +2708,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2777,6 +2799,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
