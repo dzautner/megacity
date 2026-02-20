@@ -47,6 +47,7 @@ pub mod homelessness;
 pub mod immigration;
 pub mod imports_exports;
 pub mod land_value;
+pub mod landfill;
 pub mod landfill_gas;
 pub mod landfill_warning;
 pub mod life_simulation;
@@ -335,6 +336,7 @@ impl Plugin for SimulationPlugin {
         // Waste management
         app.add_plugins((
             hazardous_waste::HazardousWastePlugin,
+            landfill::LandfillPlugin,
             landfill_gas::LandfillGasPlugin,
             landfill_warning::LandfillWarningPlugin,
             waste_policies::WastePoliciesPlugin,
