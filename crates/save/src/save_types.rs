@@ -30,7 +30,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v16 = cold_snap_state (ColdSnapState serialization for cold snap effects)
 /// v17 = water_treatment_state (WaterTreatmentState serialization for water treatment plants)
 /// v18 = groundwater_depletion_state (GroundwaterDepletionState serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 18;
+/// v19 = wastewater_state (WastewaterState serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 19;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -125,6 +126,8 @@ pub struct SaveData {
     pub water_treatment_state: Option<SaveWaterTreatmentState>,
     #[serde(default)]
     pub groundwater_depletion_state: Option<SaveGroundwaterDepletionState>,
+    #[serde(default)]
+    pub wastewater_state: Option<SaveWastewaterState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -565,6 +568,16 @@ pub struct SaveGroundwaterDepletionState {
     pub avg_groundwater_level: f32,
     pub cells_at_risk: u32,
     pub over_extracted_cells: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveWastewaterState {
+    pub total_sewage_generated: f32,
+    pub total_treatment_capacity: f32,
+    pub overflow_amount: f32,
+    pub coverage_ratio: f32,
+    pub pollution_events: u32,
+    pub health_penalty_active: bool,
 }
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {

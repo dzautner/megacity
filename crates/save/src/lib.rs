@@ -15,9 +15,9 @@ use serialization::{
     restore_groundwater_depletion, restore_heat_wave, restore_life_sim_timer,
     restore_lifecycle_timer, restore_loan_book, restore_policies, restore_recycling,
     restore_road_segment_store, restore_stormwater_grid, restore_uhi_grid, restore_unlock_state,
-    restore_virtual_population, restore_water_source, restore_water_treatment, restore_weather,
-    restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
-    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
+    restore_virtual_population, restore_wastewater, restore_water_source, restore_water_treatment,
+    restore_weather, restore_wind_damage_state, u8_to_road_type, u8_to_service_type,
+    u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -49,6 +49,7 @@ use simulation::unlocks::UnlockState;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
+use simulation::wastewater::WastewaterState;
 use simulation::water_sources::WaterSource;
 use simulation::water_treatment::WaterTreatmentState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
@@ -187,6 +188,7 @@ fn handle_save(
             Some(&v2.cold_snap_state),
             Some(&v2.water_treatment_state),
             Some(&v2.groundwater_depletion_state),
+            Some(&v2.wastewater_state),
         );
 
         let bytes = save.encode();
@@ -673,6 +675,13 @@ fn handle_load(
         } else {
             *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
         }
+
+        // Restore wastewater state
+        if let Some(ref ws) = save.wastewater_state {
+            *v2.wastewater_state = restore_wastewater(ws);
+        } else {
+            *v2.wastewater_state = WastewaterState::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -760,6 +769,7 @@ fn handle_new_game(
         *v2.cold_snap_state = ColdSnapState::default();
         *v2.water_treatment_state = WaterTreatmentState::default();
         *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
+        *v2.wastewater_state = WastewaterState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
