@@ -50,10 +50,8 @@ impl TestCity {
         app.insert_resource(SkipWorldInit);
         app.add_plugins(SimulationPlugin);
 
-        // Run one update so Startup systems execute (init_world will no-op).
-        app.update();
-
-        // Now insert the blank world resources that init_world would have created.
+        // Insert blank world resources BEFORE the first update, so that
+        // systems which depend on Res<WorldGrid> etc. don't panic.
         let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
         let (gw_grid, wq_grid) = groundwater::init_groundwater(&grid);
         app.insert_resource(grid);
@@ -62,6 +60,9 @@ impl TestCity {
         app.insert_resource(ResourceGrid::default());
         app.insert_resource(gw_grid);
         app.insert_resource(wq_grid);
+
+        // Run one update so Startup systems execute (init_world will no-op).
+        app.update();
 
         Self { app }
     }
