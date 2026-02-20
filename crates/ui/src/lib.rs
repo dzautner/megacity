@@ -6,6 +6,7 @@ pub mod info_panel;
 pub mod milestones;
 pub mod theme;
 pub mod toolbar;
+pub mod water_dashboard;
 
 pub struct UiPlugin;
 
@@ -20,6 +21,7 @@ impl Plugin for UiPlugin {
             .init_resource::<info_panel::AdvisorVisible>()
             .init_resource::<info_panel::PoliciesVisible>()
             .init_resource::<info_panel::BudgetPanelVisible>()
+            .init_resource::<water_dashboard::WaterDashboardVisible>()
             .add_systems(Startup, theme::apply_cute_theme)
             .add_systems(
                 Update,
@@ -44,6 +46,8 @@ impl Plugin for UiPlugin {
                     info_panel::budget_panel_ui,
                     toolbar::speed_keybinds,
                     info_panel::groundwater_tooltip_ui,
+                    water_dashboard::water_dashboard_ui,
+                    water_dashboard::water_dashboard_keybind,
                 ),
             );
     }
