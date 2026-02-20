@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use std::time::{Duration, Instant};
 
 use crate::buildings::Building;
 use crate::citizen::{
@@ -13,10 +14,13 @@ use crate::roads::RoadNode;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
 
-/// Maximum number of A* pathfinding queries processed per FixedUpdate tick.
-/// At 50K citizens with 120 jitter slots, worst-case ~420 requests/tick.
-/// This cap prevents frame spikes during commute bursts.
-const MAX_PATHS_PER_TICK: usize = 64;
+/// Time budget for pathfinding per tick (native). Processes as many paths as
+/// fit within this duration, naturally handling commute bursts by doing more
+/// work when paths are short/easy.
+const PATH_BUDGET: Duration = Duration::from_millis(2);
+
+/// Fallback count limit for WASM where Instant has poor resolution.
+const MAX_PATHS_PER_TICK_WASM: usize = 256;
 
 const CITIZEN_SPEED: f32 = 48.0; // pixels per second (at 10Hz that's ~4.8 px/tick)
 
@@ -323,16 +327,22 @@ pub fn citizen_state_machine(
     }
 }
 
-/// Batch pathfinding: processes up to MAX_PATHS_PER_TICK path requests per tick.
-/// Citizens with a PathRequest wait until their path is computed.
+/// Batch pathfinding: processes path requests within a time budget (native) or
+/// count limit (WASM). This prevents frame spikes while allowing throughput to
+/// scale with path complexity -- short paths process faster, so more fit per tick.
 pub fn process_path_requests(
     mut commands: Commands,
     grid: Res<WorldGrid>,
     csr: Res<CsrGraph>,
     mut query: Query<(Entity, &PathRequest, &mut PathCache, &mut CitizenStateComp), With<Citizen>>,
 ) {
+    let start = Instant::now();
     for (processed, (entity, request, mut path, mut state)) in query.iter_mut().enumerate() {
-        if processed >= MAX_PATHS_PER_TICK {
+        if cfg!(target_arch = "wasm32") {
+            if processed >= MAX_PATHS_PER_TICK_WASM {
+                break;
+            }
+        } else if start.elapsed() >= PATH_BUDGET {
             break;
         }
 
