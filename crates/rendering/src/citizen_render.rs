@@ -15,6 +15,25 @@ pub enum CitizenMeshKind {
     Car,
 }
 
+/// Fade component for smooth LOD transitions.
+///
+/// When a citizen's LOD tier changes to a visible tier, we start with `alpha = 0.0`
+/// and fade in over `FADE_DURATION` seconds. When transitioning to Abstract (invisible),
+/// we fade out and then despawn the sprite. This avoids popping artifacts without
+/// double-rendering (only one representation exists at a time).
+#[derive(Component)]
+pub struct LodFade {
+    /// Current opacity factor (0.0 = invisible, 1.0 = fully visible)
+    pub alpha: f32,
+    /// Whether we are fading in (true) or fading out (false)
+    pub fading_in: bool,
+    /// Elapsed time for the current fade
+    pub timer: f32,
+}
+
+/// Duration of fade transitions in seconds.
+const FADE_DURATION: f32 = 0.3;
+
 /// Scale for character GLB models (Kenney mini-characters are ~1.5 units tall, already human-sized)
 const CHARACTER_SCALE: f32 = 2.0;
 
@@ -68,9 +87,17 @@ pub fn spawn_citizen_sprites(
             )
         };
 
+        // Start with a fade-in so newly spawned sprites don't pop in
+        let fade = LodFade {
+            alpha: 0.0,
+            fading_in: true,
+            timer: 0.0,
+        };
+
         commands.entity(entity).insert((
             CitizenSprite,
             kind,
+            fade,
             LodTier::default(),
             SceneRoot(scene_handle),
             Transform::from_scale(Vec3::splat(scale)),
@@ -81,6 +108,7 @@ pub fn spawn_citizen_sprites(
 }
 
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn update_citizen_sprites(
     mut query: Query<
         (
@@ -93,6 +121,7 @@ pub fn update_citizen_sprites(
             &mut SceneRoot,
             &mut Transform,
             &mut Visibility,
+            Option<&LodFade>,
         ),
         (
             With<CitizenSprite>,
@@ -105,18 +134,29 @@ pub fn update_citizen_sprites(
     >,
     model_cache: Res<BuildingModelCache>,
 ) {
-    for (entity, pos, vel, state, lod, mut mesh_kind, mut scene_root, mut transform, mut vis) in
-        &mut query
+    for (
+        entity,
+        pos,
+        vel,
+        state,
+        lod,
+        mut mesh_kind,
+        mut scene_root,
+        mut transform,
+        mut vis,
+        fade,
+    ) in &mut query
     {
         match lod {
             LodTier::Abstract => {
-                *vis = Visibility::Hidden;
+                // Don't hide immediately -- let the fade-out system handle it.
+                // If there's no fade component yet (shouldn't happen), hide directly.
+                if fade.is_none() {
+                    *vis = Visibility::Hidden;
+                }
                 continue;
             }
-            LodTier::Simplified => {
-                // Keep scale but reduce it
-            }
-            LodTier::Full => {}
+            LodTier::Simplified | LodTier::Full => {}
         }
 
         let is_commuting = state.0.is_commuting();
@@ -142,7 +182,7 @@ pub fn update_citizen_sprites(
             }
         }
 
-        // Scale based on kind and LOD
+        // Scale based on kind, LOD, and fade alpha
         let base_scale = match desired_kind {
             CitizenMeshKind::Humanoid => CHARACTER_SCALE,
             CitizenMeshKind::Car => VEHICLE_SCALE,
@@ -151,7 +191,8 @@ pub fn update_citizen_sprites(
             LodTier::Simplified => 0.5,
             _ => 1.0,
         };
-        transform.scale = Vec3::splat(base_scale * lod_factor);
+        let fade_factor = fade.map_or(1.0, |f| f.alpha);
+        transform.scale = Vec3::splat(base_scale * lod_factor * fade_factor);
 
         // Position with lane offset: offset perpendicular to travel direction
         // so vehicles on the same road don't stack on top of each other
@@ -191,7 +232,7 @@ pub fn update_citizen_sprites(
             transform.rotation = Quat::from_rotation_y(angle);
         }
 
-        // Visibility
+        // Visibility: hide at-home citizens, otherwise delegate to fade alpha
         *vis = match state.0 {
             CitizenState::CommutingToWork
             | CitizenState::CommutingHome
@@ -201,18 +242,118 @@ pub fn update_citizen_sprites(
             | CitizenState::Working
             | CitizenState::Shopping
             | CitizenState::AtLeisure
-            | CitizenState::AtSchool => Visibility::Visible,
+            | CitizenState::AtSchool => {
+                if fade.is_some_and(|f| f.alpha <= 0.001) {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Visible
+                }
+            }
             CitizenState::AtHome => Visibility::Hidden,
         };
     }
 }
 
-/// Despawn CitizenSprite + SceneRoot when a citizen transitions to Abstract tier.
-/// This prevents 150K-600K unnecessary GLTF child entities from accumulating.
+/// Start a fade-out when a citizen transitions to Abstract tier, and a fade-in
+/// when transitioning to a visible tier.
+#[allow(clippy::type_complexity)]
+pub fn trigger_lod_fade(
+    mut commands: Commands,
+    query: Query<(Entity, &LodTier), (With<CitizenSprite>, Changed<LodTier>)>,
+) {
+    for (entity, lod) in &query {
+        match lod {
+            LodTier::Abstract => {
+                // Start fade-out before despawning
+                commands.entity(entity).insert(LodFade {
+                    alpha: 1.0,
+                    fading_in: false,
+                    timer: 0.0,
+                });
+            }
+            LodTier::Full | LodTier::Simplified => {
+                // Start fade-in for the new tier
+                commands.entity(entity).insert(LodFade {
+                    alpha: 0.0,
+                    fading_in: true,
+                    timer: 0.0,
+                });
+            }
+        }
+    }
+}
+
+/// Advance fade timers each frame. When a fade-in completes, remove the `LodFade`
+/// component so the citizen renders at full opacity. When a fade-out completes,
+/// despawn the sprite components entirely.
+///
+/// The fade alpha is applied as a scale multiplier by `update_citizen_sprites`
+/// (which reads `Option<&LodFade>`). This system ensures the alpha value is
+/// updated every frame so the scale smoothly interpolates even when Position
+/// and CitizenState haven't changed.
+#[allow(clippy::type_complexity)]
+pub fn update_lod_fade(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<
+        (
+            Entity,
+            &mut LodFade,
+            &mut Transform,
+            &LodTier,
+            &CitizenMeshKind,
+        ),
+        With<CitizenSprite>,
+    >,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut fade, mut transform, lod, mesh_kind) in &mut query {
+        fade.timer += dt;
+        let progress = (fade.timer / FADE_DURATION).clamp(0.0, 1.0);
+
+        if fade.fading_in {
+            fade.alpha = progress;
+        } else {
+            fade.alpha = 1.0 - progress;
+        }
+
+        // If fade is complete, clean up
+        if progress >= 1.0 {
+            if fade.fading_in {
+                // Fade-in complete: remove the LodFade component (citizen is fully visible)
+                fade.alpha = 1.0;
+                commands.entity(entity).remove::<LodFade>();
+            } else {
+                // Fade-out complete: despawn the sprite components
+                commands
+                    .entity(entity)
+                    .remove::<(CitizenSprite, CitizenMeshKind, SceneRoot, LodFade)>();
+                continue;
+            }
+        }
+
+        // Apply fade alpha as a scale multiplier so the sprite smoothly grows/shrinks.
+        // This runs every frame to keep the transition smooth even when
+        // update_citizen_sprites doesn't fire (it only triggers on Changed<>).
+        let base_scale = match mesh_kind {
+            CitizenMeshKind::Humanoid => CHARACTER_SCALE,
+            CitizenMeshKind::Car => VEHICLE_SCALE,
+        };
+        let lod_factor = match lod {
+            LodTier::Simplified => 0.5,
+            _ => 1.0,
+        };
+        transform.scale = Vec3::splat(base_scale * lod_factor * fade.alpha);
+    }
+}
+
+/// Despawn CitizenSprite + SceneRoot when a citizen transitions to Abstract tier
+/// AND has no active fade-out (i.e., the fade already completed or was never started).
+/// Citizens with an active LodFade are handled by update_lod_fade when the fade completes.
 #[allow(clippy::type_complexity)]
 pub fn despawn_abstract_sprites(
     mut commands: Commands,
-    query: Query<(Entity, &LodTier), (With<CitizenSprite>, Changed<LodTier>)>,
+    query: Query<(Entity, &LodTier), (With<CitizenSprite>, Changed<LodTier>, Without<LodFade>)>,
 ) {
     for (entity, lod) in &query {
         if *lod == LodTier::Abstract {

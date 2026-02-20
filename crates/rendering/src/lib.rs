@@ -104,12 +104,19 @@ impl Plugin for RenderingPlugin {
                     building_render::update_construction_visuals,
                     building_render::cleanup_orphan_building_meshes
                         .run_if(on_timer(std::time::Duration::from_secs(1))),
-                    citizen_render::spawn_citizen_sprites,
-                    citizen_render::update_citizen_sprites,
-                    citizen_render::despawn_abstract_sprites,
                     props::spawn_tree_props,
                     props::spawn_road_props,
                     props::spawn_parked_cars,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    citizen_render::spawn_citizen_sprites,
+                    citizen_render::trigger_lod_fade,
+                    citizen_render::update_citizen_sprites,
+                    citizen_render::update_lod_fade,
+                    citizen_render::despawn_abstract_sprites,
                 ),
             )
             .add_systems(
