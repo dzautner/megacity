@@ -4,6 +4,7 @@ use bevy_egui::EguiPlugin;
 pub mod graphs;
 pub mod info_panel;
 pub mod milestones;
+pub mod progressive_disclosure;
 pub mod road_segment_info;
 pub mod theme;
 pub mod toolbar;
@@ -17,6 +18,7 @@ impl Plugin for UiPlugin {
         app.add_plugins(EguiPlugin)
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
+            .add_plugins(progressive_disclosure::ProgressiveDisclosurePlugin)
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
             .init_resource::<toolbar::OpenCategory>()
@@ -34,7 +36,6 @@ impl Plugin for UiPlugin {
                     graphs::record_history,
                     toolbar::toolbar_ui,
                     info_panel::info_panel_ui,
-                    info_panel::building_inspection_ui,
                 ),
             )
             .add_systems(
