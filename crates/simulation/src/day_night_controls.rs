@@ -18,20 +18,15 @@ use crate::Saveable;
 // =============================================================================
 
 /// Controls the speed of the visual day/night cycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, bitcode::Encode, bitcode::Decode)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, bitcode::Encode, bitcode::Decode)]
 pub enum CycleSpeed {
     /// Normal cycle speed (follows game clock 1:1).
+    #[default]
     Normal,
     /// Fast cycle speed (visual hour advances at 2x game clock rate).
     Fast,
     /// Visual cycle is disabled; hour stays fixed (equivalent to lock at current hour).
     Disabled,
-}
-
-impl Default for CycleSpeed {
-    fn default() -> Self {
-        CycleSpeed::Normal
-    }
 }
 
 // =============================================================================
