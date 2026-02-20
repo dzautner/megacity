@@ -8,6 +8,9 @@
 //!
 //! Supports both continuous (color ramp) and binary (on/off) overlay types.
 //! Respects colorblind palette adjustments.
+//!
+//! The Wind overlay uses gizmo streamlines (directional arrows) rather than
+//! a color ramp, so it shows a simple informational label instead.
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
@@ -79,6 +82,8 @@ enum LegendKind {
         on_label: &'static str,
         off_label: &'static str,
     },
+    /// Directional overlay with informational description (no color ramp).
+    Directional { description: &'static str },
 }
 
 fn legend_for_mode(
@@ -185,6 +190,12 @@ fn legend_for_mode(
                 ramp: &GROUNDWATER_QUALITY,
                 min_label: "Contaminated",
                 max_label: "Clean",
+            },
+        )),
+        OverlayMode::Wind => Some((
+            "Wind",
+            LegendKind::Directional {
+                description: "Arrows show wind direction and speed",
             },
         )),
     }
@@ -351,6 +362,42 @@ fn overlay_legend_ui(
                         });
                 });
         }
+        LegendKind::Directional { description } => {
+            // Clear any cached gradient texture
+            if cache.cached_mode != Some(mode) || cache.cached_cb_mode != Some(cb_mode) {
+                cache.texture = None;
+                cache.cached_mode = Some(mode);
+                cache.cached_cb_mode = Some(cb_mode);
+            }
+
+            let panel_height = 60.0;
+            let pos = egui::pos2(MARGIN, screen.max.y - panel_height - MARGIN);
+
+            egui::Area::new(egui::Id::new("overlay_legend"))
+                .fixed_pos(pos)
+                .order(egui::Order::Foreground)
+                .show(ctx, |ui| {
+                    egui::Frame::new()
+                        .fill(egui::Color32::from_rgba_unmultiplied(35, 37, 48, 220))
+                        .corner_radius(egui::CornerRadius::same(6))
+                        .inner_margin(egui::Margin::same(8))
+                        .show(ui, |ui| {
+                            // Overlay name
+                            ui.label(
+                                egui::RichText::new(name)
+                                    .strong()
+                                    .size(13.0)
+                                    .color(egui::Color32::WHITE),
+                            );
+                            ui.add_space(4.0);
+                            ui.label(
+                                egui::RichText::new(description)
+                                    .size(11.0)
+                                    .color(egui::Color32::LIGHT_GRAY),
+                            );
+                        });
+                });
+        }
     }
 }
 
@@ -428,6 +475,7 @@ mod tests {
             OverlayMode::WaterPollution,
             OverlayMode::GroundwaterLevel,
             OverlayMode::GroundwaterQuality,
+            OverlayMode::Wind,
         ];
         for mode in modes {
             let result = legend_for_mode(mode, ColorblindMode::Normal);
@@ -462,6 +510,13 @@ mod tests {
             assert_eq!(name, "Traffic");
             assert!(matches!(kind, LegendKind::Continuous { .. }));
         }
+    }
+
+    #[test]
+    fn wind_overlay_returns_directional_legend() {
+        let (name, kind) = legend_for_mode(OverlayMode::Wind, ColorblindMode::Normal).unwrap();
+        assert_eq!(name, "Wind");
+        assert!(matches!(kind, LegendKind::Directional { .. }));
     }
 
     #[test]
