@@ -73,6 +73,19 @@ fn segment_traffic_info(
     (congestion, max_density)
 }
 
+/// Returns the visual half-width of a road type (matching road_render.rs values).
+fn road_half_width(rt: simulation::grid::RoadType) -> f32 {
+    use simulation::grid::RoadType;
+    match rt {
+        RoadType::Path => 1.5,
+        RoadType::OneWay => 3.0,
+        RoadType::Local => 4.0,
+        RoadType::Avenue => 6.0,
+        RoadType::Boulevard => 8.0,
+        RoadType::Highway => 10.0,
+    }
+}
+
 /// System that draws animated traffic flow arrows on road segments when the
 /// traffic overlay is active.
 #[allow(clippy::too_many_arguments)]
@@ -163,8 +176,8 @@ pub fn draw_traffic_flow_arrows(
                 continue;
             }
 
-            // Arrow dimensions scale slightly with road type half-width
-            let road_hw = segment.road_type.half_width();
+            // Arrow dimensions scale slightly with road type width
+            let road_hw = road_half_width(segment.road_type);
             let arrow_scale = (road_hw / 10.0).clamp(0.5, 1.5);
 
             let arrow_len = 3.5 * arrow_scale;
