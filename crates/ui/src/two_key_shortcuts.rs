@@ -780,7 +780,7 @@ fn two_key_popup_ui(state: Res<TwoKeyShortcutState>, mut contexts: EguiContexts)
         .show(contexts.ctx_mut(), |ui| {
             egui::Frame::popup(ui.style())
                 .fill(egui::Color32::from_rgba_premultiplied(30, 30, 40, 240))
-                .rounding(8.0)
+                .corner_radius(8.0)
                 .inner_margin(12.0)
                 .show(ui, |ui| {
                     ui.set_min_width(240.0);
