@@ -5,6 +5,7 @@
 use simulation::grid::{RoadType, ZoneType};
 use simulation::policies::Policy;
 use simulation::recycling::RecyclingTier;
+use simulation::reservoir::ReservoirWarningTier;
 use simulation::services::ServiceType;
 use simulation::unlocks::UnlockNode;
 use simulation::utilities::UtilityType;
@@ -598,5 +599,24 @@ pub fn u8_to_landfill_warning_tier(v: u8) -> simulation::landfill_warning::Landf
         3 => LandfillWarningTier::VeryLow,
         4 => LandfillWarningTier::Emergency,
         _ => LandfillWarningTier::Normal, // fallback
+    }
+}
+
+pub fn reservoir_warning_tier_to_u8(tier: ReservoirWarningTier) -> u8 {
+    match tier {
+        ReservoirWarningTier::Normal => 0,
+        ReservoirWarningTier::Watch => 1,
+        ReservoirWarningTier::Warning => 2,
+        ReservoirWarningTier::Critical => 3,
+    }
+}
+
+pub fn u8_to_reservoir_warning_tier(val: u8) -> ReservoirWarningTier {
+    match val {
+        0 => ReservoirWarningTier::Normal,
+        1 => ReservoirWarningTier::Watch,
+        2 => ReservoirWarningTier::Warning,
+        3 => ReservoirWarningTier::Critical,
+        _ => ReservoirWarningTier::Normal,
     }
 }

@@ -19,6 +19,7 @@ use simulation::life_simulation::LifeSimTimer;
 use simulation::loans::LoanBook;
 use simulation::policies::Policies;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
+use simulation::reservoir::ReservoirState;
 use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
@@ -58,6 +59,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub storm_drainage_state: Res<'w, StormDrainageState>,
     pub landfill_capacity_state: Res<'w, LandfillCapacityState>,
     pub flood_state: Res<'w, FloodState>,
+    pub reservoir_state: Res<'w, ReservoirState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -90,4 +92,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub landfill_capacity_state: ResMut<'w, LandfillCapacityState>,
     pub flood_state: ResMut<'w, FloodState>,
     pub flood_grid: ResMut<'w, FloodGrid>,
+    pub reservoir_state: ResMut<'w, ReservoirState>,
 }

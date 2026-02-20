@@ -160,6 +160,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.flood_state = None;
         save.version = 23;
     }
+    // v23 -> v24: Added reservoir_state (ReservoirState serialization for reservoir water level tracking).
+    // Uses `#[serde(default)]` so it deserializes as None from a v23 save.
+    if save.version == 23 {
+        save.reservoir_state = None;
+        save.version = 24;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

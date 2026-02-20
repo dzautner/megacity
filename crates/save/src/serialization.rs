@@ -22,6 +22,7 @@ use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
 use simulation::policies::Policies;
+use simulation::reservoir::ReservoirState;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
@@ -83,6 +84,7 @@ pub fn create_save_data(
     storm_drainage_state: Option<&StormDrainageState>,
     landfill_capacity_state: Option<&LandfillCapacityState>,
     flood_state: Option<&FloodState>,
+    reservoir_state: Option<&ReservoirState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -518,6 +520,18 @@ pub fn create_save_data(
             total_damage: fs.total_damage,
             max_depth: fs.max_depth,
         }),
+        reservoir_state: reservoir_state.map(|rs| SaveReservoirState {
+            total_storage_capacity_mg: rs.total_storage_capacity_mg,
+            current_level_mg: rs.current_level_mg,
+            inflow_rate_mgd: rs.inflow_rate_mgd,
+            outflow_rate_mgd: rs.outflow_rate_mgd,
+            evaporation_rate_mgd: rs.evaporation_rate_mgd,
+            net_change_mgd: rs.net_change_mgd,
+            storage_days: rs.storage_days,
+            reservoir_count: rs.reservoir_count,
+            warning_tier: reservoir_warning_tier_to_u8(rs.warning_tier),
+            min_reserve_pct: rs.min_reserve_pct,
+        }),
     }
 }
 
@@ -601,6 +615,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -648,6 +663,7 @@ mod tests {
         assert!(restored.storm_drainage_state.is_none());
         assert!(restored.landfill_capacity_state.is_none());
         assert!(restored.flood_state.is_none());
+        assert!(restored.reservoir_state.is_none());
     }
 
     #[test]
@@ -967,6 +983,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1057,6 +1074,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1088,6 +1106,7 @@ mod tests {
         assert!(restored.storm_drainage_state.is_none());
         assert!(restored.landfill_capacity_state.is_none());
         assert!(restored.flood_state.is_none());
+        assert!(restored.reservoir_state.is_none());
     }
 
     #[test]
@@ -1158,6 +1177,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1182,6 +1202,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1265,6 +1286,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1292,6 +1314,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1374,6 +1397,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1401,6 +1425,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1573,6 +1598,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1615,6 +1641,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1761,6 +1788,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1827,6 +1855,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1853,6 +1882,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1958,6 +1988,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2110,6 +2141,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2137,6 +2169,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2197,6 +2230,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2286,6 +2320,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2325,6 +2360,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2452,6 +2488,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2518,6 +2555,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2539,6 +2577,7 @@ mod tests {
         assert!(restored.storm_drainage_state.is_none());
         assert!(restored.landfill_capacity_state.is_none());
         assert!(restored.flood_state.is_none());
+        assert!(restored.reservoir_state.is_none());
     }
 
     #[test]
@@ -2569,6 +2608,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

@@ -13,6 +13,7 @@ use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
 use simulation::policies::Policies;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
+use simulation::reservoir::ReservoirState;
 use simulation::road_segments::{
     RoadSegment, RoadSegmentStore, SegmentId, SegmentNode, SegmentNodeId,
 };
@@ -466,6 +467,22 @@ pub fn restore_flood_state(save: &SaveFloodState) -> FloodState {
         total_flooded_cells: save.total_flooded_cells,
         total_damage: save.total_damage,
         max_depth: save.max_depth,
+    }
+}
+
+/// Restore a `ReservoirState` resource from saved data.
+pub fn restore_reservoir_state(save: &SaveReservoirState) -> ReservoirState {
+    ReservoirState {
+        total_storage_capacity_mg: save.total_storage_capacity_mg,
+        current_level_mg: save.current_level_mg,
+        inflow_rate_mgd: save.inflow_rate_mgd,
+        outflow_rate_mgd: save.outflow_rate_mgd,
+        evaporation_rate_mgd: save.evaporation_rate_mgd,
+        net_change_mgd: save.net_change_mgd,
+        storage_days: save.storage_days,
+        reservoir_count: save.reservoir_count,
+        warning_tier: u8_to_reservoir_warning_tier(save.warning_tier),
+        min_reserve_pct: save.min_reserve_pct,
     }
 }
 
