@@ -4,6 +4,7 @@ use simulation::config::CELL_SIZE;
 use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::services::ServiceBuilding;
 
+use crate::angle_snap::AngleSnapState;
 use crate::input::{ActiveTool, CursorGridPos, DrawPhase, RoadDrawState};
 
 /// Marker for the cursor ghost preview entity
@@ -144,6 +145,7 @@ pub fn draw_bezier_preview(
     draw_state: Res<RoadDrawState>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
+    angle_snap: Res<AngleSnapState>,
     mut gizmos: Gizmos,
 ) {
     if draw_state.phase != DrawPhase::PlacedStart || !cursor.valid {
@@ -165,7 +167,11 @@ pub fn draw_bezier_preview(
     }
 
     let start = draw_state.start_pos;
-    let end = cursor.world_pos;
+    let end = if angle_snap.active {
+        angle_snap.snapped_pos
+    } else {
+        cursor.world_pos
+    };
 
     // Draw preview as a series of line segments
     let segments = 32;
