@@ -7,7 +7,7 @@
 //!
 //! These settings only affect the *visual* rendering of the day/night cycle.
 //! The simulation's `GameClock` continues to tick normally regardless of these settings.
-//! Settings persist across saves via the `Saveable` trait.
+//! Settings persist across saves via the `Saveable` trait (bitcode serialization).
 
 use bevy::prelude::*;
 
