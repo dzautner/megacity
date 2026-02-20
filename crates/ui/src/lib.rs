@@ -12,6 +12,7 @@ pub mod localization;
 pub mod milestones;
 pub mod multi_select;
 pub mod oneway_ui;
+pub mod overlay_legend;
 pub mod progressive_disclosure;
 pub mod road_segment_info;
 pub mod search;
@@ -41,6 +42,7 @@ impl Plugin for UiPlugin {
             .add_plugins(settings_panel::SettingsPanelPlugin)
             .add_plugins(advisor_tips::AdvisorTipsPlugin)
             .add_plugins(search::SearchPlugin)
+            .add_plugins(overlay_legend::OverlayLegendPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
