@@ -44,10 +44,19 @@ pub fn refresh_destination_cache(
     services: Query<&ServiceBuilding>,
     added_buildings: Query<Entity, Added<Building>>,
     added_services: Query<Entity, Added<ServiceBuilding>>,
+    mut removed_buildings: RemovedComponents<Building>,
+    mut removed_services: RemovedComponents<ServiceBuilding>,
     mut cache: ResMut<DestinationCache>,
 ) {
-    // Only rebuild when entities were added (or on first run when cache is empty)
-    if cache.shops.is_empty() || !added_buildings.is_empty() || !added_services.is_empty() {
+    let has_removals =
+        removed_buildings.read().next().is_some() || removed_services.read().next().is_some();
+
+    // Rebuild when entities are added, removed, or on first run when cache is empty
+    if cache.shops.is_empty()
+        || !added_buildings.is_empty()
+        || !added_services.is_empty()
+        || has_removals
+    {
         cache.shops = buildings
             .iter()
             .filter(|b| b.zone_type.is_commercial() || b.zone_type.is_mixed_use())
