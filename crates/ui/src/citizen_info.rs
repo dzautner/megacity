@@ -235,10 +235,8 @@ pub fn detect_citizen_selection(
         let dx = pos.x - world_x;
         let dy = pos.y - world_y;
         let dist_sq = dx * dx + dy * dy;
-        if dist_sq < radius_sq {
-            if best.is_none() || dist_sq < best.unwrap().1 {
-                best = Some((entity, dist_sq));
-            }
+        if dist_sq < radius_sq && (best.is_none() || dist_sq < best.unwrap().1) {
+            best = Some((entity, dist_sq));
         }
     }
 
