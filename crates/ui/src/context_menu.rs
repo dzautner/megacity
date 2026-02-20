@@ -2,8 +2,9 @@
 //!
 //! Right-click release (without drag, < 5px movement) shows a context menu
 //! for the entity under the cursor. Menu items vary by entity type:
-//! - **Building**: Inspect, Bulldoze, Upgrade, Set Policy
-//! - **Road**: Inspect, Upgrade, Bulldoze, One-Way
+//! - **Building**: Inspect, Bulldoze
+//! - **Service Building**: Inspect, Bulldoze
+//! - **Road**: Inspect, Bulldoze, Toggle One-Way
 //! - **Citizen**: Follow, Details
 //! - **Empty**: Zone, Place Service
 //!
@@ -75,12 +76,11 @@ pub struct ContextMenuState {
 
 /// Action selected from the context menu, consumed by the action system.
 #[derive(Debug, Clone)]
-pub enum ContextMenuAction {
+enum ContextMenuAction {
     Inspect,
     Bulldoze,
     SetToolZone(ZoneType),
     SetToolPlaceService,
-    SetToolUpgradeRoad,
     ToggleOneWay(SegmentId),
     FollowCitizen(Entity),
     CitizenDetails(Entity),
@@ -96,7 +96,7 @@ struct PendingAction(Option<ContextMenuAction>);
 
 /// Detect right-click release (without drag) and open the context menu.
 #[allow(clippy::too_many_arguments)]
-pub fn detect_right_click_context_menu(
+fn detect_right_click_context_menu(
     right_click: Res<RightClickDrag>,
     cursor: Res<CursorGridPos>,
     windows: Query<&Window>,
@@ -217,7 +217,7 @@ pub fn detect_right_click_context_menu(
 }
 
 /// Render the context menu using egui.
-pub fn context_menu_ui(
+fn context_menu_ui(
     mut contexts: EguiContexts,
     mut state: ResMut<ContextMenuState>,
     mut pending: ResMut<PendingAction>,
@@ -252,10 +252,7 @@ pub fn context_menu_ui(
 
                 match &target {
                     ContextTarget::Building {
-                        entity,
-                        zone_type,
-                        level,
-                        ..
+                        zone_type, level, ..
                     } => {
                         ui.label(
                             egui::RichText::new(format!("{} (L{})", zone_label(*zone_type), level))
@@ -271,8 +268,6 @@ pub fn context_menu_ui(
                             pending.0 = Some(ContextMenuAction::Bulldoze);
                             close = true;
                         }
-
-                        let _ = entity; // entity used via Inspect/Bulldoze targeting
                     }
                     ContextTarget::Service { name, .. } => {
                         ui.label(egui::RichText::new(name.as_str()).strong());
@@ -343,7 +338,6 @@ pub fn context_menu_ui(
         });
 
     // Close on click outside: check if mouse is pressed and not over the menu
-    // egui handles this via the area's response, but we also close if left-click happens
     let ctx = contexts.ctx_mut();
     if ctx.input(|i| i.pointer.any_pressed()) && !ctx.is_pointer_over_area() {
         close = true;
@@ -357,7 +351,7 @@ pub fn context_menu_ui(
 
 /// Execute the chosen context menu action.
 #[allow(clippy::too_many_arguments)]
-pub fn execute_context_menu_action(
+fn execute_context_menu_action(
     mut pending: ResMut<PendingAction>,
     mut tool: ResMut<ActiveTool>,
     mut selected_building: ResMut<SelectedBuilding>,
@@ -375,14 +369,11 @@ pub fn execute_context_menu_action(
         ContextMenuAction::Inspect => {
             *tool = ActiveTool::Inspect;
             // If context was on a building/service, select it
-            if let Some(target) = &state.target {
-                match target {
-                    ContextTarget::Building { entity, .. }
-                    | ContextTarget::Service { entity, .. } => {
-                        selected_building.0 = Some(*entity);
-                    }
-                    _ => {}
-                }
+            if let Some(
+                ContextTarget::Building { entity, .. } | ContextTarget::Service { entity, .. },
+            ) = &state.target
+            {
+                selected_building.0 = Some(*entity);
             }
         }
         ContextMenuAction::Bulldoze => {
@@ -406,9 +397,6 @@ pub fn execute_context_menu_action(
         ContextMenuAction::SetToolPlaceService => {
             *tool = ActiveTool::PlaceFireStation;
             status.set("Place Service tool selected — choose from toolbar", false);
-        }
-        ContextMenuAction::SetToolUpgradeRoad => {
-            status.set("Road upgrade not yet available", false);
         }
         ContextMenuAction::ToggleOneWay(seg_id) => {
             toggle_events.send(ToggleOneWayEvent { segment_id: seg_id });
