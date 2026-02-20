@@ -387,3 +387,23 @@ pub fn restore_water_treatment(
         disease_risk: save.disease_risk,
     }
 }
+
+/// Restore a `GroundwaterDepletionState` resource from saved data.
+pub fn restore_groundwater_depletion(
+    save: &crate::save_types::SaveGroundwaterDepletionState,
+) -> simulation::groundwater_depletion::GroundwaterDepletionState {
+    simulation::groundwater_depletion::GroundwaterDepletionState {
+        extraction_rate: save.extraction_rate,
+        recharge_rate: save.recharge_rate,
+        sustainability_ratio: save.sustainability_ratio,
+        critical_depletion: save.critical_depletion,
+        subsidence_cells: save.subsidence_cells,
+        well_yield_modifier: save.well_yield_modifier,
+        ticks_below_threshold: save.ticks_below_threshold.clone(),
+        previous_levels: save.previous_levels.clone(),
+        recharge_basin_count: save.recharge_basin_count,
+        avg_groundwater_level: save.avg_groundwater_level,
+        cells_at_risk: save.cells_at_risk,
+        over_extracted_cells: save.over_extracted_cells,
+    }
+}

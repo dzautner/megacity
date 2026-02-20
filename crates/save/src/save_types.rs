@@ -29,7 +29,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v15 = composting_state (CompostingState serialization for composting facilities)
 /// v16 = cold_snap_state (ColdSnapState serialization for cold snap effects)
 /// v17 = water_treatment_state (WaterTreatmentState serialization for water treatment plants)
-pub const CURRENT_SAVE_VERSION: u32 = 17;
+/// v18 = groundwater_depletion_state (GroundwaterDepletionState serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 18;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -122,6 +123,8 @@ pub struct SaveData {
     pub cold_snap_state: Option<SaveColdSnapState>,
     #[serde(default)]
     pub water_treatment_state: Option<SaveWaterTreatmentState>,
+    #[serde(default)]
+    pub groundwater_depletion_state: Option<SaveGroundwaterDepletionState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -548,6 +551,21 @@ pub struct SaveWaterTreatmentState {
     pub disease_risk: f32,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveGroundwaterDepletionState {
+    pub extraction_rate: f32,
+    pub recharge_rate: f32,
+    pub sustainability_ratio: f32,
+    pub critical_depletion: bool,
+    pub subsidence_cells: u32,
+    pub well_yield_modifier: f32,
+    pub ticks_below_threshold: Vec<u16>,
+    pub previous_levels: Vec<u8>,
+    pub recharge_basin_count: u32,
+    pub avg_groundwater_level: f32,
+    pub cells_at_risk: u32,
+    pub over_extracted_cells: u32,
+}
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {
         bitcode::encode(self)
