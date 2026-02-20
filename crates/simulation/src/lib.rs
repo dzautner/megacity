@@ -53,6 +53,7 @@ pub mod lod;
 pub mod market;
 pub mod movement;
 pub mod natural_resources;
+pub mod neighborhood_quality;
 pub mod nimby;
 pub mod noise;
 pub mod outside_connections;
@@ -274,6 +275,7 @@ impl Plugin for SimulationPlugin {
             land_value::LandValuePlugin,
             garbage::GarbagePlugin,
             districts::DistrictsPlugin,
+            neighborhood_quality::NeighborhoodQualityPlugin,
             lifecycle::LifecyclePlugin,
             building_upgrade::BuildingUpgradePlugin,
             imports_exports::ImportsExportsPlugin,
