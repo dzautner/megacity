@@ -1,18 +1,21 @@
 use bevy::pbr::{DistanceFog, FogFalloff};
 use bevy::prelude::*;
+use simulation::day_night_controls::DayNightControls;
 use simulation::fog::FogState;
-use simulation::time_of_day::GameClock;
 use std::f32::consts::PI;
 
 /// Updates the directional light (sun), its transform, and the ambient light
 /// based on the current game hour to create a day/night cycle.
+///
+/// Uses `DayNightControls::effective_hour()` so that time-lock and cycle-speed
+/// settings are respected.
 pub fn update_day_night_cycle(
-    clock: Res<GameClock>,
+    controls: Res<DayNightControls>,
     mut sun_query: Query<&mut DirectionalLight>,
     mut sun_transform_query: Query<&mut Transform, With<DirectionalLight>>,
     mut ambient: ResMut<AmbientLight>,
 ) {
-    let hour = clock.hour;
+    let hour = controls.effective_hour();
 
     // --- Sun illuminance and color ---
     let (sun_illuminance, sun_color) = sun_light_for_hour(hour);
