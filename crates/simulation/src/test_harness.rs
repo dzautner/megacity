@@ -299,13 +299,12 @@ impl TestCity {
 
     /// Run N fixed-update ticks.
     ///
-    /// Each tick advances virtual time by the FixedUpdate timestep (default
-    /// 1/64s in Bevy) and calls `app.update()`. This ensures `FixedUpdate`
-    /// systems actually fire in headless mode where no real wall-clock time
-    /// passes between updates.
+    /// The simulation runs at 10 Hz (100ms per tick). Each call advances
+    /// virtual time by 100ms and calls `app.update()`, which triggers the
+    /// `FixedUpdate` schedule.
     pub fn tick(&mut self, n: u32) {
-        // Bevy's default fixed timestep is 1/64 second.
-        let dt = std::time::Duration::from_secs_f64(1.0 / 64.0);
+        // The game uses a 100ms fixed timestep (10 Hz).
+        let dt = std::time::Duration::from_millis(100);
         for _ in 0..n {
             self.app
                 .world_mut()
