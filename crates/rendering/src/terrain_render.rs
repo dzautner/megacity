@@ -5,6 +5,7 @@ use simulation::config::{CELL_SIZE, CHUNKS_X, CHUNKS_Y, CHUNK_SIZE, GRID_HEIGHT,
 use simulation::education::EducationGrid;
 use simulation::garbage::GarbageGrid;
 use simulation::grid::{CellType, RoadType, WorldGrid, ZoneType};
+use simulation::groundwater::{GroundwaterGrid, WaterQualityGrid};
 use simulation::land_value::LandValueGrid;
 use simulation::noise::NoisePollutionGrid;
 use simulation::pollution::PollutionGrid;
@@ -14,7 +15,7 @@ use simulation::traffic::TrafficGrid;
 use simulation::water_pollution::WaterPollutionGrid;
 use simulation::weather::{Season, Weather};
 
-use crate::color_ramps::{self, CIVIDIS, INFERNO, VIRIDIS};
+use crate::color_ramps::{self, CIVIDIS, GROUNDWATER_LEVEL, GROUNDWATER_QUALITY, INFERNO, VIRIDIS};
 use crate::overlay::OverlayMode;
 
 pub struct OverlayGrids<'a> {
@@ -25,6 +26,8 @@ pub struct OverlayGrids<'a> {
     pub traffic: Option<&'a TrafficGrid>,
     pub noise: Option<&'a NoisePollutionGrid>,
     pub water_pollution: Option<&'a WaterPollutionGrid>,
+    pub groundwater: Option<&'a GroundwaterGrid>,
+    pub water_quality: Option<&'a WaterQualityGrid>,
 }
 
 impl<'a> OverlayGrids<'a> {
@@ -37,6 +40,8 @@ impl<'a> OverlayGrids<'a> {
             traffic: None,
             noise: None,
             water_pollution: None,
+            groundwater: None,
+            water_quality: None,
         }
     }
 }
@@ -102,6 +107,8 @@ pub fn dirty_chunks_on_overlay_change(
     traffic_grid: Res<TrafficGrid>,
     noise_grid: Res<NoisePollutionGrid>,
     water_pollution_grid: Res<WaterPollutionGrid>,
+    groundwater_grid: Res<GroundwaterGrid>,
+    water_quality_grid: Res<WaterQualityGrid>,
     weather: Res<Weather>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
@@ -124,6 +131,8 @@ pub fn dirty_chunks_on_overlay_change(
         OverlayMode::Traffic => traffic_grid.is_changed(),
         OverlayMode::Noise => noise_grid.is_changed(),
         OverlayMode::WaterPollution => water_pollution_grid.is_changed(),
+        OverlayMode::GroundwaterLevel => groundwater_grid.is_changed(),
+        OverlayMode::GroundwaterQuality => water_quality_grid.is_changed(),
     };
 
     if data_changed {
@@ -145,6 +154,8 @@ pub fn rebuild_dirty_chunks(
     traffic_grid: Res<TrafficGrid>,
     noise_grid: Res<NoisePollutionGrid>,
     water_pollution_grid: Res<WaterPollutionGrid>,
+    groundwater_grid: Res<GroundwaterGrid>,
+    water_quality_grid: Res<WaterQualityGrid>,
     weather: Res<Weather>,
     mut meshes: ResMut<Assets<Mesh>>,
     query: Query<(Entity, &TerrainChunk, &Mesh3d), With<ChunkDirty>>,
@@ -157,6 +168,8 @@ pub fn rebuild_dirty_chunks(
         traffic: Some(&traffic_grid),
         noise: Some(&noise_grid),
         water_pollution: Some(&water_pollution_grid),
+        groundwater: Some(&groundwater_grid),
+        water_quality: Some(&water_quality_grid),
     };
     for (entity, chunk, mesh_handle) in &query {
         let new_mesh = build_chunk_mesh(
@@ -454,6 +467,38 @@ fn apply_overlay(
                 } else {
                     color_ramps::darken(base, 0.7)
                 }
+            } else {
+                color_ramps::darken(base, 0.8)
+            }
+        }
+        OverlayMode::GroundwaterLevel => {
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
+            if let Some(gw) = grids.groundwater {
+                let level = gw.get(gx, gy);
+                let t = level as f32 / 255.0;
+                let color = color_ramps::overlay_continuous(&GROUNDWATER_LEVEL, t);
+                // Depletion warning: cells with level < 30% (~76) get a pulsing highlight
+                if level < 76 {
+                    // Blend toward warning orange for depleted cells
+                    let warning_intensity = (1.0 - level as f32 / 76.0) * 0.3;
+                    color_ramps::blend_tint(color, Color::srgba(1.0, 0.6, 0.0, warning_intensity))
+                } else {
+                    color
+                }
+            } else {
+                color_ramps::darken(base, 0.8)
+            }
+        }
+        OverlayMode::GroundwaterQuality => {
+            if cell.cell_type == CellType::Water {
+                return base;
+            }
+            if let Some(wq) = grids.water_quality {
+                let quality = wq.get(gx, gy);
+                let t = quality as f32 / 255.0;
+                color_ramps::overlay_continuous(&GROUNDWATER_QUALITY, t)
             } else {
                 color_ramps::darken(base, 0.8)
             }

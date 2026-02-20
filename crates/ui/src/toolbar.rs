@@ -652,6 +652,20 @@ fn build_categories() -> Vec<ToolCategory> {
                     cost: None,
                     overlay: Some(OverlayMode::WaterPollution),
                 },
+                ToolItem {
+                    tool: None,
+                    icon: "GL",
+                    name: "GW Level",
+                    cost: None,
+                    overlay: Some(OverlayMode::GroundwaterLevel),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "GQ",
+                    name: "GW Quality",
+                    cost: None,
+                    overlay: Some(OverlayMode::GroundwaterQuality),
+                },
             ],
         },
         ToolCategory {
