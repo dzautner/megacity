@@ -813,7 +813,12 @@ fn spawn_tel_aviv_citizens(
     let mut work_idx = 0usize;
     let mut work_occupancy: Vec<u32> = vec![0; work_buildings.len()];
     let mut citizen_count = 0u32;
-    let target_pop = 10_000u32;
+    // Reduce citizen count on WASM to prevent WebGL2 OOM/context loss
+    let target_pop: u32 = if cfg!(target_arch = "wasm32") {
+        2_000
+    } else {
+        10_000
+    };
     let mut age_counter = 0u8;
 
     for (home_entity, hx, hy, cap) in &residential_buildings {

@@ -163,13 +163,22 @@ pub fn assign_lod_tiers(
     mut citizens: Query<(Entity, &Position, &mut LodTier), With<Citizen>>,
 ) {
     // Expanded viewport for tier boundaries
-    let margin = 500.0;
+    // Use tighter margins on WASM to reduce draw calls and memory pressure
+    let margin = if cfg!(target_arch = "wasm32") {
+        200.0
+    } else {
+        500.0
+    };
     let full_min_x = bounds.min_x - margin;
     let full_max_x = bounds.max_x + margin;
     let full_min_y = bounds.min_y - margin;
     let full_max_y = bounds.max_y + margin;
 
-    let simplified_margin = 1500.0;
+    let simplified_margin = if cfg!(target_arch = "wasm32") {
+        600.0
+    } else {
+        1500.0
+    };
 
     for (_entity, pos, mut tier) in &mut citizens {
         let _in_viewport = pos.x >= bounds.min_x
