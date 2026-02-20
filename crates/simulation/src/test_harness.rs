@@ -21,6 +21,7 @@ use crate::road_segments::RoadSegmentStore;
 use crate::roads::{RoadNetwork, RoadNode};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
+use crate::tutorial::TutorialState;
 use crate::utilities::{UtilitySource, UtilityType};
 use crate::weather::Weather;
 use crate::world_init::SkipWorldInit;
@@ -48,6 +49,12 @@ impl TestCity {
 
         // Insert the marker BEFORE SimulationPlugin so init_world skips.
         app.insert_resource(SkipWorldInit);
+        // Skip the tutorial so it doesn't pause the GameClock on first update.
+        app.insert_resource(TutorialState {
+            completed: true,
+            active: false,
+            ..Default::default()
+        });
         app.add_plugins(SimulationPlugin);
 
         // Insert blank world resources BEFORE the first update, so that
@@ -72,6 +79,12 @@ impl TestCity {
     pub fn with_tel_aviv() -> Self {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
+        // Skip the tutorial so it doesn't pause the GameClock on first update.
+        app.insert_resource(TutorialState {
+            completed: true,
+            active: false,
+            ..Default::default()
+        });
         app.add_plugins(SimulationPlugin);
         // Run one update so Startup systems execute (init_world runs fully).
         app.update();
