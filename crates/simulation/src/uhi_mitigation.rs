@@ -16,6 +16,7 @@
 //! UHI calculation runs.
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
@@ -91,7 +92,7 @@ pub const DISTRICT_COOLING_COST: f64 = 50_000.0;
 /// as boolean grids. Building-level mitigations (green roofs, cool roofs) are
 /// stored as counts. Point mitigations (water features, district cooling) are
 /// stored as coordinate lists.
-#[derive(Resource, Clone, Debug, Serialize, Deserialize)]
+#[derive(Resource, Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct UhiMitigationState {
     // --- Building-level mitigations ---
     /// Number of buildings upgraded with green roofs.
@@ -347,11 +348,11 @@ impl crate::Saveable for UhiMitigationState {
         {
             return None;
         }
-        serde_json::to_vec(self).ok()
+        Some(bitcode::encode(self))
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
-        serde_json::from_slice(bytes).unwrap_or_default()
+        bitcode::decode(bytes).unwrap_or_default()
     }
 }
 
@@ -861,7 +862,7 @@ mod tests {
 
         // Check cells at various distances
         for d in 0..=PARK_RADIUS {
-            let reduction = park_reduction_at(&state, (50 + d as usize), 50);
+            let reduction = park_reduction_at(&state, 50 + d as usize, 50);
             assert!(
                 (reduction - PARK_UHI_REDUCTION).abs() < f32::EPSILON,
                 "park radius {} should cool, got {}",
@@ -883,7 +884,7 @@ mod tests {
         state.district_cooling_facilities.push((50, 50));
 
         for d in 0..=DISTRICT_COOLING_RADIUS {
-            let reduction = district_cooling_reduction_at(&state, (50 + d as usize), 50);
+            let reduction = district_cooling_reduction_at(&state, 50 + d as usize, 50);
             assert!(
                 (reduction - DISTRICT_COOLING_UHI_REDUCTION).abs() < f32::EPSILON,
                 "district cooling radius {} should cool, got {}",
