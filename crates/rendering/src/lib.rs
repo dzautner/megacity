@@ -160,7 +160,8 @@ impl Plugin for RenderingPlugin {
             .add_systems(Update, oneway_arrows::draw_oneway_arrows)
             .add_plugins(traffic_los_render::TrafficLosRenderPlugin)
             .add_plugins(traffic_arrows::TrafficArrowsPlugin)
-            .add_plugins(wind_streamlines::WindStreamlinesPlugin)            .add_plugins(tree_props::TreePropsPlugin);
+            .add_plugins(wind_streamlines::WindStreamlinesPlugin)
+            .add_plugins(tree_props::TreePropsPlugin);
 
         // Screenshot plugin (F12 to capture)
         app.add_plugins(screenshot::ScreenshotPlugin);
