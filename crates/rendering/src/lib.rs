@@ -16,6 +16,7 @@ pub mod lane_markings;
 pub mod overlay;
 pub mod props;
 pub mod terrain_render;
+pub mod tree_props;
 
 pub mod road_render;
 pub mod selection_highlight;
@@ -138,7 +139,8 @@ impl Plugin for RenderingPlugin {
                     selection_highlight::draw_connected_highlights,
                 ),
             )
-            .add_plugins(traffic_los_render::TrafficLosRenderPlugin);
+            .add_plugins(traffic_los_render::TrafficLosRenderPlugin)
+            .add_plugins(tree_props::TreePropsPlugin);
 
         // Building mesh variant plugin (level-aware model selection)
         app.add_plugins(building_mesh_variants::BuildingMeshVariantsPlugin);
