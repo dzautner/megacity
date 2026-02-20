@@ -38,7 +38,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v24 = reservoir_state (ReservoirState serialization for reservoir water level tracking)
 /// v25 = landfill_gas_state (LandfillGasState serialization for landfill gas collection and energy)
 /// v26 = cso_state (SewerSystemState serialization for CSO events)
-pub const CURRENT_SAVE_VERSION: u32 = 26; // v26: CSO events
+/// v27 = water_conservation_state (WaterConservationState serialization for water conservation)
+pub const CURRENT_SAVE_VERSION: u32 = 27; // v27: Water conservation
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -149,6 +150,8 @@ pub struct SaveData {
     pub landfill_gas_state: Option<SaveLandfillGasState>,
     #[serde(default)]
     pub cso_state: Option<SaveCsoState>,
+    #[serde(default)]
+    pub water_conservation_state: Option<SaveWaterConservationState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -693,6 +696,20 @@ pub struct SaveCsoState {
     pub separation_coverage: f32,
     pub annual_cso_volume: f32,
     pub pollution_contribution: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveWaterConservationState {
+    pub low_flow_fixtures: bool,
+    pub xeriscaping: bool,
+    pub tiered_pricing: bool,
+    pub greywater_recycling: bool,
+    pub rainwater_harvesting: bool,
+    pub demand_reduction_pct: f32,
+    pub sewage_reduction_pct: f32,
+    pub total_retrofit_cost: f64,
+    pub annual_savings_gallons: f64,
+    pub buildings_retrofitted: u32,
 }
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {

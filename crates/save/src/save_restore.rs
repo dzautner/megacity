@@ -23,6 +23,7 @@ use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::{DistrictStats, VirtualPopulation};
+use simulation::water_conservation::WaterConservationState;
 use simulation::water_sources::WaterSource;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
@@ -538,5 +539,21 @@ pub fn restore_cso(state: &SaveCsoState) -> SewerSystemState {
         separation_coverage: state.separation_coverage,
         annual_cso_volume: state.annual_cso_volume,
         pollution_contribution: state.pollution_contribution,
+    }
+}
+
+/// Restore a `WaterConservationState` resource from saved data.
+pub fn restore_water_conservation(state: &SaveWaterConservationState) -> WaterConservationState {
+    WaterConservationState {
+        low_flow_fixtures: state.low_flow_fixtures,
+        xeriscaping: state.xeriscaping,
+        tiered_pricing: state.tiered_pricing,
+        greywater_recycling: state.greywater_recycling,
+        rainwater_harvesting: state.rainwater_harvesting,
+        demand_reduction_pct: state.demand_reduction_pct,
+        sewage_reduction_pct: state.sewage_reduction_pct,
+        total_retrofit_cost: state.total_retrofit_cost,
+        annual_savings_gallons: state.annual_savings_gallons,
+        buildings_retrofitted: state.buildings_retrofitted,
     }
 }

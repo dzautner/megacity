@@ -178,6 +178,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.cso_state = None;
         save.version = 26;
     }
+    // v26 -> v27: Added water_conservation_state (WaterConservationState serialization for water conservation).
+    // Uses `#[serde(default)]` so it deserializes as None from a v26 save.
+    if save.version == 26 {
+        save.water_conservation_state = None;
+        save.version = 27;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version
