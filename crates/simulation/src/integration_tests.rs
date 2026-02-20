@@ -4,7 +4,7 @@
 //! emergent behavior across multiple systems working together.
 
 use crate::buildings::Building;
-use crate::citizen::{Citizen, CitizenState, CitizenStateComp};
+use crate::citizen::CitizenState;
 use crate::economy::CityBudget;
 use crate::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use crate::land_value::LandValueGrid;
@@ -24,13 +24,13 @@ use crate::SlowTickTimer;
 
 #[test]
 fn empty_city_has_no_citizens() {
-    let city = TestCity::new();
+    let mut city = TestCity::new();
     assert_eq!(city.citizen_count(), 0, "empty city should have 0 citizens");
 }
 
 #[test]
 fn empty_city_has_no_buildings() {
-    let city = TestCity::new();
+    let mut city = TestCity::new();
     assert_eq!(
         city.building_count(),
         0,
@@ -104,7 +104,7 @@ fn empty_city_core_resources_exist() {
 
 #[test]
 fn tel_aviv_has_citizens() {
-    let city = TestCity::with_tel_aviv();
+    let mut city = TestCity::with_tel_aviv();
     assert!(
         city.citizen_count() > 1000,
         "Tel Aviv should have many citizens, got {}",
@@ -114,7 +114,7 @@ fn tel_aviv_has_citizens() {
 
 #[test]
 fn tel_aviv_has_buildings() {
-    let city = TestCity::with_tel_aviv();
+    let mut city = TestCity::with_tel_aviv();
     assert!(
         city.building_count() > 100,
         "Tel Aviv should have many buildings, got {}",
@@ -160,8 +160,8 @@ fn tel_aviv_has_mixed_zones() {
 
 #[test]
 fn tel_aviv_has_services() {
-    let city = TestCity::with_tel_aviv();
-    let world = city.world();
+    let mut city = TestCity::with_tel_aviv();
+    let world = city.world_mut();
     let service_count = world.query::<&ServiceBuilding>().iter(world).count();
     assert!(
         service_count > 10,
@@ -171,8 +171,8 @@ fn tel_aviv_has_services() {
 
 #[test]
 fn tel_aviv_has_utilities() {
-    let city = TestCity::with_tel_aviv();
-    let world = city.world();
+    let mut city = TestCity::with_tel_aviv();
+    let world = city.world_mut();
     let utility_count = world.query::<&UtilitySource>().iter(world).count();
     assert!(
         utility_count > 5,
@@ -188,7 +188,6 @@ fn tel_aviv_has_utilities() {
 fn road_placement_creates_road_cells() {
     let city = TestCity::new().with_road(100, 100, 100, 110, RoadType::Local);
 
-    // Road cells should be created along the path
     let road_count = city.road_cell_count();
     assert!(
         road_count > 0,
@@ -223,7 +222,6 @@ fn road_cells_are_connected_in_network() {
     let city = TestCity::new().with_road(100, 100, 110, 100, RoadType::Local);
 
     let network = city.road_network();
-    // At least some road nodes should have edges to neighbors
     let connected_nodes = network
         .edges
         .values()
@@ -287,7 +285,6 @@ fn zone_rect_sets_all_cells() {
             city.assert_zone(x, y, ZoneType::CommercialHigh);
         }
     }
-    // Check a cell outside the rect is not zoned
     city.assert_zone(99, 99, ZoneType::None);
     city.assert_zone(105, 105, ZoneType::None);
 }
@@ -309,7 +306,7 @@ fn zone_count_matches_rect_area() {
 
 #[test]
 fn building_placement_increments_count() {
-    let city = TestCity::new().with_building(100, 100, ZoneType::ResidentialLow, 1);
+    let mut city = TestCity::new().with_building(100, 100, ZoneType::ResidentialLow, 1);
 
     assert_eq!(city.building_count(), 1);
 }
@@ -323,9 +320,9 @@ fn building_placement_updates_grid() {
 
 #[test]
 fn building_has_correct_properties() {
-    let city = TestCity::new().with_building(100, 100, ZoneType::CommercialHigh, 3);
+    let mut city = TestCity::new().with_building(100, 100, ZoneType::CommercialHigh, 3);
 
-    let world = city.world();
+    let world = city.world_mut();
     let building = world
         .query::<&Building>()
         .iter(world)
@@ -342,7 +339,7 @@ fn building_has_correct_properties() {
 
 #[test]
 fn multiple_buildings_are_counted() {
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
         .with_building(110, 110, ZoneType::CommercialLow, 2)
         .with_building(120, 120, ZoneType::Industrial, 1);
@@ -359,7 +356,7 @@ fn multiple_buildings_are_counted() {
 
 #[test]
 fn citizen_placement_increments_count() {
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
         .with_building(110, 110, ZoneType::CommercialLow, 1)
         .with_citizen((100, 100), (110, 110));
@@ -369,7 +366,7 @@ fn citizen_placement_increments_count() {
 
 #[test]
 fn citizen_starts_at_home() {
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
         .with_building(110, 110, ZoneType::CommercialLow, 1)
         .with_citizen((100, 100), (110, 110));
@@ -379,7 +376,7 @@ fn citizen_starts_at_home() {
 
 #[test]
 fn multiple_citizens_are_tracked() {
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
         .with_building(110, 100, ZoneType::ResidentialLow, 1)
         .with_building(120, 100, ZoneType::CommercialLow, 1)
@@ -418,18 +415,18 @@ fn budget_can_be_zero() {
 
 #[test]
 fn service_placement_creates_entity() {
-    let city = TestCity::new().with_service(100, 100, ServiceType::FireStation);
+    let mut city = TestCity::new().with_service(100, 100, ServiceType::FireStation);
 
-    let world = city.world();
+    let world = city.world_mut();
     let count = world.query::<&ServiceBuilding>().iter(world).count();
     assert_eq!(count, 1);
 }
 
 #[test]
 fn service_has_correct_type_and_position() {
-    let city = TestCity::new().with_service(100, 100, ServiceType::Hospital);
+    let mut city = TestCity::new().with_service(100, 100, ServiceType::Hospital);
 
-    let world = city.world();
+    let world = city.world_mut();
     let svc = world
         .query::<&ServiceBuilding>()
         .iter(world)
@@ -443,18 +440,18 @@ fn service_has_correct_type_and_position() {
 
 #[test]
 fn utility_placement_creates_entity() {
-    let city = TestCity::new().with_utility(100, 100, UtilityType::PowerPlant);
+    let mut city = TestCity::new().with_utility(100, 100, UtilityType::PowerPlant);
 
-    let world = city.world();
+    let world = city.world_mut();
     let count = world.query::<&UtilitySource>().iter(world).count();
     assert_eq!(count, 1);
 }
 
 #[test]
 fn utility_has_correct_type_and_range() {
-    let city = TestCity::new().with_utility(100, 100, UtilityType::WaterTower);
+    let mut city = TestCity::new().with_utility(100, 100, UtilityType::WaterTower);
 
-    let world = city.world();
+    let world = city.world_mut();
     let util = world.query::<&UtilitySource>().iter(world).next().unwrap();
     assert_eq!(util.utility_type, UtilityType::WaterTower);
     assert_eq!(util.grid_x, 100);
@@ -539,7 +536,6 @@ fn tick_advances_game_clock() {
     city.tick(500);
     let after_day = city.clock().day;
     let after_hour = city.clock().hour;
-    // Time should have progressed (either hour changed or day changed)
     assert!(
         after_day > initial_day || (after_hour - initial_hour).abs() > 0.01,
         "game clock should advance: day {initial_day}->{after_day}, hour {initial_hour}->{after_hour}"
@@ -554,7 +550,6 @@ fn tick_advances_game_clock() {
 fn tel_aviv_survives_100_ticks() {
     let mut city = TestCity::with_tel_aviv();
     city.tick(100);
-    // Just verify it doesn't panic
     assert!(city.citizen_count() > 0, "citizens should still exist");
     assert!(city.building_count() > 0, "buildings should still exist");
 }
@@ -563,11 +558,8 @@ fn tel_aviv_survives_100_ticks() {
 fn tel_aviv_budget_changes_over_time() {
     let mut city = TestCity::with_tel_aviv();
     let initial = city.budget().treasury;
-    // Run enough ticks for tax collection to happen (needs day > 30)
     city.tick_slow_cycles(5);
     let after = city.budget().treasury;
-    // Treasury may go up or down depending on income vs expenses
-    // We just verify it changed at all (some economic activity happened)
     assert!(
         (after - initial).abs() > 0.01,
         "treasury should change from economic activity: initial={initial}, after={after}"
@@ -585,7 +577,6 @@ fn tel_aviv_citizens_have_variety_of_states() {
     let commuting_home = city.citizens_in_state(CitizenState::CommutingHome);
     let total = city.citizen_count();
 
-    // At least some citizens should not all be in the same state
     let states_with_citizens = [
         at_home > 0,
         commuting_to_work > 0,
@@ -623,16 +614,13 @@ fn city_with_full_infrastructure_runs() {
         .with_utility(110, 90, UtilityType::PowerPlant)
         .with_utility(120, 90, UtilityType::WaterTower);
 
-    // Verify setup
     assert_eq!(city.citizen_count(), 1);
     assert_eq!(city.building_count(), 2);
     assert!(city.road_cell_count() > 0);
     city.assert_budget_above(99_000.0);
 
-    // Run simulation
     city.tick(50);
 
-    // City should survive without panicking
     assert!(city.citizen_count() >= 1, "citizen should still exist");
 }
 
@@ -644,14 +632,12 @@ fn road_then_zone_then_tick_survives() {
         .with_zone_rect(102, 100, 105, 120, ZoneType::ResidentialLow);
 
     city.tick_slow_cycles(2);
-    // Just verifying the combination doesn't panic
     assert!(city.road_cell_count() > 0);
 }
 
 #[test]
 fn builder_methods_are_chainable() {
-    // This test verifies the fluent builder API compiles and works
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_budget(1_000.0)
         .with_road(50, 50, 50, 60, RoadType::Local)
         .with_road(50, 55, 60, 55, RoadType::Local)
@@ -675,7 +661,7 @@ fn builder_methods_are_chainable() {
 
 #[test]
 fn assert_citizen_count_between_passes() {
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
         .with_building(110, 110, ZoneType::CommercialLow, 1)
         .with_citizen((100, 100), (110, 110));
@@ -687,7 +673,7 @@ fn assert_citizen_count_between_passes() {
 #[test]
 #[should_panic(expected = "Expected citizen count")]
 fn assert_citizen_count_between_fails() {
-    let city = TestCity::new();
+    let mut city = TestCity::new();
     city.assert_citizen_count_between(1, 10);
 }
 
@@ -721,7 +707,6 @@ fn assert_budget_below_fails() {
 fn assert_has_road_passes() {
     let city = TestCity::new().with_road(100, 100, 100, 110, RoadType::Local);
 
-    // Find a cell that is a road and assert on it
     let grid = city.grid();
     let mut found_road = false;
     for y in 100..=110 {
@@ -760,24 +745,22 @@ fn assert_has_building_fails() {
 
 #[test]
 fn road_at_grid_boundaries() {
-    // Place a road near the grid edge
     let city = TestCity::new().with_road(5, 5, 5, 15, RoadType::Local);
     assert!(city.road_cell_count() > 0);
 }
 
 #[test]
 fn building_at_various_levels() {
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_building(100, 100, ZoneType::ResidentialHigh, 1)
         .with_building(110, 100, ZoneType::ResidentialHigh, 3)
         .with_building(120, 100, ZoneType::ResidentialHigh, 5);
 
-    let world = city.world();
+    let world = city.world_mut();
     let buildings: Vec<&Building> = world.query::<&Building>().iter(world).collect();
 
     assert_eq!(buildings.len(), 3);
 
-    // Higher level buildings should have more capacity
     let mut capacities: Vec<u32> = buildings.iter().map(|b| b.capacity).collect();
     capacities.sort();
     assert!(

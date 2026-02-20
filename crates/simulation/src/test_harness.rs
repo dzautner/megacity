@@ -99,9 +99,6 @@ impl TestCity {
         road_type: RoadType,
     ) -> Self {
         let world = self.app.world_mut();
-        // We need mutable access to three resources simultaneously.
-        // Extract raw pointers via unsafe to satisfy borrow checker.
-        // Safety: the three resources are distinct types.
         let (from, to) = {
             let (wx0, wy0) = WorldGrid::grid_to_world(x0, y0);
             let (wx1, wy1) = WorldGrid::grid_to_world(x1, y1);
@@ -317,15 +314,10 @@ impl TestCity {
     }
 
     // -----------------------------------------------------------------------
-    // Queries
+    // Queries (note: Bevy's World::query() requires &mut World)
     // -----------------------------------------------------------------------
 
-    /// Access the ECS world immutably.
-    pub fn world(&self) -> &World {
-        self.app.world()
-    }
-
-    /// Access the ECS world mutably.
+    /// Access the ECS world mutably (needed for queries in Bevy).
     pub fn world_mut(&mut self) -> &mut World {
         self.app.world_mut()
     }
@@ -346,39 +338,39 @@ impl TestCity {
     }
 
     /// Count all citizen entities.
-    pub fn citizen_count(&self) -> usize {
-        self.app
-            .world()
+    pub fn citizen_count(&mut self) -> usize {
+        let world = self.app.world_mut();
+        world
             .query_filtered::<Entity, With<Citizen>>()
-            .iter(self.app.world())
+            .iter(world)
             .count()
     }
 
     /// Count citizens in a specific state.
-    pub fn citizens_in_state(&self, state: CitizenState) -> usize {
-        self.app
-            .world()
+    pub fn citizens_in_state(&mut self, state: CitizenState) -> usize {
+        let world = self.app.world_mut();
+        world
             .query::<&CitizenStateComp>()
-            .iter(self.app.world())
+            .iter(world)
             .filter(|s| s.0 == state)
             .count()
     }
 
     /// Count all building entities.
-    pub fn building_count(&self) -> usize {
-        self.app
-            .world()
+    pub fn building_count(&mut self) -> usize {
+        let world = self.app.world_mut();
+        world
             .query_filtered::<Entity, With<Building>>()
-            .iter(self.app.world())
+            .iter(world)
             .count()
     }
 
     /// Count buildings in a specific zone type.
-    pub fn buildings_in_zone(&self, zone: ZoneType) -> usize {
-        self.app
-            .world()
+    pub fn buildings_in_zone(&mut self, zone: ZoneType) -> usize {
+        let world = self.app.world_mut();
+        world
             .query::<&Building>()
-            .iter(self.app.world())
+            .iter(world)
             .filter(|b| b.zone_type == zone)
             .count()
     }
@@ -433,11 +425,11 @@ impl TestCity {
     }
 
     /// Get total occupants across all buildings.
-    pub fn total_occupants(&self) -> u32 {
-        self.app
-            .world()
+    pub fn total_occupants(&mut self) -> u32 {
+        let world = self.app.world_mut();
+        world
             .query::<&Building>()
-            .iter(self.app.world())
+            .iter(world)
             .map(|b| b.occupants)
             .sum()
     }
@@ -447,7 +439,7 @@ impl TestCity {
     // -----------------------------------------------------------------------
 
     /// Assert citizen count is between min and max (inclusive).
-    pub fn assert_citizen_count_between(&self, min: usize, max: usize) {
+    pub fn assert_citizen_count_between(&mut self, min: usize, max: usize) {
         let count = self.citizen_count();
         assert!(
             count >= min && count <= max,
