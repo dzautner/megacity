@@ -236,7 +236,7 @@ pub fn search_keybind(
 }
 
 /// Refresh search results when the query changes or the dirty flag is set.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn update_search_results(
     mut state: ResMut<SearchState>,
     buildings: Query<(
