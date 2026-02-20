@@ -457,3 +457,20 @@ pub fn restore_storm_drainage(
         drainage_coverage: save.drainage_coverage,
     }
 }
+
+/// Restore a `LandfillCapacityState` resource from saved data.
+pub fn restore_landfill_capacity(
+    save: &crate::save_types::SaveLandfillCapacityState,
+) -> simulation::landfill_warning::LandfillCapacityState {
+    simulation::landfill_warning::LandfillCapacityState {
+        total_capacity: save.total_capacity,
+        current_fill: save.current_fill,
+        daily_input_rate: save.daily_input_rate,
+        days_remaining: save.days_remaining,
+        years_remaining: save.years_remaining,
+        remaining_pct: save.remaining_pct,
+        current_tier: u8_to_landfill_warning_tier(save.current_tier),
+        collection_halted: save.collection_halted,
+        landfill_count: save.landfill_count,
+    }
+}

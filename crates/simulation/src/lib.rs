@@ -37,6 +37,7 @@ pub mod homelessness;
 pub mod immigration;
 pub mod imports_exports;
 pub mod land_value;
+pub mod landfill_warning;
 pub mod life_simulation;
 pub mod lifecycle;
 pub mod loans;
@@ -117,6 +118,7 @@ use heat_wave::HeatWaveState;
 use heating::{HeatingGrid, HeatingStats};
 use imports_exports::TradeConnections;
 use land_value::LandValueGrid;
+use landfill_warning::{LandfillCapacityState, LandfillWarningEvent};
 use life_simulation::LifeSimTimer;
 use lifecycle::LifecycleTimer;
 use loans::{BankruptcyEvent, LoanBook};
@@ -280,11 +282,13 @@ impl Plugin for SimulationPlugin {
             .init_resource::<WastewaterState>()
             .init_resource::<HazardousWasteState>()
             .init_resource::<StormDrainageState>()
+            .init_resource::<LandfillCapacityState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
             .add_event::<WasteCrisisEvent>()
             .add_event::<cold_snap::ColdSnapEvent>()
+            .add_event::<LandfillWarningEvent>()
             .add_systems(Startup, world_init::init_world)
             .add_systems(
                 FixedUpdate,
@@ -426,6 +430,7 @@ impl Plugin for SimulationPlugin {
                     wastewater::update_wastewater,
                     wastewater::wastewater_health_penalty,
                     hazardous_waste::update_hazardous_waste,
+                    landfill_warning::update_landfill_capacity,
                     storm_drainage::update_storm_drainage,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
