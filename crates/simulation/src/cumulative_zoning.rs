@@ -396,15 +396,17 @@ mod tests {
             ..Default::default()
         };
 
-        // CommercialHigh zone permits residential and commercial.
-        // Commercial demand (0.8) > residential demand (0.3),
-        // so it should pick a commercial zone type.
+        // CommercialHigh zone permits residential, mixed-use, and commercial.
+        // Commercial demand (0.8) > residential demand (0.3).
+        // MixedUse demand_for returns max(residential, commercial) = 0.8,
+        // which ties with CommercialLow/CommercialHigh. MixedUse appears
+        // first in iteration order (hierarchy level 4), so it wins.
         let effective = select_effective_zone(ZoneType::CommercialHigh, &demand);
-        // CommercialLow and CommercialHigh both map to commercial demand (0.8)
-        // CommercialHigh is the later one in the iteration, so it wins ties.
         assert!(
-            effective == ZoneType::CommercialLow || effective == ZoneType::CommercialHigh,
-            "Expected commercial zone, got {:?}",
+            effective == ZoneType::MixedUse
+                || effective == ZoneType::CommercialLow
+                || effective == ZoneType::CommercialHigh,
+            "Expected MixedUse or commercial zone, got {:?}",
             effective
         );
     }
