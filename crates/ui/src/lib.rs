@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
+pub mod day_night_panel;
 pub mod graphs;
 pub mod info_panel;
 pub mod milestones;
@@ -13,6 +14,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
+            .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
             .init_resource::<toolbar::OpenCategory>()
@@ -48,6 +50,8 @@ impl Plugin for UiPlugin {
                     info_panel::groundwater_tooltip_ui,
                     water_dashboard::water_dashboard_ui,
                     water_dashboard::water_dashboard_keybind,
+                    day_night_panel::day_night_panel_keybind,
+                    day_night_panel::day_night_panel_ui,
                 ),
             );
     }

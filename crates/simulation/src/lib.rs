@@ -18,6 +18,7 @@ pub mod config;
 pub mod crime;
 pub mod cso;
 pub mod cumulative_zoning;
+pub mod day_night_controls;
 pub mod death_care;
 pub mod degree_days;
 pub mod disasters;
@@ -304,6 +305,9 @@ impl Plugin for SimulationPlugin {
             traffic_accidents::TrafficAccidentsPlugin,
             loans::LoansPlugin,
         ));
+
+        // Day/night visual controls
+        app.add_plugins(day_night_controls::DayNightControlsPlugin);
 
         // Weather and environment
         app.add_plugins((
