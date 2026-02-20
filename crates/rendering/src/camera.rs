@@ -256,8 +256,12 @@ pub fn camera_orbit_drag(
 }
 
 /// Left-mouse drag: pan focus (with threshold to distinguish from clicks).
+///
+/// When Shift is held, left-drag is used for box selection instead of camera
+/// panning, so this system skips panning in that case.
 pub fn camera_left_drag(
     buttons: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
     windows: Query<&Window>,
     mut left_drag: ResMut<LeftClickDrag>,
     mut orbit: ResMut<OrbitCamera>,
@@ -279,6 +283,12 @@ pub fn camera_left_drag(
     if buttons.just_released(MouseButton::Left) {
         left_drag.pressed = false;
         left_drag.is_dragging = false;
+    }
+
+    // When Shift is held, left-drag is used for box selection — skip camera pan.
+    let shift_held = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    if shift_held {
+        return;
     }
 
     if left_drag.pressed {

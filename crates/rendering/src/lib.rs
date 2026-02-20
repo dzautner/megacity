@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 
 pub mod angle_snap;
+pub mod box_selection;
 pub mod building_mesh_variants;
 pub mod building_meshes;
 pub mod building_render;
@@ -190,6 +191,9 @@ impl Plugin for RenderingPlugin {
 
         // Parallel road snapping (UX-026)
         app.add_plugins(parallel_snap::ParallelSnapPlugin);
+
+        // Box selection (UX-011)
+        app.add_plugins(box_selection::BoxSelectionPlugin);
     }
 }
 
