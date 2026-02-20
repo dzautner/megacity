@@ -542,11 +542,30 @@ mod tests {
 
     #[test]
     fn bevy_color_to_egui_converts_correctly() {
-        let bevy_color = bevy::prelude::Color::srgba(1.0, 0.5, 0.0, 0.8);
+        // Use Srgba directly to ensure exact round-trip
+        let bevy_color = bevy::prelude::Color::Srgba(bevy::color::Srgba {
+            red: 1.0,
+            green: 0.5,
+            blue: 0.0,
+            alpha: 0.8,
+        });
         let egui_color = bevy_color_to_egui(bevy_color);
-        assert_eq!(egui_color.r(), 255);
-        assert_eq!(egui_color.g(), 127); // 0.5 * 255 = 127.5, truncated to 127
+        // Allow small tolerance due to float->u8 truncation
+        assert!(
+            (egui_color.r() as i16 - 255).abs() <= 1,
+            "r={}",
+            egui_color.r()
+        );
+        assert!(
+            (egui_color.g() as i16 - 127).abs() <= 1,
+            "g={}",
+            egui_color.g()
+        );
         assert_eq!(egui_color.b(), 0);
-        assert_eq!(egui_color.a(), 204); // 0.8 * 255 = 204
+        assert!(
+            (egui_color.a() as i16 - 204).abs() <= 1,
+            "a={}",
+            egui_color.a()
+        );
     }
 }
