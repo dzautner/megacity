@@ -7,7 +7,6 @@ use simulation::config::CELL_SIZE;
 use simulation::grid::WorldGrid;
 
 use crate::building_meshes::building_scale;
-use crate::building_render::{BuildingMesh3d, ZoneBuilding};
 
 // ---------------------------------------------------------------------------
 // Components
@@ -270,8 +269,8 @@ fn ensure_assets(
     materials: &mut Assets<StandardMaterial>,
     existing: &Option<Res<ConstructionAssets>>,
 ) -> ConstructionAssets {
-    if let Some(a) = existing {
-        return a.clone();
+    if let Some(ref a) = existing {
+        return (**a).clone();
     }
 
     let scaffold_mesh = meshes.add(build_scaffold_mesh());
