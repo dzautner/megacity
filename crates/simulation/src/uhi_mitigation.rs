@@ -214,10 +214,13 @@ pub fn park_reduction_at(state: &UhiMitigationState, x: usize, y: usize) -> f32 
         for dx in -PARK_RADIUS..=PARK_RADIUS {
             let nx = x as i32 + dx;
             let ny = y as i32 + dy;
-            if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
-                if state.has_park(nx as usize, ny as usize) {
-                    max_reduction = max_reduction.max(PARK_UHI_REDUCTION);
-                }
+            if nx >= 0
+                && ny >= 0
+                && (nx as usize) < GRID_WIDTH
+                && (ny as usize) < GRID_HEIGHT
+                && state.has_park(nx as usize, ny as usize)
+            {
+                max_reduction = max_reduction.max(PARK_UHI_REDUCTION);
             }
         }
     }
