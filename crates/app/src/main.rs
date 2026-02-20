@@ -1,8 +1,10 @@
 use bevy::prelude::*;
-use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use bevy::window::PresentMode;
 use bevy::winit::{UpdateMode, WinitSettings};
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::render::view::screenshot::{save_to_disk, Screenshot};
+#[cfg(not(target_arch = "wasm32"))]
 use rendering::camera::OrbitCamera;
 
 fn main() {
@@ -28,14 +30,13 @@ fn main() {
         save::SavePlugin,
     ));
 
-    // Screenshot mode: takes preset screenshots and exits
+    // Screenshot mode: takes preset screenshots and exits (native only)
+    #[cfg(not(target_arch = "wasm32"))]
     if std::env::var("MEGACITY_SCREENSHOTS").is_ok() {
         let world_cx = 128.0 * 16.0; // center of 256x256 grid
         let world_cz = 128.0 * 16.0;
         let center = Vec3::new(world_cx, 0.0, world_cz);
 
-        // Tel Aviv camera presets (grid center = 128,128 → world 2048,2048)
-        // Coast at ~x=55 grid → ~880 world. Jaffa at ~(58,48) grid → ~(936,776) world.
         let jaffa = Vec3::new(58.0 * 16.0, 0.0, 48.0 * 16.0);
         let white_city = Vec3::new(100.0 * 16.0, 0.0, 100.0 * 16.0);
         let coast_mid = Vec3::new(63.0 * 16.0, 0.0, 120.0 * 16.0);
@@ -110,6 +111,7 @@ fn main() {
     app.run();
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
 struct ScreenshotQueue {
     frame: u32,
@@ -117,6 +119,7 @@ struct ScreenshotQueue {
     presets: Vec<ShotPreset>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 struct ShotPreset {
     name: &'static str,
     focus: Vec3,
@@ -125,6 +128,7 @@ struct ShotPreset {
     distance: f32,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn drive_screenshots(
     mut commands: Commands,
     mut queue: ResMut<ScreenshotQueue>,

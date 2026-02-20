@@ -280,11 +280,22 @@ fn handle_load(
     mut pending_ext: ResMut<PendingLoadExtensions>,
 ) {
     for _ in events.read() {
-        let path = save_file_path();
-        let bytes = match std::fs::read(&path) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let bytes = {
+            let path = save_file_path();
+            match std::fs::read(&path) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("Failed to load: {}", e);
+                    continue;
+                }
+            }
+        };
+        #[cfg(target_arch = "wasm32")]
+        let bytes = match wasm_load_bytes() {
             Ok(b) => b,
             Err(e) => {
-                eprintln!("Failed to load: {}", e);
+                eprintln!("Failed to load from localStorage: {}", e);
                 continue;
             }
         };
@@ -826,7 +837,10 @@ fn handle_load(
             pending_ext.0 = Some(save.extensions.clone());
         }
 
-        println!("Loaded save from {}", path);
+        #[cfg(not(target_arch = "wasm32"))]
+        println!("Loaded save from {}", save_file_path());
+        #[cfg(target_arch = "wasm32")]
+        println!("Loaded save from localStorage");
     }
 }
 
@@ -973,13 +987,25 @@ fn flush_save_with_extensions(world: &mut World) {
     save.extensions = registry.save_all(world);
     world.insert_resource(registry);
 
-    // Encode and write to disk.
+    // Encode and write.
     let bytes = save.encode();
-    let path = save_file_path();
-    if let Err(e) = std::fs::write(&path, &bytes) {
-        eprintln!("Failed to save: {}", e);
-    } else {
-        println!("Saved {} bytes to {}", bytes.len(), path);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let path = save_file_path();
+        if let Err(e) = std::fs::write(&path, &bytes) {
+            eprintln!("Failed to save: {}", e);
+        } else {
+            println!("Saved {} bytes to {}", bytes.len(), path);
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        match wasm_save_bytes(&bytes) {
+            Ok(()) => println!("Saved {} bytes to localStorage", bytes.len()),
+            Err(e) => eprintln!("Failed to save to localStorage: {}", e),
+        }
     }
 }
 
@@ -1017,6 +1043,102 @@ fn reset_saveable_extensions(world: &mut World) {
     world.insert_resource(registry);
 }
 
+#[cfg(target_arch = "wasm32")]
+const SAVE_KEY: &str = "megacity_save";
+
+#[cfg(not(target_arch = "wasm32"))]
 fn save_file_path() -> String {
     "megacity_save.bin".to_string()
+}
+
+// ---------------------------------------------------------------------------
+// WASM localStorage helpers
+// ---------------------------------------------------------------------------
+
+#[cfg(target_arch = "wasm32")]
+fn wasm_save_bytes(bytes: &[u8]) -> Result<(), String> {
+    let window = web_sys::window().ok_or("no window")?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "localStorage error")?
+        .ok_or("no localStorage")?;
+    // Encode as base64 since localStorage only stores strings
+    let encoded = base64_encode(bytes);
+    storage
+        .set_item(SAVE_KEY, &encoded)
+        .map_err(|_| "failed to set localStorage item")?;
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn wasm_load_bytes() -> Result<Vec<u8>, String> {
+    let window = web_sys::window().ok_or("no window")?;
+    let storage = window
+        .local_storage()
+        .map_err(|_| "localStorage error")?
+        .ok_or("no localStorage")?;
+    let encoded = storage
+        .get_item(SAVE_KEY)
+        .map_err(|_| "failed to get localStorage item")?
+        .ok_or("no save found")?;
+    base64_decode(&encoded).map_err(|e| format!("base64 decode error: {}", e))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn base64_encode(data: &[u8]) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        result.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
+        result.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 {
+            result.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+        if chunk.len() > 2 {
+            result.push(CHARS[(triple & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+    }
+    result
+}
+
+#[cfg(target_arch = "wasm32")]
+fn base64_decode(input: &str) -> Result<Vec<u8>, &'static str> {
+    fn decode_char(c: u8) -> Result<u32, &'static str> {
+        match c {
+            b'A'..=b'Z' => Ok((c - b'A') as u32),
+            b'a'..=b'z' => Ok((c - b'a' + 26) as u32),
+            b'0'..=b'9' => Ok((c - b'0' + 52) as u32),
+            b'+' => Ok(62),
+            b'/' => Ok(63),
+            _ => Err("invalid base64 character"),
+        }
+    }
+    let input = input.as_bytes();
+    let mut result = Vec::with_capacity(input.len() * 3 / 4);
+    let chunks: Vec<&[u8]> = input.chunks(4).collect();
+    for chunk in chunks {
+        if chunk.len() < 2 {
+            break;
+        }
+        let a = decode_char(chunk[0])?;
+        let b = decode_char(chunk[1])?;
+        result.push(((a << 2) | (b >> 4)) as u8);
+        if chunk.len() > 2 && chunk[2] != b'=' {
+            let c = decode_char(chunk[2])?;
+            result.push((((b & 0xF) << 4) | (c >> 2)) as u8);
+            if chunk.len() > 3 && chunk[3] != b'=' {
+                let d = decode_char(chunk[3])?;
+                result.push((((c & 0x3) << 6) | d) as u8);
+            }
+        }
+    }
+    Ok(result)
 }

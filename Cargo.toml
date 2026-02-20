@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.dependencies]
-bevy = { version = "0.15", features = ["wayland"] }
+bevy = { version = "0.15" }
 bevy_egui = "0.33"
 fastnoise-lite = "1.1"
 pathfinding = "4"

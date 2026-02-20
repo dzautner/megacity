@@ -9,3 +9,14 @@ simulation = { path = "../simulation" }
 rendering = { path = "../rendering" }
 ui = { path = "../ui" }
 save = { path = "../save" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { workspace = true, features = ["wayland"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bevy = { workspace = true, features = ["webgl2"] }
+# Each version of getrandom needs its WASM backend enabled
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
+uuid = { version = "1", features = ["js"] }

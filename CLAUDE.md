@@ -15,7 +15,7 @@
 - LOD system: Full/Simplified/Abstract tiers for citizens
 
 ## Key Conventions
-- Systems registered in `crates/*/src/lib.rs` Plugin impls
+- Each feature module defines its own `Plugin` struct with `init_resource`/`add_systems` -- do NOT add these to `simulation/src/lib.rs`
 - Grid types in `simulation/src/grid.rs` (WorldGrid, Cell, RoadType, ZoneType)
 - Road segments in `simulation/src/road_segments.rs` (Bezier curves, intersection detection)
 - Pathfinding in `simulation/src/road_graph_csr.rs` (CSR A* with traffic-aware routing)
@@ -26,7 +26,14 @@
 - `RoadSegmentStore` rasterizes to grid AND adds to RoadNetwork
 - Traffic-aware pathfinding via `csr_find_path_with_traffic()`
 - `SpatialIndex` on `DestinationCache` for O(1) nearest lookups
-- All new components/resources MUST be added to the save system in `crates/save/`
+
+## Adding New Features (Conflict-Free Pattern)
+New features should NOT touch shared files. Follow this pattern:
+1. Create your module file (e.g., `simulation/src/my_feature.rs`)
+2. Add `pub mod my_feature;` to `simulation/src/lib.rs` (only line you touch there)
+3. Define a `Plugin` struct in your module with all `init_resource`/`add_systems` calls
+4. Add your plugin to the appropriate group in `SimulationPlugin::build()`
+5. For saveable state, implement the `Saveable` trait and call `app.register_saveable::<MyState>()` in your plugin -- do NOT modify `save_types.rs`, `serialization.rs`, `save_restore.rs`, or `save_helpers.rs`
 
 ## PR Requirements
 - All code must compile: `cargo build --workspace`
