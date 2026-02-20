@@ -734,6 +734,9 @@ pub struct SaveFogState {
     pub traffic_speed_modifier: f32,
     pub flights_suspended: bool,
     pub last_update_hour: u32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
 pub struct SaveAgricultureState {
     pub growing_season_active: bool,
     pub crop_yield_modifier: f32,

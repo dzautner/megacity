@@ -596,6 +596,7 @@ pub fn create_save_data(
             traffic_speed_modifier: s.traffic_speed_modifier,
             flights_suspended: s.flights_suspended,
             last_update_hour: s.last_update_hour,
+        }),
         agriculture_state: agriculture_state.map(|a| SaveAgricultureState {
             growing_season_active: a.growing_season_active,
             crop_yield_modifier: a.crop_yield_modifier,
