@@ -6,6 +6,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use simulation::budget::ExtendedBudget;
+use simulation::cold_snap::ColdSnapState;
 use simulation::composting::CompostingState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
@@ -42,6 +43,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub drought_state: Res<'w, DroughtState>,
     pub heat_wave_state: Res<'w, HeatWaveState>,
     pub composting_state: Res<'w, CompostingState>,
+    pub cold_snap_state: Res<'w, ColdSnapState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -65,4 +67,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub drought_state: ResMut<'w, DroughtState>,
     pub heat_wave_state: ResMut<'w, HeatWaveState>,
     pub composting_state: ResMut<'w, CompostingState>,
+    pub cold_snap_state: ResMut<'w, ColdSnapState>,
 }

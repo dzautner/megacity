@@ -534,3 +534,24 @@ pub fn u8_to_compost_method(v: u8) -> simulation::composting::CompostMethod {
         _ => CompostMethod::Windrow, // fallback
     }
 }
+
+pub fn cold_snap_tier_to_u8(t: simulation::cold_snap::ColdSnapTier) -> u8 {
+    use simulation::cold_snap::ColdSnapTier;
+    match t {
+        ColdSnapTier::Normal => 0,
+        ColdSnapTier::Watch => 1,
+        ColdSnapTier::Warning => 2,
+        ColdSnapTier::Emergency => 3,
+    }
+}
+
+pub fn u8_to_cold_snap_tier(v: u8) -> simulation::cold_snap::ColdSnapTier {
+    use simulation::cold_snap::ColdSnapTier;
+    match v {
+        0 => ColdSnapTier::Normal,
+        1 => ColdSnapTier::Watch,
+        2 => ColdSnapTier::Warning,
+        3 => ColdSnapTier::Emergency,
+        _ => ColdSnapTier::Normal, // fallback
+    }
+}

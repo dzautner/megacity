@@ -10,7 +10,7 @@ pub mod serialization;
 
 use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
-    create_save_data, migrate_save, restore_climate_zone, restore_composting,
+    create_save_data, migrate_save, restore_climate_zone, restore_cold_snap, restore_composting,
     restore_construction_modifiers, restore_degree_days, restore_drought, restore_extended_budget,
     restore_heat_wave, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
     restore_policies, restore_recycling, restore_road_segment_store, restore_stormwater_grid,
@@ -24,6 +24,7 @@ use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
+use simulation::cold_snap::ColdSnapState;
 use simulation::composting::CompostingState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
@@ -180,6 +181,7 @@ fn handle_save(
             Some(&v2.drought_state),
             Some(&v2.heat_wave_state),
             Some(&v2.composting_state),
+            Some(&v2.cold_snap_state),
         );
 
         let bytes = save.encode();
@@ -645,6 +647,13 @@ fn handle_load(
         } else {
             *v2.composting_state = CompostingState::default();
         }
+
+        // Restore cold snap state
+        if let Some(ref saved_cs) = save.cold_snap_state {
+            *v2.cold_snap_state = restore_cold_snap(saved_cs);
+        } else {
+            *v2.cold_snap_state = ColdSnapState::default();
+        }
         println!("Loaded save from {}", path);
     }
 }
@@ -729,6 +738,7 @@ fn handle_new_game(
         *v2.drought_state = DroughtState::default();
         *v2.heat_wave_state = HeatWaveState::default();
         *v2.composting_state = CompostingState::default();
+        *v2.cold_snap_state = ColdSnapState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

@@ -109,6 +109,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 15;
     }
 
+    // v15 -> v16: Added cold_snap_state (ColdSnapState serialization for cold snap effects).
+    // Uses `#[serde(default)]` so it deserializes as None from a v15 save.
+    if save.version == 15 {
+        save.version = 16;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 

@@ -27,7 +27,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v13 = drought_state (DroughtState serialization for drought index)
 /// v14 = heat_wave_state (HeatWaveState serialization for heat wave effects)
 /// v15 = composting_state (CompostingState serialization for composting facilities)
-pub const CURRENT_SAVE_VERSION: u32 = 15;
+/// v16 = cold_snap_state (ColdSnapState serialization for cold snap effects)
+pub const CURRENT_SAVE_VERSION: u32 = 16;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -116,6 +117,8 @@ pub struct SaveData {
     pub heat_wave_state: Option<SaveHeatWaveState>,
     #[serde(default)]
     pub composting_state: Option<SaveCompostingState>,
+    #[serde(default)]
+    pub cold_snap_state: Option<SaveColdSnapState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -503,6 +506,21 @@ pub struct SaveCompostingState {
     pub daily_revenue: f32,
     pub biogas_mwh_per_ton: f32,
     pub daily_biogas_mwh: f32,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveColdSnapState {
+    pub consecutive_cold_days: u32,
+    pub pipe_burst_count: u32,
+    pub is_active: bool,
+    pub current_tier: u8,
+    pub heating_demand_modifier: f32,
+    pub traffic_capacity_modifier: f32,
+    pub schools_closed: bool,
+    pub construction_halted: bool,
+    pub homeless_mortality_rate: f32,
+    pub water_service_modifier: f32,
+    pub last_check_day: u32,
 }
 
 impl SaveData {
