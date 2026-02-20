@@ -297,20 +297,13 @@ impl TestCity {
     // Simulation
     // -----------------------------------------------------------------------
 
-    /// Run N fixed-update ticks.
-    ///
-    /// The simulation runs at 10 Hz (100ms per tick). Each call advances
-    /// virtual time by 100ms and calls `app.update()`, which triggers the
-    /// `FixedUpdate` schedule.
+    /// Run N fixed-update ticks by directly executing the `FixedUpdate`
+    /// schedule. This bypasses Bevy's time system entirely, which avoids
+    /// issues with `MinimalPlugins` + `ScheduleRunnerPlugin` not advancing
+    /// virtual time between updates.
     pub fn tick(&mut self, n: u32) {
-        // The game uses a 100ms fixed timestep (10 Hz).
-        let dt = std::time::Duration::from_millis(100);
         for _ in 0..n {
-            self.app
-                .world_mut()
-                .resource_mut::<Time<Virtual>>()
-                .advance_by(dt);
-            self.app.update();
+            self.app.world_mut().run_schedule(FixedUpdate);
         }
     }
 
