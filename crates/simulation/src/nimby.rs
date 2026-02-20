@@ -553,8 +553,8 @@ pub fn update_nimby_opinions(
                     opinion * time_factor
                 };
 
-                let current = nimby.opposition_grid[uy * GRID_WIDTH + ux];
-                nimby.set_opposition(ux, uy, current + effective_opinion);
+                let idx = uy * GRID_WIDTH + ux;
+                nimby.opposition_grid[idx] += effective_opinion;
             }
         }
     }
@@ -577,7 +577,7 @@ pub fn update_nimby_opinions(
                 let nx = ex as i32 + dx;
                 let ny = ey as i32 + dy;
                 if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
-                    let opp = nimby.opposition_at(nx as usize, ny as usize);
+                    let opp = nimby.opposition_grid[ny as usize * GRID_WIDTH + nx as usize];
                     if opp > 0.0 {
                         local_opposition += opp;
                     }
