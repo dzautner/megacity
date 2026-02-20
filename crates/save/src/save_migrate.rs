@@ -130,6 +130,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.groundwater_depletion_state = None;
         save.version = 18;
     }
+    // v18 -> v19: Added wastewater_state (WastewaterState serialization).
+    // Uses `#[serde(default)]` so it deserializes as None from a v18 save.
+    if save.version == 18 {
+        save.wastewater_state = None;
+        save.version = 19;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

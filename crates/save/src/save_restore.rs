@@ -407,3 +407,17 @@ pub fn restore_groundwater_depletion(
         over_extracted_cells: save.over_extracted_cells,
     }
 }
+
+/// Restore a `WastewaterState` resource from saved data.
+pub fn restore_wastewater(
+    save: &crate::save_types::SaveWastewaterState,
+) -> simulation::wastewater::WastewaterState {
+    simulation::wastewater::WastewaterState {
+        total_sewage_generated: save.total_sewage_generated,
+        total_treatment_capacity: save.total_treatment_capacity,
+        overflow_amount: save.overflow_amount,
+        coverage_ratio: save.coverage_ratio,
+        pollution_events: save.pollution_events,
+        health_penalty_active: save.health_penalty_active,
+    }
+}

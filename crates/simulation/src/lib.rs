@@ -72,6 +72,7 @@ pub mod utilities;
 pub mod virtual_population;
 pub mod waste_composition;
 pub mod waste_effects;
+pub mod wastewater;
 pub mod water_demand;
 pub mod water_pollution;
 pub mod water_sources;
@@ -141,6 +142,7 @@ use unlocks::UnlockState;
 use urban_heat_island::UhiGrid;
 use virtual_population::VirtualPopulation;
 use waste_effects::{WasteAccumulation, WasteCrisisEvent};
+use wastewater::WastewaterState;
 use water_demand::WaterSupply;
 use water_pollution::WaterPollutionGrid;
 use water_treatment::WaterTreatmentState;
@@ -271,6 +273,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<ColdSnapState>()
             .init_resource::<WaterTreatmentState>()
             .init_resource::<GroundwaterDepletionState>()
+            .init_resource::<WastewaterState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -414,6 +417,8 @@ impl Plugin for SimulationPlugin {
                     cold_snap::update_cold_snap,
                     water_treatment::update_water_treatment,
                     groundwater_depletion::update_groundwater_depletion,
+                    wastewater::update_wastewater,
+                    wastewater::wastewater_health_penalty,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,

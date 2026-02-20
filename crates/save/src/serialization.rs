@@ -28,6 +28,7 @@ use simulation::unlocks::UnlockState;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
+use simulation::wastewater::WastewaterState;
 use simulation::water_sources::WaterSource;
 use simulation::water_treatment::WaterTreatmentState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
@@ -73,6 +74,7 @@ pub fn create_save_data(
     cold_snap_state: Option<&ColdSnapState>,
     water_treatment_state: Option<&WaterTreatmentState>,
     groundwater_depletion_state: Option<&GroundwaterDepletionState>,
+    wastewater_state: Option<&WastewaterState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -459,6 +461,14 @@ pub fn create_save_data(
                 over_extracted_cells: gds.over_extracted_cells,
             }
         }),
+        wastewater_state: wastewater_state.map(|ws| SaveWastewaterState {
+            total_sewage_generated: ws.total_sewage_generated,
+            total_treatment_capacity: ws.total_treatment_capacity,
+            overflow_amount: ws.overflow_amount,
+            coverage_ratio: ws.coverage_ratio,
+            pollution_events: ws.pollution_events,
+            health_penalty_active: ws.health_penalty_active,
+        }),
     }
 }
 
@@ -537,6 +547,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -579,6 +590,7 @@ mod tests {
         assert!(restored.cold_snap_state.is_none());
         assert!(restored.water_treatment_state.is_none());
         assert!(restored.groundwater_depletion_state.is_none());
+        assert!(restored.wastewater_state.is_none());
     }
 
     #[test]
@@ -893,6 +905,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -978,6 +991,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1004,6 +1018,7 @@ mod tests {
         assert!(restored.cold_snap_state.is_none());
         assert!(restored.water_treatment_state.is_none());
         assert!(restored.groundwater_depletion_state.is_none());
+        assert!(restored.wastewater_state.is_none());
     }
 
     #[test]
@@ -1069,6 +1084,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1093,6 +1109,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1166,6 +1183,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1193,6 +1211,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1265,6 +1284,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1292,6 +1312,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1454,6 +1475,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1496,6 +1518,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1632,6 +1655,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1693,6 +1717,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1719,6 +1744,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1819,6 +1845,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -1961,6 +1988,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1988,6 +2016,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2043,6 +2072,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2122,6 +2152,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2161,6 +2192,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2278,6 +2310,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2339,6 +2372,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2355,6 +2389,7 @@ mod tests {
         assert!(restored.cold_snap_state.is_none());
         assert!(restored.water_treatment_state.is_none());
         assert!(restored.groundwater_depletion_state.is_none());
+        assert!(restored.wastewater_state.is_none());
     }
 
     #[test]
@@ -2385,6 +2420,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
