@@ -435,7 +435,7 @@ fn service_has_correct_type_and_position() {
     assert_eq!(svc.service_type, ServiceType::Hospital);
     assert_eq!(svc.grid_x, 100);
     assert_eq!(svc.grid_y, 100);
-    assert!(svc.radius > 0);
+    assert!(svc.radius > 0.0);
 }
 
 #[test]
