@@ -476,7 +476,7 @@ pub struct WasteDashboardPlugin;
 impl Plugin for WasteDashboardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WasteDashboardVisible>()
-            .add_systems(Update, (waste_dashboard_keybind, waste_dashboard_ui));
+            .add_systems(Update, waste_dashboard_ui);
     }
 }
 
