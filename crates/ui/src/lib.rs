@@ -9,6 +9,7 @@ pub mod graphs;
 pub mod info_panel;
 pub mod localization;
 pub mod milestones;
+pub mod multi_select;
 pub mod road_segment_info;
 pub mod theme;
 pub mod toolbar;
@@ -27,6 +28,7 @@ impl Plugin for UiPlugin {
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
             .add_plugins(localization::LocalizationUiPlugin)
+            .add_plugins(multi_select::MultiSelectUiPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
