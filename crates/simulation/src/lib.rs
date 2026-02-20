@@ -84,6 +84,7 @@ pub mod utilities;
 pub mod virtual_population;
 pub mod waste_composition;
 pub mod waste_effects;
+pub mod waste_policies;
 pub mod wastewater;
 pub mod water_conservation;
 pub mod water_demand;
@@ -319,6 +320,7 @@ impl Plugin for SimulationPlugin {
             hazardous_waste::HazardousWastePlugin,
             landfill_gas::LandfillGasPlugin,
             landfill_warning::LandfillWarningPlugin,
+            waste_policies::WastePoliciesPlugin,
         ));
 
         // Infrastructure and resources
