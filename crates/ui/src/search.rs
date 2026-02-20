@@ -1,4 +1,4 @@
-//! Search/Filter Panel (UX-044).
+//! UX-044: Search/Filter for Buildings and Citizens.
 //!
 //! Provides a search bar (toggled via Ctrl+F) to find buildings and citizens.
 //! Buildings can be searched by zone type, level, or status (abandoned, under construction).
