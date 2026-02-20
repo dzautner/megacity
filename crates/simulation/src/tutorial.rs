@@ -337,25 +337,6 @@ pub fn check_tutorial_progress(
         tutorial.advance();
     }
 }
-
-/// System that activates the tutorial when a new game is started (day 1, no roads).
-pub fn activate_tutorial_on_new_game(
-    mut tutorial: ResMut<TutorialState>,
-    clock: Res<GameClock>,
-    stats: Res<CityStats>,
-) {
-    // If tutorial was previously completed and a new game starts at day 1 with no roads,
-    // re-activate the tutorial.
-    if tutorial.completed
-        && clock.day == 1
-        && clock.is_changed()
-        && stats.population == 0
-        && stats.road_cells == 0
-    {
-        *tutorial = TutorialState::default();
-    }
-}
-
 // =============================================================================
 // Plugin
 // =============================================================================
@@ -365,8 +346,7 @@ pub struct TutorialPlugin;
 impl Plugin for TutorialPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TutorialState>()
-            .add_systems(Update, check_tutorial_progress)
-            .add_systems(Update, activate_tutorial_on_new_game);
+            .add_systems(Update, check_tutorial_progress);
 
         // Register for save/load via the SaveableRegistry
         app.init_resource::<crate::SaveableRegistry>();

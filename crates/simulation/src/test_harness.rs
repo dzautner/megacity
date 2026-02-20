@@ -71,10 +71,10 @@ impl TestCity {
         // Run one update so Startup systems execute (init_world will no-op).
         app.update();
 
-        // After the first update, `activate_tutorial_on_new_game` may have
-        // re-activated the tutorial (day==1, pop==0, roads==0, completed==true,
-        // clock.is_changed()) which causes `check_tutorial_progress` to pause
-        // the GameClock. Force both back to a clean state.
+        // After the first update, the tutorial starts active by default
+        // (TutorialState::default() has active=true) which causes
+        // `check_tutorial_progress` to pause the GameClock.
+        // Force both back to a clean state for testing.
         if let Some(mut tutorial) = app.world_mut().get_resource_mut::<TutorialState>() {
             tutorial.completed = true;
             tutorial.active = false;

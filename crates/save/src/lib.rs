@@ -359,7 +359,9 @@ fn handle_load(
         // Clear existing entities -- deduplicate to avoid double-despawn when
         // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
         for entity in existing.all_entities() {
-            commands.entity(entity).despawn();
+            if let Some(mut ec) = commands.get_entity(entity) {
+                ec.despawn();
+            }
         }
 
         // Restore grid
@@ -908,7 +910,9 @@ fn handle_new_game(
         // Despawn all game entities -- deduplicate to avoid double-despawn when
         // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
         for entity in existing.all_entities() {
-            commands.entity(entity).despawn();
+            if let Some(mut ec) = commands.get_entity(entity) {
+                ec.despawn();
+            }
         }
 
         // Reset world grid to fresh empty terrain
