@@ -1,5 +1,6 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
+use std::collections::HashSet;
 
 mod save_codec;
 mod save_helpers;
@@ -109,6 +110,36 @@ struct ExistingEntities<'w, 's> {
     water_sources: Query<'w, 's, Entity, With<WaterSource>>,
     meshes: Query<'w, 's, Entity, With<BuildingMesh3d>>,
     sprites: Query<'w, 's, Entity, With<CitizenSprite>>,
+}
+
+impl ExistingEntities<'_, '_> {
+    /// Collect all game entities into a deduplicated set so each entity is
+    /// despawned at most once (entities may match multiple queries).
+    fn all_entities(&self) -> HashSet<Entity> {
+        let mut set = HashSet::new();
+        for e in &self.buildings {
+            set.insert(e);
+        }
+        for e in &self.citizens {
+            set.insert(e);
+        }
+        for e in &self.utilities {
+            set.insert(e);
+        }
+        for e in &self.services {
+            set.insert(e);
+        }
+        for e in &self.water_sources {
+            set.insert(e);
+        }
+        for e in &self.meshes {
+            set.insert(e);
+        }
+        for e in &self.sprites {
+            set.insert(e);
+        }
+        set
+    }
 }
 
 pub struct SavePlugin;
@@ -317,26 +348,9 @@ fn handle_load(
             );
         }
 
-        // Clear existing entities (including 3D mesh representations)
-        for entity in &existing.meshes {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.sprites {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.buildings {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.citizens {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.utilities {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.services {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.water_sources {
+        // Clear existing entities -- deduplicate to avoid double-despawn when
+        // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
+        for entity in existing.all_entities() {
             commands.entity(entity).despawn();
         }
 
@@ -861,26 +875,9 @@ fn handle_new_game(
     mut pending_reset: ResMut<PendingNewGameReset>,
 ) {
     for _ in events.read() {
-        // Despawn all game entities
-        for entity in &existing.meshes {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.sprites {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.buildings {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.citizens {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.utilities {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.services {
-            commands.entity(entity).despawn();
-        }
-        for entity in &existing.water_sources {
+        // Despawn all game entities -- deduplicate to avoid double-despawn when
+        // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
+        for entity in existing.all_entities() {
             commands.entity(entity).despawn();
         }
 
