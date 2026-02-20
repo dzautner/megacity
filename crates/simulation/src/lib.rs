@@ -53,6 +53,7 @@ pub mod lod;
 pub mod market;
 pub mod movement;
 pub mod natural_resources;
+pub mod nimby;
 pub mod noise;
 pub mod outside_connections;
 pub mod pathfinding_sys;
@@ -373,6 +374,7 @@ impl Plugin for SimulationPlugin {
             lod::LodPlugin,
             virtual_population::VirtualPopulationPlugin,
             urban_growth_boundary::UrbanGrowthBoundaryPlugin,
+            nimby::NimbyPlugin,
         ));
     }
 }

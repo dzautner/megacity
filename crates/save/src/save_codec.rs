@@ -221,6 +221,7 @@ pub fn policy_to_u8(p: Policy) -> u8 {
         Policy::HighRiseBan => 12,
         Policy::NightShiftBan => 13,
         Policy::IndustrialZoningRestriction => 14,
+        Policy::EminentDomain => 15,
     }
 }
 
@@ -241,6 +242,7 @@ pub fn u8_to_policy(v: u8) -> Option<Policy> {
         12 => Some(Policy::HighRiseBan),
         13 => Some(Policy::NightShiftBan),
         14 => Some(Policy::IndustrialZoningRestriction),
+        15 => Some(Policy::EminentDomain),
         _ => None,
     }
 }
