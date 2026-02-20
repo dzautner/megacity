@@ -232,8 +232,7 @@ impl Saveable for OneWayDirectionMap {
             if offset + 5 > bytes.len() {
                 break;
             }
-            let seg_id =
-                u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap_or([0; 4]));
+            let seg_id = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap_or([0; 4]));
             let dir_byte = bytes[offset + 4];
             let direction = match dir_byte {
                 0 => OneWayDirection::Forward,
@@ -267,10 +266,7 @@ impl Plugin for OneWayPlugin {
         app.init_resource::<OneWayDirectionMap>()
             .add_event::<ToggleOneWayEvent>()
             .add_systems(Update, handle_toggle_oneway)
-            .add_systems(
-                Update,
-                rebuild_csr_with_oneway.after(handle_toggle_oneway),
-            );
+            .add_systems(Update, rebuild_csr_with_oneway.after(handle_toggle_oneway));
 
         // Register for save/load via the SaveableRegistry.
         app.init_resource::<crate::SaveableRegistry>();
@@ -351,15 +347,27 @@ mod tests {
         // Build a straight road from (5,10) to (15,10) using segments
         let from = Vec2::new(5.0 * CELL_SIZE + 8.0, 10.0 * CELL_SIZE + 8.0);
         let to = Vec2::new(15.0 * CELL_SIZE + 8.0, 10.0 * CELL_SIZE + 8.0);
-        let (seg_id, _cells) =
-            store.add_straight_segment(from, to, crate::grid::RoadType::Local, 24.0, &mut grid, &mut roads);
+        let (seg_id, _cells) = store.add_straight_segment(
+            from,
+            to,
+            crate::grid::RoadType::Local,
+            24.0,
+            &mut grid,
+            &mut roads,
+        );
 
         // Without one-way: path should exist in both directions
         let csr_bidir = CsrGraph::from_road_network(&roads);
         let forward_path = csr_find_path(&csr_bidir, RoadNode(5, 10), RoadNode(15, 10));
         let reverse_path = csr_find_path(&csr_bidir, RoadNode(15, 10), RoadNode(5, 10));
-        assert!(forward_path.is_some(), "Forward path should exist bidirectional");
-        assert!(reverse_path.is_some(), "Reverse path should exist bidirectional");
+        assert!(
+            forward_path.is_some(),
+            "Forward path should exist bidirectional"
+        );
+        assert!(
+            reverse_path.is_some(),
+            "Reverse path should exist bidirectional"
+        );
 
         // Set one-way Forward (start -> end, i.e. 5,10 -> 15,10)
         let mut oneway_map = OneWayDirectionMap::default();
@@ -389,11 +397,17 @@ mod tests {
 
         // Forward path should still exist
         let forward_path = csr_find_path(&csr_oneway, RoadNode(5, 10), RoadNode(15, 10));
-        assert!(forward_path.is_some(), "Forward path should exist with one-way forward");
+        assert!(
+            forward_path.is_some(),
+            "Forward path should exist with one-way forward"
+        );
 
         // Reverse path should be blocked
         let reverse_path = csr_find_path(&csr_oneway, RoadNode(15, 10), RoadNode(5, 10));
-        assert!(reverse_path.is_none(), "Reverse path should be blocked with one-way forward");
+        assert!(
+            reverse_path.is_none(),
+            "Reverse path should be blocked with one-way forward"
+        );
     }
 
     #[test]
@@ -404,8 +418,14 @@ mod tests {
 
         let from = Vec2::new(5.0 * CELL_SIZE + 8.0, 10.0 * CELL_SIZE + 8.0);
         let to = Vec2::new(15.0 * CELL_SIZE + 8.0, 10.0 * CELL_SIZE + 8.0);
-        let (seg_id, _cells) =
-            store.add_straight_segment(from, to, crate::grid::RoadType::Local, 24.0, &mut grid, &mut roads);
+        let (seg_id, _cells) = store.add_straight_segment(
+            from,
+            to,
+            crate::grid::RoadType::Local,
+            24.0,
+            &mut grid,
+            &mut roads,
+        );
 
         let mut oneway_map = OneWayDirectionMap::default();
         oneway_map.set(seg_id, OneWayDirection::Reverse);
@@ -433,11 +453,17 @@ mod tests {
 
         // Forward path should be blocked
         let forward_path = csr_find_path(&csr_oneway, RoadNode(5, 10), RoadNode(15, 10));
-        assert!(forward_path.is_none(), "Forward path should be blocked with one-way reverse");
+        assert!(
+            forward_path.is_none(),
+            "Forward path should be blocked with one-way reverse"
+        );
 
         // Reverse path should exist
         let reverse_path = csr_find_path(&csr_oneway, RoadNode(15, 10), RoadNode(5, 10));
-        assert!(reverse_path.is_some(), "Reverse path should exist with one-way reverse");
+        assert!(
+            reverse_path.is_some(),
+            "Reverse path should exist with one-way reverse"
+        );
     }
 
     #[test]
@@ -448,8 +474,14 @@ mod tests {
 
         let from = Vec2::new(5.0 * CELL_SIZE + 8.0, 10.0 * CELL_SIZE + 8.0);
         let to = Vec2::new(15.0 * CELL_SIZE + 8.0, 10.0 * CELL_SIZE + 8.0);
-        let (seg_id, _cells) =
-            store.add_straight_segment(from, to, crate::grid::RoadType::Local, 24.0, &mut grid, &mut roads);
+        let (seg_id, _cells) = store.add_straight_segment(
+            from,
+            to,
+            crate::grid::RoadType::Local,
+            24.0,
+            &mut grid,
+            &mut roads,
+        );
 
         let mut oneway_map = OneWayDirectionMap::default();
         oneway_map.set(seg_id, OneWayDirection::Forward);
@@ -461,8 +493,13 @@ mod tests {
 
         let forward = csr_find_path(&csr, RoadNode(5, 10), RoadNode(15, 10));
         let reverse = csr_find_path(&csr, RoadNode(15, 10), RoadNode(5, 10));
-        assert!(forward.is_some(), "Forward path should exist after removing one-way");
-        assert!(reverse.is_some(), "Reverse path should exist after removing one-way");
+        assert!(
+            forward.is_some(),
+            "Forward path should exist after removing one-way"
+        );
+        assert!(
+            reverse.is_some(),
+            "Reverse path should exist after removing one-way"
+        );
     }
 }
-
