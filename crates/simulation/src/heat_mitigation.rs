@@ -44,6 +44,8 @@ const GREEN_CANOPY_TEMP_REDUCTION_PER_20PCT: f32 = 5.0;
 const LIGHT_ROOF_TEMP_REDUCTION: f32 = 3.0;
 
 /// One-time cost per building for light-colored roof upgrade.
+/// Used by UI/policy layer; tested below.
+#[allow(dead_code)]
 const LIGHT_ROOF_UPGRADE_COST: f64 = 5_000.0;
 
 /// Perceived temperature reduction from misting stations (Fahrenheit).
