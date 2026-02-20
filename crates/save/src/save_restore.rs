@@ -7,6 +7,7 @@ use crate::save_types::*;
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::degree_days::DegreeDays;
+use simulation::flood_simulation::FloodState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::{self, LoanBook};
@@ -455,6 +456,16 @@ pub fn restore_storm_drainage(
         rain_garden_count: save.rain_garden_count,
         overflow_cells: save.overflow_cells,
         drainage_coverage: save.drainage_coverage,
+    }
+}
+
+/// Restore a `FloodState` resource from saved data.
+pub fn restore_flood_state(save: &SaveFloodState) -> FloodState {
+    FloodState {
+        is_flooding: save.is_flooding,
+        total_flooded_cells: save.total_flooded_cells,
+        total_damage: save.total_damage,
+        max_depth: save.max_depth,
     }
 }
 

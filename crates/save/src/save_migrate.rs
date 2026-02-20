@@ -154,6 +154,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.landfill_capacity_state = None;
         save.version = 22;
     }
+    // v22 -> v23: Added flood_state (FloodState serialization for urban flooding simulation).
+    // Uses `#[serde(default)]` so it deserializes as None from a v22 save.
+    if save.version == 22 {
+        save.flood_state = None;
+        save.version = 23;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version
