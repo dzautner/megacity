@@ -1115,6 +1115,60 @@ pub fn keyboard_tool_switch(keys: Res<ButtonInput<KeyCode>>, mut tool: ResMut<Ac
 }
 
 // ---------------------------------------------------------------------------
+// Delete key bulldozes the currently selected building
+// ---------------------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+pub fn delete_selected_building(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut selected: ResMut<SelectedBuilding>,
+    mut grid: ResMut<WorldGrid>,
+    mut status: ResMut<StatusMessage>,
+    mut commands: Commands,
+    service_q: Query<&ServiceBuilding>,
+    chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
+) {
+    if !keys.just_pressed(KeyCode::Delete) && !keys.just_pressed(KeyCode::Backspace) {
+        return;
+    }
+
+    let Some(entity) = selected.0 else {
+        return;
+    };
+
+    // Check if it is a multi-cell service building
+    if let Ok(service) = service_q.get(entity) {
+        let (fw, fh) = ServiceBuilding::footprint(service.service_type);
+        let sx = service.grid_x;
+        let sy = service.grid_y;
+        for fy in sy..sy + fh {
+            for fx in sx..sx + fw {
+                if grid.in_bounds(fx, fy) {
+                    grid.get_mut(fx, fy).building_id = None;
+                    grid.get_mut(fx, fy).zone = ZoneType::None;
+                    mark_chunk_dirty_at(fx, fy, &chunks, &mut commands);
+                }
+            }
+        }
+    } else {
+        // Regular building: scan grid for matching entity
+        for y in 0..grid.height {
+            for x in 0..grid.width {
+                if grid.get(x, y).building_id == Some(entity) {
+                    grid.get_mut(x, y).building_id = None;
+                    grid.get_mut(x, y).zone = ZoneType::None;
+                    mark_chunk_dirty_at(x, y, &chunks, &mut commands);
+                }
+            }
+        }
+    }
+
+    commands.entity(entity).despawn();
+    selected.0 = None;
+    status.set("Building demolished", false);
+}
+
+// ---------------------------------------------------------------------------
 // Tree tool system (separate from handle_tool_input to stay within param limit)
 // ---------------------------------------------------------------------------
 
