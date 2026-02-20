@@ -67,6 +67,7 @@ pub mod natural_resources;
 pub mod neighborhood_quality;
 pub mod nimby;
 pub mod noise;
+pub mod oneway;
 pub mod outside_connections;
 pub mod parking;
 pub mod pathfinding_sys;
@@ -123,7 +124,6 @@ pub mod zones;
 
 use road_graph_csr::CsrGraph;
 use road_segments::RoadSegmentStore;
-use roads::RoadNetwork;
 use spatial_grid::SpatialGrid;
 
 // ---------------------------------------------------------------------------
@@ -261,7 +261,6 @@ impl Plugin for SimulationPlugin {
             .init_resource::<LodFrameCounter>()
             .add_systems(Startup, world_init::init_world)
             .add_systems(FixedUpdate, tick_slow_timer)
-            .add_systems(Update, rebuild_csr_on_road_change)
             .add_systems(Update, tick_lod_frame_counter);
 
         // Core simulation chain
@@ -306,6 +305,7 @@ impl Plugin for SimulationPlugin {
             waste_effects::WasteEffectsPlugin,
             recycling::RecyclingPlugin,
             road_maintenance::RoadMaintenancePlugin,
+            oneway::OneWayPlugin,
             traffic_accidents::TrafficAccidentsPlugin,
             traffic_los::TrafficLosPlugin,
             loans::LoansPlugin,
@@ -434,13 +434,6 @@ fn tick_lod_frame_counter(mut counter: ResMut<LodFrameCounter>) {
 
 pub fn lod_frame_ready(counter: Res<LodFrameCounter>) -> bool {
     counter.0.is_multiple_of(6)
-}
-
-/// Rebuild the CSR graph whenever the road network changes.
-fn rebuild_csr_on_road_change(roads: Res<RoadNetwork>, mut csr: ResMut<CsrGraph>) {
-    if roads.is_changed() {
-        *csr = CsrGraph::from_road_network(&roads);
-    }
 }
 
 #[cfg(test)]
