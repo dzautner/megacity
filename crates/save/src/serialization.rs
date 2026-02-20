@@ -717,7 +717,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1100,7 +1099,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -1199,7 +1197,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1317,7 +1314,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1378,7 +1374,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         save.version = 0;
 
@@ -1442,7 +1437,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1506,7 +1500,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -1569,7 +1562,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         save.version = 1;
 
@@ -1633,7 +1625,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         save.version = 2;
 
@@ -1786,7 +1777,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1865,7 +1855,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         // Simulate an old save citizen with default V3 fields
         save.citizens.push(SaveCitizen {
@@ -1992,7 +1981,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2067,7 +2055,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2130,7 +2117,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         save.version = 3;
 
@@ -2233,7 +2219,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2377,7 +2362,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2441,7 +2425,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         save.version = 4;
 
@@ -2510,7 +2493,6 @@ mod tests {
             None,
             None,
             None,
-
         );
         save.version = 5;
 
@@ -2580,7 +2562,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2656,7 +2637,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2764,7 +2744,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2839,7 +2818,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
@@ -2935,7 +2913,6 @@ mod tests {
             None,
             None,
             None,
-
         );
 
         let bytes = save.encode();
