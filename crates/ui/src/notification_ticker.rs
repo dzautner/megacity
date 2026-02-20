@@ -179,10 +179,10 @@ pub fn notification_ticker_ui(
                                         ));
 
                                         // Dismiss button for emergency notifications
-                                        if notif.priority == NotificationPriority::Emergency {
-                                            if ui.small_button("x").clicked() {
-                                                dismiss_id = Some(notif.id);
-                                            }
+                                        if notif.priority == NotificationPriority::Emergency
+                                            && ui.small_button("x").clicked()
+                                        {
+                                            dismiss_id = Some(notif.id);
                                         }
 
                                         ui.add_space(12.0);
