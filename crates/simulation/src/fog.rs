@@ -186,7 +186,7 @@ pub fn update_fog(
     } else if hour_changed {
         // --- No fog: check if fog should form ---
         let humidity_ok = weather.humidity > 0.90;
-        let dew_point_ok = temp_above_dew < 2.0 && temp_above_dew >= 0.0;
+        let dew_point_ok = (0.0..2.0).contains(&temp_above_dew);
 
         if humidity_ok && dew_point_ok {
             // Base fog formation chance
@@ -240,13 +240,13 @@ pub fn update_fog(
 fn update_fog_density(weather: &Weather, temp_above_dew: f32, fog: &mut FogState) {
     // Denser fog when temperature is very close to dew point and humidity is very high
     let density_factor = if temp_above_dew < 0.5 && weather.humidity > 0.95 {
-        // Dense fog
-        0.9
+        // Dense fog: visibility < 200m
+        0.99
     } else if temp_above_dew < 1.0 && weather.humidity > 0.92 {
-        // Moderate fog
-        0.6
+        // Moderate fog: visibility 200-1000m
+        0.95
     } else {
-        // Light mist
+        // Light mist: visibility > 1000m
         0.3
     };
 
