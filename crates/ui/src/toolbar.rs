@@ -956,6 +956,89 @@ fn rci_demand_bars(ui: &mut egui::Ui, demand: &ZoneDemand) {
 }
 
 // ---------------------------------------------------------------------------
+// Speed button with color-coded dot indicator
+// ---------------------------------------------------------------------------
+
+/// Scale a `Color32` by a factor (0.0 = black, 1.0 = unchanged).
+fn dim_color(c: egui::Color32, factor: f32) -> egui::Color32 {
+    egui::Color32::from_rgba_premultiplied(
+        (c.r() as f32 * factor) as u8,
+        (c.g() as f32 * factor) as u8,
+        (c.b() as f32 * factor) as u8,
+        c.a(),
+    )
+}
+
+/// Renders a speed control button with a colored dot indicator.
+/// When `active` the dot is filled and the label uses the accent color;
+/// when inactive the dot is a dim outline.
+fn speed_button(
+    ui: &mut egui::Ui,
+    label: &str,
+    active: bool,
+    color: egui::Color32,
+) -> egui::Response {
+    let dot_radius = 4.0;
+    let desired_size = egui::vec2(
+        ui.spacing().interact_size.x + dot_radius * 2.0 + 4.0,
+        ui.spacing().interact_size.y,
+    );
+    let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
+
+    if ui.is_rect_visible(rect) {
+        let painter = ui.painter();
+
+        // Highlight background when active
+        if active {
+            let bg = egui::Color32::from_rgba_premultiplied(
+                (color.r() as f32 * 0.18) as u8,
+                (color.g() as f32 * 0.18) as u8,
+                (color.b() as f32 * 0.18) as u8,
+                45,
+            );
+            painter.rect_filled(rect.shrink(1.0), 4.0, bg);
+            painter.rect_stroke(
+                rect.shrink(1.0),
+                4.0,
+                egui::Stroke::new(1.0, dim_color(color, 0.5)),
+                egui::StrokeKind::Inside,
+            );
+        } else if response.hovered() {
+            painter.rect_filled(rect.shrink(1.0), 4.0, egui::Color32::from_white_alpha(10));
+        }
+
+        // Draw the colored dot
+        let dot_center = egui::pos2(rect.left() + dot_radius + 4.0, rect.center().y);
+        if active {
+            painter.circle_filled(dot_center, dot_radius, color);
+        } else {
+            painter.circle_stroke(
+                dot_center,
+                dot_radius,
+                egui::Stroke::new(1.0, dim_color(color, 0.4)),
+            );
+        }
+
+        // Draw the label text
+        let text_color = if active {
+            color
+        } else {
+            egui::Color32::from_gray(180)
+        };
+        let text_pos = egui::pos2(dot_center.x + dot_radius + 4.0, rect.center().y - 6.0);
+        painter.text(
+            text_pos,
+            egui::Align2::LEFT_TOP,
+            label,
+            egui::FontId::proportional(13.0),
+            text_color,
+        );
+    }
+
+    response
+}
+
+// ---------------------------------------------------------------------------
 // Main toolbar system
 // ---------------------------------------------------------------------------
 
@@ -1014,28 +1097,30 @@ pub fn toolbar_ui(
                 // Day / time / season
                 ui.label(format!("{} | {}", clock.formatted(), weather.season.name()));
 
-                // Speed controls
-                if ui.selectable_label(clock.paused, "||").clicked() {
+                // Speed controls with color-coded indicators
+                // Colors: red = paused, green = 1x, yellow = 2x, orange = 4x
+                let pause_color = egui::Color32::from_rgb(220, 60, 60);
+                let speed1_color = egui::Color32::from_rgb(60, 200, 60);
+                let speed2_color = egui::Color32::from_rgb(230, 220, 50);
+                let speed4_color = egui::Color32::from_rgb(240, 160, 40);
+
+                let pause_active = clock.paused;
+                let speed1_active = !clock.paused && clock.speed == 1.0;
+                let speed2_active = !clock.paused && clock.speed == 2.0;
+                let speed4_active = !clock.paused && clock.speed == 4.0;
+
+                if speed_button(ui, "||", pause_active, pause_color).clicked() {
                     clock.paused = !clock.paused;
                 }
-                if ui
-                    .selectable_label(!clock.paused && clock.speed == 1.0, "1x")
-                    .clicked()
-                {
+                if speed_button(ui, "1x", speed1_active, speed1_color).clicked() {
                     clock.speed = 1.0;
                     clock.paused = false;
                 }
-                if ui
-                    .selectable_label(!clock.paused && clock.speed == 2.0, "2x")
-                    .clicked()
-                {
+                if speed_button(ui, "2x", speed2_active, speed2_color).clicked() {
                     clock.speed = 2.0;
                     clock.paused = false;
                 }
-                if ui
-                    .selectable_label(!clock.paused && clock.speed == 4.0, "4x")
-                    .clicked()
-                {
+                if speed_button(ui, "4x", speed4_active, speed4_color).clicked() {
                     clock.speed = 4.0;
                     clock.paused = false;
                 }
