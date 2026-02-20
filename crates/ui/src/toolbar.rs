@@ -1214,7 +1214,9 @@ pub fn toolbar_ui(
     let categories = build_categories();
 
     // Set tooltip delay to 300ms for tool tooltips
-    contexts.ctx_mut().style_mut().interaction.tooltip_delay = 0.3;
+    contexts
+        .ctx_mut()
+        .style_mut(|style| style.interaction.tooltip_delay = 0.3);
 
     // ---- Top info bar ----
     egui::TopBottomPanel::top("top_info_bar")
