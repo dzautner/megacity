@@ -15,6 +15,7 @@ pub mod localization;
 pub mod milestones;
 pub mod minimap;
 pub mod multi_select;
+pub mod notification_ticker;
 pub mod oneway_ui;
 pub mod overlay_legend;
 pub mod progressive_disclosure;
@@ -54,6 +55,7 @@ impl Plugin for UiPlugin {
             .add_plugins(overlay_legend::OverlayLegendPlugin)
             .add_plugins(two_key_shortcuts::TwoKeyShortcutPlugin)
             .add_plugins(minimap::MinimapPlugin)
+            .add_plugins(notification_ticker::NotificationTickerPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
