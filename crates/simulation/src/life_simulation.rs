@@ -396,16 +396,25 @@ pub fn life_events(
     }
 
     // --- Marriage ---
+    // Track matched entities to enforce one-to-one pairing within a single tick.
+    // Without this, the same female could be paired with multiple males.
+    let mut matched: std::collections::HashSet<Entity> = std::collections::HashSet::new();
     let mut marriages: Vec<(Entity, Entity)> = Vec::new();
     for singles in singles_by_building.values() {
         let males: Vec<_> = singles.iter().filter(|s| s.1 == Gender::Male).collect();
         let females: Vec<_> = singles.iter().filter(|s| s.1 == Gender::Female).collect();
 
         for &&(m_entity, _, m_age, m_happy) in &males {
+            if matched.contains(&m_entity) {
+                continue;
+            }
             if m_happy < 30.0 {
                 continue; // too unhappy to marry
             }
             for &&(f_entity, _, f_age, f_happy) in &females {
+                if matched.contains(&f_entity) {
+                    continue;
+                }
                 if f_happy < 30.0 {
                     continue;
                 }
@@ -416,6 +425,8 @@ pub fn life_events(
                 }
                 // Marriage probability
                 if rng.gen::<f32>() < 0.05 {
+                    matched.insert(m_entity);
+                    matched.insert(f_entity);
                     marriages.push((m_entity, f_entity));
                     break; // one marriage per male per cycle
                 }
