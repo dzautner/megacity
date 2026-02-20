@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
+pub mod advisor_tips;
 pub mod cell_info_panel;
 pub mod citizen_info;
 pub mod day_night_panel;
@@ -37,6 +38,7 @@ impl Plugin for UiPlugin {
             .add_plugins(service_coverage_panel::ServiceCoveragePanelPlugin)
             .add_plugins(oneway_ui::OneWayUiPlugin)
             .add_plugins(settings_panel::SettingsPanelPlugin)
+            .add_plugins(advisor_tips::AdvisorTipsPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
