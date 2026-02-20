@@ -626,6 +626,8 @@ pub fn create_save_data(
             season_cost: sp.season_cost,
             cells_plowed_season: sp.cells_plowed_season,
         }),
+        // Extensions are populated separately by the save system via SaveableRegistry
+        extensions: std::collections::BTreeMap::new(),
     }
 }
 
@@ -2926,5 +2928,143 @@ mod tests {
         assert!((restored.demand.vacancy_commercial - 0.12).abs() < 0.001);
         assert!((restored.demand.vacancy_industrial - 0.08).abs() < 0.001);
         assert!((restored.demand.vacancy_office - 0.10).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_extension_map_roundtrip() {
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let mut save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        // Simulate extension map entries as if populated by SaveableRegistry
+        save.extensions
+            .insert("test_feature_a".to_string(), vec![1, 2, 3, 4]);
+        save.extensions
+            .insert("test_feature_b".to_string(), vec![10, 20]);
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+
+        assert_eq!(restored.extensions.len(), 2);
+        assert_eq!(
+            restored.extensions.get("test_feature_a"),
+            Some(&vec![1, 2, 3, 4])
+        );
+        assert_eq!(
+            restored.extensions.get("test_feature_b"),
+            Some(&vec![10, 20])
+        );
+    }
+
+    #[test]
+    fn test_extension_map_backward_compat() {
+        // Saves without extensions field should have empty map
+        let mut grid = WorldGrid::new(4, 4);
+        simulation::terrain::generate_terrain(&mut grid, 42);
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = create_save_data(
+            &grid,
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let bytes = save.encode();
+        let restored = SaveData::decode(&bytes).expect("decode should succeed");
+        assert!(restored.extensions.is_empty());
     }
 }

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use std::collections::BTreeMap;
 
 pub mod abandonment;
 pub mod achievements;
@@ -101,6 +102,96 @@ use road_graph_csr::CsrGraph;
 use road_segments::RoadSegmentStore;
 use roads::RoadNetwork;
 use spatial_grid::SpatialGrid;
+
+// ---------------------------------------------------------------------------
+// Saveable trait + registry for the extension map save pattern
+// ---------------------------------------------------------------------------
+
+/// Trait for resources that can be saved/loaded via the extension map.
+///
+/// Each implementing resource provides its own serialization logic, so adding a new
+/// saveable feature requires ZERO changes to any save system file -- the feature
+/// plugin just calls `app.register_saveable::<T>()` in its `build()`.
+pub trait Saveable: Resource + Default + Send + Sync + 'static {
+    /// Unique key for this resource in the save file's extension map.
+    /// Must be stable across versions (used for deserialization lookup).
+    const SAVE_KEY: &'static str;
+
+    /// Serialize this resource to bytes.
+    /// Return `None` to skip saving (e.g. when the resource is at its default state).
+    fn save_to_bytes(&self) -> Option<Vec<u8>>;
+
+    /// Deserialize from bytes, returning the restored resource.
+    fn load_from_bytes(bytes: &[u8]) -> Self;
+}
+
+/// Type-erased save/load/reset operations for a single registered resource.
+pub struct SaveableEntry {
+    pub key: String,
+    pub save_fn: Box<dyn Fn(&World) -> Option<Vec<u8>> + Send + Sync>,
+    pub load_fn: Box<dyn Fn(&mut World, &[u8]) + Send + Sync>,
+    pub reset_fn: Box<dyn Fn(&mut World) + Send + Sync>,
+}
+
+/// Registry of all saveable resources, populated during plugin setup.
+///
+/// The save system iterates this registry to persist/restore extension map entries
+/// without needing to know about individual feature types.
+#[derive(Resource, Default)]
+pub struct SaveableRegistry {
+    pub entries: Vec<SaveableEntry>,
+}
+
+impl SaveableRegistry {
+    /// Register a resource type that implements `Saveable`.
+    pub fn register<T: Saveable>(&mut self) {
+        self.entries.push(SaveableEntry {
+            key: T::SAVE_KEY.to_string(),
+            save_fn: Box::new(|world: &World| {
+                world.get_resource::<T>().and_then(|r| r.save_to_bytes())
+            }),
+            load_fn: Box::new(|world: &mut World, bytes: &[u8]| {
+                let value = T::load_from_bytes(bytes);
+                world.insert_resource(value);
+            }),
+            reset_fn: Box::new(|world: &mut World| {
+                world.insert_resource(T::default());
+            }),
+        });
+    }
+
+    /// Save all registered resources into an extension map.
+    pub fn save_all(&self, world: &World) -> BTreeMap<String, Vec<u8>> {
+        let mut extensions = BTreeMap::new();
+        for entry in &self.entries {
+            if let Some(bytes) = (entry.save_fn)(world) {
+                extensions.insert(entry.key.clone(), bytes);
+            }
+        }
+        extensions
+    }
+
+    /// Load registered resources from an extension map.
+    /// Resources whose key is absent are left unchanged (they keep their init_resource default).
+    pub fn load_all(&self, world: &mut World, extensions: &BTreeMap<String, Vec<u8>>) {
+        for entry in &self.entries {
+            if let Some(bytes) = extensions.get(&entry.key) {
+                (entry.load_fn)(world, bytes);
+            }
+        }
+    }
+
+    /// Reset all registered resources to their defaults (used by new-game).
+    pub fn reset_all(&self, world: &mut World) {
+        for entry in &self.entries {
+            (entry.reset_fn)(world);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Core resources
+// ---------------------------------------------------------------------------
 
 /// Global tick counter incremented each FixedUpdate, used for throttling simulation systems.
 #[derive(Resource, Default)]
@@ -292,5 +383,115 @@ pub fn lod_frame_ready(counter: Res<LodFrameCounter>) -> bool {
 fn rebuild_csr_on_road_change(roads: Res<RoadNetwork>, mut csr: ResMut<CsrGraph>) {
     if roads.is_changed() {
         *csr = CsrGraph::from_road_network(&roads);
+    }
+}
+
+#[cfg(test)]
+mod saveable_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// A trivial resource implementing `Saveable` for testing.
+    #[derive(Resource, Default, Debug, PartialEq)]
+    struct TestCounter {
+        value: u32,
+    }
+
+    impl Saveable for TestCounter {
+        const SAVE_KEY: &'static str = "test_counter";
+
+        fn save_to_bytes(&self) -> Option<Vec<u8>> {
+            if self.value == 0 {
+                None // skip saving default state
+            } else {
+                Some(self.value.to_le_bytes().to_vec())
+            }
+        }
+
+        fn load_from_bytes(bytes: &[u8]) -> Self {
+            let value = u32::from_le_bytes(bytes.try_into().unwrap_or([0; 4]));
+            TestCounter { value }
+        }
+    }
+
+    #[test]
+    fn test_registry_register_and_save() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 42 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let extensions = registry.save_all(&world);
+        assert_eq!(extensions.len(), 1);
+        assert!(extensions.contains_key("test_counter"));
+        assert_eq!(
+            extensions["test_counter"],
+            42u32.to_le_bytes().to_vec()
+        );
+    }
+
+    #[test]
+    fn test_registry_save_skips_default() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 0 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let extensions = registry.save_all(&world);
+        assert!(extensions.is_empty(), "default state should be skipped");
+    }
+
+    #[test]
+    fn test_registry_load_all() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter::default());
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let mut extensions = BTreeMap::new();
+        extensions.insert("test_counter".to_string(), 99u32.to_le_bytes().to_vec());
+
+        registry.load_all(&mut world, &extensions);
+
+        let counter = world.resource::<TestCounter>();
+        assert_eq!(counter.value, 99);
+    }
+
+    #[test]
+    fn test_registry_reset_all() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 999 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        registry.reset_all(&mut world);
+
+        let counter = world.resource::<TestCounter>();
+        assert_eq!(counter.value, 0);
+    }
+
+    #[test]
+    fn test_registry_load_ignores_unknown_keys() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 5 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let mut extensions = BTreeMap::new();
+        extensions.insert(
+            "unknown_feature".to_string(),
+            vec![0xFF, 0xFF],
+        );
+
+        registry.load_all(&mut world, &extensions);
+
+        // TestCounter should be unchanged since its key wasn't in extensions
+        let counter = world.resource::<TestCounter>();
+        assert_eq!(counter.value, 5);
     }
 }

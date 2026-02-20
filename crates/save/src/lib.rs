@@ -6,7 +6,10 @@ mod save_helpers;
 mod save_migrate;
 mod save_restore;
 mod save_types;
+pub mod saveable_ext;
 pub mod serialization;
+
+pub use saveable_ext::SaveableAppExt;
 
 use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
@@ -23,6 +26,8 @@ use serialization::{
     u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
     SaveData, CURRENT_SAVE_VERSION,
 };
+use simulation::SaveableRegistry;
+
 use simulation::agriculture::AgricultureState;
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -75,6 +80,25 @@ use simulation::zones::ZoneDemand;
 use rendering::building_render::BuildingMesh3d;
 use rendering::citizen_render::CitizenSprite;
 
+// ---------------------------------------------------------------------------
+// Extension map buffer resources
+// ---------------------------------------------------------------------------
+
+/// Holds a fully-built SaveData that still needs extension map population.
+/// Written by `handle_save`, consumed by `flush_save_with_extensions`.
+#[derive(Resource, Default)]
+struct PendingSaveData(Option<SaveData>);
+
+/// Holds extension map data loaded from a save file.
+/// Written by `handle_load`, consumed by `apply_load_extensions`.
+#[derive(Resource, Default)]
+struct PendingLoadExtensions(Option<std::collections::BTreeMap<String, Vec<u8>>>);
+
+/// Signals that a new game was started, so extension-registered resources need resetting.
+/// Written by `handle_new_game`, consumed by `reset_saveable_extensions`.
+#[derive(Resource, Default)]
+struct PendingNewGameReset(bool);
+
 /// Bundles entity queries for despawning existing game entities during load/new-game.
 #[derive(SystemParam)]
 struct ExistingEntities<'w, 's> {
@@ -94,7 +118,25 @@ impl Plugin for SavePlugin {
         app.add_event::<SaveGameEvent>()
             .add_event::<LoadGameEvent>()
             .add_event::<NewGameEvent>()
-            .add_systems(Update, (handle_save, handle_load, handle_new_game));
+            .init_resource::<SaveableRegistry>()
+            .init_resource::<PendingSaveData>()
+            .init_resource::<PendingLoadExtensions>()
+            .init_resource::<PendingNewGameReset>()
+            .add_systems(
+                Update,
+                (
+                    handle_save,
+                    handle_load,
+                    handle_new_game,
+                    // Extension-map systems run AFTER the core handlers in the same frame.
+                    flush_save_with_extensions
+                        .after(handle_save),
+                    apply_load_extensions
+                        .after(handle_load),
+                    reset_saveable_extensions
+                        .after(handle_new_game),
+                ),
+            );
     }
 }
 
@@ -134,6 +176,7 @@ fn handle_save(
     water_sources: Query<&WaterSource>,
     v2: V2ResourcesRead,
     lifecycle_timer: Res<LifecycleTimer>,
+    mut pending: ResMut<PendingSaveData>,
 ) {
     for _ in events.read() {
         let building_data: Vec<(Building, Option<MixedUseBuilding>)> = buildings
@@ -219,15 +262,8 @@ fn handle_save(
             Some(&v2.agriculture_state),
         );
 
-        let bytes = save.encode();
-
-        // Save to file
-        let path = save_file_path();
-        if let Err(e) = std::fs::write(&path, &bytes) {
-            eprintln!("Failed to save: {}", e);
-        } else {
-            println!("Saved {} bytes to {}", bytes.len(), path);
-        }
+        // Store in buffer; the exclusive flush system will add extensions and write to disk.
+        pending.0 = Some(save);
     }
 }
 
@@ -244,6 +280,7 @@ fn handle_load(
     existing: ExistingEntities,
     mut v2: V2ResourcesWrite,
     mut lifecycle_timer: ResMut<LifecycleTimer>,
+    mut pending_ext: ResMut<PendingLoadExtensions>,
 ) {
     for _ in events.read() {
         let path = save_file_path();
@@ -787,6 +824,11 @@ fn handle_load(
         }
         *v2.snow_stats = SnowStats::default();
 
+        // Store extension map for the exclusive system to apply via SaveableRegistry.
+        if !save.extensions.is_empty() {
+            pending_ext.0 = Some(save.extensions.clone());
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -805,6 +847,7 @@ fn handle_new_game(
     mut demand: ResMut<ZoneDemand>,
     mut v2: V2ResourcesWrite,
     mut lifecycle_timer: ResMut<LifecycleTimer>,
+    mut pending_reset: ResMut<PendingNewGameReset>,
 ) {
     for _ in events.read() {
         // Despawn all game entities
@@ -891,6 +934,9 @@ fn handle_new_game(
         *v2.snow_stats = SnowStats::default();
         *v2.agriculture_state = AgricultureState::default();
 
+        // Signal the exclusive system to reset extension-registered resources.
+        pending_reset.0 = true;
+
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {
             for x in 0..width {
@@ -907,6 +953,71 @@ fn handle_new_game(
 
         println!("New game started — blank map with $50,000 treasury");
     }
+}
+
+// ---------------------------------------------------------------------------
+// Exclusive systems for extension map save/load/reset
+// ---------------------------------------------------------------------------
+
+/// Exclusive system: takes the pending SaveData, populates extensions from the
+/// SaveableRegistry, encodes, and writes the final save file to disk.
+fn flush_save_with_extensions(world: &mut World) {
+    // Take the pending save data (if any).
+    let save_opt = world.resource_mut::<PendingSaveData>().0.take();
+    let Some(mut save) = save_opt else {
+        return;
+    };
+
+    // Temporarily remove the registry so we can read resources from the world
+    // without conflicting borrows.
+    let registry = world
+        .remove_resource::<SaveableRegistry>()
+        .expect("SaveableRegistry must exist");
+    save.extensions = registry.save_all(world);
+    world.insert_resource(registry);
+
+    // Encode and write to disk.
+    let bytes = save.encode();
+    let path = save_file_path();
+    if let Err(e) = std::fs::write(&path, &bytes) {
+        eprintln!("Failed to save: {}", e);
+    } else {
+        println!("Saved {} bytes to {}", bytes.len(), path);
+    }
+}
+
+/// Exclusive system: applies pending extension map data to the world via
+/// the SaveableRegistry after `handle_load` has restored all named fields.
+fn apply_load_extensions(world: &mut World) {
+    let ext_opt = world.resource_mut::<PendingLoadExtensions>().0.take();
+    let Some(extensions) = ext_opt else {
+        return;
+    };
+
+    // Temporarily remove the registry from the world so we can iterate its
+    // entries while mutating the world (the entries themselves are never
+    // modified, only the world's other resources).
+    let registry = world
+        .remove_resource::<SaveableRegistry>()
+        .expect("SaveableRegistry must exist");
+    registry.load_all(world, &extensions);
+    world.insert_resource(registry);
+}
+
+/// Exclusive system: resets all extension-registered resources to defaults
+/// after `handle_new_game` has reset the named resources.
+fn reset_saveable_extensions(world: &mut World) {
+    let should_reset = world.resource_mut::<PendingNewGameReset>().0;
+    if !should_reset {
+        return;
+    }
+    world.resource_mut::<PendingNewGameReset>().0 = false;
+
+    let registry = world
+        .remove_resource::<SaveableRegistry>()
+        .expect("SaveableRegistry must exist");
+    registry.reset_all(world);
+    world.insert_resource(registry);
 }
 
 fn save_file_path() -> String {

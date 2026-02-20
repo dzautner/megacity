@@ -2,6 +2,8 @@
 // Save structs and version constants
 // ---------------------------------------------------------------------------
 
+use std::collections::BTreeMap;
+
 use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -164,6 +166,11 @@ pub struct SaveData {
     pub snow_state: Option<SaveSnowState>,
     #[serde(default)]
     pub agriculture_state: Option<SaveAgricultureState>,
+    // --- Extension map for dynamic feature persistence (no save-file changes needed) ---
+    /// Generic extension map: each key is a `Saveable::SAVE_KEY`, value is bitcode-encoded bytes.
+    /// New features use this instead of adding named fields above.
+    #[serde(default)]
+    pub extensions: BTreeMap<String, Vec<u8>>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
