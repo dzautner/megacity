@@ -17,6 +17,7 @@ pub mod lane_markings;
 pub mod oneway_arrows;
 pub mod overlay;
 pub mod props;
+pub mod satellite_view;
 pub mod terrain_render;
 pub mod tree_props;
 
@@ -165,6 +166,9 @@ impl Plugin for RenderingPlugin {
 
         // Building mesh variant plugin (level-aware model selection)
         app.add_plugins(building_mesh_variants::BuildingMeshVariantsPlugin);
+
+        // Satellite view at maximum zoom-out
+        app.add_plugins(satellite_view::SatelliteViewPlugin);
     }
 }
 
