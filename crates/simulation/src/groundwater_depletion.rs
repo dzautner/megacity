@@ -176,10 +176,8 @@ pub fn update_groundwater_depletion(
     let mut recharge_sum: f32 = 0.0;
 
     if state.previous_levels.len() == total {
-        for i in 0..total {
-            let prev = state.previous_levels[i] as f32;
-            let curr = levels[i] as f32;
-            let delta = curr - prev;
+        for (&curr, &prev) in levels.iter().zip(state.previous_levels.iter()) {
+            let delta = curr as f32 - prev as f32;
             if delta < 0.0 {
                 extraction_sum -= delta; // delta is negative, so negate to get positive extraction
             } else if delta > 0.0 {
@@ -198,12 +196,12 @@ pub fn update_groundwater_depletion(
     let mut over_extracted: u32 = 0;
     let mut at_risk: u32 = 0;
 
-    for i in 0..total {
-        level_sum += levels[i] as u64;
-        if levels[i] < GROUNDWATER_CRITICAL_LEVEL {
+    for &level in levels.iter() {
+        level_sum += level as u64;
+        if level < GROUNDWATER_CRITICAL_LEVEL {
             over_extracted += 1;
         }
-        if levels[i] < SUBSIDENCE_THRESHOLD {
+        if level < SUBSIDENCE_THRESHOLD {
             at_risk += 1;
         }
     }
@@ -221,18 +219,18 @@ pub fn update_groundwater_depletion(
 
     // --- Phase 5: Subsidence tracking ---
     let mut subsided_count: u32 = 0;
-    for i in 0..total {
-        if levels[i] < SUBSIDENCE_THRESHOLD {
+    for (&level, tick) in levels.iter().zip(state.ticks_below_threshold.iter_mut()) {
+        if level < SUBSIDENCE_THRESHOLD {
             // Cell is below subsidence threshold -- increment counter
-            if state.ticks_below_threshold[i] < SUBSIDENCE_TICKS {
-                state.ticks_below_threshold[i] = state.ticks_below_threshold[i].saturating_add(1);
+            if *tick < SUBSIDENCE_TICKS {
+                *tick = tick.saturating_add(1);
             }
         } else {
             // Cell is above threshold -- reset counter (recovery)
-            state.ticks_below_threshold[i] = 0;
+            *tick = 0;
         }
 
-        if state.ticks_below_threshold[i] >= SUBSIDENCE_TICKS {
+        if *tick >= SUBSIDENCE_TICKS {
             subsided_count += 1;
         }
     }
@@ -456,7 +454,7 @@ mod tests {
     #[test]
     fn test_subsidence_counter_increments_below_threshold() {
         let mut ticks = vec![0u16; 4];
-        let levels: Vec<u8> = vec![10, 25, 5, 19]; // all < SUBSIDENCE_THRESHOLD (20)
+        let levels: Vec<u8> = vec![10, 15, 5, 19]; // all < SUBSIDENCE_THRESHOLD (20)
 
         for i in 0..4 {
             if levels[i] < SUBSIDENCE_THRESHOLD {
@@ -472,7 +470,7 @@ mod tests {
     #[test]
     fn test_subsidence_counter_resets_above_threshold() {
         let mut ticks = vec![30u16; 4];
-        let levels: Vec<u8> = vec![10, 25, 50, 100]; // index 2,3 are above threshold
+        let levels: Vec<u8> = vec![10, 15, 50, 100]; // index 0,1 below threshold; 2,3 above
 
         for i in 0..4 {
             if levels[i] < SUBSIDENCE_THRESHOLD {
