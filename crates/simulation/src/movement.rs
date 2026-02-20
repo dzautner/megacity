@@ -356,6 +356,7 @@ pub fn move_citizens(
     clock: Res<GameClock>,
     weather: Res<crate::weather::Weather>,
     fog: Res<crate::fog::FogState>,
+    snow_stats: Res<crate::snow::SnowStats>,
     mut query: Query<
         (
             Entity,
@@ -372,8 +373,12 @@ pub fn move_citizens(
         return;
     }
 
+    // Combine weather-based speed reduction with snow-based and fog-based speed reduction.
+    // Snow and fog speed multipliers stack multiplicatively with weather speed multiplier.
+    let snow_mult = snow_stats.road_speed_multiplier.max(0.2);
     let speed_per_tick = (CITIZEN_SPEED / 10.0)
-        * weather.travel_speed_multiplier_with_fog(fog.traffic_speed_modifier);
+        * weather.travel_speed_multiplier_with_fog(fog.traffic_speed_modifier)
+        * snow_mult;
 
     query
         .par_iter_mut()

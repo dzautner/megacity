@@ -49,6 +49,7 @@ use simulation::budget::ExtendedBudget;
 use simulation::cold_snap::ColdSnapState;
 use simulation::degree_days::DegreeDays;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
+use simulation::snow::{SnowGrid, SnowPlowingState};
 
 #[allow(clippy::too_many_arguments)]
 pub fn create_save_data(
@@ -95,6 +96,7 @@ pub fn create_save_data(
     water_conservation_state: Option<&WaterConservationState>,
     fog_state: Option<&FogState>,
     urban_growth_boundary: Option<&UrbanGrowthBoundary>,
+    snow_state: Option<(&SnowGrid, &SnowPlowingState)>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -598,6 +600,14 @@ pub fn create_save_data(
             vertices_x: u.vertices.iter().map(|(x, _)| *x).collect(),
             vertices_y: u.vertices.iter().map(|(_, y)| *y).collect(),
         }),
+        snow_state: snow_state.map(|(sg, sp)| SaveSnowState {
+            depths: sg.depths.clone(),
+            width: sg.width,
+            height: sg.height,
+            plowing_enabled: sp.enabled,
+            season_cost: sp.season_cost,
+            cells_plowed_season: sp.cells_plowed_season,
+        }),
     }
 }
 
@@ -687,6 +697,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -740,6 +751,7 @@ mod tests {
         assert!(restored.water_conservation_state.is_none());
         assert!(restored.fog_state.is_none());
         assert!(restored.urban_growth_boundary.is_none());
+        assert!(restored.snow_state.is_none());
     }
 
     #[test]
@@ -1065,6 +1077,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1161,6 +1174,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1198,6 +1212,7 @@ mod tests {
         assert!(restored.water_conservation_state.is_none());
         assert!(restored.fog_state.is_none());
         assert!(restored.urban_growth_boundary.is_none());
+        assert!(restored.snow_state.is_none());
     }
 
     #[test]
@@ -1274,6 +1289,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1298,6 +1314,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1393,6 +1410,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1420,6 +1438,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1514,6 +1533,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1541,6 +1561,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1725,6 +1746,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1767,6 +1789,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1925,6 +1948,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1997,6 +2021,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2023,6 +2048,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2134,6 +2160,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2298,6 +2325,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2325,6 +2353,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2391,6 +2420,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2492,6 +2522,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2531,6 +2562,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2670,6 +2702,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2742,6 +2775,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2769,6 +2803,7 @@ mod tests {
         assert!(restored.water_conservation_state.is_none());
         assert!(restored.fog_state.is_none());
         assert!(restored.urban_growth_boundary.is_none());
+        assert!(restored.snow_state.is_none());
     }
 
     #[test]
@@ -2799,6 +2834,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

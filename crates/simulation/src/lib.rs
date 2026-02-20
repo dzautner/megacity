@@ -63,6 +63,7 @@ pub mod road_maintenance;
 pub mod road_segments;
 pub mod roads;
 pub mod services;
+pub mod snow;
 pub mod spatial_grid;
 pub mod specialization;
 pub mod stats;
@@ -146,6 +147,7 @@ use road_graph_csr::CsrGraph;
 use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
 use roads::RoadNetwork;
+use snow::{SnowGrid, SnowPlowingState, SnowStats};
 use spatial_grid::SpatialGrid;
 use specialization::{CitySpecializations, SpecializationBonuses};
 use stats::CityStats;
@@ -305,6 +307,9 @@ impl Plugin for SimulationPlugin {
             .init_resource::<FogState>()
             .init_resource::<ReservoirState>()
             .init_resource::<UrbanGrowthBoundary>()
+            .init_resource::<SnowGrid>()
+            .init_resource::<SnowPlowingState>()
+            .init_resource::<SnowStats>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -482,6 +487,12 @@ impl Plugin for SimulationPlugin {
                     unlocks::award_development_points,
                 )
                     .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                (snow::update_snow, snow::update_snow_plowing)
+                    .chain()
+                    .after(weather::update_weather),
             )
             .add_systems(
                 FixedUpdate,

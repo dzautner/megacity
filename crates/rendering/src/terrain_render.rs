@@ -11,6 +11,7 @@ use simulation::noise::NoisePollutionGrid;
 use simulation::pollution::PollutionGrid;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
+use simulation::snow::SnowGrid;
 use simulation::traffic::TrafficGrid;
 use simulation::water_pollution::WaterPollutionGrid;
 use simulation::weather::{Season, Weather};
@@ -28,6 +29,7 @@ pub struct OverlayGrids<'a> {
     pub water_pollution: Option<&'a WaterPollutionGrid>,
     pub groundwater: Option<&'a GroundwaterGrid>,
     pub water_quality: Option<&'a WaterQualityGrid>,
+    pub snow: Option<&'a SnowGrid>,
 }
 
 impl<'a> OverlayGrids<'a> {
@@ -42,6 +44,7 @@ impl<'a> OverlayGrids<'a> {
             water_pollution: None,
             groundwater: None,
             water_quality: None,
+            snow: None,
         }
     }
 }
@@ -55,17 +58,20 @@ pub struct TerrainChunk {
 #[derive(Component)]
 pub struct ChunkDirty;
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_terrain_chunks(
     mut commands: Commands,
     grid: Res<WorldGrid>,
     roads: Res<RoadNetwork>,
     segments: Res<RoadSegmentStore>,
     weather: Res<Weather>,
+    snow_grid: Res<SnowGrid>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let overlay = OverlayMode::None;
-    let overlay_grids = OverlayGrids::none();
+    let mut overlay_grids = OverlayGrids::none();
+    overlay_grids.snow = Some(&snow_grid);
     for cy in 0..CHUNKS_Y {
         for cx in 0..CHUNKS_X {
             let mesh = build_chunk_mesh(
@@ -110,12 +116,13 @@ pub fn dirty_chunks_on_overlay_change(
     groundwater_grid: Res<GroundwaterGrid>,
     water_quality_grid: Res<WaterQualityGrid>,
     weather: Res<Weather>,
+    snow_grid: Res<SnowGrid>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
 ) {
     use crate::overlay::OverlayMode;
 
-    if overlay.is_changed() || weather.is_changed() {
+    if overlay.is_changed() || weather.is_changed() || snow_grid.is_changed() {
         mark_all_chunks_dirty(&chunks, &mut commands);
         return;
     }
@@ -155,11 +162,12 @@ pub fn rebuild_dirty_chunks(
     noise_grid: Res<NoisePollutionGrid>,
     water_pollution_grid: Res<WaterPollutionGrid>,
     groundwater_grids: (Res<GroundwaterGrid>, Res<WaterQualityGrid>),
-    weather: Res<Weather>,
+    snow_params: (Res<SnowGrid>, Res<Weather>),
     mut meshes: ResMut<Assets<Mesh>>,
     query: Query<(Entity, &TerrainChunk, &Mesh3d), With<ChunkDirty>>,
 ) {
     let (groundwater_grid, water_quality_grid) = groundwater_grids;
+    let (snow_grid, weather) = snow_params;
     let overlay_grids = OverlayGrids {
         pollution: Some(&pollution_grid),
         land_value: Some(&land_value_grid),
@@ -170,6 +178,7 @@ pub fn rebuild_dirty_chunks(
         water_pollution: Some(&water_pollution_grid),
         groundwater: Some(&groundwater_grid),
         water_quality: Some(&water_quality_grid),
+        snow: Some(&snow_grid),
     };
     for (entity, chunk, mesh_handle) in &query {
         let new_mesh = build_chunk_mesh(
@@ -223,7 +232,8 @@ pub fn build_chunk_mesh(
             }
 
             let cell = grid.get(gx, gy);
-            let base_color = terrain_color(cell, gx, gy, season);
+            let snow_depth = overlay_grids.snow.map(|sg| sg.get(gx, gy)).unwrap_or(0.0);
+            let base_color = terrain_color(cell, gx, gy, season, snow_depth);
             let color = apply_overlay(base_color, cell, gx, gy, grid, overlay, overlay_grids);
 
             let x0 = lx as f32 * CELL_SIZE;
@@ -289,12 +299,18 @@ pub fn build_chunk_mesh(
     .with_inserted_indices(Indices::U32(indices))
 }
 
-fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize, season: Season) -> Color {
+fn terrain_color(
+    cell: &simulation::grid::Cell,
+    gx: usize,
+    gy: usize,
+    season: Season,
+    snow_depth: f32,
+) -> Color {
     // Per-cell noise for variation (no two cells look identical)
     let noise = ((gx.wrapping_mul(7919).wrapping_add(gy.wrapping_mul(6271))) % 100) as f32 / 100.0;
     let v = (noise - 0.5) * 0.04; // +/- 2% color variation
 
-    if cell.zone != ZoneType::None && cell.cell_type != CellType::Road {
+    let base_color = if cell.zone != ZoneType::None && cell.cell_type != CellType::Road {
         // Urban ground: light concrete/pavement tones (must contrast with dark road asphalt)
         let (r, g, b) = match cell.zone {
             // Residential low: mix of lawn patches + driveways + sidewalks
@@ -315,46 +331,63 @@ fn terrain_color(cell: &simulation::grid::Cell, gx: usize, gy: usize, season: Se
             ZoneType::MixedUse => (0.60, 0.58, 0.52),
             ZoneType::None => unreachable!(),
         };
-        return Color::srgb(
+        Color::srgb(
             (r + v).clamp(0.0, 1.0),
             (g + v * 0.8).clamp(0.0, 1.0),
             (b + v * 0.6).clamp(0.0, 1.0),
-        );
-    }
+        )
+    } else {
+        match cell.cell_type {
+            CellType::Water => {
+                let depth = 1.0 - cell.elevation / 0.35;
+                // Urban waterways: gray-green, not deep blue
+                let r = 0.12 + depth * 0.04 + v * 0.5;
+                let g = 0.22 + depth * 0.08 + v * 0.3;
+                let b = 0.38 + depth * 0.18 + v * 0.2;
+                Color::srgb(r, g, b)
+            }
+            CellType::Road => {
+                // Road cells render as light sidewalk/pavement — the asphalt strip is drawn on top
+                let (r, g, b) = if cell.road_type == RoadType::Path {
+                    (0.48, 0.44, 0.36) // Dirt path
+                } else {
+                    (0.62, 0.60, 0.57) // Light concrete sidewalk (contrasts with dark asphalt)
+                };
+                Color::srgb(
+                    (r + v * 0.3).clamp(0.0, 1.0),
+                    (g + v * 0.3).clamp(0.0, 1.0),
+                    (b + v * 0.2).clamp(0.0, 1.0),
+                )
+            }
+            CellType::Grass => {
+                // Grass color varies by season with per-cell noise variation
+                let [sr, sg, sb] = season.grass_color();
+                let elev = cell.elevation;
+                let patch =
+                    ((gx.wrapping_mul(31).wrapping_add(gy.wrapping_mul(47))) % 100) as f32 / 100.0;
+                let r = sr + elev * 0.06 + patch * 0.08 + v;
+                let g = sg + elev * 0.10 + patch * 0.04 + v * 0.5;
+                let b = sb + elev * 0.04 + patch * 0.03 + v * 0.3;
+                Color::srgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0))
+            }
+        }
+    };
 
-    match cell.cell_type {
-        CellType::Water => {
-            let depth = 1.0 - cell.elevation / 0.35;
-            // Urban waterways: gray-green, not deep blue
-            let r = 0.12 + depth * 0.04 + v * 0.5;
-            let g = 0.22 + depth * 0.08 + v * 0.3;
-            let b = 0.38 + depth * 0.18 + v * 0.2;
-            Color::srgb(r, g, b)
-        }
-        CellType::Road => {
-            // Road cells render as light sidewalk/pavement — the asphalt strip is drawn on top
-            let (r, g, b) = if cell.road_type == RoadType::Path {
-                (0.48, 0.44, 0.36) // Dirt path
-            } else {
-                (0.62, 0.60, 0.57) // Light concrete sidewalk (contrasts with dark asphalt)
-            };
-            Color::srgb(
-                (r + v * 0.3).clamp(0.0, 1.0),
-                (g + v * 0.3).clamp(0.0, 1.0),
-                (b + v * 0.2).clamp(0.0, 1.0),
-            )
-        }
-        CellType::Grass => {
-            // Grass color varies by season with per-cell noise variation
-            let [sr, sg, sb] = season.grass_color();
-            let elev = cell.elevation;
-            let patch =
-                ((gx.wrapping_mul(31).wrapping_add(gy.wrapping_mul(47))) % 100) as f32 / 100.0;
-            let r = sr + elev * 0.06 + patch * 0.08 + v;
-            let g = sg + elev * 0.10 + patch * 0.04 + v * 0.5;
-            let b = sb + elev * 0.04 + patch * 0.03 + v * 0.3;
-            Color::srgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0))
-        }
+    // Snow overlay: blend toward white based on snow depth.
+    // Water cells don't get snow overlay. Full white at 6+ inches.
+    if snow_depth > 0.0 && cell.cell_type != CellType::Water {
+        let snow_factor = (snow_depth / 6.0).min(1.0);
+        // Snow white with slight blue tint and per-cell noise for variation
+        let snow_r = 0.92 + v * 0.3;
+        let snow_g = 0.94 + v * 0.2;
+        let snow_b = 0.98 + v * 0.1;
+        let srgba = base_color.to_srgba();
+        let r = srgba.red * (1.0 - snow_factor) + snow_r * snow_factor;
+        let g = srgba.green * (1.0 - snow_factor) + snow_g * snow_factor;
+        let b = srgba.blue * (1.0 - snow_factor) + snow_b * snow_factor;
+        Color::srgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0))
+    } else {
+        base_color
     }
 }
 
@@ -1320,5 +1353,5 @@ pub fn mark_all_chunks_dirty(
 }
 
 pub fn cell_color(cell: &simulation::grid::Cell) -> Color {
-    terrain_color(cell, 0, 0, Season::Spring)
+    terrain_color(cell, 0, 0, Season::Spring, 0.0)
 }

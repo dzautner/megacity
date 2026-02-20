@@ -15,12 +15,12 @@ use serialization::{
     restore_extended_budget, restore_flood_state, restore_fog_state, restore_groundwater_depletion,
     restore_hazardous_waste, restore_heat_wave, restore_landfill_capacity, restore_landfill_gas,
     restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
-    restore_recycling, restore_reservoir_state, restore_road_segment_store, restore_storm_drainage,
-    restore_stormwater_grid, restore_uhi_grid, restore_unlock_state, restore_urban_growth_boundary,
-    restore_virtual_population, restore_wastewater, restore_water_conservation,
-    restore_water_source, restore_water_treatment, restore_weather, restore_wind_damage_state,
-    u8_to_road_type, u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput,
-    SaveData, CURRENT_SAVE_VERSION,
+    restore_recycling, restore_reservoir_state, restore_road_segment_store, restore_snow,
+    restore_storm_drainage, restore_stormwater_grid, restore_uhi_grid, restore_unlock_state,
+    restore_urban_growth_boundary, restore_virtual_population, restore_wastewater,
+    restore_water_conservation, restore_water_source, restore_water_treatment, restore_weather,
+    restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
+    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -53,6 +53,7 @@ use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::roads::RoadNode;
 use simulation::services::ServiceBuilding;
+use simulation::snow::{SnowGrid, SnowPlowingState, SnowStats};
 use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::time_of_day::GameClock;
@@ -212,6 +213,7 @@ fn handle_save(
             Some(&v2.water_conservation_state),
             Some(&v2.fog_state),
             Some(&v2.urban_growth_boundary),
+            Some((&v2.snow_grid, &v2.snow_plowing_state)),
         );
 
         let bytes = save.encode();
@@ -766,6 +768,17 @@ fn handle_load(
             *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
         }
 
+        // Restore snow state
+        if let Some(ref s) = save.snow_state {
+            let (sg, sp) = restore_snow(s);
+            *v2.snow_grid = sg;
+            *v2.snow_plowing_state = sp;
+        } else {
+            *v2.snow_grid = SnowGrid::default();
+            *v2.snow_plowing_state = SnowPlowingState::default();
+        }
+        *v2.snow_stats = SnowStats::default();
+
         println!("Loaded save from {}", path);
     }
 }
@@ -865,6 +878,9 @@ fn handle_new_game(
         *v2.water_conservation_state = WaterConservationState::default();
         *v2.fog_state = FogState::default();
         *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
+        *v2.snow_grid = SnowGrid::default();
+        *v2.snow_plowing_state = SnowPlowingState::default();
+        *v2.snow_stats = SnowStats::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

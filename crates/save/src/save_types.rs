@@ -41,7 +41,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v27 = water_conservation_state (WaterConservationState serialization for water conservation)
 /// v28 = fog_state (FogState serialization for fog and visibility)
 /// v29 = urban_growth_boundary (UrbanGrowthBoundary serialization for UGB polygon)
-pub const CURRENT_SAVE_VERSION: u32 = 29; // v29: Urban Growth Boundary
+/// v30 = snow_state (SnowGrid + SnowPlowingState serialization for snow accumulation and plowing)
+pub const CURRENT_SAVE_VERSION: u32 = 30; // v30: Snow accumulation and plowing
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -158,6 +159,8 @@ pub struct SaveData {
     pub fog_state: Option<SaveFogState>,
     #[serde(default)]
     pub urban_growth_boundary: Option<SaveUrbanGrowthBoundary>,
+    #[serde(default)]
+    pub snow_state: Option<SaveSnowState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -728,6 +731,15 @@ pub struct SaveFogState {
     pub traffic_speed_modifier: f32,
     pub flights_suspended: bool,
     pub last_update_hour: u32,
+}
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveSnowState {
+    pub depths: Vec<f32>,
+    pub width: usize,
+    pub height: usize,
+    pub plowing_enabled: bool,
+    pub season_cost: f64,
+    pub cells_plowed_season: u32,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]

@@ -196,6 +196,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.urban_growth_boundary = None;
         save.version = 29;
     }
+    // v29 -> v30: Added snow_state (SnowGrid + SnowPlowingState serialization for snow accumulation and plowing).
+    // Uses `#[serde(default)]` so it deserializes as None from a v29 save.
+    if save.version == 29 {
+        save.snow_state = None;
+        save.version = 30;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version
