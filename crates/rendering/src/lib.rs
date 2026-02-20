@@ -25,6 +25,8 @@ pub mod selection_highlight;
 pub mod status_icons;
 pub mod traffic_los_render;
 
+pub mod screenshot;
+
 use camera::{CameraDrag, LeftClickDrag};
 use input::{ActiveTool, CursorGridPos, GridSnap, RoadDrawState, SelectedBuilding, StatusMessage};
 use overlay::OverlayState;
@@ -154,6 +156,9 @@ impl Plugin for RenderingPlugin {
             .add_systems(Update, oneway_arrows::draw_oneway_arrows)
             .add_plugins(traffic_los_render::TrafficLosRenderPlugin)
             .add_plugins(tree_props::TreePropsPlugin);
+
+        // Screenshot plugin (F12 to capture)
+        app.add_plugins(screenshot::ScreenshotPlugin);
 
         // Building mesh variant plugin (level-aware model selection)
         app.add_plugins(building_mesh_variants::BuildingMeshVariantsPlugin);
