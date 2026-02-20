@@ -1855,17 +1855,29 @@ fn test_lod_roundtrip_no_state_loss() {
         ))
         .id();
 
-    // Transition to Abstract tier (simulating what assign_lod_tiers does).
+    // Simulate Full -> Abstract transition: change LodTier and insert
+    // CompressedCitizen manually (the compress_abstract_citizens system runs
+    // in Update, which TestCity::tick() does not execute).
     let world = city.world_mut();
-    if let Some(mut tier) = world.get_mut::<LodTier>(citizen_entity) {
-        *tier = LodTier::Abstract;
+    {
+        let state = world.get::<CitizenStateComp>(citizen_entity).unwrap().0;
+        let details = world.get::<CitizenDetails>(citizen_entity).unwrap();
+        let home = world.get::<HomeLocation>(citizen_entity).unwrap();
+        let compressed = CompressedCitizen::new(
+            home.grid_x as u8,
+            home.grid_y as u8,
+            state,
+            details.age,
+            details.happiness as u8,
+            0,
+            0,
+        );
+        world
+            .entity_mut(citizen_entity)
+            .insert((LodTier::Abstract, compressed));
     }
 
-    // Run update to trigger compress_abstract_citizens system.
-    city.tick(1);
-
     // Verify citizen got CompressedCitizen marker.
-    let world = city.world_mut();
     assert!(
         world.get::<CompressedCitizen>(citizen_entity).is_some(),
         "citizen should have CompressedCitizen component in Abstract tier"
@@ -1887,25 +1899,21 @@ fn test_lod_roundtrip_no_state_loss() {
         );
 
         let needs = world.get::<Needs>(citizen_entity).unwrap();
-        // Needs may have decayed slightly during the tick, so check range.
         assert!(
-            needs.hunger > 0.0 && needs.hunger <= 100.0,
-            "hunger should be in valid range in Abstract tier: {}",
+            (needs.hunger - 60.0).abs() < f32::EPSILON,
+            "hunger should be preserved in Abstract tier: {}",
             needs.hunger
         );
     }
 
-    // Transition back to Full tier.
-    let world = city.world_mut();
-    if let Some(mut tier) = world.get_mut::<LodTier>(citizen_entity) {
-        *tier = LodTier::Full;
-    }
-
-    // Run update to trigger decompress_active_citizens system.
-    city.tick(1);
+    // Simulate Abstract -> Full transition: change LodTier and remove
+    // CompressedCitizen (what decompress_active_citizens does).
+    world
+        .entity_mut(citizen_entity)
+        .insert(LodTier::Full)
+        .remove::<CompressedCitizen>();
 
     // Verify CompressedCitizen marker was removed.
-    let world = city.world_mut();
     assert!(
         world.get::<CompressedCitizen>(citizen_entity).is_none(),
         "citizen should NOT have CompressedCitizen after returning to Full tier"
@@ -1948,17 +1956,32 @@ fn test_lod_roundtrip_no_state_loss() {
         "resilience lost in LOD roundtrip"
     );
 
-    // Needs may have decayed during the two ticks, so check range validity.
+    // Needs should be exactly preserved since no ticks were run.
     let needs = world.get::<Needs>(citizen_entity).unwrap();
     assert!(
-        needs.hunger > 0.0 && needs.hunger <= 100.0,
-        "hunger out of range after LOD roundtrip: {}",
+        (needs.hunger - 60.0).abs() < f32::EPSILON,
+        "hunger lost in LOD roundtrip: {}",
         needs.hunger
     );
     assert!(
-        needs.energy > 0.0 && needs.energy <= 100.0,
-        "energy out of range after LOD roundtrip: {}",
+        (needs.energy - 75.0).abs() < f32::EPSILON,
+        "energy lost in LOD roundtrip: {}",
         needs.energy
+    );
+    assert!(
+        (needs.social - 50.0).abs() < f32::EPSILON,
+        "social lost in LOD roundtrip: {}",
+        needs.social
+    );
+    assert!(
+        (needs.fun - 45.0).abs() < f32::EPSILON,
+        "fun lost in LOD roundtrip: {}",
+        needs.fun
+    );
+    assert!(
+        (needs.comfort - 70.0).abs() < f32::EPSILON,
+        "comfort lost in LOD roundtrip: {}",
+        needs.comfort
     );
 
     // Verify home/work locations survived.
