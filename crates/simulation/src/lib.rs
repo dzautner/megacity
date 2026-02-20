@@ -40,6 +40,7 @@ pub mod health;
 pub mod heat_mitigation;
 pub mod heat_wave;
 pub mod heating;
+pub mod historic_preservation;
 pub mod homelessness;
 pub mod immigration;
 pub mod imports_exports;
@@ -279,6 +280,7 @@ impl Plugin for SimulationPlugin {
             lifecycle::LifecyclePlugin,
             building_upgrade::BuildingUpgradePlugin,
             imports_exports::ImportsExportsPlugin,
+            historic_preservation::HistoricPreservationPlugin,
         ));
 
         // Waste and recycling
