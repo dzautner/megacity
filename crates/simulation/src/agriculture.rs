@@ -35,9 +35,6 @@ const BASE_SOIL_QUALITY: f32 = 0.8;
 /// Fertilizer bonus when irrigation infrastructure is present.
 const IRRIGATION_FERTILIZER_BONUS: f32 = 1.15;
 
-/// Base food output per worker on fertile land per tick.
-const BASE_FOOD_PER_WORKER: f32 = 0.5;
-
 /// Frost damage probability in Spring (early frost).
 const SPRING_FROST_BASE_RISK: f32 = 0.15;
 
