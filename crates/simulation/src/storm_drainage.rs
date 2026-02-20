@@ -157,9 +157,7 @@ pub fn update_storm_drainage(
     let mut effective_runoff = vec![0.0_f32; total_cells];
 
     // Copy raw runoff from the stormwater grid
-    for i in 0..total_cells {
-        effective_runoff[i] = stormwater.runoff[i];
-    }
+    effective_runoff[..total_cells].copy_from_slice(&stormwater.runoff[..total_cells]);
 
     // Rain gardens absorb 100% of their own cell + 50% from 4 cardinal neighbors
     for &(gx, gy) in &rain_garden_positions {
