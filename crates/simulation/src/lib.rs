@@ -65,6 +65,7 @@ pub mod neighborhood_quality;
 pub mod nimby;
 pub mod noise;
 pub mod outside_connections;
+pub mod parking;
 pub mod pathfinding_sys;
 pub mod policies;
 pub mod pollution;
@@ -397,6 +398,7 @@ impl Plugin for SimulationPlugin {
             walkability::WalkabilityPlugin,
             form_transect::FormTransectPlugin,
             cumulative_zoning::CumulativeZoningPlugin,
+            parking::ParkingPlugin,
         ));
     }
 }
