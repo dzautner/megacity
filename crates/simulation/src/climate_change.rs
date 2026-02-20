@@ -125,7 +125,7 @@ impl Saveable for ClimateState {
         if self.cumulative_co2 == 0.0 && self.last_assessment_day == 0 {
             return None;
         }
-        bitcode::encode(self).ok()
+        Some(bitcode::encode(self))
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
