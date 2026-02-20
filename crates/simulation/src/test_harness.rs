@@ -157,6 +157,17 @@ impl TestCity {
         self
     }
 
+    /// Remove a single road cell at (x, y). Used to test path invalidation
+    /// after bulldozing.
+    pub fn remove_road_at(&mut self, x: usize, y: usize) {
+        let world = self.app.world_mut();
+        world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
+            world.resource_scope(|_world, mut roads: Mut<RoadNetwork>| {
+                roads.remove_road(&mut grid, x, y);
+            });
+        });
+    }
+
     /// Set a single cell's zone type.
     pub fn with_zone(mut self, x: usize, y: usize, zone: ZoneType) -> Self {
         if let Some(mut grid) = self.app.world_mut().get_resource_mut::<WorldGrid>() {
