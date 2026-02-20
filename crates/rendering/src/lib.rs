@@ -6,6 +6,7 @@ pub mod building_render;
 pub mod camera;
 pub mod citizen_render;
 pub mod color_ramps;
+pub mod construction_anim;
 pub mod cursor_preview;
 pub mod day_night;
 pub mod input;
@@ -109,6 +110,17 @@ impl Plugin for RenderingPlugin {
                         .run_if(on_timer(std::time::Duration::from_secs(1))),
                     status_icons::update_building_status_icons
                         .run_if(on_timer(std::time::Duration::from_secs(2))),
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    construction_anim::spawn_construction_props,
+                    construction_anim::update_construction_anim,
+                    construction_anim::animate_crane_rotation,
+                    construction_anim::cleanup_construction_props,
+                    construction_anim::cleanup_orphan_construction_props
+                        .run_if(on_timer(std::time::Duration::from_secs(1))),
                 ),
             )
             .add_systems(
