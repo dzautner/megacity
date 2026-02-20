@@ -63,7 +63,7 @@ impl Default for LocalizationState {
 impl LocalizationState {
     /// Look up a localization key in the active locale's string table.
     /// Returns the translated string, or the key itself as a fallback.
-    pub fn t(&self, key: &str) -> &str {
+    pub fn t<'a>(&'a self, key: &'a str) -> &'a str {
         self.get(key).unwrap_or(key)
     }
 
