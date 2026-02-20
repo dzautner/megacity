@@ -497,7 +497,9 @@ pub fn update_nimby_opinions(
     let residential_vacancy = demand.vacancy_residential;
 
     // For each active zone change, compute opposition at surrounding cells
-    for event in &nimby.zone_changes {
+    // Clone to avoid borrow conflict with opposition_grid mutation
+    let zone_changes_snapshot: Vec<_> = nimby.zone_changes.iter().cloned().collect();
+    for event in &zone_changes_snapshot {
         let ex = event.grid_x as i32;
         let ey = event.grid_y as i32;
 
@@ -560,45 +562,61 @@ pub fn update_nimby_opinions(
     }
 
     // Check for protest triggers
-    let mut protest_count = 0u32;
-    for event in nimby.zone_changes.iter_mut() {
-        if event.protest_triggered && event.protest_cooldown > 0 {
-            continue;
-        }
-
-        let ex = event.grid_x;
-        let ey = event.grid_y;
-
-        // Sum opposition in the immediate area around the zone change
-        let mut local_opposition = 0.0_f32;
-        let check_radius: i32 = 3;
-        for dy in -check_radius..=check_radius {
-            for dx in -check_radius..=check_radius {
-                let nx = ex as i32 + dx;
-                let ny = ey as i32 + dy;
-                if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
-                    let opp = nimby.opposition_grid[ny as usize * GRID_WIDTH + nx as usize];
-                    if opp > 0.0 {
-                        local_opposition += opp;
+    // Pre-compute local opposition per event to avoid borrow conflict
+    let local_oppositions: Vec<f32> = nimby
+        .zone_changes
+        .iter()
+        .map(|event| {
+            if event.protest_triggered && event.protest_cooldown > 0 {
+                return 0.0;
+            }
+            let ex = event.grid_x;
+            let ey = event.grid_y;
+            let mut local_opposition = 0.0_f32;
+            let check_radius: i32 = 3;
+            for dy in -check_radius..=check_radius {
+                for dx in -check_radius..=check_radius {
+                    let nx = ex as i32 + dx;
+                    let ny = ey as i32 + dy;
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < GRID_WIDTH
+                        && (ny as usize) < GRID_HEIGHT
+                    {
+                        let opp = nimby.opposition_grid[ny as usize * GRID_WIDTH + nx as usize];
+                        if opp > 0.0 {
+                            local_opposition += opp;
+                        }
                     }
                 }
             }
+            local_opposition
+        })
+        .collect();
+
+    let mut protest_count = 0u32;
+    for (i, event) in nimby.zone_changes.iter_mut().enumerate() {
+        if event.protest_triggered && event.protest_cooldown > 0 {
+            continue;
         }
+        let local_opposition = local_oppositions[i];
 
         if local_opposition >= PROTEST_THRESHOLD && !eminent_domain_active {
             protest_count += 1;
             event.protest_triggered = true;
             event.protest_cooldown = PROTEST_COOLDOWN_TICKS;
 
-            // Log protest event to journal
             let zone_name = zone_type_name(event.new_zone);
             journal.push(CityEvent {
-                event_type: CityEventType::NewPolicy(format!("Protest at ({}, {})", ex, ey)),
+                event_type: CityEventType::NewPolicy(format!(
+                    "Protest at ({}, {})",
+                    event.grid_x, event.grid_y
+                )),
                 day: clock.day,
                 hour: clock.hour,
                 description: format!(
                     "Citizens are protesting {} development near ({}, {}). Opposition: {:.0}",
-                    zone_name, ex, ey, local_opposition
+                    zone_name, event.grid_x, event.grid_y, local_opposition
                 ),
             });
         }
