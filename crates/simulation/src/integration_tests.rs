@@ -1091,7 +1091,7 @@ fn test_network_viz_power_source_assigns_cells() {
     use crate::network_viz::NetworkVizData;
 
     let mut city = TestCity::new()
-        .with_road((10, 10), (30, 10), RoadType::Local)
+        .with_road(10, 10, 30, 10, RoadType::Local)
         .with_utility(10, 10, UtilityType::PowerPlant);
 
     city.tick(5);
@@ -1119,7 +1119,7 @@ fn test_network_viz_water_source_assigns_cells() {
     use crate::network_viz::NetworkVizData;
 
     let mut city = TestCity::new()
-        .with_road((50, 50), (70, 50), RoadType::Local)
+        .with_road(50, 50, 70, 50, RoadType::Local)
         .with_utility(50, 50, UtilityType::WaterTower);
 
     city.tick(5);
@@ -1140,8 +1140,8 @@ fn test_network_viz_multiple_power_sources_different_colors() {
     use crate::network_viz::NetworkVizData;
 
     let mut city = TestCity::new()
-        .with_road((10, 10), (20, 10), RoadType::Local)
-        .with_road((40, 10), (50, 10), RoadType::Local)
+        .with_road(10, 10, 20, 10, RoadType::Local)
+        .with_road(40, 10, 50, 10, RoadType::Local)
         .with_utility(10, 10, UtilityType::PowerPlant)
         .with_utility(40, 10, UtilityType::SolarFarm);
 
@@ -1166,8 +1166,8 @@ fn test_network_viz_disconnected_roads_no_coverage() {
     use crate::network_viz::NetworkVizData;
 
     let mut city = TestCity::new()
-        .with_road((10, 10), (15, 10), RoadType::Local)
-        .with_road((20, 10), (25, 10), RoadType::Local) // disconnected segment
+        .with_road(10, 10, 15, 10, RoadType::Local)
+        .with_road(20, 10, 25, 10, RoadType::Local) // disconnected segment
         .with_utility(10, 10, UtilityType::PowerPlant);
 
     city.tick(5);
@@ -1190,7 +1190,7 @@ fn test_network_viz_road_cells_tracked_for_pulse_lines() {
     use crate::network_viz::NetworkVizData;
 
     let mut city = TestCity::new()
-        .with_road((10, 10), (25, 10), RoadType::Local)
+        .with_road(10, 10, 25, 10, RoadType::Local)
         .with_utility(10, 10, UtilityType::PowerPlant);
 
     city.tick(5);
@@ -1215,7 +1215,7 @@ fn test_network_viz_source_info_populated() {
     use crate::network_viz::NetworkVizData;
 
     let mut city = TestCity::new()
-        .with_road((10, 10), (25, 10), RoadType::Local)
+        .with_road(10, 10, 25, 10, RoadType::Local)
         .with_utility(10, 10, UtilityType::PowerPlant);
 
     city.tick(5);

@@ -265,7 +265,7 @@ pub fn compute_network_viz(
         }
 
         if is_power {
-            viz.power_sources.push(info);
+            viz.power_sources.push(info.clone());
             power_idx += 1;
         }
         if is_water {
