@@ -588,3 +588,19 @@ mod tests {
         assert_eq!(details.available_slots_for_education(3), 2);
     }
 }
+
+pub struct EducationJobsPlugin;
+
+impl Plugin for EducationJobsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<EmploymentStats>()
+            .add_systems(
+                FixedUpdate,
+                assign_workplace_details.after(crate::buildings::progress_construction),
+            )
+            .add_systems(
+                FixedUpdate,
+                job_matching.after(crate::life_simulation::job_seeking),
+            );
+    }
+}

@@ -317,3 +317,19 @@ mod tests {
         assert_eq!(format_population(1_000_000), "1.0M");
     }
 }
+
+pub struct EventsPlugin;
+
+impl Plugin for EventsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<EventJournal>()
+            .init_resource::<ActiveCityEffects>()
+            .init_resource::<MilestoneTracker>()
+            .add_systems(
+                FixedUpdate,
+                (random_city_events, apply_active_effects)
+                    .chain()
+                    .after(crate::stats::update_stats),
+            );
+    }
+}

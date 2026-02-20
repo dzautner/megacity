@@ -904,3 +904,16 @@ mod tests {
         assert!((total_cost - 50_000_000.0).abs() < f32::EPSILON);
     }
 }
+
+pub struct CsoPlugin;
+
+impl Plugin for CsoPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SewerSystemState>()
+            .add_event::<CsoEvent>()
+            .add_systems(
+                FixedUpdate,
+                update_sewer_overflow.after(crate::imports_exports::process_trade),
+            );
+    }
+}

@@ -1179,3 +1179,16 @@ mod tests {
         );
     }
 }
+
+pub struct FloodSimulationPlugin;
+
+impl Plugin for FloodSimulationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<FloodGrid>()
+            .init_resource::<FloodState>()
+            .add_systems(
+                FixedUpdate,
+                update_flood_simulation.after(crate::storm_drainage::update_storm_drainage),
+            );
+    }
+}

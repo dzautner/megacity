@@ -218,3 +218,14 @@ mod tests {
         assert!(!grid.get(20, 10).has_water);
     }
 }
+
+pub struct UtilitiesPlugin;
+
+impl Plugin for UtilitiesPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            FixedUpdate,
+            propagate_utilities.after(crate::stats::update_stats),
+        );
+    }
+}

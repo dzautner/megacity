@@ -625,3 +625,14 @@ mod tests {
         assert!((sum - MAX_TOTAL_DEMAND_REDUCTION).abs() < f32::EPSILON);
     }
 }
+
+pub struct WaterConservationPlugin;
+
+impl Plugin for WaterConservationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<WaterConservationState>().add_systems(
+            FixedUpdate,
+            update_water_conservation.after(crate::imports_exports::process_trade),
+        );
+    }
+}

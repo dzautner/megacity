@@ -718,3 +718,14 @@ mod tests {
         assert_eq!(ConnectionType::Airport.name(), "Airport");
     }
 }
+
+pub struct OutsideConnectionsPlugin;
+
+impl Plugin for OutsideConnectionsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<OutsideConnections>().add_systems(
+            FixedUpdate,
+            update_outside_connections.after(crate::airport::update_airports),
+        );
+    }
+}

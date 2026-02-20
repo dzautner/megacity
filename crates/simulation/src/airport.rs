@@ -317,3 +317,14 @@ mod tests {
         );
     }
 }
+
+pub struct AirportPlugin;
+
+impl Plugin for AirportPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<AirportStats>().add_systems(
+            FixedUpdate,
+            update_airports.after(crate::tourism::update_tourism),
+        );
+    }
+}

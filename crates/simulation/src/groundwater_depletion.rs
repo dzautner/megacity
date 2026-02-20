@@ -685,3 +685,15 @@ mod tests {
         assert_eq!(state.subsidence_cells, 0);
     }
 }
+
+pub struct GroundwaterDepletionPlugin;
+
+impl Plugin for GroundwaterDepletionPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GroundwaterDepletionState>()
+            .add_systems(
+                FixedUpdate,
+                update_groundwater_depletion.after(crate::imports_exports::process_trade),
+            );
+    }
+}

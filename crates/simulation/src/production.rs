@@ -686,3 +686,16 @@ mod tests {
         assert!(industry.is_manufacturing());
     }
 }
+
+pub struct ProductionPlugin;
+
+impl Plugin for ProductionPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CityGoods>().add_systems(
+            FixedUpdate,
+            (assign_industry_type, update_production_chains)
+                .chain()
+                .after(crate::agriculture::update_agriculture),
+        );
+    }
+}

@@ -984,3 +984,16 @@ mod tests {
         assert!(event.is_none());
     }
 }
+
+pub struct ReservoirPlugin;
+
+impl Plugin for ReservoirPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ReservoirState>()
+            .add_event::<ReservoirWarningEvent>()
+            .add_systems(
+                FixedUpdate,
+                update_reservoir_levels.after(crate::water_sources::replenish_reservoirs),
+            );
+    }
+}

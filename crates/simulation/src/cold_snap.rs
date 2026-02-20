@@ -1151,3 +1151,16 @@ mod tests {
         }
     }
 }
+
+pub struct ColdSnapPlugin;
+
+impl Plugin for ColdSnapPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ColdSnapState>()
+            .add_event::<ColdSnapEvent>()
+            .add_systems(
+                FixedUpdate,
+                update_cold_snap.after(crate::imports_exports::process_trade),
+            );
+    }
+}

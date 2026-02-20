@@ -462,3 +462,16 @@ mod tests {
         assert_eq!(no_bonus, 0.0);
     }
 }
+
+pub struct SpecializationPlugin;
+
+impl Plugin for SpecializationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CitySpecializations>()
+            .init_resource::<SpecializationBonuses>()
+            .add_systems(
+                FixedUpdate,
+                compute_specializations.after(crate::stats::update_stats),
+            );
+    }
+}

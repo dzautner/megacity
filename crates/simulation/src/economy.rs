@@ -204,3 +204,14 @@ mod tests {
         assert_eq!(budget.treasury, 10000.0);
     }
 }
+
+pub struct EconomyPlugin;
+
+impl Plugin for EconomyPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CityBudget>().add_systems(
+            FixedUpdate,
+            collect_taxes.after(crate::happiness::update_happiness),
+        );
+    }
+}

@@ -694,3 +694,19 @@ mod tests {
         );
     }
 }
+
+pub struct SnowPlugin;
+
+impl Plugin for SnowPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SnowGrid>()
+            .init_resource::<SnowPlowingState>()
+            .init_resource::<SnowStats>()
+            .add_systems(
+                FixedUpdate,
+                (update_snow, update_snow_plowing)
+                    .chain()
+                    .after(crate::weather::update_weather),
+            );
+    }
+}

@@ -642,3 +642,14 @@ mod tests {
         assert!((restored.get(20, 20) - (-1.0)).abs() < f32::EPSILON);
     }
 }
+
+pub struct UrbanHeatIslandPlugin;
+
+impl Plugin for UrbanHeatIslandPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<UhiGrid>().add_systems(
+            FixedUpdate,
+            update_uhi_grid.after(crate::imports_exports::process_trade),
+        );
+    }
+}

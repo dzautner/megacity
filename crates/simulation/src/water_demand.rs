@@ -522,3 +522,20 @@ mod tests {
         );
     }
 }
+
+pub struct WaterDemandPlugin;
+
+impl Plugin for WaterDemandPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<WaterSupply>()
+            .add_systems(
+                FixedUpdate,
+                (calculate_building_water_demand, aggregate_water_supply)
+                    .after(crate::imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                water_service_happiness_penalty.after(crate::imports_exports::process_trade),
+            );
+    }
+}

@@ -945,3 +945,26 @@ mod tests {
         assert_eq!(facility_capacity_tons(ServiceType::TransferStation), 200.0);
     }
 }
+
+pub struct GarbagePlugin;
+
+impl Plugin for GarbagePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GarbageGrid>()
+            .init_resource::<WasteSystem>()
+            .init_resource::<WasteCollectionGrid>()
+            .add_systems(
+                FixedUpdate,
+                (
+                    attach_waste_producers,
+                    bevy::ecs::schedule::apply_deferred,
+                    sync_recycling_policy,
+                    update_garbage,
+                    update_waste_generation,
+                    update_waste_collection,
+                )
+                    .chain()
+                    .after(crate::land_value::update_land_value),
+            );
+    }
+}

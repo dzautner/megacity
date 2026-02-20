@@ -109,3 +109,14 @@ fn bfs_education(
         }
     }
 }
+
+pub struct EducationPlugin;
+
+impl Plugin for EducationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<EducationGrid>().add_systems(
+            FixedUpdate,
+            propagate_education.after(crate::utilities::propagate_utilities),
+        );
+    }
+}

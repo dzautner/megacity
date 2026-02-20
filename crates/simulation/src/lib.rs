@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use std::collections::BTreeMap;
 
 pub mod abandonment;
 pub mod achievements;
@@ -97,84 +98,107 @@ pub mod wind_damage;
 pub mod world_init;
 pub mod zones;
 
-use achievements::{AchievementNotification, AchievementTracker};
-use advisors::AdvisorPanel;
-use agriculture::{AgricultureState, FrostEvent};
-use airport::AirportStats;
-use budget::ExtendedBudget;
-use building_upgrade::UpgradeTimer;
-use buildings::{BuildingSpawnTimer, EligibleCells};
-use citizen_spawner::CitizenSpawnTimer;
-use cold_snap::ColdSnapState;
-use composting::CompostingState;
-use crime::CrimeGrid;
-use cso::{CsoEvent, SewerSystemState};
-use death_care::{DeathCareGrid, DeathCareStats};
-use degree_days::DegreeDays;
-use disasters::ActiveDisaster;
-use districts::{DistrictMap, Districts};
-use drought::DroughtState;
-use economy::CityBudget;
-use education::EducationGrid;
-use education_jobs::EmploymentStats;
-use events::{ActiveCityEffects, EventJournal, MilestoneTracker};
-use fire::FireGrid;
-use flood_simulation::{FloodGrid, FloodState};
-use fog::FogState;
-use forest_fire::{ForestFireGrid, ForestFireStats};
-use garbage::{GarbageGrid, WasteCollectionGrid, WasteSystem};
-use groundwater::{GroundwaterGrid, GroundwaterStats, WaterQualityGrid};
-use groundwater_depletion::GroundwaterDepletionState;
-use hazardous_waste::HazardousWasteState;
-use health::HealthGrid;
-use heat_wave::HeatWaveState;
-use heating::{HeatingGrid, HeatingStats};
-use imports_exports::TradeConnections;
-use land_value::LandValueGrid;
-use landfill_gas::LandfillGasState;
-use landfill_warning::{LandfillCapacityState, LandfillWarningEvent};
-use life_simulation::LifeSimTimer;
-use lifecycle::LifecycleTimer;
-use loans::{BankruptcyEvent, LoanBook};
-use lod::ViewportBounds;
-use market::MarketPrices;
-use natural_resources::{ResourceBalance, ResourceGrid};
-use noise::NoisePollutionGrid;
-use outside_connections::OutsideConnections;
-use policies::Policies;
-use pollution::PollutionGrid;
-use recycling::{RecyclingEconomics, RecyclingState};
-use reservoir::{ReservoirState, ReservoirWarningEvent};
 use road_graph_csr::CsrGraph;
-use road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget, RoadMaintenanceStats};
 use road_segments::RoadSegmentStore;
 use roads::RoadNetwork;
-use snow::{SnowGrid, SnowPlowingState, SnowStats};
 use spatial_grid::SpatialGrid;
-use specialization::{CitySpecializations, SpecializationBonuses};
-use stats::CityStats;
-use storm_drainage::StormDrainageState;
-use stormwater::StormwaterGrid;
-use time_of_day::GameClock;
-use tourism::Tourism;
-use traffic::TrafficGrid;
-use traffic_accidents::AccidentTracker;
-use trees::TreeGrid;
-use unlocks::UnlockState;
-use urban_growth_boundary::UrbanGrowthBoundary;
-use urban_heat_island::UhiGrid;
-use virtual_population::VirtualPopulation;
-use waste_effects::{WasteAccumulation, WasteCrisisEvent};
-use wastewater::WastewaterState;
-use water_conservation::WaterConservationState;
-use water_demand::WaterSupply;
-use water_pollution::WaterPollutionGrid;
-use water_treatment::WaterTreatmentState;
-use wealth::WealthStats;
-use weather::{ClimateZone, ConstructionModifiers, Weather, WeatherChangeEvent};
-use wind::WindState;
-use wind_damage::{WindDamageEvent, WindDamageState};
-use zones::ZoneDemand;
+
+// ---------------------------------------------------------------------------
+// Saveable trait + registry for the extension map save pattern
+// ---------------------------------------------------------------------------
+
+/// Trait for resources that can be saved/loaded via the extension map.
+///
+/// Each implementing resource provides its own serialization logic, so adding a new
+/// saveable feature requires ZERO changes to any save system file -- the feature
+/// plugin just calls `app.register_saveable::<T>()` in its `build()`.
+pub trait Saveable: Resource + Default + Send + Sync + 'static {
+    /// Unique key for this resource in the save file's extension map.
+    /// Must be stable across versions (used for deserialization lookup).
+    const SAVE_KEY: &'static str;
+
+    /// Serialize this resource to bytes.
+    /// Return `None` to skip saving (e.g. when the resource is at its default state).
+    fn save_to_bytes(&self) -> Option<Vec<u8>>;
+
+    /// Deserialize from bytes, returning the restored resource.
+    fn load_from_bytes(bytes: &[u8]) -> Self;
+}
+
+/// Type alias for the save function stored in a `SaveableEntry`.
+pub type SaveFn = Box<dyn Fn(&World) -> Option<Vec<u8>> + Send + Sync>;
+/// Type alias for the load function stored in a `SaveableEntry`.
+pub type LoadFn = Box<dyn Fn(&mut World, &[u8]) + Send + Sync>;
+/// Type alias for the reset function stored in a `SaveableEntry`.
+pub type ResetFn = Box<dyn Fn(&mut World) + Send + Sync>;
+
+/// Type-erased save/load/reset operations for a single registered resource.
+pub struct SaveableEntry {
+    pub key: String,
+    pub save_fn: SaveFn,
+    pub load_fn: LoadFn,
+    pub reset_fn: ResetFn,
+}
+
+/// Registry of all saveable resources, populated during plugin setup.
+///
+/// The save system iterates this registry to persist/restore extension map entries
+/// without needing to know about individual feature types.
+#[derive(Resource, Default)]
+pub struct SaveableRegistry {
+    pub entries: Vec<SaveableEntry>,
+}
+
+impl SaveableRegistry {
+    /// Register a resource type that implements `Saveable`.
+    pub fn register<T: Saveable>(&mut self) {
+        self.entries.push(SaveableEntry {
+            key: T::SAVE_KEY.to_string(),
+            save_fn: Box::new(|world: &World| {
+                world.get_resource::<T>().and_then(|r| r.save_to_bytes())
+            }),
+            load_fn: Box::new(|world: &mut World, bytes: &[u8]| {
+                let value = T::load_from_bytes(bytes);
+                world.insert_resource(value);
+            }),
+            reset_fn: Box::new(|world: &mut World| {
+                world.insert_resource(T::default());
+            }),
+        });
+    }
+
+    /// Save all registered resources into an extension map.
+    pub fn save_all(&self, world: &World) -> BTreeMap<String, Vec<u8>> {
+        let mut extensions = BTreeMap::new();
+        for entry in &self.entries {
+            if let Some(bytes) = (entry.save_fn)(world) {
+                extensions.insert(entry.key.clone(), bytes);
+            }
+        }
+        extensions
+    }
+
+    /// Load registered resources from an extension map.
+    /// Resources whose key is absent are left unchanged (they keep their init_resource default).
+    pub fn load_all(&self, world: &mut World, extensions: &BTreeMap<String, Vec<u8>>) {
+        for entry in &self.entries {
+            if let Some(bytes) = extensions.get(&entry.key) {
+                (entry.load_fn)(world, bytes);
+            }
+        }
+    }
+
+    /// Reset all registered resources to their defaults (used by new-game).
+    pub fn reset_all(&self, world: &mut World) {
+        for entry in &self.entries {
+            (entry.reset_fn)(world);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Core resources
+// ---------------------------------------------------------------------------
 
 /// Global tick counter incremented each FixedUpdate, used for throttling simulation systems.
 #[derive(Resource, Default)]
@@ -203,491 +227,162 @@ pub struct SimulationPlugin;
 
 impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ZoneDemand>()
-            .init_resource::<BuildingSpawnTimer>()
-            .init_resource::<EligibleCells>()
-            .init_resource::<CitizenSpawnTimer>()
-            .init_resource::<GameClock>()
-            .init_resource::<CityBudget>()
-            .init_resource::<CityStats>()
-            .init_resource::<TrafficGrid>()
-            .init_resource::<Districts>()
-            .init_resource::<DistrictMap>()
-            .init_resource::<SpatialGrid>()
-            .init_resource::<ViewportBounds>()
-            .init_resource::<LifecycleTimer>()
-            .init_resource::<UpgradeTimer>()
-            .init_resource::<TradeConnections>()
-            .init_resource::<EducationGrid>()
-            .init_resource::<PollutionGrid>()
-            .init_resource::<LandValueGrid>()
-            .init_resource::<GarbageGrid>()
-            .init_resource::<WasteSystem>()
-            .init_resource::<WasteCollectionGrid>()
-            .init_resource::<VirtualPopulation>()
-            .init_resource::<Policies>()
-            .init_resource::<Weather>()
-            .init_resource::<ClimateZone>()
-            .init_resource::<ResourceGrid>()
-            .init_resource::<ResourceBalance>()
-            .init_resource::<ExtendedBudget>()
-            .init_resource::<WealthStats>()
-            .init_resource::<CrimeGrid>()
-            .init_resource::<SewerSystemState>()
-            .init_resource::<FireGrid>()
-            .init_resource::<ForestFireGrid>()
-            .init_resource::<ForestFireStats>()
-            .init_resource::<NoisePollutionGrid>()
-            .init_resource::<HealthGrid>()
-            .init_resource::<WaterPollutionGrid>()
-            .init_resource::<Tourism>()
-            .init_resource::<UnlockState>()
-            .init_resource::<happiness::ServiceCoverageGrid>()
-            .init_resource::<TickCounter>()
+        // Core resources and systems that don't belong to any feature
+        app.init_resource::<TickCounter>()
             .init_resource::<SlowTickTimer>()
             .init_resource::<CsrGraph>()
             .init_resource::<RoadSegmentStore>()
-            .init_resource::<LifeSimTimer>()
-            .init_resource::<movement::DestinationCache>()
-            .init_resource::<EventJournal>()
-            .init_resource::<ActiveCityEffects>()
-            .init_resource::<MilestoneTracker>()
-            .init_resource::<ActiveDisaster>()
-            .init_resource::<LoanBook>()
-            .init_resource::<homelessness::HomelessnessStats>()
-            .init_resource::<welfare::WelfareStats>()
-            .init_resource::<immigration::CityAttractiveness>()
-            .init_resource::<immigration::ImmigrationStats>()
-            .init_resource::<EmploymentStats>()
-            .init_resource::<TreeGrid>()
-            .init_resource::<WindState>()
-            .init_resource::<DeathCareGrid>()
-            .init_resource::<DeathCareStats>()
-            .init_resource::<production::CityGoods>()
-            .init_resource::<MarketPrices>()
-            .init_resource::<RoadConditionGrid>()
-            .init_resource::<RoadMaintenanceBudget>()
-            .init_resource::<RoadMaintenanceStats>()
-            .init_resource::<AccidentTracker>()
-            .init_resource::<CitySpecializations>()
-            .init_resource::<SpecializationBonuses>()
-            .init_resource::<OutsideConnections>()
-            .init_resource::<AirportStats>()
-            .init_resource::<AdvisorPanel>()
-            .init_resource::<AchievementTracker>()
-            .init_resource::<AchievementNotification>()
-            .init_resource::<HeatingGrid>()
-            .init_resource::<HeatingStats>()
-            .init_resource::<GroundwaterGrid>()
-            .init_resource::<WaterQualityGrid>()
-            .init_resource::<GroundwaterStats>()
-            .init_resource::<postal::PostalCoverage>()
-            .init_resource::<postal::PostalStats>()
-            .init_resource::<WaterSupply>()
-            .init_resource::<StormwaterGrid>()
-            .init_resource::<DegreeDays>()
-            .init_resource::<ConstructionModifiers>()
-            .init_resource::<WasteAccumulation>()
-            .init_resource::<RecyclingEconomics>()
-            .init_resource::<RecyclingState>()
-            .init_resource::<WindDamageState>()
-            .init_resource::<UhiGrid>()
-            .init_resource::<DroughtState>()
-            .init_resource::<HeatWaveState>()
-            .init_resource::<CompostingState>()
-            .init_resource::<ColdSnapState>()
-            .init_resource::<WaterTreatmentState>()
-            .init_resource::<GroundwaterDepletionState>()
-            .init_resource::<WastewaterState>()
-            .init_resource::<WaterConservationState>()
-            .init_resource::<HazardousWasteState>()
-            .init_resource::<StormDrainageState>()
-            .init_resource::<LandfillGasState>()
-            .init_resource::<LandfillCapacityState>()
-            .init_resource::<FloodGrid>()
-            .init_resource::<FloodState>()
-            .init_resource::<FogState>()
-            .init_resource::<ReservoirState>()
-            .init_resource::<UrbanGrowthBoundary>()
-            .init_resource::<SnowGrid>()
-            .init_resource::<SnowPlowingState>()
-            .init_resource::<SnowStats>()
-            .init_resource::<AgricultureState>()
-            .add_event::<BankruptcyEvent>()
-            .add_event::<FrostEvent>()
-            .add_event::<WindDamageEvent>()
-            .add_event::<WeatherChangeEvent>()
-            .add_event::<WasteCrisisEvent>()
-            .add_event::<cold_snap::ColdSnapEvent>()
-            .add_event::<CsoEvent>()
-            .add_event::<LandfillWarningEvent>()
-            .add_event::<ReservoirWarningEvent>()
-            .add_systems(Startup, world_init::init_world)
-            .add_systems(
-                FixedUpdate,
-                (
-                    tick_slow_timer,
-                    time_of_day::tick_game_clock,
-                    zones::update_zone_demand,
-                    buildings::rebuild_eligible_cells,
-                    buildings::building_spawner,
-                    buildings::progress_construction,
-                    education_jobs::assign_workplace_details,
-                    citizen_spawner::spawn_citizens,
-                    movement::refresh_destination_cache,
-                    movement::citizen_state_machine,
-                    // apply_deferred flushes PathRequest insertions from the state machine
-                    bevy::ecs::schedule::apply_deferred,
-                    movement::process_path_requests,
-                    movement::move_citizens,
-                    traffic::update_traffic_density,
-                )
-                    .chain(),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    happiness::update_service_coverage,
-                    postal::update_postal_coverage,
-                    happiness::update_happiness,
-                )
-                    .chain()
-                    .after(traffic::update_traffic_density),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    economy::collect_taxes,
-                    stats::update_stats,
-                    utilities::propagate_utilities,
-                    education::propagate_education,
-                )
-                    .chain()
-                    .after(happiness::update_happiness),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    pollution::update_pollution,
-                    land_value::update_land_value,
-                    garbage::attach_waste_producers,
-                    bevy::ecs::schedule::apply_deferred,
-                    garbage::sync_recycling_policy,
-                    garbage::update_garbage,
-                    garbage::update_waste_generation,
-                    garbage::update_waste_collection,
-                    districts::aggregate_districts,
-                    districts::district_stats,
-                    lifecycle::age_citizens,
-                    lifecycle::emigration,
-                    building_upgrade::upgrade_buildings,
-                    building_upgrade::downgrade_buildings,
-                    imports_exports::process_trade,
-                )
-                    .chain()
-                    .after(education::propagate_education),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    waste_effects::update_waste_accumulation,
-                    waste_effects::waste_health_penalty,
-                    waste_effects::check_waste_crisis,
-                )
-                    .chain()
-                    .after(garbage::update_waste_collection),
-            )
-            .add_systems(
-                FixedUpdate,
-                recycling::update_recycling_economics.after(garbage::update_waste_generation),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    road_maintenance::degrade_roads,
-                    road_maintenance::repair_roads,
-                    road_maintenance::update_road_maintenance_stats,
-                )
-                    .chain()
-                    .after(traffic::update_traffic_density),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    traffic_accidents::spawn_accidents,
-                    traffic_accidents::process_accidents,
-                )
-                    .chain()
-                    .after(traffic::update_traffic_density),
-            )
-            .add_systems(
-                FixedUpdate,
-                (loans::process_loan_payments, loans::update_credit_rating)
-                    .chain()
-                    .after(economy::collect_taxes),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    weather::update_weather,
-                    weather::update_precipitation,
-                    fog::update_fog,
-                    degree_days::update_degree_days,
-                    weather::update_construction_modifiers,
-                    heating::update_heating,
-                    wind::update_wind,
-                    wind_damage::update_wind_damage,
-                    urban_heat_island::update_uhi_grid,
-                    drought::update_drought_index,
-                )
-                    .after(imports_exports::process_trade),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    noise::update_noise_pollution,
-                    crime::update_crime,
-                    health::update_health_grid,
-                    death_care::death_care_processing,
-                    water_pollution::update_water_pollution,
-                    water_pollution::water_pollution_health_penalty,
-                    groundwater::update_groundwater,
-                    groundwater::groundwater_health_penalty,
-                    stormwater::update_stormwater,
-                    water_demand::calculate_building_water_demand,
-                    water_demand::aggregate_water_supply,
-                )
-                    .after(imports_exports::process_trade),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    heat_wave::update_heat_wave,
-                    composting::update_composting,
-                    cold_snap::update_cold_snap,
-                    cso::update_sewer_overflow,
-                    water_treatment::update_water_treatment,
-                    water_conservation::update_water_conservation,
-                    groundwater_depletion::update_groundwater_depletion,
-                    wastewater::update_wastewater,
-                    wastewater::wastewater_health_penalty,
-                    hazardous_waste::update_hazardous_waste,
-                    landfill_gas::update_landfill_gas,
-                    landfill_warning::update_landfill_capacity,
-                )
-                    .after(imports_exports::process_trade),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    storm_drainage::update_storm_drainage,
-                    water_sources::update_water_sources,
-                    water_sources::aggregate_water_source_supply,
-                    water_sources::replenish_reservoirs,
-                    water_demand::water_service_happiness_penalty,
-                    natural_resources::update_resource_production,
-                    wealth::update_wealth_stats,
-                    tourism::update_tourism,
-                    unlocks::award_development_points,
-                )
-                    .after(imports_exports::process_trade),
-            )
-            .add_systems(
-                FixedUpdate,
-                (snow::update_snow, snow::update_snow_plowing)
-                    .chain()
-                    .after(weather::update_weather),
-            )
-            .add_systems(
-                FixedUpdate,
-                reservoir::update_reservoir_levels.after(water_sources::replenish_reservoirs),
-            )
-            .add_systems(
-                FixedUpdate,
-                flood_simulation::update_flood_simulation
-                    .after(storm_drainage::update_storm_drainage),
-            )
-            .add_systems(
-                FixedUpdate,
-                trees::tree_effects.after(imports_exports::process_trade),
-            )
-            .add_systems(
-                FixedUpdate,
-                airport::update_airports.after(tourism::update_tourism),
-            )
-            .add_systems(
-                FixedUpdate,
-                outside_connections::update_outside_connections.after(airport::update_airports),
-            )
-            .add_systems(
-                FixedUpdate,
-                agriculture::update_agriculture
-                    .after(natural_resources::update_resource_production),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    production::assign_industry_type,
-                    production::update_production_chains,
-                    market::update_market_prices,
-                )
-                    .chain()
-                    .after(agriculture::update_agriculture),
-            )
-            .add_systems(
-                FixedUpdate,
-                (events::random_city_events, events::apply_active_effects)
-                    .chain()
-                    .after(stats::update_stats),
-            )
-            .add_systems(
-                FixedUpdate,
-                specialization::compute_specializations.after(stats::update_stats),
-            )
-            .add_systems(
-                FixedUpdate,
-                advisors::update_advisors.after(stats::update_stats),
-            )
-            .add_systems(
-                FixedUpdate,
-                achievements::check_achievements
-                    .after(stats::update_stats)
-                    .after(specialization::compute_specializations),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    abandonment::check_building_abandonment,
-                    bevy::ecs::schedule::apply_deferred,
-                    abandonment::process_abandoned_buildings,
-                )
-                    .chain()
-                    .after(utilities::propagate_utilities),
-            )
-            .add_systems(
-                FixedUpdate,
-                abandonment::abandoned_land_value_penalty.after(land_value::update_land_value),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    fire::start_random_fires,
-                    fire::spread_fire,
-                    fire::extinguish_fires,
-                    fire::fire_damage,
-                )
-                    .chain()
-                    .after(happiness::update_service_coverage),
-            )
-            .add_systems(
-                FixedUpdate,
-                forest_fire::update_forest_fire.after(fire::fire_damage),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    disasters::trigger_random_disaster,
-                    disasters::process_active_disaster,
-                    bevy::ecs::schedule::apply_deferred,
-                    disasters::apply_earthquake_damage,
-                )
-                    .chain()
-                    .after(fire::fire_damage),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    life_simulation::update_needs,
-                    life_simulation::education_advancement,
-                    life_simulation::salary_payment,
-                    life_simulation::job_seeking,
-                    life_simulation::life_events,
-                    life_simulation::retire_workers,
-                )
-                    .after(happiness::update_happiness),
-            )
-            .add_systems(
-                FixedUpdate,
-                education_jobs::job_matching.after(life_simulation::job_seeking),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    life_simulation::evolve_personality,
-                    life_simulation::update_health,
-                )
-                    .after(life_simulation::update_needs),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    homelessness::check_homelessness,
-                    bevy::ecs::schedule::apply_deferred,
-                    homelessness::seek_shelter,
-                    homelessness::recover_from_homelessness,
-                )
-                    .chain()
-                    .after(happiness::update_happiness),
-            )
-            .add_systems(
-                FixedUpdate,
-                welfare::update_welfare.after(homelessness::recover_from_homelessness),
-            )
-            .add_systems(
-                FixedUpdate,
-                (
-                    immigration::compute_attractiveness,
-                    immigration::immigration_wave,
-                )
-                    .chain()
-                    .after(stats::update_stats),
-            )
-            .add_systems(
-                Update,
-                (
-                    time_of_day::sync_fixed_timestep,
-                    rebuild_csr_on_road_change,
-                    virtual_population::adjust_real_citizen_cap.run_if(
-                        bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(1)),
-                    ),
-                ),
-            )
+            .init_resource::<SpatialGrid>()
+            .init_resource::<policies::Policies>()
+            .init_resource::<budget::ExtendedBudget>()
             .init_resource::<LodFrameCounter>()
-            .add_systems(
-                Update,
-                (
-                    lod::update_viewport_bounds,
-                    lod::update_spatial_grid.run_if(lod_frame_ready),
-                    lod::assign_lod_tiers.run_if(lod_frame_ready),
-                )
-                    .chain(),
-            )
-            .add_systems(
-                Update,
-                (
-                    lod::compress_abstract_citizens,
-                    lod::decompress_active_citizens,
-                )
-                    .after(lod::assign_lod_tiers),
-            )
+            .add_systems(Startup, world_init::init_world)
+            .add_systems(FixedUpdate, tick_slow_timer)
+            .add_systems(Update, rebuild_csr_on_road_change)
             .add_systems(Update, tick_lod_frame_counter);
+
+        // Core simulation chain
+        app.add_plugins((
+            time_of_day::TimeOfDayPlugin,
+            zones::ZonesPlugin,
+            buildings::BuildingsPlugin,
+            education_jobs::EducationJobsPlugin,
+            citizen_spawner::CitizenSpawnerPlugin,
+            movement::MovementPlugin,
+            traffic::TrafficPlugin,
+        ));
+
+        // Happiness and services
+        app.add_plugins((
+            postal::PostalPlugin,
+            happiness::HappinessPlugin,
+            economy::EconomyPlugin,
+            stats::StatsPlugin,
+            utilities::UtilitiesPlugin,
+            education::EducationPlugin,
+        ));
+
+        // Pollution, land value, garbage, districts
+        app.add_plugins((
+            pollution::PollutionPlugin,
+            land_value::LandValuePlugin,
+            garbage::GarbagePlugin,
+            districts::DistrictsPlugin,
+            lifecycle::LifecyclePlugin,
+            building_upgrade::BuildingUpgradePlugin,
+            imports_exports::ImportsExportsPlugin,
+        ));
+
+        // Waste and recycling
+        app.add_plugins((
+            waste_effects::WasteEffectsPlugin,
+            recycling::RecyclingPlugin,
+            road_maintenance::RoadMaintenancePlugin,
+            traffic_accidents::TrafficAccidentsPlugin,
+            loans::LoansPlugin,
+        ));
+
+        // Weather and environment
+        app.add_plugins((
+            weather::WeatherPlugin,
+            fog::FogPlugin,
+            degree_days::DegreeDaysPlugin,
+            heating::HeatingPlugin,
+            wind::WindPlugin,
+            wind_damage::WindDamagePlugin,
+            urban_heat_island::UrbanHeatIslandPlugin,
+            drought::DroughtPlugin,
+            noise::NoisePlugin,
+            crime::CrimePlugin,
+            health::HealthPlugin,
+            death_care::DeathCarePlugin,
+        ));
+
+        // Water systems
+        app.add_plugins((
+            water_pollution::WaterPollutionPlugin,
+            groundwater::GroundwaterPlugin,
+            stormwater::StormwaterPlugin,
+            water_demand::WaterDemandPlugin,
+            heat_wave::HeatWavePlugin,
+            composting::CompostingPlugin,
+            cold_snap::ColdSnapPlugin,
+            cso::CsoPlugin,
+            water_treatment::WaterTreatmentPlugin,
+            water_conservation::WaterConservationPlugin,
+            groundwater_depletion::GroundwaterDepletionPlugin,
+            wastewater::WastewaterPlugin,
+        ));
+
+        // Waste management
+        app.add_plugins((
+            hazardous_waste::HazardousWastePlugin,
+            landfill_gas::LandfillGasPlugin,
+            landfill_warning::LandfillWarningPlugin,
+        ));
+
+        // Infrastructure and resources
+        app.add_plugins((
+            storm_drainage::StormDrainagePlugin,
+            water_sources::WaterSourcesPlugin,
+            natural_resources::NaturalResourcesPlugin,
+            wealth::WealthPlugin,
+            tourism::TourismPlugin,
+            unlocks::UnlocksPlugin,
+            reservoir::ReservoirPlugin,
+            flood_simulation::FloodSimulationPlugin,
+            trees::TreesPlugin,
+            airport::AirportPlugin,
+            outside_connections::OutsideConnectionsPlugin,
+            snow::SnowPlugin,
+        ));
+
+        // Production and economy
+        app.add_plugins((
+            agriculture::AgriculturePlugin,
+            production::ProductionPlugin,
+            market::MarketPlugin,
+            events::EventsPlugin,
+            specialization::SpecializationPlugin,
+            advisors::AdvisorsPlugin,
+            achievements::AchievementsPlugin,
+        ));
+
+        // Building lifecycle and disasters
+        app.add_plugins((
+            abandonment::AbandonmentPlugin,
+            fire::FirePlugin,
+            forest_fire::ForestFirePlugin,
+            disasters::DisastersPlugin,
+        ));
+
+        // Citizens and population
+        app.add_plugins((
+            life_simulation::LifeSimulationPlugin,
+            homelessness::HomelessnessPlugin,
+            welfare::WelfarePlugin,
+            immigration::ImmigrationPlugin,
+            lod::LodPlugin,
+            virtual_population::VirtualPopulationPlugin,
+            urban_growth_boundary::UrbanGrowthBoundaryPlugin,
+        ));
     }
 }
 
-fn tick_slow_timer(mut timer: ResMut<SlowTickTimer>, mut tick: ResMut<TickCounter>) {
+pub fn tick_slow_timer(mut timer: ResMut<SlowTickTimer>, mut tick: ResMut<TickCounter>) {
     timer.tick();
     tick.0 = tick.0.wrapping_add(1);
 }
 
 /// Counter for throttling LOD/spatial grid updates to every 6th render frame (~10Hz at 60fps).
 #[derive(Resource, Default)]
-struct LodFrameCounter(u32);
+pub struct LodFrameCounter(u32);
 
 fn tick_lod_frame_counter(mut counter: ResMut<LodFrameCounter>) {
     counter.0 = counter.0.wrapping_add(1);
 }
 
-fn lod_frame_ready(counter: Res<LodFrameCounter>) -> bool {
+pub fn lod_frame_ready(counter: Res<LodFrameCounter>) -> bool {
     counter.0.is_multiple_of(6)
 }
 
@@ -695,5 +390,109 @@ fn lod_frame_ready(counter: Res<LodFrameCounter>) -> bool {
 fn rebuild_csr_on_road_change(roads: Res<RoadNetwork>, mut csr: ResMut<CsrGraph>) {
     if roads.is_changed() {
         *csr = CsrGraph::from_road_network(&roads);
+    }
+}
+
+#[cfg(test)]
+mod saveable_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// A trivial resource implementing `Saveable` for testing.
+    #[derive(Resource, Default, Debug, PartialEq)]
+    struct TestCounter {
+        value: u32,
+    }
+
+    impl Saveable for TestCounter {
+        const SAVE_KEY: &'static str = "test_counter";
+
+        fn save_to_bytes(&self) -> Option<Vec<u8>> {
+            if self.value == 0 {
+                None // skip saving default state
+            } else {
+                Some(self.value.to_le_bytes().to_vec())
+            }
+        }
+
+        fn load_from_bytes(bytes: &[u8]) -> Self {
+            let value = u32::from_le_bytes(bytes.try_into().unwrap_or([0; 4]));
+            TestCounter { value }
+        }
+    }
+
+    #[test]
+    fn test_registry_register_and_save() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 42 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let extensions = registry.save_all(&world);
+        assert_eq!(extensions.len(), 1);
+        assert!(extensions.contains_key("test_counter"));
+        assert_eq!(extensions["test_counter"], 42u32.to_le_bytes().to_vec());
+    }
+
+    #[test]
+    fn test_registry_save_skips_default() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 0 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let extensions = registry.save_all(&world);
+        assert!(extensions.is_empty(), "default state should be skipped");
+    }
+
+    #[test]
+    fn test_registry_load_all() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter::default());
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let mut extensions = BTreeMap::new();
+        extensions.insert("test_counter".to_string(), 99u32.to_le_bytes().to_vec());
+
+        registry.load_all(&mut world, &extensions);
+
+        let counter = world.resource::<TestCounter>();
+        assert_eq!(counter.value, 99);
+    }
+
+    #[test]
+    fn test_registry_reset_all() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 999 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        registry.reset_all(&mut world);
+
+        let counter = world.resource::<TestCounter>();
+        assert_eq!(counter.value, 0);
+    }
+
+    #[test]
+    fn test_registry_load_ignores_unknown_keys() {
+        let mut world = World::new();
+        world.insert_resource(TestCounter { value: 5 });
+
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        let mut extensions = BTreeMap::new();
+        extensions.insert("unknown_feature".to_string(), vec![0xFF, 0xFF]);
+
+        registry.load_all(&mut world, &extensions);
+
+        // TestCounter should be unchanged since its key wasn't in extensions
+        let counter = world.resource::<TestCounter>();
+        assert_eq!(counter.value, 5);
     }
 }

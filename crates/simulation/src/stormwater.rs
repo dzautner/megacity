@@ -503,3 +503,14 @@ mod tests {
         assert!(res_low >= grass);
     }
 }
+
+pub struct StormwaterPlugin;
+
+impl Plugin for StormwaterPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<StormwaterGrid>().add_systems(
+            FixedUpdate,
+            update_stormwater.after(crate::imports_exports::process_trade),
+        );
+    }
+}

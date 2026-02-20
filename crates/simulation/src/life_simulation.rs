@@ -765,3 +765,27 @@ mod tests {
         assert_eq!(result.unwrap().0, Entity::from_raw(1));
     }
 }
+
+pub struct LifeSimulationPlugin;
+
+impl Plugin for LifeSimulationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LifeSimTimer>()
+            .add_systems(
+                FixedUpdate,
+                (
+                    update_needs,
+                    education_advancement,
+                    salary_payment,
+                    job_seeking,
+                    life_events,
+                    retire_workers,
+                )
+                    .after(crate::happiness::update_happiness),
+            )
+            .add_systems(
+                FixedUpdate,
+                (evolve_personality, update_health).after(update_needs),
+            );
+    }
+}

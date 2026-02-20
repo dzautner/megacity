@@ -692,3 +692,16 @@ mod tests {
         assert!((temperature_suitability(40.0)).abs() < f32::EPSILON);
     }
 }
+
+pub struct AgriculturePlugin;
+
+impl Plugin for AgriculturePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<AgricultureState>()
+            .add_event::<FrostEvent>()
+            .add_systems(
+                FixedUpdate,
+                update_agriculture.after(crate::natural_resources::update_resource_production),
+            );
+    }
+}

@@ -134,3 +134,14 @@ pub fn update_wealth_stats(
         }
     }
 }
+
+pub struct WealthPlugin;
+
+impl Plugin for WealthPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<WealthStats>().add_systems(
+            FixedUpdate,
+            update_wealth_stats.after(crate::imports_exports::process_trade),
+        );
+    }
+}

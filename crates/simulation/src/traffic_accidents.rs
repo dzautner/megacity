@@ -574,3 +574,16 @@ mod tests {
         assert_eq!(mult_good, 1.0);
     }
 }
+
+pub struct TrafficAccidentsPlugin;
+
+impl Plugin for TrafficAccidentsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<AccidentTracker>().add_systems(
+            FixedUpdate,
+            (spawn_accidents, process_accidents)
+                .chain()
+                .after(crate::traffic::update_traffic_density),
+        );
+    }
+}
