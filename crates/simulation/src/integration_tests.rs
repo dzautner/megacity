@@ -805,7 +805,7 @@ fn test_destination_cache_removes_demolished_building() {
     use crate::movement::DestinationCache;
 
     // Build a city with a commercial building (which will appear in shops cache)
-    let mut city = TestCity::new().with_building(10, 10, ZoneType::Commercial, 1);
+    let mut city = TestCity::new().with_building(10, 10, ZoneType::CommercialLow, 1);
 
     // Tick to let the destination cache populate
     city.tick(2);
@@ -844,7 +844,7 @@ fn test_destination_cache_removes_demolished_service() {
     use crate::movement::DestinationCache;
 
     // Build a city with a leisure service (park)
-    let mut city = TestCity::new().with_service(15, 15, ServiceType::Park);
+    let mut city = TestCity::new().with_service(15, 15, ServiceType::SmallPark);
 
     // Tick to populate destination cache
     city.tick(2);
