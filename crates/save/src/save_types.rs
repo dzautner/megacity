@@ -39,7 +39,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v25 = landfill_gas_state (LandfillGasState serialization for landfill gas collection and energy)
 /// v26 = cso_state (SewerSystemState serialization for CSO events)
 /// v27 = water_conservation_state (WaterConservationState serialization for water conservation)
-pub const CURRENT_SAVE_VERSION: u32 = 27; // v27: Water conservation
+/// v28 = fog_state (FogState serialization for fog and visibility)
+pub const CURRENT_SAVE_VERSION: u32 = 28; // v28: Fog and visibility
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -152,6 +153,8 @@ pub struct SaveData {
     pub cso_state: Option<SaveCsoState>,
     #[serde(default)]
     pub water_conservation_state: Option<SaveWaterConservationState>,
+    #[serde(default)]
+    pub fog_state: Option<SaveFogState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -711,6 +714,19 @@ pub struct SaveWaterConservationState {
     pub annual_savings_gallons: f64,
     pub buildings_retrofitted: u32,
 }
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveFogState {
+    pub active: bool,
+    pub density: u8,
+    pub visibility_m: f32,
+    pub hours_active: u32,
+    pub max_duration_hours: u32,
+    pub water_fraction: f32,
+    pub traffic_speed_modifier: f32,
+    pub flights_suspended: bool,
+    pub last_update_hour: u32,
+}
+
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {
         bitcode::encode(self)

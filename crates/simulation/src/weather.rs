@@ -795,7 +795,10 @@ impl Weather {
         modifier
     }
 
-    /// Travel speed multiplier (snow/rain slows traffic)
+    /// Travel speed multiplier (snow/rain/fog slows traffic).
+    ///
+    /// When a `FogState` is available, use `travel_speed_multiplier_with_fog` instead
+    /// to incorporate the fog traffic penalty.
     pub fn travel_speed_multiplier(&self) -> f32 {
         match self.current_event {
             WeatherCondition::Storm => 0.5,
@@ -817,6 +820,14 @@ impl Weather {
                 }
             }
         }
+    }
+
+    /// Travel speed multiplier incorporating both weather and fog effects.
+    ///
+    /// Returns the minimum of the weather-based multiplier and the fog traffic modifier,
+    /// ensuring the worst condition dominates.
+    pub fn travel_speed_multiplier_with_fog(&self, fog_traffic_modifier: f32) -> f32 {
+        self.travel_speed_multiplier().min(fog_traffic_modifier)
     }
 }
 

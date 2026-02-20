@@ -621,6 +621,27 @@ pub fn u8_to_reservoir_warning_tier(val: u8) -> ReservoirWarningTier {
     }
 }
 
+pub fn fog_density_to_u8(d: simulation::fog::FogDensity) -> u8 {
+    use simulation::fog::FogDensity;
+    match d {
+        FogDensity::None => 0,
+        FogDensity::Mist => 1,
+        FogDensity::Moderate => 2,
+        FogDensity::Dense => 3,
+    }
+}
+
+pub fn u8_to_fog_density(v: u8) -> simulation::fog::FogDensity {
+    use simulation::fog::FogDensity;
+    match v {
+        0 => FogDensity::None,
+        1 => FogDensity::Mist,
+        2 => FogDensity::Moderate,
+        3 => FogDensity::Dense,
+        _ => FogDensity::None, // fallback
+    }
+}
+
 pub fn sewer_type_to_u8(st: &simulation::cso::SewerType) -> u8 {
     match st {
         simulation::cso::SewerType::Combined => 0,

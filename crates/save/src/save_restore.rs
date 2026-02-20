@@ -9,6 +9,7 @@ use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::cso::SewerSystemState;
 use simulation::degree_days::DegreeDays;
 use simulation::flood_simulation::FloodState;
+use simulation::fog::FogState;
 use simulation::landfill_gas::LandfillGasState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
@@ -555,5 +556,21 @@ pub fn restore_water_conservation(state: &SaveWaterConservationState) -> WaterCo
         total_retrofit_cost: state.total_retrofit_cost,
         annual_savings_gallons: state.annual_savings_gallons,
         buildings_retrofitted: state.buildings_retrofitted,
+    }
+}
+
+/// Restore a `FogState` resource from saved data.
+pub fn restore_fog_state(save: &SaveFogState) -> FogState {
+    FogState {
+        active: save.active,
+        density: u8_to_fog_density(save.density),
+        visibility_m: save.visibility_m,
+        hours_active: save.hours_active,
+        max_duration_hours: save.max_duration_hours,
+        water_fraction: save.water_fraction,
+        traffic_speed_modifier: save.traffic_speed_modifier,
+        flights_suspended: save.flights_suspended,
+        last_update_hour: save.last_update_hour,
+        water_fraction_last_day: 0, // Will be recomputed on next day
     }
 }

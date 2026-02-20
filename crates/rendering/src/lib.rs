@@ -83,6 +83,7 @@ impl Plugin for RenderingPlugin {
                 ),
             )
             .add_systems(Update, day_night::update_day_night_cycle)
+            .add_systems(Update, day_night::update_fog_rendering)
             .add_systems(
                 Update,
                 (

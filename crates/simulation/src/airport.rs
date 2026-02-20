@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::fog::FogState;
 use crate::outside_connections::OutsideConnections;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::stats::CityStats;
@@ -116,6 +117,7 @@ pub fn update_airports(
     stats: Res<CityStats>,
     mut tourism: ResMut<Tourism>,
     outside: Res<OutsideConnections>,
+    fog: Res<FogState>,
 ) {
     if !slow_timer.should_run() {
         return;
@@ -168,7 +170,12 @@ pub fn update_airports(
     }
     // Demand is a fraction of population (1% of pop wants to fly per month)
     let demand = (pop * 0.01) as u32;
-    let passenger_flights = demand.min(total_capacity);
+    // Dense fog suspends all flight operations
+    let passenger_flights = if fog.flights_suspended {
+        0
+    } else {
+        demand.min(total_capacity)
+    };
 
     // Cargo flights are a fraction of passenger flights, boosted by outside connections
     let has_airport_connection =

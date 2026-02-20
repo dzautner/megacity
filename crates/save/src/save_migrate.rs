@@ -184,6 +184,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.water_conservation_state = None;
         save.version = 27;
     }
+    // v27 -> v28: Added fog_state (FogState serialization for fog and visibility).
+    // Uses `#[serde(default)]` so it deserializes as None from a v27 save.
+    if save.version == 27 {
+        save.fog_state = None;
+        save.version = 28;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

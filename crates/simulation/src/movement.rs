@@ -355,6 +355,7 @@ pub fn process_path_requests(
 pub fn move_citizens(
     clock: Res<GameClock>,
     weather: Res<crate::weather::Weather>,
+    fog: Res<crate::fog::FogState>,
     mut query: Query<
         (
             Entity,
@@ -371,7 +372,8 @@ pub fn move_citizens(
         return;
     }
 
-    let speed_per_tick = (CITIZEN_SPEED / 10.0) * weather.travel_speed_multiplier();
+    let speed_per_tick = (CITIZEN_SPEED / 10.0)
+        * weather.travel_speed_multiplier_with_fog(fog.traffic_speed_modifier);
 
     query
         .par_iter_mut()
