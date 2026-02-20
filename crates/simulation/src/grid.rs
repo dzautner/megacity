@@ -118,6 +118,19 @@ impl RoadType {
     pub fn upgrade_cost(self) -> Option<f64> {
         self.upgrade_tier().map(|next| next.cost() - self.cost())
     }
+
+    /// Returns the monthly maintenance cost per cell for this road type.
+    /// Higher-capacity roads cost more to maintain.
+    pub fn maintenance_cost(self) -> f64 {
+        match self {
+            RoadType::Path => 0.1,
+            RoadType::Local => 0.3,
+            RoadType::OneWay => 0.4,
+            RoadType::Avenue => 0.5,
+            RoadType::Boulevard => 1.5,
+            RoadType::Highway => 2.0,
+        }
+    }
 }
 
 impl ZoneType {
@@ -340,5 +353,24 @@ mod tests {
     #[test]
     fn test_none_zone_far_is_zero() {
         assert_eq!(ZoneType::None.default_far(), 0.0);
+    }
+
+    #[test]
+    fn test_road_maintenance_cost_scales_by_type() {
+        // Path should be cheapest, Highway most expensive
+        assert!(RoadType::Path.maintenance_cost() < RoadType::Local.maintenance_cost());
+        assert!(RoadType::Local.maintenance_cost() < RoadType::Avenue.maintenance_cost());
+        assert!(RoadType::Avenue.maintenance_cost() < RoadType::Boulevard.maintenance_cost());
+        assert!(RoadType::Boulevard.maintenance_cost() < RoadType::Highway.maintenance_cost());
+    }
+
+    #[test]
+    fn test_road_maintenance_cost_values() {
+        assert!((RoadType::Path.maintenance_cost() - 0.1).abs() < f64::EPSILON);
+        assert!((RoadType::Local.maintenance_cost() - 0.3).abs() < f64::EPSILON);
+        assert!((RoadType::OneWay.maintenance_cost() - 0.4).abs() < f64::EPSILON);
+        assert!((RoadType::Avenue.maintenance_cost() - 0.5).abs() < f64::EPSILON);
+        assert!((RoadType::Boulevard.maintenance_cost() - 1.5).abs() < f64::EPSILON);
+        assert!((RoadType::Highway.maintenance_cost() - 2.0).abs() < f64::EPSILON);
     }
 }

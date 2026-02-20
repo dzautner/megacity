@@ -156,10 +156,9 @@ pub fn refresh_road_segment_info(
         cache.end_node_pos = [end_node.position.x, end_node.position.y];
     }
 
-    // Monthly maintenance cost for this segment
-    // Based on cell count * cost_per_cell * budget_level
+    // Monthly maintenance cost for this segment (based on road type)
     cache.monthly_maintenance =
-        cell_count as f64 * maint_budget.cost_per_cell * maint_budget.budget_level as f64;
+        cell_count as f64 * segment.road_type.maintenance_cost() * maint_budget.budget_level as f64;
 
     cache.valid = true;
 }
