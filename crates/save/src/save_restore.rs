@@ -544,6 +544,28 @@ pub fn restore_cso(state: &SaveCsoState) -> SewerSystemState {
     }
 }
 
+/// Restore an `AgricultureState` resource from saved data.
+pub fn restore_agriculture(
+    save: &crate::save_types::SaveAgricultureState,
+) -> simulation::agriculture::AgricultureState {
+    simulation::agriculture::AgricultureState {
+        growing_season_active: save.growing_season_active,
+        crop_yield_modifier: save.crop_yield_modifier,
+        rainfall_adequacy: save.rainfall_adequacy,
+        temperature_suitability: save.temperature_suitability,
+        soil_quality: save.soil_quality,
+        fertilizer_bonus: save.fertilizer_bonus,
+        frost_risk: save.frost_risk,
+        frost_events_this_year: save.frost_events_this_year,
+        frost_damage_total: save.frost_damage_total,
+        has_irrigation: save.has_irrigation,
+        farm_count: save.farm_count,
+        annual_rainfall_estimate: save.annual_rainfall_estimate,
+        last_frost_check_day: save.last_frost_check_day,
+        last_rainfall_day: save.last_rainfall_day,
+    }
+}
+
 /// Restore a `WaterConservationState` resource from saved data.
 pub fn restore_water_conservation(state: &SaveWaterConservationState) -> WaterConservationState {
     WaterConservationState {
