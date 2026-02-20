@@ -1396,7 +1396,7 @@ mod tests {
         );
         save.version = 0;
 
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, 0);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
@@ -1459,7 +1459,7 @@ mod tests {
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, CURRENT_SAVE_VERSION);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
@@ -1584,7 +1584,7 @@ mod tests {
         );
         save.version = 1;
 
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, 1);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
@@ -1647,7 +1647,7 @@ mod tests {
         );
         save.version = 2;
 
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, 2);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
@@ -1966,7 +1966,7 @@ mod tests {
             activity_timer: 0,
         });
         save.version = 2;
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, 2);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
         let c = &save.citizens[0];
@@ -2212,7 +2212,7 @@ mod tests {
         );
         save.version = 3;
 
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, 3);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }
@@ -2520,7 +2520,7 @@ mod tests {
         );
         save.version = 4;
 
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, 4);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
         // Vacancy fields should default to 0.0 for a migrated v4 save.
@@ -2588,7 +2588,7 @@ mod tests {
         );
         save.version = 5;
 
-        let old = migrate_save(&mut save);
+        let old = migrate_save(&mut save).expect("migration should succeed");
         assert_eq!(old, 5);
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
     }

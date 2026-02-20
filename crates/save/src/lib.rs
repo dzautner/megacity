@@ -348,7 +348,13 @@ fn handle_load(
         };
 
         // Migrate older save formats to current version
-        let old_version = migrate_save(&mut save);
+        let old_version = match migrate_save(&mut save) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Save migration failed: {}", e);
+                continue;
+            }
+        };
         if old_version != CURRENT_SAVE_VERSION {
             println!(
                 "Migrated save from v{} to v{}",
