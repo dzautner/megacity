@@ -10,22 +10,13 @@ use serde::{Deserialize, Serialize};
 ///
 /// When `enabled` is false (default), the UGB has no effect and all cells are
 /// considered inside the boundary (backward-compatible behavior).
-#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UrbanGrowthBoundary {
     /// Whether the UGB is active.
     pub enabled: bool,
     /// Polygon vertices as grid coordinates (x, y). The polygon is implicitly closed
     /// (an edge connects the last vertex back to the first).
     pub vertices: Vec<(f32, f32)>,
-}
-
-impl Default for UrbanGrowthBoundary {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            vertices: Vec::new(),
-        }
-    }
 }
 
 /// Land value modifier applied inside the UGB (scarcity premium).
