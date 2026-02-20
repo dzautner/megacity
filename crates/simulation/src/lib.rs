@@ -124,7 +124,7 @@ pub mod zones;
 
 #[cfg(test)]
 mod integration_tests;
-#[cfg(test)]
+#[cfg(any(test, feature = "bench"))]
 pub mod test_harness;
 
 use road_graph_csr::CsrGraph;

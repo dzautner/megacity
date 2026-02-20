@@ -11,6 +11,9 @@ bitcode = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
 
+[features]
+bench = []
+
 [dev-dependencies]
 serde_json = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -18,3 +21,4 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [[bench]]
 name = "city_perf"
 harness = false
+required-features = ["bench"]

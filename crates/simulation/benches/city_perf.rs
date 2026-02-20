@@ -708,7 +708,7 @@ fn bench_full_tick_estimate(c: &mut Criterion) {
     let pollution = vec![5u8; GRID_WIDTH * GRID_HEIGHT];
     let land_value = vec![50u8; GRID_WIDTH * GRID_HEIGHT];
 
-    let (grid_for_tick, _) = build_road_grid(4);
+    let (_grid_for_tick, _) = build_road_grid(4);
     let csr = CsrGraph::from_road_network(&network);
 
     group.bench_function("simulated_tick_50k_citizens", |b| {
@@ -767,6 +767,37 @@ fn bench_full_tick_estimate(c: &mut Criterion) {
 }
 
 // ---------------------------------------------------------------------------
+// 11. REAL ECS TICK BENCHMARK (Tel Aviv map with all systems)
+// ---------------------------------------------------------------------------
+
+/// Measures the actual cost of a single `FixedUpdate` schedule execution
+/// using the full Tel Aviv map with ~10K citizens and ALL simulation systems
+/// (weather, floods, economy, happiness, movement, pathfinding, etc.).
+///
+/// This is the ground-truth performance metric. The budget is 16ms (60 Hz)
+/// for the simulation tick alone, leaving headroom for rendering.
+fn bench_ecs_tick(c: &mut Criterion) {
+    use bevy::prelude::*;
+    use simulation::test_harness::TestCity;
+
+    let mut group = c.benchmark_group("ecs_tick");
+    group.sample_size(20);
+
+    // Build the full Tel Aviv city once (expensive ~1s setup).
+    let mut city = TestCity::with_tel_aviv();
+    // Warm up: run a few ticks so lazy-init systems settle.
+    city.tick(10);
+
+    group.bench_function("tel_aviv_fixed_update", |b| {
+        b.iter(|| {
+            city.world_mut().run_schedule(FixedUpdate);
+        });
+    });
+
+    group.finish();
+}
+
+// ---------------------------------------------------------------------------
 // Register all benchmark groups
 // ---------------------------------------------------------------------------
 
@@ -783,5 +814,6 @@ criterion_group!(
     bench_road_network,
     bench_memory_footprint,
     bench_full_tick_estimate,
+    bench_ecs_tick,
 );
 criterion_main!(benches);
