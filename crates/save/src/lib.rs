@@ -11,11 +11,11 @@ pub mod serialization;
 use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
     create_save_data, migrate_save, restore_climate_zone, restore_cold_snap, restore_composting,
-    restore_construction_modifiers, restore_degree_days, restore_drought, restore_extended_budget,
-    restore_flood_state, restore_groundwater_depletion, restore_hazardous_waste, restore_heat_wave,
-    restore_landfill_capacity, restore_landfill_gas, restore_life_sim_timer,
-    restore_lifecycle_timer, restore_loan_book, restore_policies, restore_recycling,
-    restore_reservoir_state, restore_road_segment_store, restore_storm_drainage,
+    restore_construction_modifiers, restore_cso, restore_degree_days, restore_drought,
+    restore_extended_budget, restore_flood_state, restore_groundwater_depletion,
+    restore_hazardous_waste, restore_heat_wave, restore_landfill_capacity, restore_landfill_gas,
+    restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book, restore_policies,
+    restore_recycling, restore_reservoir_state, restore_road_segment_store, restore_storm_drainage,
     restore_stormwater_grid, restore_uhi_grid, restore_unlock_state, restore_virtual_population,
     restore_wastewater, restore_water_source, restore_water_treatment, restore_weather,
     restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
@@ -29,6 +29,7 @@ use simulation::citizen::{
 };
 use simulation::cold_snap::ColdSnapState;
 use simulation::composting::CompostingState;
+use simulation::cso::SewerSystemState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
@@ -203,6 +204,7 @@ fn handle_save(
             Some(&v2.flood_state),
             Some(&v2.reservoir_state),
             Some(&v2.landfill_gas_state),
+            Some(&v2.cso_state),
         );
 
         let bytes = save.encode();
@@ -735,6 +737,11 @@ fn handle_load(
             *v2.landfill_gas_state = restore_landfill_gas(lgs);
         }
 
+        // Restore CSO state
+        if let Some(ref s) = save.cso_state {
+            *v2.cso_state = restore_cso(s);
+        }
+
         println!("Loaded save from {}", path);
     }
 }
@@ -830,6 +837,7 @@ fn handle_new_game(
         *v2.flood_grid = FloodGrid::default();
         *v2.reservoir_state = ReservoirState::default();
         *v2.landfill_gas_state = LandfillGasState::default();
+        *v2.cso_state = SewerSystemState::default();
 
         // Generate a flat terrain with water on west edge (simple starter map)
         for y in 0..height {

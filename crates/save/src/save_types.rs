@@ -37,7 +37,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v23 = flood_state (FloodState serialization for urban flooding simulation)
 /// v24 = reservoir_state (ReservoirState serialization for reservoir water level tracking)
 /// v25 = landfill_gas_state (LandfillGasState serialization for landfill gas collection and energy)
-pub const CURRENT_SAVE_VERSION: u32 = 25;
+/// v26 = cso_state (SewerSystemState serialization for CSO events)
+pub const CURRENT_SAVE_VERSION: u32 = 26; // v26: CSO events
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -146,6 +147,8 @@ pub struct SaveData {
     pub reservoir_state: Option<SaveReservoirState>,
     #[serde(default)]
     pub landfill_gas_state: Option<SaveLandfillGasState>,
+    #[serde(default)]
+    pub cso_state: Option<SaveCsoState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -676,6 +679,21 @@ pub struct SaveLandfillGasState {
     pub total_landfills: u32,
 }
 
+#[derive(Serialize, Deserialize, Encode, Decode, Default, Clone, Debug)]
+pub struct SaveCsoState {
+    pub sewer_type: u8,
+    pub combined_capacity: f32,
+    pub current_flow: f32,
+    pub cso_active: bool,
+    pub cso_discharge_gallons: f32,
+    pub cso_events_total: u32,
+    pub cso_events_this_year: u32,
+    pub cells_with_separated_sewer: u32,
+    pub total_sewer_cells: u32,
+    pub separation_coverage: f32,
+    pub annual_cso_volume: f32,
+    pub pollution_contribution: f32,
+}
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {
         bitcode::encode(self)

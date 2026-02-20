@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use simulation::budget::ExtendedBudget;
 use simulation::cold_snap::ColdSnapState;
 use simulation::composting::CompostingState;
+use simulation::cso::SewerSystemState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::flood_simulation::{FloodGrid, FloodState};
@@ -62,6 +63,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub flood_state: Res<'w, FloodState>,
     pub reservoir_state: Res<'w, ReservoirState>,
     pub landfill_gas_state: Res<'w, LandfillGasState>,
+    pub cso_state: Res<'w, SewerSystemState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -96,4 +98,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub flood_grid: ResMut<'w, FloodGrid>,
     pub reservoir_state: ResMut<'w, ReservoirState>,
     pub landfill_gas_state: ResMut<'w, LandfillGasState>,
+    pub cso_state: ResMut<'w, SewerSystemState>,
 }

@@ -6,6 +6,7 @@ use crate::save_codec::*;
 use crate::save_types::*;
 
 use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
+use simulation::cso::SewerSystemState;
 use simulation::degree_days::DegreeDays;
 use simulation::flood_simulation::FloodState;
 use simulation::landfill_gas::LandfillGasState;
@@ -519,5 +520,23 @@ pub fn restore_landfill_capacity(
         current_tier: u8_to_landfill_warning_tier(save.current_tier),
         collection_halted: save.collection_halted,
         landfill_count: save.landfill_count,
+    }
+}
+
+/// Restore a `SewerSystemState` resource from saved data.
+pub fn restore_cso(state: &SaveCsoState) -> SewerSystemState {
+    SewerSystemState {
+        sewer_type: u8_to_sewer_type(state.sewer_type),
+        combined_capacity: state.combined_capacity,
+        current_flow: state.current_flow,
+        cso_active: state.cso_active,
+        cso_discharge_gallons: state.cso_discharge_gallons,
+        cso_events_total: state.cso_events_total,
+        cso_events_this_year: state.cso_events_this_year,
+        cells_with_separated_sewer: state.cells_with_separated_sewer,
+        total_sewer_cells: state.total_sewer_cells,
+        separation_coverage: state.separation_coverage,
+        annual_cso_volume: state.annual_cso_volume,
+        pollution_contribution: state.pollution_contribution,
     }
 }
