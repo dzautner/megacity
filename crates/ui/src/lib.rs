@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
 pub mod advisor_tips;
+pub mod box_selection;
 pub mod cell_info_panel;
 pub mod cell_tooltip;
 pub mod citizen_info;
@@ -56,6 +57,7 @@ impl Plugin for UiPlugin {
             .add_plugins(two_key_shortcuts::TwoKeyShortcutPlugin)
             .add_plugins(minimap::MinimapPlugin)
             .add_plugins(notification_ticker::NotificationTickerPlugin)
+            .add_plugins(box_selection::BoxSelectionUiPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
