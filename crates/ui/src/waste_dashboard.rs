@@ -31,21 +31,6 @@ pub struct WasteDashboardVisible(pub bool);
 // Keybind system
 // =============================================================================
 
-/// Toggles the waste dashboard visibility when 'G' is pressed (G for Garbage).
-/// Skipped when egui wants keyboard input (e.g. text field focused).
-pub fn waste_dashboard_keybind(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut visible: ResMut<WasteDashboardVisible>,
-    mut contexts: EguiContexts,
-) {
-    if contexts.ctx_mut().wants_keyboard_input() {
-        return;
-    }
-    if keyboard.just_pressed(KeyCode::KeyG) {
-        visible.0 = !visible.0;
-    }
-}
-
 // =============================================================================
 // Helper: format tons for display
 // =============================================================================
@@ -162,7 +147,7 @@ pub fn waste_dashboard_ui(
         .default_open(true)
         .default_width(360.0)
         .show(contexts.ctx_mut(), |ui| {
-            ui.small("Press [G] to toggle");
+            ui.small("Waste dashboard");
             ui.separator();
 
             // === Warning indicators ===
@@ -491,7 +476,7 @@ pub struct WasteDashboardPlugin;
 impl Plugin for WasteDashboardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WasteDashboardVisible>()
-            .add_systems(Update, (waste_dashboard_keybind, waste_dashboard_ui));
+            .add_systems(Update, waste_dashboard_ui);
     }
 }
 
