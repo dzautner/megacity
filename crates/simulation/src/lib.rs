@@ -9,6 +9,7 @@ pub mod building_upgrade;
 pub mod buildings;
 pub mod citizen;
 pub mod citizen_spawner;
+pub mod composting;
 pub mod config;
 pub mod crime;
 pub mod death_care;
@@ -87,6 +88,7 @@ use budget::ExtendedBudget;
 use building_upgrade::UpgradeTimer;
 use buildings::{BuildingSpawnTimer, EligibleCells};
 use citizen_spawner::CitizenSpawnTimer;
+use composting::CompostingState;
 use crime::CrimeGrid;
 use death_care::{DeathCareGrid, DeathCareStats};
 use degree_days::DegreeDays;
@@ -259,6 +261,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<UhiGrid>()
             .init_resource::<DroughtState>()
             .init_resource::<HeatWaveState>()
+            .init_resource::<CompostingState>()
             .add_event::<BankruptcyEvent>()
             .add_event::<WindDamageEvent>()
             .add_event::<WeatherChangeEvent>()
@@ -397,6 +400,7 @@ impl Plugin for SimulationPlugin {
                 FixedUpdate,
                 (
                     heat_wave::update_heat_wave,
+                    composting::update_composting,
                     water_sources::update_water_sources,
                     water_sources::aggregate_water_source_supply,
                     water_sources::replenish_reservoirs,

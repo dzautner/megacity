@@ -513,3 +513,24 @@ pub fn u8_to_heat_wave_severity(v: u8) -> simulation::heat_wave::HeatWaveSeverit
         _ => HeatWaveSeverity::None, // fallback
     }
 }
+
+pub fn compost_method_to_u8(m: simulation::composting::CompostMethod) -> u8 {
+    use simulation::composting::CompostMethod;
+    match m {
+        CompostMethod::Windrow => 0,
+        CompostMethod::AeratedStaticPile => 1,
+        CompostMethod::InVessel => 2,
+        CompostMethod::AnaerobicDigestion => 3,
+    }
+}
+
+pub fn u8_to_compost_method(v: u8) -> simulation::composting::CompostMethod {
+    use simulation::composting::CompostMethod;
+    match v {
+        0 => CompostMethod::Windrow,
+        1 => CompostMethod::AeratedStaticPile,
+        2 => CompostMethod::InVessel,
+        3 => CompostMethod::AnaerobicDigestion,
+        _ => CompostMethod::Windrow, // fallback
+    }
+}

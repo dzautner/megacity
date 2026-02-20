@@ -103,6 +103,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.version = 14;
     }
 
+    // v14 -> v15: Added composting_state (CompostingState serialization for composting facilities).
+    // Uses `#[serde(default)]` so it deserializes as None from a v14 save.
+    if save.version == 14 {
+        save.version = 15;
+    }
+
     // Ensure version is at the current value (safety net for future additions).
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
