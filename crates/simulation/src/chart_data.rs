@@ -380,6 +380,7 @@ impl Plugin for ChartDataPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Saveable;
 
     #[test]
     fn test_chart_history_default() {

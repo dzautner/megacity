@@ -65,7 +65,7 @@ pub fn record_history(
 // -----------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TimeRange {
+enum TimeRange {
     Month, // ~3 snapshots (30 days / 10 days per snapshot)
     Year,  // ~36 snapshots (360 days)
     AllTime,
@@ -129,8 +129,8 @@ impl ChartTab {
 /// Persistent state for the charts panel (tab + range selection).
 #[derive(Resource)]
 pub struct ChartsState {
-    pub tab: ChartTab,
-    pub range: TimeRange,
+    tab: ChartTab,
+    range: TimeRange,
 }
 
 impl Default for ChartsState {
@@ -415,7 +415,7 @@ fn draw_traffic_chart(ui: &mut egui::Ui, chart: &ChartHistory) {
         .cloned()
         .fold(0.01_f32, f32::max); // avoid div by zero
 
-    for hour in 0..24 {
+    for hour in 0..24_usize {
         let val = chart.traffic_hourly.congestion[hour];
         let normalized = val / max_congestion;
         let bar_height = normalized * (rect.height() - 16.0); // leave room for labels
@@ -435,7 +435,7 @@ fn draw_traffic_chart(ui: &mut egui::Ui, chart: &ChartHistory) {
             painter.text(
                 egui::pos2(x + bar_width / 2.0, rect.max.y - 6.0),
                 egui::Align2::CENTER_CENTER,
-                format!("{}", hour),
+                format!("{hour}"),
                 egui::FontId::proportional(9.0),
                 egui::Color32::GRAY,
             );
@@ -467,27 +467,17 @@ fn draw_service_radar(ui: &mut egui::Ui, chart: &ChartHistory) {
     ui.heading("Service Coverage");
 
     let cov = &chart.service_coverage;
-    let labels = [
-        "Health",
-        "Education",
-        "Police",
-        "Fire",
-        "Parks",
-        "Entertain",
-        "Telecom",
-        "Transport",
+    let categories: [(&str, f32); 8] = [
+        ("Health", cov.health),
+        ("Education", cov.education),
+        ("Police", cov.police),
+        ("Fire", cov.fire),
+        ("Parks", cov.parks),
+        ("Entertain", cov.entertainment),
+        ("Telecom", cov.telecom),
+        ("Transport", cov.transport),
     ];
-    let values = [
-        cov.health,
-        cov.education,
-        cov.police,
-        cov.fire,
-        cov.parks,
-        cov.entertainment,
-        cov.telecom,
-        cov.transport,
-    ];
-    let n = labels.len();
+    let n = categories.len();
 
     let size = 200.0_f32;
     let (rect, _) =
@@ -505,8 +495,8 @@ fn draw_service_radar(ui: &mut egui::Ui, chart: &ChartHistory) {
     for ring in 1..=4 {
         let r = radius * ring as f32 / 4.0;
         let ring_points: Vec<egui::Pos2> = (0..=n)
-            .map(|i| {
-                let angle = (i % n) as f32 * 2.0 * PI / n as f32 - PI / 2.0;
+            .map(|idx| {
+                let angle = (idx % n) as f32 * 2.0 * PI / n as f32 - PI / 2.0;
                 egui::pos2(center.x + r * angle.cos(), center.y + r * angle.sin())
             })
             .collect();
@@ -518,9 +508,9 @@ fn draw_service_radar(ui: &mut egui::Ui, chart: &ChartHistory) {
         }
     }
 
-    // Draw axis lines
-    for i in 0..n {
-        let angle = i as f32 * 2.0 * PI / n as f32 - PI / 2.0;
+    // Draw axis lines and labels
+    for (idx, (label, _)) in categories.iter().enumerate() {
+        let angle = idx as f32 * 2.0 * PI / n as f32 - PI / 2.0;
         let end = egui::pos2(
             center.x + radius * angle.cos(),
             center.y + radius * angle.sin(),
@@ -530,7 +520,6 @@ fn draw_service_radar(ui: &mut egui::Ui, chart: &ChartHistory) {
             egui::Stroke::new(0.5, egui::Color32::from_gray(60)),
         );
 
-        // Labels
         let label_r = radius + 14.0;
         let label_pos = egui::pos2(
             center.x + label_r * angle.cos(),
@@ -539,17 +528,19 @@ fn draw_service_radar(ui: &mut egui::Ui, chart: &ChartHistory) {
         painter.text(
             label_pos,
             egui::Align2::CENTER_CENTER,
-            labels[i],
+            *label,
             egui::FontId::proportional(9.0),
             egui::Color32::LIGHT_GRAY,
         );
     }
 
     // Draw data polygon
-    let data_points: Vec<egui::Pos2> = (0..n)
-        .map(|i| {
-            let angle = i as f32 * 2.0 * PI / n as f32 - PI / 2.0;
-            let r = radius * values[i].clamp(0.0, 1.0);
+    let data_points: Vec<egui::Pos2> = categories
+        .iter()
+        .enumerate()
+        .map(|(idx, (_, val))| {
+            let angle = idx as f32 * 2.0 * PI / n as f32 - PI / 2.0;
+            let r = radius * val.clamp(0.0, 1.0);
             egui::pos2(center.x + r * angle.cos(), center.y + r * angle.sin())
         })
         .collect();
@@ -579,8 +570,8 @@ fn draw_service_radar(ui: &mut egui::Ui, chart: &ChartHistory) {
 
     // Legend with percentages
     ui.horizontal_wrapped(|ui| {
-        for (i, label) in labels.iter().enumerate() {
-            ui.label(format!("{}: {:.0}%", label, values[i] * 100.0));
+        for (label, val) in &categories {
+            ui.label(format!("{}: {:.0}%", label, val * 100.0));
         }
     });
 }
@@ -834,16 +825,16 @@ fn draw_stacked_area(
         let mut polygon = Vec::with_capacity(n * 2 + 2);
 
         // Top edge (left to right)
-        for i in 0..n {
+        for (i, top_val) in top.iter().enumerate() {
             let x = rect.min.x + (i as f32 / (n - 1) as f32) * rect.width();
-            let y = rect.max.y - (top[i] as f32 / max_val as f32) * rect.height();
+            let y = rect.max.y - (*top_val as f32 / max_val as f32) * rect.height();
             polygon.push(egui::pos2(x, y));
         }
 
         // Bottom edge (right to left)
-        for i in (0..n).rev() {
+        for (i, bot_val) in bottom.iter().enumerate().rev() {
             let x = rect.min.x + (i as f32 / (n - 1) as f32) * rect.width();
-            let y = rect.max.y - (bottom[i] as f32 / max_val as f32) * rect.height();
+            let y = rect.max.y - (*bot_val as f32 / max_val as f32) * rect.height();
             polygon.push(egui::pos2(x, y));
         }
 
