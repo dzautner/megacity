@@ -6,28 +6,18 @@
 //! for the segment, then the mesh material color is updated accordingly.
 //!
 //! Color ramp: green (A) -> yellow (C) -> orange (D) -> red (F).
+//! Colorblind modes use adapted ramps (blue-orange, teal-magenta).
 
 use bevy::prelude::*;
 
+use simulation::colorblind::ColorblindSettings;
 use simulation::config::CELL_SIZE;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::traffic_los::{LosGrade, TrafficLosGrid};
 
+use crate::colorblind_palette;
 use crate::overlay::OverlayMode;
 use crate::road_render::RoadSegmentMesh;
-
-/// LOS color ramp: green (free flow) -> yellow -> orange -> red (gridlock).
-/// Returns an sRGB [r, g, b, a] array for a given LOS grade.
-fn los_color(grade: LosGrade) -> Color {
-    match grade {
-        LosGrade::A => Color::srgb(0.20, 0.72, 0.20), // green
-        LosGrade::B => Color::srgb(0.55, 0.78, 0.22), // yellow-green
-        LosGrade::C => Color::srgb(0.90, 0.82, 0.15), // yellow
-        LosGrade::D => Color::srgb(0.95, 0.55, 0.10), // orange
-        LosGrade::E => Color::srgb(0.90, 0.25, 0.10), // red-orange
-        LosGrade::F => Color::srgb(0.75, 0.08, 0.08), // deep red
-    }
-}
 
 /// The default (neutral) road material color when no overlay is active.
 const ROAD_DEFAULT_COLOR: Color = Color::WHITE;
@@ -37,19 +27,24 @@ const ROAD_DEFAULT_COLOR: Color = Color::WHITE;
 /// When the traffic overlay is active, each road segment mesh is colored
 /// according to its LOS grade (sampled from the grid cells the segment covers).
 /// When the overlay is disabled, colors are reset to white (neutral).
+/// Colors are adapted based on the active colorblind mode.
+#[allow(clippy::too_many_arguments)]
 pub fn update_road_los_colors(
     overlay: Res<crate::overlay::OverlayState>,
     los_grid: Res<TrafficLosGrid>,
     store: Res<RoadSegmentStore>,
+    cb_settings: Res<ColorblindSettings>,
     segments_query: Query<(&RoadSegmentMesh, &MeshMaterial3d<StandardMaterial>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let is_traffic_overlay = overlay.mode == OverlayMode::Traffic;
 
-    // Only update when overlay state or LOS data changes
-    if !overlay.is_changed() && !los_grid.is_changed() {
+    // Only update when overlay state, LOS data, or colorblind mode changes
+    if !overlay.is_changed() && !los_grid.is_changed() && !cb_settings.is_changed() {
         return;
     }
+
+    let cb_mode = cb_settings.mode;
 
     for (seg_mesh, material_handle) in &segments_query {
         let Some(material) = materials.get_mut(&material_handle.0) else {
@@ -90,7 +85,7 @@ pub fn update_road_los_colors(
             worst
         };
 
-        material.base_color = los_color(grade);
+        material.base_color = colorblind_palette::los_color(grade, cb_mode);
     }
 }
 
@@ -105,11 +100,12 @@ impl Plugin for TrafficLosRenderPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simulation::colorblind::ColorblindMode;
 
     #[test]
-    fn test_los_color_green_to_red() {
-        let a = los_color(LosGrade::A).to_srgba();
-        let f = los_color(LosGrade::F).to_srgba();
+    fn test_los_color_green_to_red_normal() {
+        let a = colorblind_palette::los_color(LosGrade::A, ColorblindMode::Normal).to_srgba();
+        let f = colorblind_palette::los_color(LosGrade::F, ColorblindMode::Normal).to_srgba();
 
         // LOS A should be greenish (G > R)
         assert!(
@@ -139,11 +135,13 @@ mod tests {
             LosGrade::F,
         ];
 
-        // Each grade should produce a distinct color
+        // Each grade should produce a distinct color in normal mode
         for i in 0..grades.len() {
             for j in (i + 1)..grades.len() {
-                let ci = los_color(grades[i]).to_srgba();
-                let cj = los_color(grades[j]).to_srgba();
+                let ci =
+                    colorblind_palette::los_color(grades[i], ColorblindMode::Normal).to_srgba();
+                let cj =
+                    colorblind_palette::los_color(grades[j], ColorblindMode::Normal).to_srgba();
                 let diff = (ci.red - cj.red).abs()
                     + (ci.green - cj.green).abs()
                     + (ci.blue - cj.blue).abs();
@@ -158,10 +156,14 @@ mod tests {
     }
 
     #[test]
-    fn test_los_color_monotonic_red() {
-        // Red channel should generally increase from A to F
-        let a_red = los_color(LosGrade::A).to_srgba().red;
-        let f_red = los_color(LosGrade::F).to_srgba().red;
+    fn test_los_color_monotonic_red_normal() {
+        // Red channel should generally increase from A to F in normal mode
+        let a_red = colorblind_palette::los_color(LosGrade::A, ColorblindMode::Normal)
+            .to_srgba()
+            .red;
+        let f_red = colorblind_palette::los_color(LosGrade::F, ColorblindMode::Normal)
+            .to_srgba()
+            .red;
         assert!(
             f_red > a_red,
             "LOS F should have more red than LOS A: A.r={} F.r={}",
@@ -171,10 +173,14 @@ mod tests {
     }
 
     #[test]
-    fn test_los_color_monotonic_green() {
-        // Green channel should generally decrease from A to F
-        let a_green = los_color(LosGrade::A).to_srgba().green;
-        let f_green = los_color(LosGrade::F).to_srgba().green;
+    fn test_los_color_monotonic_green_normal() {
+        // Green channel should generally decrease from A to F in normal mode
+        let a_green = colorblind_palette::los_color(LosGrade::A, ColorblindMode::Normal)
+            .to_srgba()
+            .green;
+        let f_green = colorblind_palette::los_color(LosGrade::F, ColorblindMode::Normal)
+            .to_srgba()
+            .green;
         assert!(
             a_green > f_green,
             "LOS A should have more green than LOS F: A.g={} F.g={}",

@@ -16,7 +16,10 @@ use simulation::traffic::TrafficGrid;
 use simulation::water_pollution::WaterPollutionGrid;
 use simulation::weather::{Season, Weather};
 
+use simulation::colorblind::{ColorblindMode, ColorblindSettings};
+
 use crate::color_ramps::{self, CIVIDIS, GROUNDWATER_LEVEL, GROUNDWATER_QUALITY, INFERNO, VIRIDIS};
+use crate::colorblind_palette;
 use crate::overlay::OverlayMode;
 
 pub struct OverlayGrids<'a> {
@@ -83,6 +86,7 @@ pub fn spawn_terrain_chunks(
                 &overlay,
                 &overlay_grids,
                 weather.season,
+                ColorblindMode::Normal,
             );
             let (wx, wz) = chunk_world_pos(cx, cy);
 
@@ -117,12 +121,17 @@ pub fn dirty_chunks_on_overlay_change(
     water_quality_grid: Res<WaterQualityGrid>,
     weather: Res<Weather>,
     snow_grid: Res<SnowGrid>,
+    cb_settings: Res<ColorblindSettings>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
 ) {
     use crate::overlay::OverlayMode;
 
-    if overlay.is_changed() || weather.is_changed() || snow_grid.is_changed() {
+    if overlay.is_changed()
+        || weather.is_changed()
+        || snow_grid.is_changed()
+        || cb_settings.is_changed()
+    {
         mark_all_chunks_dirty(&chunks, &mut commands);
         return;
     }
@@ -147,7 +156,7 @@ pub fn dirty_chunks_on_overlay_change(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn rebuild_dirty_chunks(
     mut commands: Commands,
     grid: Res<WorldGrid>,
@@ -163,11 +172,16 @@ pub fn rebuild_dirty_chunks(
     water_pollution_grid: Res<WaterPollutionGrid>,
     groundwater_grids: (Res<GroundwaterGrid>, Res<WaterQualityGrid>),
     snow_params: (Res<SnowGrid>, Res<Weather>),
-    mut meshes: ResMut<Assets<Mesh>>,
-    query: Query<(Entity, &TerrainChunk, &Mesh3d), With<ChunkDirty>>,
+    cb_settings: Res<ColorblindSettings>,
+    query: (
+        Query<(Entity, &TerrainChunk, &Mesh3d), With<ChunkDirty>>,
+        ResMut<Assets<Mesh>>,
+    ),
 ) {
     let (groundwater_grid, water_quality_grid) = groundwater_grids;
     let (snow_grid, weather) = snow_params;
+    let (query, mut meshes) = query;
+    let cb_mode = cb_settings.mode;
     let overlay_grids = OverlayGrids {
         pollution: Some(&pollution_grid),
         land_value: Some(&land_value_grid),
@@ -190,6 +204,7 @@ pub fn rebuild_dirty_chunks(
             &overlay.mode,
             &overlay_grids,
             weather.season,
+            cb_mode,
         );
         meshes.insert(&mesh_handle.0, new_mesh);
         commands.entity(entity).remove::<ChunkDirty>();
@@ -212,6 +227,7 @@ pub fn build_chunk_mesh(
     overlay: &OverlayMode,
     overlay_grids: &OverlayGrids,
     season: Season,
+    cb_mode: ColorblindMode,
 ) -> Mesh {
     let cells_in_chunk = CHUNK_SIZE * CHUNK_SIZE;
     let mut positions: Vec<[f32; 3]> = Vec::with_capacity(cells_in_chunk * 4);
@@ -233,8 +249,17 @@ pub fn build_chunk_mesh(
 
             let cell = grid.get(gx, gy);
             let snow_depth = overlay_grids.snow.map(|sg| sg.get(gx, gy)).unwrap_or(0.0);
-            let base_color = terrain_color(cell, gx, gy, season, snow_depth);
-            let color = apply_overlay(base_color, cell, gx, gy, grid, overlay, overlay_grids);
+            let base_color = terrain_color(cell, gx, gy, season, snow_depth, cb_mode);
+            let color = apply_overlay(
+                base_color,
+                cell,
+                gx,
+                gy,
+                grid,
+                overlay,
+                overlay_grids,
+                cb_mode,
+            );
 
             let x0 = lx as f32 * CELL_SIZE;
             let z0 = ly as f32 * CELL_SIZE;
@@ -305,6 +330,7 @@ fn terrain_color(
     gy: usize,
     season: Season,
     snow_depth: f32,
+    cb_mode: ColorblindMode,
 ) -> Color {
     // Per-cell noise for variation (no two cells look identical)
     let noise = ((gx.wrapping_mul(7919).wrapping_add(gy.wrapping_mul(6271))) % 100) as f32 / 100.0;
@@ -312,25 +338,18 @@ fn terrain_color(
 
     let base_color = if cell.zone != ZoneType::None && cell.cell_type != CellType::Road {
         // Urban ground: light concrete/pavement tones (must contrast with dark road asphalt)
-        let (r, g, b) = match cell.zone {
-            // Residential low: mix of lawn patches + driveways + sidewalks
-            ZoneType::ResidentialLow => (0.52, 0.56, 0.46),
-            // Residential medium: townhouses, small apartment courtyards
-            ZoneType::ResidentialMedium => (0.57, 0.58, 0.51),
-            // Residential high: concrete, narrow alleys, building bases
-            ZoneType::ResidentialHigh => (0.62, 0.60, 0.57),
-            // Commercial low: parking lots + sidewalks
-            ZoneType::CommercialLow => (0.58, 0.57, 0.54),
-            // Commercial high: dense downtown, clean concrete
-            ZoneType::CommercialHigh => (0.60, 0.58, 0.55),
-            // Industrial: concrete aprons, gravel, packed dirt
-            ZoneType::Industrial => (0.55, 0.52, 0.47),
-            // Office: landscaped plazas, clean concrete
-            ZoneType::Office => (0.64, 0.62, 0.58),
-            // MixedUse: blend of commercial and residential tones
-            ZoneType::MixedUse => (0.60, 0.58, 0.52),
+        let zone_kind = match cell.zone {
+            ZoneType::ResidentialLow => colorblind_palette::ZoneColorKind::ResidentialLow,
+            ZoneType::ResidentialMedium => colorblind_palette::ZoneColorKind::ResidentialMedium,
+            ZoneType::ResidentialHigh => colorblind_palette::ZoneColorKind::ResidentialHigh,
+            ZoneType::CommercialLow => colorblind_palette::ZoneColorKind::CommercialLow,
+            ZoneType::CommercialHigh => colorblind_palette::ZoneColorKind::CommercialHigh,
+            ZoneType::Industrial => colorblind_palette::ZoneColorKind::Industrial,
+            ZoneType::Office => colorblind_palette::ZoneColorKind::Office,
+            ZoneType::MixedUse => colorblind_palette::ZoneColorKind::MixedUse,
             ZoneType::None => unreachable!(),
         };
+        let (r, g, b) = colorblind_palette::zone_color(zone_kind, cb_mode);
         Color::srgb(
             (r + v).clamp(0.0, 1.0),
             (g + v * 0.8).clamp(0.0, 1.0),
@@ -391,6 +410,7 @@ fn terrain_color(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_overlay(
     base: Color,
     cell: &simulation::grid::Cell,
@@ -399,6 +419,7 @@ fn apply_overlay(
     _grid: &WorldGrid,
     overlay: &OverlayMode,
     grids: &OverlayGrids,
+    cb_mode: ColorblindMode,
 ) -> Color {
     match overlay {
         OverlayMode::None => base,
@@ -406,13 +427,15 @@ fn apply_overlay(
             if cell.cell_type == CellType::Water {
                 return base;
             }
-            color_ramps::overlay_binary(base, &color_ramps::POWER_PALETTE, cell.has_power)
+            let palette = colorblind_palette::power_palette(cb_mode);
+            color_ramps::overlay_binary(base, &palette, cell.has_power)
         }
         OverlayMode::Water => {
             if cell.cell_type == CellType::Water {
                 return base;
             }
-            color_ramps::overlay_binary(base, &color_ramps::WATER_PALETTE, cell.has_water)
+            let palette = colorblind_palette::water_palette(cb_mode);
+            color_ramps::overlay_binary(base, &palette, cell.has_water)
         }
         OverlayMode::Traffic => {
             if cell.cell_type == CellType::Road {
@@ -1353,5 +1376,5 @@ pub fn mark_all_chunks_dirty(
 }
 
 pub fn cell_color(cell: &simulation::grid::Cell) -> Color {
-    terrain_color(cell, 0, 0, Season::Spring, 0.0)
+    terrain_color(cell, 0, 0, Season::Spring, 0.0, ColorblindMode::Normal)
 }
