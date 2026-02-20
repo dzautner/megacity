@@ -28,21 +28,6 @@ pub struct WaterDashboardVisible(pub bool);
 /// Conversion constant: 1 MGD = 1,000,000 gallons per day.
 const MGD_TO_GPD: f32 = 1_000_000.0;
 
-/// Toggle the water dashboard with the 'W' key.
-/// Ignored when egui has keyboard focus (e.g. text input).
-pub fn water_dashboard_keybind(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut visible: ResMut<WaterDashboardVisible>,
-    mut contexts: EguiContexts,
-) {
-    if contexts.ctx_mut().wants_keyboard_input() {
-        return;
-    }
-    if keyboard.just_pressed(KeyCode::KeyW) {
-        visible.0 = !visible.0;
-    }
-}
-
 /// Displays the water supply dashboard window.
 ///
 /// Shows demand/supply balance, source breakdown, groundwater status,
@@ -104,7 +89,7 @@ pub fn water_dashboard_ui(
         .default_open(true)
         .default_width(360.0)
         .show(contexts.ctx_mut(), |ui| {
-            ui.small("Press [W] to toggle");
+            ui.small("Water dashboard");
             ui.separator();
 
             // ---- Demand & Supply Overview ----

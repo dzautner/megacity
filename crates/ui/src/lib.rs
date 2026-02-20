@@ -74,9 +74,7 @@ impl Plugin for UiPlugin {
                     toolbar::speed_keybinds,
                     info_panel::groundwater_tooltip_ui,
                     water_dashboard::water_dashboard_ui,
-                    water_dashboard::water_dashboard_keybind,
                     tutorial::tutorial_ui,
-                    day_night_panel::day_night_panel_keybind,
                     day_night_panel::day_night_panel_ui,
                 ),
             );

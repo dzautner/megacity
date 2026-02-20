@@ -1334,22 +1334,18 @@ pub fn info_panel_ui(
 
             // Overlay info
             let overlay_text = match overlay.mode {
-                OverlayMode::None => "P=Pwr O=Wtr T=Trf N=Pol L=LV E=Edu G=Gar M=Noi U=WP W=GW",
-                OverlayMode::Power => "Power overlay active [P]",
-                OverlayMode::Water => "Water overlay active [O]",
-                OverlayMode::Traffic => "Traffic overlay active [T]",
-                OverlayMode::Pollution => "Pollution overlay active [N]",
-                OverlayMode::LandValue => "Land Value overlay active [L]",
-                OverlayMode::Education => "Education overlay active [E]",
-                OverlayMode::Garbage => "Garbage overlay active [G]",
-                OverlayMode::Noise => "Noise overlay active [M]",
-                OverlayMode::WaterPollution => "Water Pollution overlay active [U]",
-                OverlayMode::GroundwaterLevel => {
-                    "GW Level overlay active [W] (press W for Quality)"
-                }
-                OverlayMode::GroundwaterQuality => {
-                    "GW Quality overlay active [W] (press W to close)"
-                }
+                OverlayMode::None => "Tab to cycle overlays",
+                OverlayMode::Power => "Power overlay [Tab]",
+                OverlayMode::Water => "Water overlay [Tab]",
+                OverlayMode::Traffic => "Traffic overlay [Tab]",
+                OverlayMode::Pollution => "Pollution overlay [Tab]",
+                OverlayMode::LandValue => "Land Value overlay [Tab]",
+                OverlayMode::Education => "Education overlay [Tab]",
+                OverlayMode::Garbage => "Garbage overlay [Tab]",
+                OverlayMode::Noise => "Noise overlay [Tab]",
+                OverlayMode::WaterPollution => "Water Pollution overlay [Tab]",
+                OverlayMode::GroundwaterLevel => "GW Level overlay [Tab]",
+                OverlayMode::GroundwaterQuality => "GW Quality overlay [Tab]",
             };
             ui.small(overlay_text);
 

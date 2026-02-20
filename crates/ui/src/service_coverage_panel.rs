@@ -220,20 +220,6 @@ pub fn coverage_label(pct: f64) -> &'static str {
 // Keybind system
 // =============================================================================
 
-/// Toggles the service coverage panel when 'J' is pressed.
-pub fn service_coverage_keybind(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut visible: ResMut<ServiceCoveragePanelVisible>,
-    mut contexts: EguiContexts,
-) {
-    if contexts.ctx_mut().wants_keyboard_input() {
-        return;
-    }
-    if keyboard.just_pressed(KeyCode::KeyJ) {
-        visible.0 = !visible.0;
-    }
-}
-
 // =============================================================================
 // Panel UI system
 // =============================================================================
@@ -257,7 +243,7 @@ pub fn service_coverage_panel_ui(
         .default_open(true)
         .default_width(380.0)
         .show(contexts.ctx_mut(), |ui| {
-            ui.small("Press [J] to toggle");
+            ui.small("Service coverage panel");
             ui.separator();
 
             // Compute overall stats
@@ -388,10 +374,7 @@ pub struct ServiceCoveragePanelPlugin;
 impl Plugin for ServiceCoveragePanelPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ServiceCoveragePanelVisible>()
-            .add_systems(
-                Update,
-                (service_coverage_keybind, service_coverage_panel_ui),
-            );
+            .add_systems(Update, service_coverage_panel_ui);
     }
 }
 

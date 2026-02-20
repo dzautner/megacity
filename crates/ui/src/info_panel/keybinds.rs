@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
-use super::{AdvisorVisible, BudgetPanelVisible, ChartsVisible, JournalVisible, PoliciesVisible};
+use super::{AdvisorVisible, ChartsVisible, JournalVisible, PoliciesVisible};
 
 /// Toggles UI panel visibility when keybinds are pressed.
-/// J = Event Journal, C = Charts, A = Advisors, P = Policies, B = Budget.
+/// J = Event Journal, C = Charts, A = Advisors, P = Policies.
 /// Keys are ignored when egui has keyboard focus (e.g. text input).
 pub fn panel_keybinds(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -12,7 +12,6 @@ pub fn panel_keybinds(
     mut charts: ResMut<ChartsVisible>,
     mut advisor: ResMut<AdvisorVisible>,
     mut policies: ResMut<PoliciesVisible>,
-    mut budget_panel: ResMut<BudgetPanelVisible>,
     mut contexts: EguiContexts,
 ) {
     // Don't toggle panels when a text field or other egui widget wants keyboard input
@@ -32,9 +31,8 @@ pub fn panel_keybinds(
     if keyboard.just_pressed(KeyCode::KeyP) {
         policies.0 = !policies.0;
     }
-    if keyboard.just_pressed(KeyCode::KeyB) {
-        budget_panel.0 = !budget_panel.0;
-    }
+    // B key is now used for the Bulldoze tool shortcut (issue #905).
+    // Budget panel is accessible via the toolbar UI.
 }
 
 /// Keyboard shortcuts for quick save (Ctrl+S), quick load (Ctrl+L), and new game (Ctrl+N).

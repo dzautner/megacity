@@ -10,6 +10,7 @@ const MAX_DISTANCE: f32 = 4000.0;
 const MIN_PITCH: f32 = 5.0 * std::f32::consts::PI / 180.0; // 5 degrees (near street level)
 const MAX_PITCH: f32 = 80.0 * std::f32::consts::PI / 180.0; // 80 degrees
 const ORBIT_SENSITIVITY: f32 = 0.005;
+const KEYBOARD_ROTATE_SPEED: f32 = 2.0;
 
 /// Orbital camera model: camera orbits around a focus point on the ground.
 #[derive(Resource)]
@@ -258,6 +259,24 @@ pub fn camera_left_drag(
                 left_drag.last_pos = pos;
             }
         }
+    }
+}
+
+/// Q/E keys: rotate camera left/right around focus point.
+pub fn camera_rotate_keyboard(
+    keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut orbit: ResMut<OrbitCamera>,
+) {
+    let mut yaw_delta = 0.0;
+    if keys.pressed(KeyCode::KeyQ) {
+        yaw_delta -= 1.0;
+    }
+    if keys.pressed(KeyCode::KeyE) {
+        yaw_delta += 1.0;
+    }
+    if yaw_delta != 0.0 {
+        orbit.yaw += yaw_delta * KEYBOARD_ROTATE_SPEED * time.delta_secs();
     }
 }
 
