@@ -58,7 +58,6 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub storm_drainage_state: Res<'w, StormDrainageState>,
     pub landfill_capacity_state: Res<'w, LandfillCapacityState>,
     pub flood_state: Res<'w, FloodState>,
-    pub flood_grid: Res<'w, FloodGrid>,
 }
 
 /// Mutable access to the V2+ resources.
