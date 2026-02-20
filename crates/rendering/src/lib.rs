@@ -77,6 +77,7 @@ impl Plugin for RenderingPlugin {
                     input::keyboard_tool_switch,
                     input::toggle_grid_snap,
                     input::handle_escape_key,
+                    input::delete_selected_building,
                     input::tick_status_message,
                     overlay::toggle_overlay_keys,
                 ),
