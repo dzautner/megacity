@@ -448,3 +448,22 @@ mod tests {
         assert!(ratio > 0.3 && ratio < 0.7, "Distribution skewed: {}", ratio);
     }
 }
+
+pub struct DisastersPlugin;
+
+impl Plugin for DisastersPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ActiveDisaster>()
+            .add_systems(
+                FixedUpdate,
+                (
+                    trigger_random_disaster,
+                    process_active_disaster,
+                    bevy::ecs::schedule::apply_deferred,
+                    apply_earthquake_damage,
+                )
+                    .chain()
+                    .after(crate::fire::fire_damage),
+            );
+    }
+}

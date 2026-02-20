@@ -642,3 +642,16 @@ mod tests {
         assert_eq!(deser.landfill_count, state.landfill_count);
     }
 }
+
+pub struct LandfillWarningPlugin;
+
+impl Plugin for LandfillWarningPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LandfillCapacityState>()
+            .add_event::<LandfillWarningEvent>()
+            .add_systems(
+                FixedUpdate,
+                update_landfill_capacity.after(crate::imports_exports::process_trade),
+            );
+    }
+}

@@ -2409,3 +2409,19 @@ mod tests {
         assert_eq!(w.rainfall_history.len(), ROLLING_RAINFALL_DAYS);
     }
 }
+
+pub struct WeatherPlugin;
+
+impl Plugin for WeatherPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Weather>()
+            .init_resource::<ClimateZone>()
+            .init_resource::<ConstructionModifiers>()
+            .add_event::<WeatherChangeEvent>()
+            .add_systems(
+                FixedUpdate,
+                (update_weather, update_precipitation, update_construction_modifiers)
+                    .after(crate::imports_exports::process_trade),
+            );
+    }
+}

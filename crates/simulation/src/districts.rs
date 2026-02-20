@@ -411,3 +411,18 @@ mod tests {
         assert!(map.get_district_at(999, 999).is_none());
     }
 }
+
+pub struct DistrictsPlugin;
+
+impl Plugin for DistrictsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Districts>()
+            .init_resource::<DistrictMap>()
+            .add_systems(
+                FixedUpdate,
+                (aggregate_districts, district_stats)
+                    .chain()
+                    .after(crate::garbage::update_waste_collection),
+            );
+    }
+}

@@ -482,3 +482,15 @@ mod tests {
         assert!((facility.tons_processed_today - 50.0).abs() < 0.001);
     }
 }
+
+pub struct CompostingPlugin;
+
+impl Plugin for CompostingPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CompostingState>()
+            .add_systems(
+                FixedUpdate,
+                update_composting.after(crate::imports_exports::process_trade),
+            );
+    }
+}

@@ -753,3 +753,12 @@ mod tests {
         );
     }
 }
+
+pub struct ZonesPlugin;
+
+impl Plugin for ZonesPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ZoneDemand>()
+            .add_systems(FixedUpdate, update_zone_demand.after(crate::time_of_day::tick_game_clock));
+    }
+}

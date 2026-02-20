@@ -120,3 +120,15 @@ pub fn tree_effects(
         }
     }
 }
+
+pub struct TreesPlugin;
+
+impl Plugin for TreesPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<TreeGrid>()
+            .add_systems(
+                FixedUpdate,
+                tree_effects.after(crate::imports_exports::process_trade),
+            );
+    }
+}

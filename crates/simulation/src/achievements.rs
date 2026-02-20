@@ -625,3 +625,18 @@ mod tests {
         assert!(tracker.is_unlocked(Achievement::DisasterSurvivor));
     }
 }
+
+pub struct AchievementsPlugin;
+
+impl Plugin for AchievementsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<AchievementTracker>()
+            .init_resource::<AchievementNotification>()
+            .add_systems(
+                FixedUpdate,
+                check_achievements
+                    .after(crate::stats::update_stats)
+                    .after(crate::specialization::compute_specializations),
+            );
+    }
+}

@@ -254,3 +254,17 @@ pub fn adjust_real_citizen_cap(time: Res<Time>, mut virtual_pop: ResMut<VirtualP
         virtual_pop.adjust_cap(dt);
     }
 }
+
+pub struct VirtualPopulationPlugin;
+
+impl Plugin for VirtualPopulationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<VirtualPopulation>()
+            .add_systems(
+                Update,
+                adjust_real_citizen_cap.run_if(
+                    bevy::time::common_conditions::on_timer(std::time::Duration::from_secs(1)),
+                ),
+            );
+    }
+}

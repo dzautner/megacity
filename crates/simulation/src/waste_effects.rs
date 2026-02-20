@@ -375,3 +375,18 @@ mod tests {
         assert_eq!(capped, 50_000.0);
     }
 }
+
+pub struct WasteEffectsPlugin;
+
+impl Plugin for WasteEffectsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<WasteAccumulation>()
+            .add_event::<WasteCrisisEvent>()
+            .add_systems(
+                FixedUpdate,
+                (update_waste_accumulation, waste_health_penalty, check_waste_crisis)
+                    .chain()
+                    .after(crate::garbage::update_waste_collection),
+            );
+    }
+}

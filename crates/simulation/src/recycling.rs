@@ -576,3 +576,16 @@ mod tests {
         }
     }
 }
+
+pub struct RecyclingPlugin;
+
+impl Plugin for RecyclingPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<RecyclingEconomics>()
+            .init_resource::<RecyclingState>()
+            .add_systems(
+                FixedUpdate,
+                update_recycling_economics.after(crate::garbage::update_waste_generation),
+            );
+    }
+}

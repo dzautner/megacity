@@ -230,3 +230,18 @@ mod tests {
         assert_eq!(cov.levels[idx], 255); // capped at 255
     }
 }
+
+pub struct PostalPlugin;
+
+impl Plugin for PostalPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PostalCoverage>()
+            .init_resource::<PostalStats>()
+            .add_systems(
+                FixedUpdate,
+                update_postal_coverage
+                    .after(crate::traffic::update_traffic_density)
+                    .before(crate::happiness::update_service_coverage),
+            );
+    }
+}

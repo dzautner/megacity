@@ -325,3 +325,18 @@ mod tests {
         assert!((ratio - 2.0).abs() < 0.01); // 10000 / 5000 = 2.0
     }
 }
+
+pub struct LoansPlugin;
+
+impl Plugin for LoansPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LoanBook>()
+            .add_event::<BankruptcyEvent>()
+            .add_systems(
+                FixedUpdate,
+                (process_loan_payments, update_credit_rating)
+                    .chain()
+                    .after(crate::economy::collect_taxes),
+            );
+    }
+}

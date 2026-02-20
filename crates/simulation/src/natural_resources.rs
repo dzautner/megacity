@@ -218,3 +218,16 @@ pub fn update_resource_production(
     balance.metal_consumption = pop * 0.003; // Manufactured goods
     balance.fuel_consumption = pop * 0.004; // Energy supplement
 }
+
+pub struct NaturalResourcesPlugin;
+
+impl Plugin for NaturalResourcesPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ResourceGrid>()
+            .init_resource::<ResourceBalance>()
+            .add_systems(
+                FixedUpdate,
+                update_resource_production.after(crate::imports_exports::process_trade),
+            );
+    }
+}

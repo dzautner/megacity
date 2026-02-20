@@ -486,3 +486,18 @@ mod tests {
         assert_eq!(stats.treatment_capacity, 0);
     }
 }
+
+pub struct GroundwaterPlugin;
+
+impl Plugin for GroundwaterPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GroundwaterGrid>()
+            .init_resource::<WaterQualityGrid>()
+            .init_resource::<GroundwaterStats>()
+            .add_systems(
+                FixedUpdate,
+                (update_groundwater, groundwater_health_penalty)
+                    .after(crate::imports_exports::process_trade),
+            );
+    }
+}

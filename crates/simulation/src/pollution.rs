@@ -216,3 +216,15 @@ fn apply_wind_drift(pollution: &mut PollutionGrid, wind: &WindState) {
         *level = buf.clamp(0.0, 255.0) as u8;
     }
 }
+
+pub struct PollutionPlugin;
+
+impl Plugin for PollutionPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PollutionGrid>()
+            .add_systems(
+                FixedUpdate,
+                update_pollution.after(crate::education::propagate_education),
+            );
+    }
+}

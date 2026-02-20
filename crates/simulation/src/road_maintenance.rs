@@ -373,3 +373,19 @@ mod tests {
         );
     }
 }
+
+pub struct RoadMaintenancePlugin;
+
+impl Plugin for RoadMaintenancePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<RoadConditionGrid>()
+            .init_resource::<RoadMaintenanceBudget>()
+            .init_resource::<RoadMaintenanceStats>()
+            .add_systems(
+                FixedUpdate,
+                (degrade_roads, repair_roads, update_road_maintenance_stats)
+                    .chain()
+                    .after(crate::traffic::update_traffic_density),
+            );
+    }
+}

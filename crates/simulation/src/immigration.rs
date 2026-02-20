@@ -590,3 +590,18 @@ mod tests {
         assert!((factor - 0.0).abs() < 0.01);
     }
 }
+
+pub struct ImmigrationPlugin;
+
+impl Plugin for ImmigrationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CityAttractiveness>()
+            .init_resource::<ImmigrationStats>()
+            .add_systems(
+                FixedUpdate,
+                (compute_attractiveness, immigration_wave)
+                    .chain()
+                    .after(crate::stats::update_stats),
+            );
+    }
+}

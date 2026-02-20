@@ -561,3 +561,18 @@ mod tests {
         assert_eq!(ZoneType::None.default_far(), 0.0);
     }
 }
+
+pub struct BuildingsPlugin;
+
+impl Plugin for BuildingsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<BuildingSpawnTimer>()
+            .init_resource::<EligibleCells>()
+            .add_systems(
+                FixedUpdate,
+                (rebuild_eligible_cells, building_spawner, progress_construction)
+                    .chain()
+                    .after(crate::zones::update_zone_demand),
+            );
+    }
+}

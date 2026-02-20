@@ -80,3 +80,15 @@ pub struct SicknessStats {
     pub sick_citizens: u32,
     pub sickness_rate: f32, // 0.0 to 1.0
 }
+
+pub struct HealthPlugin;
+
+impl Plugin for HealthPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<HealthGrid>()
+            .add_systems(
+                FixedUpdate,
+                update_health_grid.after(crate::imports_exports::process_trade),
+            );
+    }
+}

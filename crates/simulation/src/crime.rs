@@ -100,3 +100,15 @@ pub fn update_crime(
         }
     }
 }
+
+pub struct CrimePlugin;
+
+impl Plugin for CrimePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CrimeGrid>()
+            .add_systems(
+                FixedUpdate,
+                update_crime.after(crate::imports_exports::process_trade),
+            );
+    }
+}

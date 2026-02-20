@@ -210,3 +210,16 @@ pub fn water_pollution_health_penalty(
         }
     }
 }
+
+pub struct WaterPollutionPlugin;
+
+impl Plugin for WaterPollutionPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<WaterPollutionGrid>()
+            .add_systems(
+                FixedUpdate,
+                (update_water_pollution, water_pollution_health_penalty)
+                    .after(crate::imports_exports::process_trade),
+            );
+    }
+}

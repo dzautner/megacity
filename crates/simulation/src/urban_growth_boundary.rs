@@ -218,3 +218,11 @@ mod tests {
         assert!(ugb.vertices.is_empty());
     }
 }
+
+pub struct UrbanGrowthBoundaryPlugin;
+
+impl Plugin for UrbanGrowthBoundaryPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<UrbanGrowthBoundary>();
+    }
+}

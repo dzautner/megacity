@@ -558,3 +558,16 @@ mod tests {
         assert_eq!(after, 0);
     }
 }
+
+pub struct ForestFirePlugin;
+
+impl Plugin for ForestFirePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ForestFireGrid>()
+            .init_resource::<ForestFireStats>()
+            .add_systems(
+                FixedUpdate,
+                update_forest_fire.after(crate::fire::fire_damage),
+            );
+    }
+}

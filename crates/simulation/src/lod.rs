@@ -300,3 +300,25 @@ mod tests {
         }
     }
 }
+
+pub struct LodPlugin;
+
+impl Plugin for LodPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ViewportBounds>()
+            .add_systems(
+                Update,
+                (
+                    update_viewport_bounds,
+                    update_spatial_grid.run_if(crate::lod_frame_ready),
+                    assign_lod_tiers.run_if(crate::lod_frame_ready),
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                (compress_abstract_citizens, decompress_active_citizens)
+                    .after(assign_lod_tiers),
+            );
+    }
+}

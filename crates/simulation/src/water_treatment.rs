@@ -957,3 +957,15 @@ mod tests {
         assert!(result_neg >= 0.0, "Quality should be non-negative");
     }
 }
+
+pub struct WaterTreatmentPlugin;
+
+impl Plugin for WaterTreatmentPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<WaterTreatmentState>()
+            .add_systems(
+                FixedUpdate,
+                update_water_treatment.after(crate::imports_exports::process_trade),
+            );
+    }
+}
