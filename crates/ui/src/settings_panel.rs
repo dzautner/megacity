@@ -8,6 +8,8 @@ use bevy_egui::{egui, EguiContexts};
 
 use simulation::colorblind::{ColorblindMode, ColorblindSettings};
 
+use crate::keybindings_panel::KeybindingsPanelVisible;
+
 // =============================================================================
 // Resources
 // =============================================================================
@@ -25,11 +27,12 @@ pub fn settings_panel_keybind(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut visible: ResMut<SettingsPanelVisible>,
     mut contexts: EguiContexts,
+    bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
     if contexts.ctx_mut().wants_keyboard_input() {
         return;
     }
-    if keyboard.just_pressed(KeyCode::F9) {
+    if bindings.toggle_settings.just_pressed(&keyboard) {
         visible.0 = !visible.0;
     }
 }
@@ -39,6 +42,7 @@ pub fn settings_panel_ui(
     mut contexts: EguiContexts,
     mut visible: ResMut<SettingsPanelVisible>,
     mut cb_settings: ResMut<ColorblindSettings>,
+    mut kb_visible: ResMut<KeybindingsPanelVisible>,
 ) {
     if !visible.0 {
         return;
@@ -87,6 +91,16 @@ pub fn settings_panel_ui(
                     .small()
                     .color(egui::Color32::from_gray(160)),
             );
+
+            ui.add_space(16.0);
+
+            // --- Controls section ---
+            ui.heading("Controls");
+            ui.separator();
+
+            if ui.button("Customize Keybindings...").clicked() {
+                kb_visible.0 = true;
+            }
         });
 
     if !open {

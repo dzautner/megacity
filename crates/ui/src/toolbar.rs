@@ -26,24 +26,24 @@ pub fn speed_keybinds(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut clock: ResMut<GameClock>,
     mut contexts: EguiContexts,
+    bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
-    // Don't handle speed keys when egui wants keyboard input (e.g. text fields)
     if contexts.ctx_mut().wants_keyboard_input() {
         return;
     }
 
-    if keyboard.just_pressed(KeyCode::Space) {
+    if bindings.toggle_pause.just_pressed(&keyboard) {
         clock.paused = !clock.paused;
     }
-    if keyboard.just_pressed(KeyCode::Digit1) {
+    if bindings.speed_normal.just_pressed(&keyboard) {
         clock.speed = 1.0;
         clock.paused = false;
     }
-    if keyboard.just_pressed(KeyCode::Digit2) {
+    if bindings.speed_fast.just_pressed(&keyboard) {
         clock.speed = 2.0;
         clock.paused = false;
     }
-    if keyboard.just_pressed(KeyCode::Digit3) {
+    if bindings.speed_fastest.just_pressed(&keyboard) {
         clock.speed = 4.0;
         clock.paused = false;
     }

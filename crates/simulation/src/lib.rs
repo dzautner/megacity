@@ -53,6 +53,7 @@ pub mod homelessness;
 pub mod immigration;
 pub mod imports_exports;
 pub mod inclusionary_zoning;
+pub mod keybindings;
 pub mod land_value;
 pub mod landfill;
 pub mod landfill_gas;
@@ -446,6 +447,9 @@ impl Plugin for SimulationPlugin {
 
         // Accessibility
         app.add_plugins(colorblind::ColorblindPlugin);
+
+        // Customizable keybindings
+        app.add_plugins(keybindings::KeyBindingsPlugin);
     }
 }
 

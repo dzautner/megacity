@@ -1236,3 +1236,81 @@ fn test_network_viz_source_info_populated() {
         "source should have positive range"
     );
 }
+
+// =============================================================================
+// Keybindings (UX-035)
+// =============================================================================
+
+#[test]
+fn test_keybindings_default_resource_exists() {
+    let city = TestCity::new();
+    let bindings = city.resource::<crate::keybindings::KeyBindings>();
+    assert_eq!(
+        bindings.toggle_pause.key,
+        bevy::prelude::KeyCode::Space,
+        "default pause key should be Space"
+    );
+}
+
+#[test]
+fn test_keybindings_rebind_and_conflict_detection() {
+    use crate::keybindings::{BindableAction, KeyBinding, KeyBindings};
+    use bevy::prelude::KeyCode;
+
+    let mut kb = KeyBindings::default();
+    kb.set(
+        BindableAction::TogglePause,
+        KeyBinding::simple(KeyCode::KeyX),
+    );
+    assert_eq!(kb.get(BindableAction::TogglePause).key, KeyCode::KeyX);
+
+    let same_key = KeyBinding::simple(KeyCode::KeyQ);
+    kb.set(BindableAction::ToolRoad, same_key);
+    kb.set(BindableAction::ToolBulldoze, same_key);
+    let conflicts = kb.find_conflicts();
+    assert!(
+        conflicts.iter().any(|(a, b)| {
+            (*a == BindableAction::ToolRoad && *b == BindableAction::ToolBulldoze)
+                || (*a == BindableAction::ToolBulldoze && *b == BindableAction::ToolRoad)
+        }),
+        "should detect conflict"
+    );
+}
+
+#[test]
+fn test_keybindings_saveable_roundtrip() {
+    use crate::keybindings::{BindableAction, KeyBinding, KeyBindings};
+    use crate::Saveable;
+    use bevy::prelude::KeyCode;
+
+    assert!(
+        KeyBindings::default().save_to_bytes().is_none(),
+        "default should skip save"
+    );
+
+    let mut kb = KeyBindings::default();
+    kb.set(BindableAction::Screenshot, KeyBinding::simple(KeyCode::F11));
+    let bytes = kb.save_to_bytes().expect("modified should save");
+    let restored = KeyBindings::load_from_bytes(&bytes);
+    assert_eq!(restored.get(BindableAction::Screenshot).key, KeyCode::F11);
+    assert_eq!(
+        restored.get(BindableAction::TogglePause).key,
+        KeyCode::Space
+    );
+}
+
+#[test]
+fn test_keybindings_reset_to_defaults() {
+    use crate::keybindings::{BindableAction, KeyBinding, KeyBindings};
+    use bevy::prelude::KeyCode;
+
+    let mut kb = KeyBindings::default();
+    kb.set(
+        BindableAction::TogglePause,
+        KeyBinding::simple(KeyCode::KeyX),
+    );
+    assert_eq!(kb.get(BindableAction::TogglePause).key, KeyCode::KeyX);
+
+    kb = KeyBindings::default();
+    assert_eq!(kb.get(BindableAction::TogglePause).key, KeyCode::Space);
+}

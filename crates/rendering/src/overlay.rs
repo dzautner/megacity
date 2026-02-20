@@ -76,8 +76,12 @@ pub struct OverlayState {
 /// Cycle overlays with Tab (forward) / Shift+Tab (backward).
 /// Individual letter-key shortcuts have been removed to resolve keybinding
 /// conflicts (see issue #905).  All overlays are reachable via Tab cycling.
-pub fn toggle_overlay_keys(keys: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<OverlayState>) {
-    if keys.just_pressed(KeyCode::Tab) {
+pub fn toggle_overlay_keys(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut overlay: ResMut<OverlayState>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
+) {
+    if keys.just_pressed(bindings.overlay_cycle_next.key) {
         let shift = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
         overlay.mode = if shift {
             overlay.mode.prev()

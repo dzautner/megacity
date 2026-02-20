@@ -214,14 +214,14 @@ pub fn search_keybind(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut contexts: EguiContexts,
     mut state: ResMut<SearchState>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
     // Don't intercept when egui already wants keyboard (except for our own search field)
     if contexts.ctx_mut().wants_keyboard_input() && !state.visible {
         return;
     }
 
-    let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
-    if ctrl && keyboard.just_pressed(KeyCode::KeyF) {
+    if bindings.toggle_search.just_pressed(&keyboard) {
         state.visible = !state.visible;
         if state.visible {
             state.request_focus = true;
@@ -230,7 +230,7 @@ pub fn search_keybind(
     }
 
     // Also close on Escape
-    if state.visible && keyboard.just_pressed(KeyCode::Escape) {
+    if state.visible && bindings.escape.just_pressed(&keyboard) {
         state.visible = false;
     }
 }
