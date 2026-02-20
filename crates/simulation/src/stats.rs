@@ -90,11 +90,9 @@ pub struct StatsPlugin;
 
 impl Plugin for StatsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CityStats>()
-            .add_systems(
-                FixedUpdate,
-                update_stats
-                    .after(crate::economy::collect_taxes),
-            );
+        app.init_resource::<CityStats>().add_systems(
+            FixedUpdate,
+            update_stats.after(crate::economy::collect_taxes),
+        );
     }
 }

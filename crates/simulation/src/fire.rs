@@ -326,12 +326,16 @@ pub struct FirePlugin;
 
 impl Plugin for FirePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<FireGrid>()
-            .add_systems(
-                FixedUpdate,
-                (start_random_fires, spread_fire, extinguish_fires, fire_damage)
-                    .chain()
-                    .after(crate::happiness::update_service_coverage),
-            );
+        app.init_resource::<FireGrid>().add_systems(
+            FixedUpdate,
+            (
+                start_random_fires,
+                spread_fire,
+                extinguish_fires,
+                fire_damage,
+            )
+                .chain()
+                .after(crate::happiness::update_service_coverage),
+        );
     }
 }

@@ -125,12 +125,19 @@ pub trait Saveable: Resource + Default + Send + Sync + 'static {
     fn load_from_bytes(bytes: &[u8]) -> Self;
 }
 
+/// Type alias for the save function stored in a `SaveableEntry`.
+pub type SaveFn = Box<dyn Fn(&World) -> Option<Vec<u8>> + Send + Sync>;
+/// Type alias for the load function stored in a `SaveableEntry`.
+pub type LoadFn = Box<dyn Fn(&mut World, &[u8]) + Send + Sync>;
+/// Type alias for the reset function stored in a `SaveableEntry`.
+pub type ResetFn = Box<dyn Fn(&mut World) + Send + Sync>;
+
 /// Type-erased save/load/reset operations for a single registered resource.
 pub struct SaveableEntry {
     pub key: String,
-    pub save_fn: Box<dyn Fn(&World) -> Option<Vec<u8>> + Send + Sync>,
-    pub load_fn: Box<dyn Fn(&mut World, &[u8]) + Send + Sync>,
-    pub reset_fn: Box<dyn Fn(&mut World) + Send + Sync>,
+    pub save_fn: SaveFn,
+    pub load_fn: LoadFn,
+    pub reset_fn: ResetFn,
 }
 
 /// Registry of all saveable resources, populated during plugin setup.
@@ -369,7 +376,7 @@ pub fn tick_slow_timer(mut timer: ResMut<SlowTickTimer>, mut tick: ResMut<TickCo
 
 /// Counter for throttling LOD/spatial grid updates to every 6th render frame (~10Hz at 60fps).
 #[derive(Resource, Default)]
-struct LodFrameCounter(u32);
+pub struct LodFrameCounter(u32);
 
 fn tick_lod_frame_counter(mut counter: ResMut<LodFrameCounter>) {
     counter.0 = counter.0.wrapping_add(1);
@@ -425,10 +432,7 @@ mod saveable_tests {
         let extensions = registry.save_all(&world);
         assert_eq!(extensions.len(), 1);
         assert!(extensions.contains_key("test_counter"));
-        assert_eq!(
-            extensions["test_counter"],
-            42u32.to_le_bytes().to_vec()
-        );
+        assert_eq!(extensions["test_counter"], 42u32.to_le_bytes().to_vec());
     }
 
     #[test]
@@ -483,10 +487,7 @@ mod saveable_tests {
         registry.register::<TestCounter>();
 
         let mut extensions = BTreeMap::new();
-        extensions.insert(
-            "unknown_feature".to_string(),
-            vec![0xFF, 0xFF],
-        );
+        extensions.insert("unknown_feature".to_string(), vec![0xFF, 0xFF]);
 
         registry.load_all(&mut world, &extensions);
 

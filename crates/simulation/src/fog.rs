@@ -380,10 +380,9 @@ pub struct FogPlugin;
 
 impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<FogState>()
-            .add_systems(
-                FixedUpdate,
-                update_fog.after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<FogState>().add_systems(
+            FixedUpdate,
+            update_fog.after(crate::imports_exports::process_trade),
+        );
     }
 }

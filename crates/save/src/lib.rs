@@ -129,12 +129,9 @@ impl Plugin for SavePlugin {
                     handle_load,
                     handle_new_game,
                     // Extension-map systems run AFTER the core handlers in the same frame.
-                    flush_save_with_extensions
-                        .after(handle_save),
-                    apply_load_extensions
-                        .after(handle_load),
-                    reset_saveable_extensions
-                        .after(handle_new_game),
+                    flush_save_with_extensions.after(handle_save),
+                    apply_load_extensions.after(handle_load),
+                    reset_saveable_extensions.after(handle_new_game),
                 ),
             );
     }

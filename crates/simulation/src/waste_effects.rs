@@ -384,7 +384,11 @@ impl Plugin for WasteEffectsPlugin {
             .add_event::<WasteCrisisEvent>()
             .add_systems(
                 FixedUpdate,
-                (update_waste_accumulation, waste_health_penalty, check_waste_crisis)
+                (
+                    update_waste_accumulation,
+                    waste_health_penalty,
+                    check_waste_crisis,
+                )
                     .chain()
                     .after(crate::garbage::update_waste_collection),
             );

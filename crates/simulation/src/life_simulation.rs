@@ -785,8 +785,7 @@ impl Plugin for LifeSimulationPlugin {
             )
             .add_systems(
                 FixedUpdate,
-                (evolve_personality, update_health)
-                    .after(update_needs),
+                (evolve_personality, update_health).after(update_needs),
             );
     }
 }

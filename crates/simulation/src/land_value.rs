@@ -134,10 +134,9 @@ pub struct LandValuePlugin;
 
 impl Plugin for LandValuePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LandValueGrid>()
-            .add_systems(
-                FixedUpdate,
-                update_land_value.after(crate::pollution::update_pollution),
-            );
+        app.init_resource::<LandValueGrid>().add_systems(
+            FixedUpdate,
+            update_land_value.after(crate::pollution::update_pollution),
+        );
     }
 }

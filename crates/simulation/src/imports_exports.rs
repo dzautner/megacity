@@ -56,10 +56,9 @@ pub struct ImportsExportsPlugin;
 
 impl Plugin for ImportsExportsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TradeConnections>()
-            .add_systems(
-                FixedUpdate,
-                process_trade.after(crate::building_upgrade::downgrade_buildings),
-            );
+        app.init_resource::<TradeConnections>().add_systems(
+            FixedUpdate,
+            process_trade.after(crate::building_upgrade::downgrade_buildings),
+        );
     }
 }

@@ -518,12 +518,11 @@ pub struct HappinessPlugin;
 
 impl Plugin for HappinessPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ServiceCoverageGrid>()
-            .add_systems(
-                FixedUpdate,
-                (update_service_coverage, update_happiness)
-                    .chain()
-                    .after(crate::postal::update_postal_coverage),
-            );
+        app.init_resource::<ServiceCoverageGrid>().add_systems(
+            FixedUpdate,
+            (update_service_coverage, update_happiness)
+                .chain()
+                .after(crate::postal::update_postal_coverage),
+        );
     }
 }

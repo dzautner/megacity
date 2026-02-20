@@ -123,10 +123,9 @@ pub struct TrafficPlugin;
 
 impl Plugin for TrafficPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TrafficGrid>()
-            .add_systems(
-                FixedUpdate,
-                update_traffic_density.after(crate::movement::move_citizens),
-            );
+        app.init_resource::<TrafficGrid>().add_systems(
+            FixedUpdate,
+            update_traffic_density.after(crate::movement::move_citizens),
+        );
     }
 }

@@ -317,8 +317,7 @@ impl Plugin for LodPlugin {
             )
             .add_systems(
                 Update,
-                (compress_abstract_citizens, decompress_active_citizens)
-                    .after(assign_lod_tiers),
+                (compress_abstract_citizens, decompress_active_citizens).after(assign_lod_tiers),
             );
     }
 }

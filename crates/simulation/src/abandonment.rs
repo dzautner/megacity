@@ -152,18 +152,18 @@ pub struct AbandonmentPlugin;
 impl Plugin for AbandonmentPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-                FixedUpdate,
-                (
-                    check_building_abandonment,
-                    bevy::ecs::schedule::apply_deferred,
-                    process_abandoned_buildings,
-                )
-                    .chain()
-                    .after(crate::utilities::propagate_utilities),
+            FixedUpdate,
+            (
+                check_building_abandonment,
+                bevy::ecs::schedule::apply_deferred,
+                process_abandoned_buildings,
             )
-            .add_systems(
-                FixedUpdate,
-                abandoned_land_value_penalty.after(crate::land_value::update_land_value),
-            );
+                .chain()
+                .after(crate::utilities::propagate_utilities),
+        )
+        .add_systems(
+            FixedUpdate,
+            abandoned_land_value_penalty.after(crate::land_value::update_land_value),
+        );
     }
 }

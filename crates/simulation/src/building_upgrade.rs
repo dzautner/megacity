@@ -118,12 +118,11 @@ pub struct BuildingUpgradePlugin;
 
 impl Plugin for BuildingUpgradePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UpgradeTimer>()
-            .add_systems(
-                FixedUpdate,
-                (upgrade_buildings, downgrade_buildings)
-                    .chain()
-                    .after(crate::lifecycle::emigration),
-            );
+        app.init_resource::<UpgradeTimer>().add_systems(
+            FixedUpdate,
+            (upgrade_buildings, downgrade_buildings)
+                .chain()
+                .after(crate::lifecycle::emigration),
+        );
     }
 }

@@ -224,8 +224,8 @@ pub struct UtilitiesPlugin;
 impl Plugin for UtilitiesPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-                FixedUpdate,
-                propagate_utilities.after(crate::stats::update_stats),
-            );
+            FixedUpdate,
+            propagate_utilities.after(crate::stats::update_stats),
+        );
     }
 }

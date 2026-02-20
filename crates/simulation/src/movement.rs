@@ -541,18 +541,17 @@ pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DestinationCache>()
-            .add_systems(
-                FixedUpdate,
-                (
-                    refresh_destination_cache,
-                    citizen_state_machine,
-                    bevy::ecs::schedule::apply_deferred,
-                    process_path_requests,
-                    move_citizens,
-                )
-                    .chain()
-                    .after(crate::citizen_spawner::spawn_citizens),
-            );
+        app.init_resource::<DestinationCache>().add_systems(
+            FixedUpdate,
+            (
+                refresh_destination_cache,
+                citizen_state_machine,
+                bevy::ecs::schedule::apply_deferred,
+                process_path_requests,
+                move_citizens,
+            )
+                .chain()
+                .after(crate::citizen_spawner::spawn_citizens),
+        );
     }
 }

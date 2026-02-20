@@ -244,10 +244,9 @@ pub struct WelfarePlugin;
 
 impl Plugin for WelfarePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WelfareStats>()
-            .add_systems(
-                FixedUpdate,
-                update_welfare.after(crate::homelessness::recover_from_homelessness),
-            );
+        app.init_resource::<WelfareStats>().add_systems(
+            FixedUpdate,
+            update_welfare.after(crate::homelessness::recover_from_homelessness),
+        );
     }
 }

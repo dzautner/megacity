@@ -824,10 +824,9 @@ pub struct LandfillGasPlugin;
 
 impl Plugin for LandfillGasPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LandfillGasState>()
-            .add_systems(
-                FixedUpdate,
-                update_landfill_gas.after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<LandfillGasState>().add_systems(
+            FixedUpdate,
+            update_landfill_gas.after(crate::imports_exports::process_trade),
+        );
     }
 }

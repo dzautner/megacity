@@ -2420,7 +2420,11 @@ impl Plugin for WeatherPlugin {
             .add_event::<WeatherChangeEvent>()
             .add_systems(
                 FixedUpdate,
-                (update_weather, update_precipitation, update_construction_modifiers)
+                (
+                    update_weather,
+                    update_precipitation,
+                    update_construction_modifiers,
+                )
                     .after(crate::imports_exports::process_trade),
             );
     }

@@ -115,12 +115,11 @@ pub struct LifecyclePlugin;
 
 impl Plugin for LifecyclePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LifecycleTimer>()
-            .add_systems(
-                FixedUpdate,
-                (age_citizens, emigration)
-                    .chain()
-                    .after(crate::districts::district_stats),
-            );
+        app.init_resource::<LifecycleTimer>().add_systems(
+            FixedUpdate,
+            (age_citizens, emigration)
+                .chain()
+                .after(crate::districts::district_stats),
+        );
     }
 }

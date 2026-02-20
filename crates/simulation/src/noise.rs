@@ -190,10 +190,9 @@ pub struct NoisePlugin;
 
 impl Plugin for NoisePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NoisePollutionGrid>()
-            .add_systems(
-                FixedUpdate,
-                update_noise_pollution.after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<NoisePollutionGrid>().add_systems(
+            FixedUpdate,
+            update_noise_pollution.after(crate::imports_exports::process_trade),
+        );
     }
 }

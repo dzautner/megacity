@@ -684,10 +684,9 @@ pub struct AdvisorsPlugin;
 
 impl Plugin for AdvisorsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AdvisorPanel>()
-            .add_systems(
-                FixedUpdate,
-                update_advisors.after(crate::stats::update_stats),
-            );
+        app.init_resource::<AdvisorPanel>().add_systems(
+            FixedUpdate,
+            update_advisors.after(crate::stats::update_stats),
+        );
     }
 }

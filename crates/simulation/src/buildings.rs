@@ -570,7 +570,11 @@ impl Plugin for BuildingsPlugin {
             .init_resource::<EligibleCells>()
             .add_systems(
                 FixedUpdate,
-                (rebuild_eligible_cells, building_spawner, progress_construction)
+                (
+                    rebuild_eligible_cells,
+                    building_spawner,
+                    progress_construction,
+                )
                     .chain()
                     .after(crate::zones::update_zone_demand),
             );

@@ -287,10 +287,9 @@ pub struct DroughtPlugin;
 
 impl Plugin for DroughtPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DroughtState>()
-            .add_systems(
-                FixedUpdate,
-                update_drought_index.after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<DroughtState>().add_systems(
+            FixedUpdate,
+            update_drought_index.after(crate::imports_exports::process_trade),
+        );
     }
 }

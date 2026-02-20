@@ -413,10 +413,9 @@ pub struct UnlocksPlugin;
 
 impl Plugin for UnlocksPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UnlockState>()
-            .add_systems(
-                FixedUpdate,
-                award_development_points.after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<UnlockState>().add_systems(
+            FixedUpdate,
+            award_development_points.after(crate::imports_exports::process_trade),
+        );
     }
 }

@@ -270,17 +270,16 @@ pub struct HomelessnessPlugin;
 
 impl Plugin for HomelessnessPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<HomelessnessStats>()
-            .add_systems(
-                FixedUpdate,
-                (
-                    check_homelessness,
-                    bevy::ecs::schedule::apply_deferred,
-                    seek_shelter,
-                    recover_from_homelessness,
-                )
-                    .chain()
-                    .after(crate::happiness::update_happiness),
-            );
+        app.init_resource::<HomelessnessStats>().add_systems(
+            FixedUpdate,
+            (
+                check_homelessness,
+                bevy::ecs::schedule::apply_deferred,
+                seek_shelter,
+                recover_from_homelessness,
+            )
+                .chain()
+                .after(crate::happiness::update_happiness),
+        );
     }
 }

@@ -26,7 +26,9 @@ impl SaveableAppExt for App {
         // Ensure the registry exists (idempotent).
         self.init_resource::<SaveableRegistry>();
         // Register the type.
-        self.world_mut().resource_mut::<SaveableRegistry>().register::<T>();
+        self.world_mut()
+            .resource_mut::<SaveableRegistry>()
+            .register::<T>();
         self
     }
 }

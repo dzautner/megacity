@@ -702,11 +702,10 @@ pub struct WastewaterPlugin;
 
 impl Plugin for WastewaterPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WastewaterState>()
-            .add_systems(
-                FixedUpdate,
-                (update_wastewater, wastewater_health_penalty)
-                    .after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<WastewaterState>().add_systems(
+            FixedUpdate,
+            (update_wastewater, wastewater_health_penalty)
+                .after(crate::imports_exports::process_trade),
+        );
     }
 }

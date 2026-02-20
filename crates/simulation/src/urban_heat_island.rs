@@ -647,10 +647,9 @@ pub struct UrbanHeatIslandPlugin;
 
 impl Plugin for UrbanHeatIslandPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UhiGrid>()
-            .add_systems(
-                FixedUpdate,
-                update_uhi_grid.after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<UhiGrid>().add_systems(
+            FixedUpdate,
+            update_uhi_grid.after(crate::imports_exports::process_trade),
+        );
     }
 }

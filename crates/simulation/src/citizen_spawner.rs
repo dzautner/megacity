@@ -195,10 +195,9 @@ pub struct CitizenSpawnerPlugin;
 
 impl Plugin for CitizenSpawnerPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CitizenSpawnTimer>()
-            .add_systems(
-                FixedUpdate,
-                spawn_citizens.after(crate::education_jobs::assign_workplace_details),
-            );
+        app.init_resource::<CitizenSpawnTimer>().add_systems(
+            FixedUpdate,
+            spawn_citizens.after(crate::education_jobs::assign_workplace_details),
+        );
     }
 }

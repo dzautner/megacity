@@ -962,10 +962,9 @@ pub struct WaterTreatmentPlugin;
 
 impl Plugin for WaterTreatmentPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WaterTreatmentState>()
-            .add_systems(
-                FixedUpdate,
-                update_water_treatment.after(crate::imports_exports::process_trade),
-            );
+        app.init_resource::<WaterTreatmentState>().add_systems(
+            FixedUpdate,
+            update_water_treatment.after(crate::imports_exports::process_trade),
+        );
     }
 }

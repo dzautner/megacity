@@ -2984,6 +2984,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         // Simulate extension map entries as if populated by SaveableRegistry
@@ -3026,6 +3027,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

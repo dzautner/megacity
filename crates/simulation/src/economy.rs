@@ -209,10 +209,9 @@ pub struct EconomyPlugin;
 
 impl Plugin for EconomyPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CityBudget>()
-            .add_systems(
-                FixedUpdate,
-                collect_taxes.after(crate::happiness::update_happiness),
-            );
+        app.init_resource::<CityBudget>().add_systems(
+            FixedUpdate,
+            collect_taxes.after(crate::happiness::update_happiness),
+        );
     }
 }
