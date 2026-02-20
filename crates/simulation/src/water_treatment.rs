@@ -235,12 +235,9 @@ pub fn calculate_disease_risk(drinking_water_quality: f32) -> f32 {
     let q = drinking_water_quality.clamp(0.0, 1.0);
     if q >= 0.95 {
         0.0
-    } else if q >= 0.85 {
-        // Linear ramp from 0.05 at 0.85 to 0.0 at 0.95
-        (0.95 - q) * 0.5
     } else {
-        // Exponential increase below 0.85
-        // At 0.85: ~0.05, at 0.5: ~0.35, at 0.0: 1.0
+        // Quadratic increase as quality drops: deficit² curve
+        // At 0.95: 0.0025, at 0.85: 0.0225, at 0.5: 0.25, at 0.0: 1.0
         let deficit = 1.0 - q;
         (deficit * deficit).min(1.0)
     }
@@ -746,11 +743,11 @@ mod tests {
 
     #[test]
     fn test_disease_risk_moderate_quality() {
-        // Quality 0.85 = low risk (0.05)
+        // Quality 0.85: deficit=0.15, risk=0.15^2=0.0225
         let risk = calculate_disease_risk(0.85);
         assert!(
-            (risk - 0.05).abs() < 0.01,
-            "Quality 0.85 should have ~0.05 risk, got {}",
+            (risk - 0.0225).abs() < 0.01,
+            "Quality 0.85 should have ~0.0225 risk, got {}",
             risk
         );
     }
