@@ -21,6 +21,14 @@ const CHARACTER_SCALE: f32 = 2.0;
 /// Scale for vehicle GLB models (Kenney car-kit models are ~4 units long, already car-sized)
 const VEHICLE_SCALE: f32 = 3.0;
 
+/// Max GLTF scene roots to instantiate per frame.
+/// WebGL2 can't handle thousands of scene allocations in one frame.
+const MAX_SPRITES_PER_FRAME: usize = if cfg!(target_arch = "wasm32") {
+    50
+} else {
+    500
+};
+
 #[allow(clippy::type_complexity)]
 pub fn spawn_citizen_sprites(
     mut commands: Commands,
@@ -34,7 +42,11 @@ pub fn spawn_citizen_sprites(
         return;
     }
 
+    let mut spawned = 0;
     for (entity, state_opt, lod) in &query {
+        if spawned >= MAX_SPRITES_PER_FRAME {
+            break;
+        }
         // Skip Abstract-tier citizens — they don't need scene roots
         if lod == Some(&LodTier::Abstract) {
             continue;
@@ -64,6 +76,7 @@ pub fn spawn_citizen_sprites(
             Transform::from_scale(Vec3::splat(scale)),
             Visibility::default(),
         ));
+        spawned += 1;
     }
 }
 

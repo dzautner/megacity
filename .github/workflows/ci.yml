@@ -47,6 +47,32 @@ jobs:
       - name: Run clippy
         run: cargo clippy --workspace -- -D warnings
 
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci
+
+      - name: Run ECS tick benchmark
+        run: cargo bench -p simulation --bench city_perf --features simulation/bench -- "tel_aviv_fixed_update"
+
+      - name: Check tick budget (must stay under 5ms)
+        run: |
+          ESTIMATES="target/criterion/ecs_tick/tel_aviv_fixed_update/new/estimates.json"
+          MEDIAN_NS=$(jq '.median.point_estimate' "$ESTIMATES")
+          MEDIAN_MS=$(echo "scale=2; $MEDIAN_NS / 1000000" | bc)
+          echo "ECS tick median: ${MEDIAN_MS}ms (budget: 5ms)"
+          jq -e '.median.point_estimate <= 5000000' "$ESTIMATES" > /dev/null \
+            || (echo "::error::Performance regression! ECS tick took ${MEDIAN_MS}ms, budget is 5ms" && exit 1)
+
   fmt:
     runs-on: ubuntu-latest
     steps:
