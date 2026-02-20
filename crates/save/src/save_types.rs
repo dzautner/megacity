@@ -551,7 +551,6 @@ pub struct SaveWaterTreatmentState {
     pub disease_risk: f32,
 }
 
-
 #[derive(Serialize, Deserialize, Encode, Decode, Default)]
 pub struct SaveGroundwaterDepletionState {
     pub extraction_rate: f32,

@@ -10,6 +10,7 @@ use simulation::cold_snap::ColdSnapState;
 use simulation::composting::CompostingState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
+use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::heat_wave::HeatWaveState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::loans::LoanBook;
@@ -20,7 +21,6 @@ use simulation::unlocks::UnlockState;
 use simulation::urban_heat_island::UhiGrid;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_treatment::WaterTreatmentState;
-use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
 

@@ -370,10 +370,7 @@ mod tests {
         assert!(!state.critical_depletion);
         assert_eq!(state.subsidence_cells, 0);
         assert!((state.well_yield_modifier - 1.0).abs() < f32::EPSILON);
-        assert_eq!(
-            state.ticks_below_threshold.len(),
-            GRID_WIDTH * GRID_HEIGHT
-        );
+        assert_eq!(state.ticks_below_threshold.len(), GRID_WIDTH * GRID_HEIGHT);
         assert!(state.ticks_below_threshold.iter().all(|&v| v == 0));
         assert!(state.previous_levels.is_empty());
         assert_eq!(state.recharge_basin_count, 0);
@@ -628,16 +625,14 @@ mod tests {
             }
             state.extraction_rate = extraction;
             state.recharge_rate = recharge;
-            state.sustainability_ratio =
-                compute_sustainability_ratio(recharge, extraction);
+            state.sustainability_ratio = compute_sustainability_ratio(recharge, extraction);
 
             // Compute average
             let sum: u64 = grid.levels.iter().map(|&v| v as u64).sum();
             state.avg_groundwater_level = sum as f32 / total as f32;
 
             // Well yield
-            state.well_yield_modifier =
-                compute_well_yield_modifier(state.avg_groundwater_level);
+            state.well_yield_modifier = compute_well_yield_modifier(state.avg_groundwater_level);
 
             // Critical depletion
             state.critical_depletion = is_critical_depletion(state.avg_groundwater_level);

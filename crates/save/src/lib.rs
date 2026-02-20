@@ -12,12 +12,12 @@ use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
 use serialization::{
     create_save_data, migrate_save, restore_climate_zone, restore_cold_snap, restore_composting,
     restore_construction_modifiers, restore_degree_days, restore_drought, restore_extended_budget,
-    restore_heat_wave, restore_life_sim_timer, restore_lifecycle_timer, restore_loan_book,
-    restore_policies, restore_recycling, restore_road_segment_store, restore_stormwater_grid,
-    restore_uhi_grid, restore_unlock_state, restore_virtual_population, restore_water_source,
-    restore_groundwater_depletion, restore_water_treatment, restore_weather, restore_wind_damage_state, u8_to_road_type,
-    u8_to_service_type, u8_to_utility_type, u8_to_zone_type, CitizenSaveInput, SaveData,
-    CURRENT_SAVE_VERSION,
+    restore_groundwater_depletion, restore_heat_wave, restore_life_sim_timer,
+    restore_lifecycle_timer, restore_loan_book, restore_policies, restore_recycling,
+    restore_road_segment_store, restore_stormwater_grid, restore_uhi_grid, restore_unlock_state,
+    restore_virtual_population, restore_water_source, restore_water_treatment, restore_weather,
+    restore_wind_damage_state, u8_to_road_type, u8_to_service_type, u8_to_utility_type,
+    u8_to_zone_type, CitizenSaveInput, SaveData, CURRENT_SAVE_VERSION,
 };
 use simulation::budget::ExtendedBudget;
 use simulation::buildings::{Building, MixedUseBuilding};
@@ -31,6 +31,7 @@ use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
+use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::heat_wave::HeatWaveState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
@@ -50,7 +51,6 @@ use simulation::utilities::UtilitySource;
 use simulation::virtual_population::VirtualPopulation;
 use simulation::water_sources::WaterSource;
 use simulation::water_treatment::WaterTreatmentState;
-use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::weather::{ClimateZone, ConstructionModifiers, Weather};
 use simulation::wind_damage::WindDamageState;
 use simulation::zones::ZoneDemand;
