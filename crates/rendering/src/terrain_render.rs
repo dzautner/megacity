@@ -149,6 +149,7 @@ pub fn dirty_chunks_on_overlay_change(
         OverlayMode::WaterPollution => water_pollution_grid.is_changed(),
         OverlayMode::GroundwaterLevel => groundwater_grid.is_changed(),
         OverlayMode::GroundwaterQuality => water_quality_grid.is_changed(),
+        OverlayMode::Wind => false, // Wind overlay uses gizmos, no terrain recolor
     };
 
     if data_changed {
@@ -558,6 +559,11 @@ fn apply_overlay(
             } else {
                 color_ramps::darken(base, 0.8)
             }
+        }
+        OverlayMode::Wind => {
+            // Wind overlay uses gizmo streamlines, no terrain recolor needed.
+            // Slightly darken the terrain for contrast with the streamline particles.
+            color_ramps::darken(base, 0.7)
         }
     }
 }

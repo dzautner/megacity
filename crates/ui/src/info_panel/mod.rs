@@ -1348,8 +1348,9 @@ pub fn info_panel_ui(
                     "GW Level overlay active [W] (press W for Quality)"
                 }
                 OverlayMode::GroundwaterQuality => {
-                    "GW Quality overlay active [W] (press W to close)"
+                    "GW Quality overlay active [W] (press W for Wind)"
                 }
+                OverlayMode::Wind => "Wind overlay active [W] (press W to close)",
             };
             ui.small(overlay_text);
 
