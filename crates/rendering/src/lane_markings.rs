@@ -172,6 +172,7 @@ pub fn sync_lane_marking_meshes(
 // ---------------------------------------------------------------------------
 
 /// Build all lane-marking geometry for one road segment.
+#[allow(clippy::too_many_arguments)]
 fn build_lane_marking_mesh(
     p0: Vec2,
     p1: Vec2,
