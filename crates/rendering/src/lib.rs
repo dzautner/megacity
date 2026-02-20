@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 
+pub mod angle_snap;
 pub mod building_mesh_variants;
 pub mod building_meshes;
 pub mod building_render;
@@ -32,6 +33,7 @@ pub mod wind_streamlines;
 
 pub mod screenshot;
 
+use angle_snap::AngleSnapState;
 use camera::{CameraDrag, LeftClickDrag};
 use input::{ActiveTool, CursorGridPos, GridSnap, RoadDrawState, SelectedBuilding, StatusMessage};
 use overlay::OverlayState;
@@ -51,6 +53,7 @@ impl Plugin for RenderingPlugin {
             .init_resource::<PropsSpawned>()
             .init_resource::<RoadDrawState>()
             .init_resource::<GridSnap>()
+            .init_resource::<AngleSnapState>()
             .add_systems(
                 Startup,
                 (
@@ -80,6 +83,7 @@ impl Plugin for RenderingPlugin {
                 Update,
                 (
                     input::update_cursor_grid_pos,
+                    angle_snap::update_angle_snap,
                     input::handle_tool_input,
                     input::handle_tree_tool,
                     input::keyboard_tool_switch,
@@ -97,6 +101,7 @@ impl Plugin for RenderingPlugin {
                     terrain_render::rebuild_dirty_chunks,
                     cursor_preview::update_cursor_preview,
                     cursor_preview::draw_bezier_preview,
+                    angle_snap::draw_angle_snap_indicator,
                     road_render::sync_road_segment_meshes,
                     lane_markings::sync_lane_marking_meshes,
                     road_grade::draw_road_grade_indicators,

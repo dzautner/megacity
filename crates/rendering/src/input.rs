@@ -9,6 +9,7 @@ use simulation::services::{self, ServiceBuilding, ServiceType};
 use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::utilities::UtilityType;
 
+use crate::angle_snap::AngleSnapState;
 use crate::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Resource)]
@@ -398,7 +399,11 @@ pub fn update_cursor_grid_pos(
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_tool_input(
-    input: (Res<ButtonInput<MouseButton>>, Res<ButtonInput<KeyCode>>),
+    input: (
+        Res<ButtonInput<MouseButton>>,
+        Res<ButtonInput<KeyCode>>,
+        Res<AngleSnapState>,
+    ),
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
     mut grid: ResMut<WorldGrid>,
@@ -415,7 +420,7 @@ pub fn handle_tool_input(
     mut district_map: ResMut<simulation::districts::DistrictMap>,
     ugb: Res<UrbanGrowthBoundary>,
 ) {
-    let (buttons, keys) = input;
+    let (buttons, keys, angle_snap) = input;
 
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
@@ -466,11 +471,18 @@ pub fn handle_tool_input(
                     // First click: place start point
                     draw_state.start_pos = cursor.world_pos;
                     draw_state.phase = DrawPhase::PlacedStart;
-                    status.set("Click to place end point (Esc to cancel)", false);
+                    status.set(
+                        "Click to place end point (Shift=snap angle, Esc=cancel)",
+                        false,
+                    );
                 }
                 DrawPhase::PlacedStart => {
                     // Second click: place end point and commit segment
-                    let end_pos = cursor.world_pos;
+                    let end_pos = if angle_snap.active {
+                        angle_snap.snapped_pos
+                    } else {
+                        cursor.world_pos
+                    };
                     let start_pos = draw_state.start_pos;
 
                     // Minimum length check
