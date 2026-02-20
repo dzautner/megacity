@@ -16,6 +16,7 @@ use simulation::grid::WorldGrid;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
 use simulation::heat_wave::HeatWaveState;
+use simulation::landfill_warning::LandfillCapacityState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
@@ -79,6 +80,7 @@ pub fn create_save_data(
     wastewater_state: Option<&WastewaterState>,
     hazardous_waste_state: Option<&HazardousWasteState>,
     storm_drainage_state: Option<&StormDrainageState>,
+    landfill_capacity_state: Option<&LandfillCapacityState>,
 ) -> SaveData {
     let save_cells: Vec<SaveCell> = grid
         .cells
@@ -497,6 +499,17 @@ pub fn create_save_data(
             overflow_cells: sds.overflow_cells,
             drainage_coverage: sds.drainage_coverage,
         }),
+        landfill_capacity_state: landfill_capacity_state.map(|lcs| SaveLandfillCapacityState {
+            total_capacity: lcs.total_capacity,
+            current_fill: lcs.current_fill,
+            daily_input_rate: lcs.daily_input_rate,
+            days_remaining: lcs.days_remaining,
+            years_remaining: lcs.years_remaining,
+            remaining_pct: lcs.remaining_pct,
+            current_tier: landfill_warning_tier_to_u8(lcs.current_tier),
+            collection_halted: lcs.collection_halted,
+            landfill_count: lcs.landfill_count,
+        }),
     }
 }
 
@@ -578,6 +591,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -623,6 +637,7 @@ mod tests {
         assert!(restored.wastewater_state.is_none());
         assert!(restored.hazardous_waste_state.is_none());
         assert!(restored.storm_drainage_state.is_none());
+        assert!(restored.landfill_capacity_state.is_none());
     }
 
     #[test]
@@ -940,6 +955,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1028,6 +1044,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode v1 should succeed");
@@ -1057,6 +1074,7 @@ mod tests {
         assert!(restored.wastewater_state.is_none());
         assert!(restored.hazardous_waste_state.is_none());
         assert!(restored.storm_drainage_state.is_none());
+        assert!(restored.landfill_capacity_state.is_none());
     }
 
     #[test]
@@ -1125,6 +1143,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1149,6 +1168,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1228,6 +1248,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         assert_eq!(save.version, CURRENT_SAVE_VERSION);
@@ -1255,6 +1276,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1333,6 +1355,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         save.version = 1;
 
@@ -1360,6 +1383,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1528,6 +1552,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         let bytes = save.encode();
         let restored = SaveData::decode(&bytes).expect("decode should succeed");
@@ -1570,6 +1595,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1712,6 +1738,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1776,6 +1803,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -1802,6 +1830,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -1905,6 +1934,7 @@ mod tests {
             None,
             None,
             Some(&water_sources),
+            None,
             None,
             None,
             None,
@@ -2053,6 +2083,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2080,6 +2111,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2138,6 +2170,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2223,6 +2256,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2262,6 +2296,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,
@@ -2385,6 +2420,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2449,6 +2485,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let bytes = save.encode();
@@ -2468,6 +2505,7 @@ mod tests {
         assert!(restored.wastewater_state.is_none());
         assert!(restored.hazardous_waste_state.is_none());
         assert!(restored.storm_drainage_state.is_none());
+        assert!(restored.landfill_capacity_state.is_none());
     }
 
     #[test]
@@ -2498,6 +2536,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
             None,
             None,

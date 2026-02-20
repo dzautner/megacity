@@ -13,6 +13,7 @@ use simulation::drought::DroughtState;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
 use simulation::heat_wave::HeatWaveState;
+use simulation::landfill_warning::LandfillCapacityState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::loans::LoanBook;
 use simulation::policies::Policies;
@@ -54,6 +55,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub wastewater_state: Res<'w, WastewaterState>,
     pub hazardous_waste_state: Res<'w, HazardousWasteState>,
     pub storm_drainage_state: Res<'w, StormDrainageState>,
+    pub landfill_capacity_state: Res<'w, LandfillCapacityState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -83,4 +85,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub wastewater_state: ResMut<'w, WastewaterState>,
     pub hazardous_waste_state: ResMut<'w, HazardousWasteState>,
     pub storm_drainage_state: ResMut<'w, StormDrainageState>,
+    pub landfill_capacity_state: ResMut<'w, LandfillCapacityState>,
 }

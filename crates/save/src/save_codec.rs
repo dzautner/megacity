@@ -577,3 +577,26 @@ pub fn u8_to_treatment_level(v: u8) -> TreatmentLevel {
         _ => TreatmentLevel::None, // fallback
     }
 }
+
+pub fn landfill_warning_tier_to_u8(t: simulation::landfill_warning::LandfillWarningTier) -> u8 {
+    use simulation::landfill_warning::LandfillWarningTier;
+    match t {
+        LandfillWarningTier::Normal => 0,
+        LandfillWarningTier::Low => 1,
+        LandfillWarningTier::Critical => 2,
+        LandfillWarningTier::VeryLow => 3,
+        LandfillWarningTier::Emergency => 4,
+    }
+}
+
+pub fn u8_to_landfill_warning_tier(v: u8) -> simulation::landfill_warning::LandfillWarningTier {
+    use simulation::landfill_warning::LandfillWarningTier;
+    match v {
+        0 => LandfillWarningTier::Normal,
+        1 => LandfillWarningTier::Low,
+        2 => LandfillWarningTier::Critical,
+        3 => LandfillWarningTier::VeryLow,
+        4 => LandfillWarningTier::Emergency,
+        _ => LandfillWarningTier::Normal, // fallback
+    }
+}

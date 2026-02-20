@@ -33,7 +33,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v19 = wastewater_state (WastewaterState serialization)
 /// v20 = hazardous_waste_state (HazardousWasteState serialization)
 /// v21 = storm_drainage_state (StormDrainageState serialization for storm drainage infrastructure)
-pub const CURRENT_SAVE_VERSION: u32 = 21;
+/// v22 = landfill_capacity_state (LandfillCapacityState serialization for landfill warnings)
+pub const CURRENT_SAVE_VERSION: u32 = 22;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -134,6 +135,8 @@ pub struct SaveData {
     pub hazardous_waste_state: Option<SaveHazardousWasteState>,
     #[serde(default)]
     pub storm_drainage_state: Option<SaveStormDrainageState>,
+    #[serde(default)]
+    pub landfill_capacity_state: Option<SaveLandfillCapacityState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -613,6 +616,19 @@ pub struct SaveStormDrainageState {
     pub overflow_cells: u32,
     pub drainage_coverage: f32,
 }
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveLandfillCapacityState {
+    pub total_capacity: f64,
+    pub current_fill: f64,
+    pub daily_input_rate: f64,
+    pub days_remaining: f32,
+    pub years_remaining: f32,
+    pub remaining_pct: f32,
+    pub current_tier: u8,
+    pub collection_halted: bool,
+    pub landfill_count: u32,
+}
+
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {
         bitcode::encode(self)

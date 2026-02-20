@@ -148,6 +148,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.storm_drainage_state = None;
         save.version = 21;
     }
+    // v21 -> v22: Added landfill_capacity_state (LandfillCapacityState serialization for landfill warnings).
+    // Uses `#[serde(default)]` so it deserializes as None from a v21 save.
+    if save.version == 21 {
+        save.landfill_capacity_state = None;
+        save.version = 22;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version
