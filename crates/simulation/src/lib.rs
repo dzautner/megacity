@@ -427,6 +427,12 @@ impl Plugin for SimulationPlugin {
                     wind_damage::update_wind_damage,
                     urban_heat_island::update_uhi_grid,
                     drought::update_drought_index,
+                )
+                    .after(imports_exports::process_trade),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     noise::update_noise_pollution,
                     crime::update_crime,
                     health::update_health_grid,
