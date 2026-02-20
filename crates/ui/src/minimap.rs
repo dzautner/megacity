@@ -234,7 +234,12 @@ fn draw_viewport_rect(
         egui::pos2(max_x.min(rect.max.x), max_y.min(rect.max.y)),
     );
 
-    painter.rect_stroke(viewport_rect, 0.0, egui::Stroke::new(1.5, COLOR_VIEWPORT));
+    painter.rect_stroke(
+        viewport_rect,
+        0.0,
+        egui::Stroke::new(1.5, COLOR_VIEWPORT),
+        egui::StrokeKind::Outside,
+    );
 }
 
 /// Apply smooth camera transition when the player clicks on the minimap.
