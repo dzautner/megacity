@@ -343,6 +343,12 @@ impl Plugin for HeatMitigationPlugin {
             FixedUpdate,
             update_heat_mitigation.after(crate::heat_wave::update_heat_wave),
         );
+
+        // Register for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<HeatMitigationState>();
     }
 }
 
