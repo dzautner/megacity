@@ -148,6 +148,9 @@ pub struct RoadSegmentStore {
     pub segments: Vec<RoadSegment>,
     next_node_id: u32,
     next_segment_id: u32,
+    /// Node IDs whose connectivity changed due to segment removal.
+    /// Consumed (drained) by the renderer to know which intersection meshes to rebuild.
+    pub removed_segment_endpoints: Vec<SegmentNodeId>,
 }
 
 impl RoadSegmentStore {
@@ -158,6 +161,7 @@ impl RoadSegmentStore {
             segments,
             next_node_id: 0,
             next_segment_id: 0,
+            removed_segment_endpoints: Vec::new(),
         };
         store.rebuild_counters();
         store
@@ -270,6 +274,11 @@ impl RoadSegmentStore {
         if let Some(idx) = self.segments.iter().position(|s| s.id == id) {
             let segment = self.segments.remove(idx);
 
+            // Record endpoint node IDs *before* disconnecting, so the renderer
+            // can dirty the correct intersection meshes (fixes #1239).
+            self.removed_segment_endpoints.push(segment.start_node);
+            self.removed_segment_endpoints.push(segment.end_node);
+
             for &(gx, gy) in &segment.rasterized_cells {
                 let covered_by_other = self
                     .segments
@@ -285,6 +294,11 @@ impl RoadSegmentStore {
                 node.connected_segments.retain(|&sid| sid != id);
             }
         }
+    }
+
+    /// Drain the list of node IDs affected by recent segment removals.
+    pub fn drain_removed_endpoints(&mut self) -> Vec<SegmentNodeId> {
+        std::mem::take(&mut self.removed_segment_endpoints)
     }
 
     /// Re-rasterize all segments (used after load)

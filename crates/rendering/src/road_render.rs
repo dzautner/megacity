@@ -27,7 +27,7 @@ pub struct RoadIntersectionMesh {
 /// Also generates intersection fill discs where segments meet.
 #[allow(clippy::too_many_arguments)]
 pub fn sync_road_segment_meshes(
-    store: Res<RoadSegmentStore>,
+    mut store: ResMut<RoadSegmentStore>,
     existing: Query<(Entity, &RoadSegmentMesh)>,
     existing_intersections: Query<(Entity, &RoadIntersectionMesh)>,
     mut commands: Commands,
@@ -49,17 +49,18 @@ pub fn sync_road_segment_meshes(
     // Track which node IDs need intersection mesh rebuilds
     let mut dirty_nodes: HashSet<SegmentNodeId> = HashSet::new();
 
+    // Collect node IDs recorded during segment removal (fixes #1239).
+    // These are captured *before* the segment is disconnected from nodes,
+    // so they reliably identify affected intersections.
+    if !store.removed_segment_endpoints.is_empty() {
+        for node_id in store.drain_removed_endpoints() {
+            dirty_nodes.insert(node_id);
+        }
+    }
+
     // Despawn meshes for segments that no longer exist
     for (entity, seg_mesh) in &existing {
         if !store_ids.contains(&seg_mesh.segment_id) {
-            // Mark connected nodes as dirty before despawning
-            // (the segment is gone from the store, so look up which nodes
-            // it *used* to connect by checking all nodes)
-            for node in &store.nodes {
-                if node.connected_segments.contains(&seg_mesh.segment_id) {
-                    dirty_nodes.insert(node.id);
-                }
-            }
             commands.entity(entity).despawn();
         }
     }
