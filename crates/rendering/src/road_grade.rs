@@ -345,11 +345,7 @@ mod tests {
             "4.5% grade green should be > 0.5, got {}",
             s.green
         );
-        assert!(
-            s.red > 0.3,
-            "4.5% grade red should be > 0.3, got {}",
-            s.red
-        );
+        assert!(s.red > 0.3, "4.5% grade red should be > 0.3, got {}", s.red);
     }
 
     #[test]
