@@ -196,6 +196,9 @@ fn handle_save(
             &PathCache,
             &Velocity,
             &Position,
+            &Personality,
+            &Needs,
+            &ActivityTimer,
         ),
         With<Citizen>,
     >,
@@ -214,17 +217,22 @@ fn handle_save(
 
         let citizen_data: Vec<CitizenSaveInput> = citizens
             .iter()
-            .map(|(d, state, home, work, path, vel, pos)| CitizenSaveInput {
-                details: d.clone(),
-                state: state.0,
-                home_x: home.grid_x,
-                home_y: home.grid_y,
-                work_x: work.grid_x,
-                work_y: work.grid_y,
-                path: path.clone(),
-                velocity: vel.clone(),
-                position: pos.clone(),
-            })
+            .map(
+                |(d, state, home, work, path, vel, pos, pers, needs, timer)| CitizenSaveInput {
+                    details: d.clone(),
+                    state: state.0,
+                    home_x: home.grid_x,
+                    home_y: home.grid_y,
+                    work_x: work.grid_x,
+                    work_y: work.grid_y,
+                    path: path.clone(),
+                    velocity: vel.clone(),
+                    position: pos.clone(),
+                    personality: pers.clone(),
+                    needs: needs.clone(),
+                    activity_timer: timer.0,
+                },
+            )
             .collect();
 
         let utility_data: Vec<_> = utility_sources.iter().cloned().collect();
@@ -575,21 +583,37 @@ fn handle_load(
                 y: sc.velocity_y,
             };
 
-            let salary = CitizenDetails::base_salary_for_education(sc.education);
+            // Restore gender from saved value; fall back to age parity for old saves
+            let gender = if sc.gender == 1 {
+                Gender::Female
+            } else {
+                Gender::Male
+            };
+
+            // Restore salary: use saved value if non-zero, otherwise derive from education
+            let salary = if sc.salary != 0.0 {
+                sc.salary
+            } else {
+                CitizenDetails::base_salary_for_education(sc.education)
+            };
+
+            // Restore savings: use saved value if non-zero, otherwise derive from salary
+            let savings = if sc.savings != 0.0 {
+                sc.savings
+            } else {
+                salary * 2.0
+            };
+
             commands.spawn((
                 Citizen,
                 CitizenDetails {
                     age: sc.age,
-                    gender: if sc.age % 2 == 0 {
-                        Gender::Male
-                    } else {
-                        Gender::Female
-                    },
+                    gender,
                     happiness: sc.happiness,
-                    health: 80.0,
+                    health: sc.health,
                     education: sc.education,
                     salary,
-                    savings: salary * 2.0,
+                    savings,
                 },
                 CitizenStateComp(restored_state),
                 HomeLocation {
@@ -606,14 +630,20 @@ fn handle_load(
                 velocity,
                 path_cache,
                 Personality {
-                    ambition: 0.5,
-                    sociability: 0.5,
-                    materialism: 0.5,
-                    resilience: 0.5,
+                    ambition: sc.ambition,
+                    sociability: sc.sociability,
+                    materialism: sc.materialism,
+                    resilience: sc.resilience,
                 },
-                Needs::default(),
+                Needs {
+                    hunger: sc.need_hunger,
+                    energy: sc.need_energy,
+                    social: sc.need_social,
+                    fun: sc.need_fun,
+                    comfort: sc.need_comfort,
+                },
                 Family::default(),
-                ActivityTimer::default(),
+                ActivityTimer(sc.activity_timer),
             ));
         }
 

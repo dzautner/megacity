@@ -10,7 +10,7 @@ pub use crate::save_types::*;
 
 use simulation::agriculture::AgricultureState;
 use simulation::buildings::{Building, MixedUseBuilding};
-use simulation::citizen::CitizenState;
+use simulation::citizen::{CitizenState, Gender};
 use simulation::cso::SewerSystemState;
 use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
@@ -190,6 +190,23 @@ pub fn create_save_data(
                 velocity_y: c.velocity.y,
                 pos_x: c.position.x,
                 pos_y: c.position.y,
+                gender: match c.details.gender {
+                    Gender::Male => 0,
+                    Gender::Female => 1,
+                },
+                health: c.details.health,
+                salary: c.details.salary,
+                savings: c.details.savings,
+                ambition: c.personality.ambition,
+                sociability: c.personality.sociability,
+                materialism: c.personality.materialism,
+                resilience: c.personality.resilience,
+                need_hunger: c.needs.hunger,
+                need_energy: c.needs.energy,
+                need_social: c.needs.social,
+                need_fun: c.needs.fun,
+                need_comfort: c.needs.comfort,
+                activity_timer: c.activity_timer,
             })
             .collect(),
         utility_sources: utility_sources
@@ -636,7 +653,7 @@ mod tests {
     use super::*;
 
     use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
-    use simulation::citizen::{CitizenDetails, PathCache, Position, Velocity};
+    use simulation::citizen::{CitizenDetails, Needs, PathCache, Personality, Position, Velocity};
     use simulation::degree_days::DegreeDays;
     use simulation::economy::CityBudget;
     use simulation::grid::WorldGrid;
@@ -1709,6 +1726,20 @@ mod tests {
                 },
                 velocity: Velocity { x: 4.5, y: -2.3 },
                 position: Position { x: 100.0, y: 200.0 },
+                personality: Personality {
+                    ambition: 0.8,
+                    sociability: 0.6,
+                    materialism: 0.4,
+                    resilience: 0.9,
+                },
+                needs: Needs {
+                    hunger: 90.0,
+                    energy: 85.0,
+                    social: 60.0,
+                    fun: 55.0,
+                    comfort: 70.0,
+                },
+                activity_timer: 42,
             },
             CitizenSaveInput {
                 details: CitizenDetails {
@@ -1731,6 +1762,20 @@ mod tests {
                 },
                 velocity: Velocity { x: 0.0, y: 0.0 },
                 position: Position { x: 50.0, y: 75.0 },
+                personality: Personality {
+                    ambition: 0.3,
+                    sociability: 0.7,
+                    materialism: 0.5,
+                    resilience: 0.2,
+                },
+                needs: Needs {
+                    hunger: 70.0,
+                    energy: 65.0,
+                    social: 80.0,
+                    fun: 75.0,
+                    comfort: 50.0,
+                },
+                activity_timer: 0,
             },
         ];
         let save = create_save_data(
@@ -1792,7 +1837,22 @@ mod tests {
         assert!((c0.pos_x - 100.0).abs() < 0.001);
         assert!((c0.pos_y - 200.0).abs() < 0.001);
         assert_eq!(c0.state, 1); // CommutingToWork
-                                 // Second citizen: idle, empty path
+                                 // V4 fields: gender, health, salary, savings, personality, needs
+        assert_eq!(c0.gender, 0); // Male
+        assert!((c0.health - 90.0).abs() < 0.001);
+        assert!((c0.salary - 3500.0).abs() < 0.001);
+        assert!((c0.savings - 7000.0).abs() < 0.001);
+        assert!((c0.ambition - 0.8).abs() < 0.001);
+        assert!((c0.sociability - 0.6).abs() < 0.001);
+        assert!((c0.materialism - 0.4).abs() < 0.001);
+        assert!((c0.resilience - 0.9).abs() < 0.001);
+        assert!((c0.need_hunger - 90.0).abs() < 0.001);
+        assert!((c0.need_energy - 85.0).abs() < 0.001);
+        assert!((c0.need_social - 60.0).abs() < 0.001);
+        assert!((c0.need_fun - 55.0).abs() < 0.001);
+        assert!((c0.need_comfort - 70.0).abs() < 0.001);
+        assert_eq!(c0.activity_timer, 42);
+        // Second citizen: idle, empty path
         let c1 = &restored.citizens[1];
         assert!(c1.path_waypoints.is_empty());
         assert_eq!(c1.path_current_index, 0);
@@ -1801,6 +1861,21 @@ mod tests {
         assert!((c1.pos_x - 50.0).abs() < 0.001);
         assert!((c1.pos_y - 75.0).abs() < 0.001);
         assert_eq!(c1.state, 0); // AtHome
+                                 // V4 fields for second citizen
+        assert_eq!(c1.gender, 1); // Female
+        assert!((c1.health - 80.0).abs() < 0.001);
+        assert!((c1.salary - 2200.0).abs() < 0.001);
+        assert!((c1.savings - 4400.0).abs() < 0.001);
+        assert!((c1.ambition - 0.3).abs() < 0.001);
+        assert!((c1.sociability - 0.7).abs() < 0.001);
+        assert!((c1.materialism - 0.5).abs() < 0.001);
+        assert!((c1.resilience - 0.2).abs() < 0.001);
+        assert!((c1.need_hunger - 70.0).abs() < 0.001);
+        assert!((c1.need_energy - 65.0).abs() < 0.001);
+        assert!((c1.need_social - 80.0).abs() < 0.001);
+        assert!((c1.need_fun - 75.0).abs() < 0.001);
+        assert!((c1.need_comfort - 50.0).abs() < 0.001);
+        assert_eq!(c1.activity_timer, 0);
     }
 
     #[test]
@@ -1874,6 +1949,21 @@ mod tests {
             velocity_y: 0.0,
             pos_x: 0.0,
             pos_y: 0.0,
+            // V4 fields: use defaults to simulate old save
+            gender: 0,
+            health: 80.0,
+            salary: 0.0,
+            savings: 0.0,
+            ambition: 0.5,
+            sociability: 0.5,
+            materialism: 0.5,
+            resilience: 0.5,
+            need_hunger: 80.0,
+            need_energy: 80.0,
+            need_social: 70.0,
+            need_fun: 70.0,
+            need_comfort: 60.0,
+            activity_timer: 0,
         });
         save.version = 2;
         let old = migrate_save(&mut save);
