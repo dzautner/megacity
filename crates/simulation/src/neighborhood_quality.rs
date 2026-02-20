@@ -142,11 +142,10 @@ pub fn compute_walkability(grid: &WorldGrid, start_x: usize, start_y: usize, siz
                         && ny >= 0
                         && (nx as usize) < GRID_WIDTH
                         && (ny as usize) < GRID_HEIGHT
+                        && grid.get(nx as usize, ny as usize).cell_type == CellType::Road
                     {
-                        if grid.get(nx as usize, ny as usize).cell_type == CellType::Road {
-                            has_road_nearby = true;
-                            break;
-                        }
+                        has_road_nearby = true;
+                        break;
                     }
                 }
             }
