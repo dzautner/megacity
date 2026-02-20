@@ -4,6 +4,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+use crate::cumulative_zoning::{select_effective_zone, CumulativeZoningState};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::weather::ConstructionModifiers;
 use crate::zones::{is_adjacent_to_road, ZoneDemand};
@@ -191,6 +192,7 @@ pub fn building_spawner(
     demand: Res<ZoneDemand>,
     mut timer: ResMut<BuildingSpawnTimer>,
     eligible: Res<EligibleCells>,
+    cumulative_zoning: Res<CumulativeZoningState>,
 ) {
     timer.0 += 1;
     if timer.0 < SPAWN_INTERVAL {
@@ -225,18 +227,27 @@ pub fn building_spawner(
                 continue;
             }
 
+            // When cumulative zoning is enabled, select the highest-value
+            // permitted use based on market demand. Otherwise use the
+            // cell's own zone type (exclusive zoning).
+            let effective_zone = if cumulative_zoning.enabled {
+                select_effective_zone(*zone, &demand)
+            } else {
+                *zone
+            };
+
             // Cap initial level by FAR constraint (initial level is 1, but
             // max_level_for_far is guaranteed >= 1, so this is a safety check)
-            let far_cap = max_level_for_far(*zone) as u8;
+            let far_cap = max_level_for_far(effective_zone) as u8;
             let initial_level = 1u8.min(far_cap);
-            let capacity = Building::capacity_for_level(*zone, initial_level);
+            let capacity = Building::capacity_for_level(effective_zone, initial_level);
             let construction_ticks = 100; // ~10 seconds at 10Hz
-            let entity = if *zone == ZoneType::MixedUse {
+            let entity = if effective_zone == ZoneType::MixedUse {
                 let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(initial_level);
                 commands
                     .spawn((
                         Building {
-                            zone_type: *zone,
+                            zone_type: effective_zone,
                             level: initial_level,
                             grid_x: x,
                             grid_y: y,
@@ -259,7 +270,7 @@ pub fn building_spawner(
                 commands
                     .spawn((
                         Building {
-                            zone_type: *zone,
+                            zone_type: effective_zone,
                             level: initial_level,
                             grid_x: x,
                             grid_y: y,
