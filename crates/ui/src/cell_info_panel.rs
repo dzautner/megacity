@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::input::{ActiveTool, CursorGridPos, SelectedBuilding};
-use simulation::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
+use simulation::config::{CELL_SIZE, GRID_WIDTH};
 use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::land_value::LandValueGrid;
 use simulation::noise::NoisePollutionGrid;
@@ -129,6 +129,7 @@ fn is_key_service(st: ServiceType) -> bool {
 /// Displays the empty cell info panel when a cell without a building is selected.
 ///
 /// Shows elevation, land value, zone type, pollution, noise, and nearby services.
+#[allow(clippy::too_many_arguments)]
 pub fn cell_info_panel_ui(
     mut contexts: EguiContexts,
     selected_cell: Res<SelectedCell>,
