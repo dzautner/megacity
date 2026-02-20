@@ -346,6 +346,59 @@ impl Default for RoadDrawState {
     }
 }
 
+/// Snap radius for intersection snapping (1 cell distance in world units).
+const INTERSECTION_SNAP_RADIUS: f32 = CELL_SIZE;
+
+/// Tracks whether the cursor is currently snapped to an existing intersection node.
+#[derive(Resource, Default)]
+pub struct IntersectionSnap {
+    /// When `Some`, the cursor should snap to this world position.
+    pub snapped_pos: Option<Vec2>,
+}
+
+/// Each frame, check if the cursor is near an existing segment node (intersection)
+/// and update `IntersectionSnap` accordingly.
+pub fn update_intersection_snap(
+    cursor: Res<CursorGridPos>,
+    tool: Res<ActiveTool>,
+    segments: Res<RoadSegmentStore>,
+    mut snap: ResMut<IntersectionSnap>,
+) {
+    snap.snapped_pos = None;
+
+    if !cursor.valid {
+        return;
+    }
+
+    // Only snap for road tools
+    let is_road_tool = matches!(
+        *tool,
+        ActiveTool::Road
+            | ActiveTool::RoadAvenue
+            | ActiveTool::RoadBoulevard
+            | ActiveTool::RoadHighway
+            | ActiveTool::RoadOneWay
+            | ActiveTool::RoadPath
+    );
+    if !is_road_tool {
+        return;
+    }
+
+    let cursor_pos = cursor.world_pos;
+    let mut best_dist = INTERSECTION_SNAP_RADIUS;
+    let mut best_pos: Option<Vec2> = None;
+
+    for node in &segments.nodes {
+        let dist = (node.position - cursor_pos).length();
+        if dist < best_dist {
+            best_dist = dist;
+            best_pos = Some(node.position);
+        }
+    }
+
+    snap.snapped_pos = best_pos;
+}
+
 pub fn tick_status_message(time: Res<Time>, mut status: ResMut<StatusMessage>) {
     if status.timer > 0.0 {
         status.timer -= time.delta_secs();
@@ -416,11 +469,15 @@ pub fn handle_tool_input(
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
     service_q: Query<&ServiceBuilding>,
-    left_drag: Res<crate::camera::LeftClickDrag>,
+    misc: (
+        Res<crate::camera::LeftClickDrag>,
+        Res<UrbanGrowthBoundary>,
+        Res<IntersectionSnap>,
+    ),
     mut district_map: ResMut<simulation::districts::DistrictMap>,
-    ugb: Res<UrbanGrowthBoundary>,
 ) {
     let (buttons, keys, angle_snap) = input;
+    let (left_drag, ugb, snap) = misc;
 
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
@@ -468,8 +525,8 @@ pub fn handle_tool_input(
         if buttons.just_pressed(MouseButton::Left) {
             match draw_state.phase {
                 DrawPhase::Idle => {
-                    // First click: place start point
-                    draw_state.start_pos = cursor.world_pos;
+                    // First click: place start point (snap to intersection if close)
+                    draw_state.start_pos = snap.snapped_pos.unwrap_or(cursor.world_pos);
                     draw_state.phase = DrawPhase::PlacedStart;
                     status.set(
                         "Click to place end point (Shift=snap angle, Esc=cancel)",
@@ -478,7 +535,10 @@ pub fn handle_tool_input(
                 }
                 DrawPhase::PlacedStart => {
                     // Second click: place end point and commit segment
-                    let end_pos = if angle_snap.active {
+                    // Intersection snap takes precedence over angle snap
+                    let end_pos = if let Some(snapped) = snap.snapped_pos {
+                        snapped
+                    } else if angle_snap.active {
                         angle_snap.snapped_pos
                     } else {
                         cursor.world_pos
@@ -1296,5 +1356,121 @@ pub fn handle_escape_key(
     // Level 3: Reset to Inspect tool
     if *tool != ActiveTool::Inspect {
         *tool = ActiveTool::Inspect;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use simulation::road_segments::{SegmentNode, SegmentNodeId};
+
+    /// Helper: create a snap resource and test snapping logic directly.
+    fn find_snap_target(cursor_pos: Vec2, nodes: &[SegmentNode]) -> Option<Vec2> {
+        let mut best_dist = INTERSECTION_SNAP_RADIUS;
+        let mut best_pos: Option<Vec2> = None;
+        for node in nodes {
+            let dist = (node.position - cursor_pos).length();
+            if dist < best_dist {
+                best_dist = dist;
+                best_pos = Some(node.position);
+            }
+        }
+        best_pos
+    }
+
+    #[test]
+    fn test_intersection_snap_within_radius() {
+        let node_pos = Vec2::new(100.0, 200.0);
+        let nodes = vec![SegmentNode {
+            id: SegmentNodeId(0),
+            position: node_pos,
+            connected_segments: vec![],
+        }];
+
+        // Cursor within 1 cell distance (CELL_SIZE = 16.0)
+        let cursor_pos = Vec2::new(110.0, 200.0); // 10 units away < 16
+        let result = find_snap_target(cursor_pos, &nodes);
+        assert_eq!(result, Some(node_pos));
+    }
+
+    #[test]
+    fn test_intersection_snap_outside_radius() {
+        let node_pos = Vec2::new(100.0, 200.0);
+        let nodes = vec![SegmentNode {
+            id: SegmentNodeId(0),
+            position: node_pos,
+            connected_segments: vec![],
+        }];
+
+        // Cursor more than 1 cell away
+        let cursor_pos = Vec2::new(120.0, 200.0); // 20 units away > 16
+        let result = find_snap_target(cursor_pos, &nodes);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_intersection_snap_picks_closest_node() {
+        let node_a = Vec2::new(100.0, 200.0);
+        let node_b = Vec2::new(108.0, 200.0);
+        let nodes = vec![
+            SegmentNode {
+                id: SegmentNodeId(0),
+                position: node_a,
+                connected_segments: vec![],
+            },
+            SegmentNode {
+                id: SegmentNodeId(1),
+                position: node_b,
+                connected_segments: vec![],
+            },
+        ];
+
+        // Cursor at 105, equidistant-ish but closer to node_b
+        let cursor_pos = Vec2::new(106.0, 200.0);
+        let result = find_snap_target(cursor_pos, &nodes);
+        assert_eq!(result, Some(node_b)); // 2 units away vs 6 units
+    }
+
+    #[test]
+    fn test_intersection_snap_no_nodes() {
+        let nodes: Vec<SegmentNode> = vec![];
+        let cursor_pos = Vec2::new(100.0, 200.0);
+        let result = find_snap_target(cursor_pos, &nodes);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_intersection_snap_exact_position() {
+        let node_pos = Vec2::new(100.0, 200.0);
+        let nodes = vec![SegmentNode {
+            id: SegmentNodeId(0),
+            position: node_pos,
+            connected_segments: vec![],
+        }];
+
+        // Cursor exactly at node position
+        let cursor_pos = Vec2::new(100.0, 200.0);
+        let result = find_snap_target(cursor_pos, &nodes);
+        assert_eq!(result, Some(node_pos));
+    }
+
+    #[test]
+    fn test_intersection_snap_at_boundary() {
+        let node_pos = Vec2::new(100.0, 200.0);
+        let nodes = vec![SegmentNode {
+            id: SegmentNodeId(0),
+            position: node_pos,
+            connected_segments: vec![],
+        }];
+
+        // Cursor at exactly CELL_SIZE distance (should NOT snap since we use strict <)
+        let cursor_pos = Vec2::new(100.0 + CELL_SIZE, 200.0);
+        let result = find_snap_target(cursor_pos, &nodes);
+        assert_eq!(result, None);
+
+        // Just inside the radius
+        let cursor_pos = Vec2::new(100.0 + CELL_SIZE - 0.1, 200.0);
+        let result = find_snap_target(cursor_pos, &nodes);
+        assert_eq!(result, Some(node_pos));
     }
 }

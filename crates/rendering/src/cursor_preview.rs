@@ -5,7 +5,7 @@ use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::services::ServiceBuilding;
 
 use crate::angle_snap::AngleSnapState;
-use crate::input::{ActiveTool, CursorGridPos, DrawPhase, RoadDrawState};
+use crate::input::{ActiveTool, CursorGridPos, DrawPhase, IntersectionSnap, RoadDrawState};
 
 /// Marker for the cursor ghost preview entity
 #[derive(Component)]
@@ -146,6 +146,7 @@ pub fn draw_bezier_preview(
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
     angle_snap: Res<AngleSnapState>,
+    snap: Res<IntersectionSnap>,
     mut gizmos: Gizmos,
 ) {
     if draw_state.phase != DrawPhase::PlacedStart || !cursor.valid {
@@ -167,7 +168,10 @@ pub fn draw_bezier_preview(
     }
 
     let start = draw_state.start_pos;
-    let end = if angle_snap.active {
+    // Intersection snap takes precedence over angle snap
+    let end = if let Some(snapped) = snap.snapped_pos {
+        snapped
+    } else if angle_snap.active {
         angle_snap.snapped_pos
     } else {
         cursor.world_pos
@@ -221,4 +225,44 @@ fn check_footprint_valid(grid: &WorldGrid, gx: usize, gy: usize, fw: usize, fh: 
         }
     }
     true
+}
+
+/// Draw a highlight dot when the cursor is snapped to an existing intersection.
+pub fn draw_intersection_snap_indicator(
+    snap: Res<IntersectionSnap>,
+    tool: Res<ActiveTool>,
+    mut gizmos: Gizmos,
+) {
+    // Only show for road tools
+    let is_road_tool = matches!(
+        *tool,
+        ActiveTool::Road
+            | ActiveTool::RoadAvenue
+            | ActiveTool::RoadBoulevard
+            | ActiveTool::RoadHighway
+            | ActiveTool::RoadOneWay
+            | ActiveTool::RoadPath
+    );
+    if !is_road_tool {
+        return;
+    }
+
+    if let Some(pos) = snap.snapped_pos {
+        let y = 0.8; // slightly above road preview
+
+        // Outer ring (cyan)
+        let center = Vec3::new(pos.x, y, pos.y);
+        gizmos.circle(
+            Isometry3d::new(center, Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
+            12.0,
+            Color::srgba(0.0, 1.0, 1.0, 0.9),
+        );
+
+        // Inner filled dot (smaller ring to simulate a dot)
+        gizmos.circle(
+            Isometry3d::new(center, Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
+            4.0,
+            Color::srgba(0.0, 1.0, 1.0, 1.0),
+        );
+    }
 }
