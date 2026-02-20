@@ -90,10 +90,7 @@ pub struct InclusionaryZoningState {
 impl InclusionaryZoningState {
     /// Enable inclusionary zoning for a district with the default percentage.
     pub fn enable(&mut self, district_idx: usize) {
-        let config = self
-            .district_configs
-            .entry(district_idx)
-            .or_insert_with(DistrictInclusionaryConfig::default);
+        let config = self.district_configs.entry(district_idx).or_default();
         config.enabled = true;
     }
 
@@ -114,10 +111,7 @@ impl InclusionaryZoningState {
     /// Set the affordable percentage for a district (clamped to valid range).
     pub fn set_affordable_percentage(&mut self, district_idx: usize, pct: f32) {
         let clamped = pct.clamp(MIN_AFFORDABLE_PERCENTAGE, MAX_AFFORDABLE_PERCENTAGE);
-        let config = self
-            .district_configs
-            .entry(district_idx)
-            .or_insert_with(DistrictInclusionaryConfig::default);
+        let config = self.district_configs.entry(district_idx).or_default();
         config.affordable_percentage = clamped;
     }
 
@@ -159,8 +153,9 @@ pub fn calculate_affordable_units(capacity: u32, affordable_pct: f32) -> u32 {
     if affordable_pct <= 0.0 {
         return 0;
     }
-    // At least 1 affordable unit if the building has any capacity and policy is active
-    let raw = (capacity as f32 * affordable_pct).ceil() as u32;
+    // Round to nearest; guarantee at least 1 unit if building has capacity and policy is active
+    let raw = (capacity as f32 * affordable_pct).round() as u32;
+    let raw = if capacity > 0 { raw.max(1) } else { raw };
     raw.min(capacity)
 }
 
