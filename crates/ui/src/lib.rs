@@ -14,6 +14,7 @@ pub mod multi_select;
 pub mod oneway_ui;
 pub mod progressive_disclosure;
 pub mod road_segment_info;
+pub mod search;
 pub mod service_coverage_panel;
 pub mod settings_panel;
 pub mod theme;
@@ -39,6 +40,7 @@ impl Plugin for UiPlugin {
             .add_plugins(oneway_ui::OneWayUiPlugin)
             .add_plugins(settings_panel::SettingsPanelPlugin)
             .add_plugins(advisor_tips::AdvisorTipsPlugin)
+            .add_plugins(search::SearchPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
