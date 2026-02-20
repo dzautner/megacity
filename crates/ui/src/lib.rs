@@ -4,6 +4,7 @@ use bevy_egui::EguiPlugin;
 pub mod graphs;
 pub mod info_panel;
 pub mod milestones;
+pub mod road_segment_info;
 pub mod theme;
 pub mod toolbar;
 pub mod waste_dashboard;
@@ -14,6 +15,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
+            .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
