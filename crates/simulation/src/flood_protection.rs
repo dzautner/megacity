@@ -330,11 +330,12 @@ pub fn update_flood_protection(
     }
 
     // --- Step 3: Degrade or recover condition ---
+    let funded = protection.maintenance_funded;
     for structure in &mut protection.structures {
         if structure.failed {
             continue;
         }
-        if protection.maintenance_funded {
+        if funded {
             // Slowly recover condition when maintained
             structure.condition = (structure.condition + RECOVERY_RATE_PER_TICK).min(1.0);
         } else {
