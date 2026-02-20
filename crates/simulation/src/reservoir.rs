@@ -862,9 +862,10 @@ mod tests {
         // Net = 2000 - 0 - 5000 = -3000 gallons.
         let expected = 500_000.0_f32 - 3_000.0_f32;
         assert!((reservoirs[0].0 - expected).abs() < 1.0_f32);
-        // Still Normal (about 49.7%).
-        assert_eq!(state.warning_tier, ReservoirWarningTier::Normal);
-        assert!(event.is_none());
+        // 49.7% fill → Watch tier (threshold is >50% for Normal).
+        assert_eq!(state.warning_tier, ReservoirWarningTier::Watch);
+        // Tier changed from Normal (default) to Watch, so event is fired.
+        assert!(event.is_some());
     }
 
     #[test]
