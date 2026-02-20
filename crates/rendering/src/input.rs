@@ -409,11 +409,6 @@ pub fn handle_tool_input(
         return;
     }
 
-    // Cancel freeform road drawing on Escape or tool change
-    if keys.just_pressed(KeyCode::Escape) {
-        draw_state.phase = DrawPhase::Idle;
-    }
-
     // Right click cancels drawing
     if buttons.just_pressed(MouseButton::Right) {
         draw_state.phase = DrawPhase::Idle;
@@ -1197,5 +1192,43 @@ pub fn handle_tree_tool(
 
     if changed {
         mark_chunk_dirty_at(gx, gy, &chunks, &mut commands);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Escape key cascade: cancel draw -> deselect building -> reset tool
+// ---------------------------------------------------------------------------
+
+/// Handles the Escape key with cascading behavior:
+/// 1. Cancel active road drawing (if `RoadDrawState` is not Idle)
+/// 2. Deselect the selected building (if `SelectedBuilding` has a value)
+/// 3. Reset the active tool back to `Inspect`
+///
+/// Each press handles exactly one level.
+pub fn handle_escape_key(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut draw_state: ResMut<RoadDrawState>,
+    mut selected: ResMut<SelectedBuilding>,
+    mut tool: ResMut<ActiveTool>,
+) {
+    if !keys.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    // Level 1: Cancel active road drawing
+    if draw_state.phase != DrawPhase::Idle {
+        draw_state.phase = DrawPhase::Idle;
+        return;
+    }
+
+    // Level 2: Deselect selected building
+    if selected.0.is_some() {
+        selected.0 = None;
+        return;
+    }
+
+    // Level 3: Reset to Inspect tool
+    if *tool != ActiveTool::Inspect {
+        *tool = ActiveTool::Inspect;
     }
 }
