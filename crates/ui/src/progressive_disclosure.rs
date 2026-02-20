@@ -1,10 +1,9 @@
-//! Progressive Disclosure in Info Panels (UX-061).
+//! Tabbed Building Info Panel (UX-005 + UX-061).
 //!
-//! Provides collapsible sections for the Building Inspector panel so that the
-//! most important information (type, level, occupancy, happiness) is always
-//! visible, while detailed sections (services, environment, economy,
-//! residents/workers) can be expanded or collapsed. The collapsed/expanded
-//! state is remembered per session via a Bevy [`Resource`].
+//! Organizes the Building Inspector into tabs: Overview, Services, Economy,
+//! Residents/Workers, and Environment. The active tab is tracked per session
+//! via a Bevy [`Resource`]. Service and utility buildings retain their
+//! simpler flat layouts since they have less information.
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
@@ -19,87 +18,72 @@ use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
 use simulation::grid::{WorldGrid, ZoneType};
 use simulation::land_value::LandValueGrid;
+use simulation::noise::NoisePollutionGrid;
 use simulation::pollution::PollutionGrid;
 use simulation::services::ServiceBuilding;
+use simulation::trees::TreeGrid;
 use simulation::utilities::UtilitySource;
 use simulation::wealth::WealthTier;
 
 use simulation::config::GRID_WIDTH;
 
+use crate::citizen_info::{FollowCitizen, SelectedCitizen};
+
 // =============================================================================
-// Section identifiers
+// Tab identifiers
 // =============================================================================
 
-/// Identifies a collapsible section in the Building Inspector.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum InfoSection {
-    /// Power and water status.
+/// Identifies a tab in the Building Inspector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum BuildingTab {
+    /// Type, level, occupancy, happiness at a glance.
+    #[default]
+    Overview,
+    /// Power, water, and nearby service coverage/quality.
     Services,
-    /// Pollution and land value.
-    Environment,
-    /// Salary, tax revenue, payroll.
+    /// Land value, rent/salary, property value, taxes.
     Economy,
-    /// Resident or worker list and breakdowns.
+    /// List of residents or workers (clickable to follow).
     Residents,
+    /// Pollution, noise, green space.
+    Environment,
 }
 
-impl InfoSection {
-    /// Human-readable header for this section.
-    pub fn header(&self) -> &'static str {
+impl BuildingTab {
+    /// Human-readable label for this tab.
+    pub fn label(&self) -> &'static str {
         match self {
-            InfoSection::Services => "Services",
-            InfoSection::Environment => "Environment",
-            InfoSection::Economy => "Economy",
-            InfoSection::Residents => "Residents / Workers",
+            BuildingTab::Overview => "Overview",
+            BuildingTab::Services => "Services",
+            BuildingTab::Economy => "Economy",
+            BuildingTab::Residents => "Residents",
+            BuildingTab::Environment => "Environment",
         }
     }
 
-    /// All section variants in display order.
-    pub const ALL: [InfoSection; 4] = [
-        InfoSection::Services,
-        InfoSection::Environment,
-        InfoSection::Economy,
-        InfoSection::Residents,
+    /// All tab variants in display order.
+    pub const ALL: [BuildingTab; 5] = [
+        BuildingTab::Overview,
+        BuildingTab::Services,
+        BuildingTab::Economy,
+        BuildingTab::Residents,
+        BuildingTab::Environment,
     ];
 }
 
 // =============================================================================
-// Per-session expanded/collapsed state
+// Active tab resource
 // =============================================================================
 
-/// Tracks which collapsible sections are expanded.
-/// Defaults to `Services` expanded; others collapsed.
-#[derive(Resource, Debug, Clone)]
-pub struct SectionStates {
-    pub expanded: [bool; 4],
-}
+/// Tracks which tab is currently active in the Building Inspector.
+#[derive(Resource, Debug, Clone, Default)]
+pub struct SelectedBuildingTab(pub BuildingTab);
 
-impl Default for SectionStates {
-    fn default() -> Self {
-        Self {
-            // Services expanded by default; others collapsed
-            expanded: [true, false, false, false],
-        }
-    }
-}
-
-impl SectionStates {
-    /// Returns whether the given section is expanded.
-    pub fn is_expanded(&self, section: InfoSection) -> bool {
-        self.expanded[section as usize]
-    }
-
-    /// Toggles the expanded state for the given section.
-    pub fn toggle(&mut self, section: InfoSection) {
-        let idx = section as usize;
-        self.expanded[idx] = !self.expanded[idx];
-    }
-
-    /// Sets the expanded state for the given section.
-    pub fn set_expanded(&mut self, section: InfoSection, expanded: bool) {
-        self.expanded[section as usize] = expanded;
-    }
-}
+// Keep backward compatibility: SectionStates is now an alias.
+// (Nothing outside this file uses it, but this avoids breakage if something
+// referenced the type via the re-export.)
+/// Legacy alias kept for backward compatibility.
+pub type SectionStates = SelectedBuildingTab;
 
 // =============================================================================
 // Helper functions
@@ -143,6 +127,16 @@ fn pollution_color(level: u8) -> egui::Color32 {
     if level > 50 {
         egui::Color32::from_rgb(200, 50, 50)
     } else if level > 20 {
+        egui::Color32::from_rgb(200, 150, 50)
+    } else {
+        egui::Color32::from_rgb(50, 200, 50)
+    }
+}
+
+fn noise_color(level: u8) -> egui::Color32 {
+    if level > 60 {
+        egui::Color32::from_rgb(200, 50, 50)
+    } else if level > 30 {
         egui::Color32::from_rgb(200, 150, 50)
     } else {
         egui::Color32::from_rgb(50, 200, 50)
@@ -259,31 +253,6 @@ fn gen_citizen_name(entity: Entity, gender: Gender) -> String {
     format!("{} {}", first, last)
 }
 
-/// Draws a collapsible section header. Returns `true` if the section body
-/// should be rendered (i.e. the section is expanded).
-fn section_header(ui: &mut egui::Ui, states: &mut SectionStates, section: InfoSection) -> bool {
-    let expanded = states.is_expanded(section);
-    let arrow = if expanded { "v" } else { ">" };
-    let header_text = format!("{} {}", arrow, section.header());
-
-    let header_color = egui::Color32::from_rgb(160, 180, 220);
-    if ui
-        .add(
-            egui::Button::new(
-                egui::RichText::new(header_text)
-                    .color(header_color)
-                    .strong(),
-            )
-            .frame(false),
-        )
-        .clicked()
-    {
-        states.toggle(section);
-        return !expanded; // return the NEW state after toggle
-    }
-    expanded
-}
-
 fn needs_bar(ui: &mut egui::Ui, label: &str, value: f32) {
     ui.horizontal(|ui| {
         ui.label(format!("{:>7}", label));
@@ -305,14 +274,64 @@ fn needs_bar(ui: &mut egui::Ui, label: &str, value: f32) {
     });
 }
 
+/// Renders a horizontal tab bar, returning the updated active tab.
+fn tab_bar(ui: &mut egui::Ui, active: &mut BuildingTab) {
+    ui.horizontal(|ui| {
+        for tab in BuildingTab::ALL {
+            let is_selected = *active == tab;
+            let text = egui::RichText::new(tab.label());
+            let text = if is_selected {
+                text.strong().color(egui::Color32::from_rgb(220, 220, 255))
+            } else {
+                text.color(egui::Color32::from_rgb(160, 160, 180))
+            };
+            if ui.add(egui::Button::new(text).frame(is_selected)).clicked() {
+                *active = tab;
+            }
+        }
+    });
+    ui.separator();
+}
+
+/// Count nearby trees (green space) within a radius around a grid position.
+fn count_nearby_trees(tree_grid: &TreeGrid, gx: usize, gy: usize, radius: usize) -> usize {
+    let mut count = 0;
+    let min_x = gx.saturating_sub(radius);
+    let max_x = (gx + radius).min(tree_grid.width.saturating_sub(1));
+    let min_y = gy.saturating_sub(radius);
+    let max_y = (gy + radius).min(tree_grid.height.saturating_sub(1));
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            if tree_grid.has_tree(x, y) {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+fn green_space_label(count: usize) -> (&'static str, egui::Color32) {
+    if count >= 20 {
+        ("Excellent", egui::Color32::from_rgb(50, 200, 50))
+    } else if count >= 10 {
+        ("Good", egui::Color32::from_rgb(80, 200, 80))
+    } else if count >= 4 {
+        ("Moderate", egui::Color32::from_rgb(220, 180, 50))
+    } else if count >= 1 {
+        ("Low", egui::Color32::from_rgb(220, 120, 50))
+    } else {
+        ("None", egui::Color32::from_rgb(180, 80, 80))
+    }
+}
+
 // =============================================================================
-// Progressive Disclosure UI system
+// Tabbed Building Inspector UI system
 // =============================================================================
 
-/// Renders the Building Inspector with progressive disclosure.
+/// Renders the Building Inspector with a tabbed layout.
 ///
-/// The top section (type, level, occupancy, happiness) is always visible.
-/// Detailed sections are collapsible. This system replaces the flat
+/// The tab bar at the top allows switching between Overview, Services, Economy,
+/// Residents/Workers, and Environment. This system replaces the flat
 /// `building_inspection_ui` when the plugin is active.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn progressive_building_inspection_ui(
@@ -336,19 +355,24 @@ pub fn progressive_building_inspection_ui(
     >,
     grid: Res<WorldGrid>,
     pollution: Res<PollutionGrid>,
+    noise: Res<NoisePollutionGrid>,
     land_value: Res<LandValueGrid>,
     budget: Res<CityBudget>,
-    mut section_states: ResMut<SectionStates>,
+    tree_grid: Res<TreeGrid>,
+    mut tab_state: ResMut<SelectedBuildingTab>,
+    mut selected_citizen: ResMut<SelectedCitizen>,
+    mut follow_citizen: ResMut<FollowCitizen>,
 ) {
     let Some(entity) = selected.0 else {
         return;
     };
 
-    // === Zone building inspection with progressive disclosure ===
+    // === Zone building inspection with tabs ===
     if let Ok(building) = buildings.get(entity) {
         let cell = grid.get(building.grid_x, building.grid_y);
         let idx = building.grid_y * GRID_WIDTH + building.grid_x;
         let poll_level = pollution.levels.get(idx).copied().unwrap_or(0);
+        let noise_level = noise.levels.get(idx).copied().unwrap_or(0);
         let lv = land_value.values.get(idx).copied().unwrap_or(0);
         let occupancy_pct = if building.capacity > 0 {
             (building.occupants as f32 / building.capacity as f32 * 100.0).min(100.0)
@@ -384,237 +408,93 @@ pub fn progressive_building_inspection_ui(
         };
 
         egui::Window::new("Building Inspector")
-            .default_width(320.0)
+            .default_width(340.0)
             .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 40.0))
             .show(contexts.ctx_mut(), |ui| {
-                // ============================================================
-                // Top section: always visible (type, level, occupancy, happiness)
-                // ============================================================
+                // Heading: always visible regardless of tab
                 ui.heading(zone_type_label(building.zone_type));
                 ui.separator();
 
-                egui::Grid::new("pd_building_top")
-                    .num_columns(2)
-                    .show(ui, |ui| {
-                        ui.label("Level:");
-                        ui.label(format!(
-                            "{} / {}",
-                            building.level,
-                            building.zone_type.max_level()
-                        ));
-                        ui.end_row();
+                // Tab bar
+                tab_bar(ui, &mut tab_state.0);
 
-                        ui.label("Occupancy:");
-                        ui.colored_label(
-                            occupancy_color(occupancy_pct),
-                            format!(
-                                "{} / {} ({:.0}%)",
-                                building.occupants, building.capacity, occupancy_pct
-                            ),
+                match tab_state.0 {
+                    // ========================================================
+                    // Overview tab: type, level, occupancy, happiness
+                    // ========================================================
+                    BuildingTab::Overview => {
+                        render_overview_tab(
+                            ui,
+                            building,
+                            occupancy_pct,
+                            avg_happiness,
+                            cell.has_power,
+                            cell.has_water,
                         );
-                        ui.end_row();
+                    }
 
-                        ui.label("Happiness:");
-                        ui.colored_label(
-                            happiness_color(avg_happiness),
-                            format!("{:.0}%", avg_happiness),
+                    // ========================================================
+                    // Services tab: power, water, nearby service coverage
+                    // ========================================================
+                    BuildingTab::Services => {
+                        render_services_tab(
+                            ui,
+                            building,
+                            cell.has_power,
+                            cell.has_water,
+                            &service_buildings,
                         );
-                        ui.end_row();
-                    });
+                    }
 
-                ui.separator();
+                    // ========================================================
+                    // Economy tab: land value, salary, tax, payroll
+                    // ========================================================
+                    BuildingTab::Economy => {
+                        render_economy_tab(ui, entity, building, lv, &citizens, &budget);
+                    }
 
-                // ============================================================
-                // Collapsible: Services (power/water)
-                // ============================================================
-                if section_header(ui, &mut section_states, InfoSection::Services) {
-                    ui.indent("pd_services_body", |ui| {
-                        ui.horizontal(|ui| {
-                            let power_color = if cell.has_power {
-                                egui::Color32::from_rgb(50, 200, 50)
-                            } else {
-                                egui::Color32::from_rgb(200, 50, 50)
-                            };
-                            let water_color = if cell.has_water {
-                                egui::Color32::from_rgb(50, 130, 220)
-                            } else {
-                                egui::Color32::from_rgb(200, 50, 50)
-                            };
-                            ui.colored_label(
-                                power_color,
-                                if cell.has_power {
-                                    "Power: ON"
-                                } else {
-                                    "Power: OFF"
-                                },
-                            );
-                            ui.colored_label(
-                                water_color,
-                                if cell.has_water {
-                                    "Water: ON"
-                                } else {
-                                    "Water: OFF"
-                                },
-                            );
-                        });
-
-                        // Nearby service coverage
-                        let mut nearby_services: Vec<&str> = Vec::new();
-                        for service in service_buildings.iter() {
-                            let dx = (service.grid_x as f32 - building.grid_x as f32) * CELL_SIZE;
-                            let dy = (service.grid_y as f32 - building.grid_y as f32) * CELL_SIZE;
-                            let dist = (dx * dx + dy * dy).sqrt();
-                            if dist <= service.radius {
-                                let name = service.service_type.name();
-                                if !nearby_services.contains(&name) {
-                                    nearby_services.push(name);
-                                }
-                            }
-                        }
-
-                        if !nearby_services.is_empty() {
-                            ui.label("Nearby services:");
-                            for name in &nearby_services {
-                                ui.label(format!("  - {}", name));
-                            }
-                        } else {
-                            ui.label("No nearby services");
-                        }
-                    });
-                    ui.separator();
-                }
-
-                // ============================================================
-                // Collapsible: Environment (pollution, land value, location)
-                // ============================================================
-                if section_header(ui, &mut section_states, InfoSection::Environment) {
-                    ui.indent("pd_environment_body", |ui| {
-                        egui::Grid::new("pd_env_grid")
-                            .num_columns(2)
-                            .show(ui, |ui| {
-                                ui.label("Location:");
-                                ui.label(format!("({}, {})", building.grid_x, building.grid_y));
-                                ui.end_row();
-
-                                ui.label("Land Value:");
-                                ui.label(format!("{}/255", lv));
-                                ui.end_row();
-
-                                ui.label("Pollution:");
-                                ui.colored_label(
-                                    pollution_color(poll_level),
-                                    format!("{}/255", poll_level),
-                                );
-                                ui.end_row();
-                            });
-                    });
-                    ui.separator();
-                }
-
-                // ============================================================
-                // Collapsible: Economy (salary, tax, payroll)
-                // ============================================================
-                if section_header(ui, &mut section_states, InfoSection::Economy) {
-                    ui.indent("pd_economy_body", |ui| {
+                    // ========================================================
+                    // Residents/Workers tab: citizen list
+                    // ========================================================
+                    BuildingTab::Residents => {
                         if building.zone_type.is_residential() {
-                            let residents: Vec<&CitizenDetails> = citizens
-                                .iter()
-                                .filter(|(_, _, home, _, _, _, _, _)| home.building == entity)
-                                .map(|(_, details, _, _, _, _, _, _)| details)
-                                .collect();
-
-                            if !residents.is_empty() {
-                                let count = residents.len() as f32;
-                                let avg_salary: f32 =
-                                    residents.iter().map(|r| r.salary).sum::<f32>() / count;
-                                let tax_revenue: f32 =
-                                    residents.iter().map(|r| r.salary * budget.tax_rate).sum();
-
-                                egui::Grid::new("pd_econ_res")
-                                    .num_columns(2)
-                                    .show(ui, |ui| {
-                                        ui.label("Avg salary:");
-                                        ui.label(format!("${:.0}/mo", avg_salary));
-                                        ui.end_row();
-                                        ui.label("Tax revenue:");
-                                        ui.label(format!("${:.0}/mo", tax_revenue));
-                                        ui.end_row();
-                                    });
-
-                                // Income distribution
-                                ui.label("Income distribution:");
-                                let mut wealth_counts = [0u32; 3];
-                                for r in &residents {
-                                    match WealthTier::from_education(r.education) {
-                                        WealthTier::LowIncome => wealth_counts[0] += 1,
-                                        WealthTier::MiddleIncome => wealth_counts[1] += 1,
-                                        WealthTier::HighIncome => wealth_counts[2] += 1,
-                                    }
-                                }
-                                egui::Grid::new("pd_wealth").num_columns(2).show(ui, |ui| {
-                                    ui.label("Low income");
-                                    ui.label(format!("{}", wealth_counts[0]));
-                                    ui.end_row();
-                                    ui.label("Middle income");
-                                    ui.label(format!("{}", wealth_counts[1]));
-                                    ui.end_row();
-                                    ui.label("High income");
-                                    ui.label(format!("{}", wealth_counts[2]));
-                                    ui.end_row();
-                                });
-                            } else {
-                                ui.label("No residents yet");
-                            }
+                            render_residents_tab(
+                                ui,
+                                entity,
+                                &citizens,
+                                &mut selected_citizen,
+                                &mut follow_citizen,
+                            );
                         } else {
-                            // Commercial/Industrial/Office
-                            let workers: Vec<&CitizenDetails> = citizens
-                                .iter()
-                                .filter(|(_, _, _, work, _, _, _, _)| {
-                                    work.map(|w| w.building == entity).unwrap_or(false)
-                                })
-                                .map(|(_, details, _, _, _, _, _, _)| details)
-                                .collect();
-
-                            if !workers.is_empty() {
-                                let count = workers.len() as f32;
-                                let avg_salary: f32 =
-                                    workers.iter().map(|w| w.salary).sum::<f32>() / count;
-
-                                egui::Grid::new("pd_econ_work")
-                                    .num_columns(2)
-                                    .show(ui, |ui| {
-                                        ui.label("Avg salary:");
-                                        ui.label(format!("${:.0}/mo", avg_salary));
-                                        ui.end_row();
-                                        ui.label("Payroll:");
-                                        ui.label(format!("${:.0}/mo", avg_salary * count));
-                                        ui.end_row();
-                                    });
-                            } else {
-                                ui.label("No workers yet");
-                            }
+                            render_workers_tab(
+                                ui,
+                                entity,
+                                &citizens,
+                                &mut selected_citizen,
+                                &mut follow_citizen,
+                            );
                         }
-                    });
-                    ui.separator();
-                }
+                    }
 
-                // ============================================================
-                // Collapsible: Residents / Workers
-                // ============================================================
-                if section_header(ui, &mut section_states, InfoSection::Residents) {
-                    ui.indent("pd_residents_body", |ui| {
-                        if building.zone_type.is_residential() {
-                            render_residents_section(ui, entity, &citizens);
-                        } else {
-                            render_workers_section(ui, entity, &citizens);
-                        }
-                    });
+                    // ========================================================
+                    // Environment tab: pollution, noise, green space
+                    // ========================================================
+                    BuildingTab::Environment => {
+                        render_environment_tab(
+                            ui,
+                            building,
+                            poll_level,
+                            noise_level,
+                            lv,
+                            &tree_grid,
+                        );
+                    }
                 }
             });
         return;
     }
 
-    // === Service building inspection (simpler, no progressive disclosure needed) ===
+    // === Service building inspection (simpler, no tabs needed) ===
     if let Ok(service) = service_buildings.get(entity) {
         let cell = grid.get(service.grid_x, service.grid_y);
         let idx = service.grid_y * GRID_WIDTH + service.grid_x;
@@ -746,11 +626,342 @@ pub fn progressive_building_inspection_ui(
 }
 
 // =============================================================================
-// Residents section rendering
+// Tab content: Overview
+// =============================================================================
+
+fn render_overview_tab(
+    ui: &mut egui::Ui,
+    building: &Building,
+    occupancy_pct: f32,
+    avg_happiness: f32,
+    has_power: bool,
+    has_water: bool,
+) {
+    egui::Grid::new("tab_overview_grid")
+        .num_columns(2)
+        .spacing([16.0, 4.0])
+        .show(ui, |ui| {
+            ui.label("Type:");
+            ui.label(zone_type_label(building.zone_type));
+            ui.end_row();
+
+            ui.label("Level:");
+            ui.label(format!(
+                "{} / {}",
+                building.level,
+                building.zone_type.max_level()
+            ));
+            ui.end_row();
+
+            ui.label("Occupancy:");
+            ui.colored_label(
+                occupancy_color(occupancy_pct),
+                format!(
+                    "{} / {} ({:.0}%)",
+                    building.occupants, building.capacity, occupancy_pct
+                ),
+            );
+            ui.end_row();
+
+            ui.label("Happiness:");
+            ui.colored_label(
+                happiness_color(avg_happiness),
+                format!("{:.0}%", avg_happiness),
+            );
+            ui.end_row();
+
+            ui.label("Location:");
+            ui.label(format!("({}, {})", building.grid_x, building.grid_y));
+            ui.end_row();
+        });
+
+    // Quick power/water status
+    ui.separator();
+    ui.horizontal(|ui| {
+        let power_color = if has_power {
+            egui::Color32::from_rgb(50, 200, 50)
+        } else {
+            egui::Color32::from_rgb(200, 50, 50)
+        };
+        let water_color = if has_water {
+            egui::Color32::from_rgb(50, 130, 220)
+        } else {
+            egui::Color32::from_rgb(200, 50, 50)
+        };
+        ui.colored_label(
+            power_color,
+            if has_power { "Power: ON" } else { "Power: OFF" },
+        );
+        ui.colored_label(
+            water_color,
+            if has_water { "Water: ON" } else { "Water: OFF" },
+        );
+    });
+}
+
+// =============================================================================
+// Tab content: Services
+// =============================================================================
+
+fn render_services_tab(
+    ui: &mut egui::Ui,
+    building: &Building,
+    has_power: bool,
+    has_water: bool,
+    service_buildings: &Query<&ServiceBuilding>,
+) {
+    // Utility connections
+    ui.label("Utility Connections:");
+    ui.horizontal(|ui| {
+        let power_color = if has_power {
+            egui::Color32::from_rgb(50, 200, 50)
+        } else {
+            egui::Color32::from_rgb(200, 50, 50)
+        };
+        let water_color = if has_water {
+            egui::Color32::from_rgb(50, 130, 220)
+        } else {
+            egui::Color32::from_rgb(200, 50, 50)
+        };
+        ui.colored_label(
+            power_color,
+            if has_power { "Power: ON" } else { "Power: OFF" },
+        );
+        ui.colored_label(
+            water_color,
+            if has_water { "Water: ON" } else { "Water: OFF" },
+        );
+    });
+
+    ui.separator();
+    ui.label("Nearby Service Coverage:");
+
+    // Gather services that cover this building
+    let mut covered: Vec<(&str, f32, f32)> = Vec::new(); // (name, distance, radius)
+    for service in service_buildings.iter() {
+        let dx = (service.grid_x as f32 - building.grid_x as f32) * CELL_SIZE;
+        let dy = (service.grid_y as f32 - building.grid_y as f32) * CELL_SIZE;
+        let dist = (dx * dx + dy * dy).sqrt();
+        if dist <= service.radius {
+            let name = service.service_type.name();
+            // Avoid duplicates of the same service type
+            if !covered.iter().any(|(n, _, _)| *n == name) {
+                covered.push((name, dist, service.radius));
+            }
+        }
+    }
+
+    if covered.is_empty() {
+        ui.colored_label(
+            egui::Color32::from_rgb(160, 160, 160),
+            "No services in range",
+        );
+    } else {
+        covered.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        egui::Grid::new("tab_services_grid")
+            .num_columns(3)
+            .spacing([12.0, 2.0])
+            .striped(true)
+            .show(ui, |ui| {
+                ui.strong("Service");
+                ui.strong("Distance");
+                ui.strong("Quality");
+                ui.end_row();
+
+                for (name, dist, radius) in &covered {
+                    let cells_away = (dist / CELL_SIZE).round() as u32;
+                    // Quality based on how close to the center of coverage
+                    let quality_pct = ((1.0 - dist / radius) * 100.0).clamp(0.0, 100.0);
+                    let quality_color = if quality_pct >= 60.0 {
+                        egui::Color32::from_rgb(50, 200, 50)
+                    } else if quality_pct >= 30.0 {
+                        egui::Color32::from_rgb(220, 180, 50)
+                    } else {
+                        egui::Color32::from_rgb(220, 120, 50)
+                    };
+
+                    ui.colored_label(egui::Color32::from_rgb(80, 200, 140), *name);
+                    ui.colored_label(
+                        egui::Color32::from_rgb(160, 160, 160),
+                        format!("{} cells", cells_away),
+                    );
+                    ui.colored_label(quality_color, format!("{:.0}%", quality_pct));
+                    ui.end_row();
+                }
+            });
+    }
+}
+
+// =============================================================================
+// Tab content: Economy
+// =============================================================================
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn render_economy_tab(
+    ui: &mut egui::Ui,
+    building_entity: Entity,
+    building: &Building,
+    land_val: u8,
+    citizens: &Query<
+        (
+            Entity,
+            &CitizenDetails,
+            &HomeLocation,
+            Option<&WorkLocation>,
+            &CitizenStateComp,
+            Option<&Needs>,
+            Option<&Personality>,
+            Option<&Family>,
+        ),
+        With<Citizen>,
+    >,
+    budget: &CityBudget,
+) {
+    egui::Grid::new("tab_econ_overview")
+        .num_columns(2)
+        .spacing([16.0, 4.0])
+        .show(ui, |ui| {
+            ui.label("Land Value:");
+            let lv_color = if land_val >= 180 {
+                egui::Color32::from_rgb(50, 200, 50)
+            } else if land_val >= 80 {
+                egui::Color32::from_rgb(220, 180, 50)
+            } else {
+                egui::Color32::from_rgb(180, 100, 60)
+            };
+            ui.colored_label(lv_color, format!("{}/255", land_val));
+            ui.end_row();
+
+            // Estimated property value (land value * capacity factor)
+            let property_value = land_val as f32 * building.capacity as f32 * 10.0;
+            ui.label("Property Value:");
+            ui.label(format!("${:.0}", property_value));
+            ui.end_row();
+
+            // Tax rate
+            ui.label("Tax Rate:");
+            ui.label(format!("{:.1}%", budget.tax_rate * 100.0));
+            ui.end_row();
+        });
+
+    ui.separator();
+
+    if building.zone_type.is_residential() {
+        let residents: Vec<&CitizenDetails> = citizens
+            .iter()
+            .filter(|(_, _, home, _, _, _, _, _)| home.building == building_entity)
+            .map(|(_, details, _, _, _, _, _, _)| details)
+            .collect();
+
+        if !residents.is_empty() {
+            let count = residents.len() as f32;
+            let avg_salary: f32 = residents.iter().map(|r| r.salary).sum::<f32>() / count;
+            let tax_revenue: f32 = residents.iter().map(|r| r.salary * budget.tax_rate).sum();
+            let avg_rent = avg_salary * 0.3; // estimate 30% of income
+
+            egui::Grid::new("tab_econ_res")
+                .num_columns(2)
+                .spacing([16.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label("Avg Salary:");
+                    ui.label(format!("${:.0}/mo", avg_salary));
+                    ui.end_row();
+                    ui.label("Est. Avg Rent:");
+                    ui.label(format!("${:.0}/mo", avg_rent));
+                    ui.end_row();
+                    ui.label("Tax Revenue:");
+                    ui.label(format!("${:.0}/mo", tax_revenue));
+                    ui.end_row();
+                });
+
+            // Income distribution
+            ui.separator();
+            ui.label("Income Distribution:");
+            let mut wealth_counts = [0u32; 3];
+            for r in &residents {
+                match WealthTier::from_education(r.education) {
+                    WealthTier::LowIncome => wealth_counts[0] += 1,
+                    WealthTier::MiddleIncome => wealth_counts[1] += 1,
+                    WealthTier::HighIncome => wealth_counts[2] += 1,
+                }
+            }
+            egui::Grid::new("tab_wealth")
+                .num_columns(2)
+                .spacing([16.0, 2.0])
+                .show(ui, |ui| {
+                    ui.label("Low income");
+                    ui.label(format!("{}", wealth_counts[0]));
+                    ui.end_row();
+                    ui.label("Middle income");
+                    ui.label(format!("{}", wealth_counts[1]));
+                    ui.end_row();
+                    ui.label("High income");
+                    ui.label(format!("{}", wealth_counts[2]));
+                    ui.end_row();
+                });
+        } else {
+            ui.label("No residents yet");
+        }
+    } else {
+        // Commercial/Industrial/Office
+        let workers: Vec<&CitizenDetails> = citizens
+            .iter()
+            .filter(|(_, _, _, work, _, _, _, _)| {
+                work.map(|w| w.building == building_entity).unwrap_or(false)
+            })
+            .map(|(_, details, _, _, _, _, _, _)| details)
+            .collect();
+
+        if !workers.is_empty() {
+            let count = workers.len() as f32;
+            let avg_salary: f32 = workers.iter().map(|w| w.salary).sum::<f32>() / count;
+
+            egui::Grid::new("tab_econ_work")
+                .num_columns(2)
+                .spacing([16.0, 4.0])
+                .show(ui, |ui| {
+                    ui.label("Avg Salary:");
+                    ui.label(format!("${:.0}/mo", avg_salary));
+                    ui.end_row();
+                    ui.label("Payroll:");
+                    ui.label(format!("${:.0}/mo", avg_salary * count));
+                    ui.end_row();
+                });
+
+            // Workforce education
+            ui.separator();
+            ui.label("Workforce Education:");
+            let mut edu_counts = [0u32; 4];
+            for w in &workers {
+                let idx = (w.education as usize).min(3);
+                edu_counts[idx] += 1;
+            }
+            egui::Grid::new("tab_worker_edu")
+                .num_columns(2)
+                .spacing([16.0, 2.0])
+                .show(ui, |ui| {
+                    for (i, name) in ["None", "Elementary", "High School", "University"]
+                        .iter()
+                        .enumerate()
+                    {
+                        ui.label(*name);
+                        ui.label(format!("{}", edu_counts[i]));
+                        ui.end_row();
+                    }
+                });
+        } else {
+            ui.label("No workers yet");
+        }
+    }
+}
+
+// =============================================================================
+// Tab content: Residents (clickable)
 // =============================================================================
 
 #[allow(clippy::type_complexity)]
-fn render_residents_section(
+fn render_residents_tab(
     ui: &mut egui::Ui,
     building_entity: Entity,
     citizens: &Query<
@@ -766,6 +977,8 @@ fn render_residents_section(
         ),
         With<Citizen>,
     >,
+    selected_citizen: &mut SelectedCitizen,
+    follow_citizen: &mut FollowCitizen,
 ) {
     let mut residents: Vec<(
         Entity,
@@ -798,16 +1011,17 @@ fn render_residents_section(
         .filter(|r| r.1.life_stage().should_attend_school() || !r.1.life_stage().can_work())
         .count();
 
-    egui::Grid::new("pd_res_summary")
+    egui::Grid::new("tab_res_summary")
         .num_columns(2)
+        .spacing([16.0, 4.0])
         .show(ui, |ui| {
-            ui.label("Avg happiness:");
+            ui.label("Avg Happiness:");
             ui.colored_label(
                 happiness_color(avg_happiness),
                 format!("{:.0}%", avg_happiness),
             );
             ui.end_row();
-            ui.label("Avg age:");
+            ui.label("Avg Age:");
             ui.label(format!("{:.0}", avg_age));
             ui.end_row();
             ui.label("Gender:");
@@ -845,14 +1059,15 @@ fn render_residents_section(
 
     // Education breakdown
     ui.separator();
-    ui.label("Education breakdown:");
+    ui.label("Education Breakdown:");
     let mut edu_counts = [0u32; 4];
     for r in &residents {
         let idx = (r.1.education as usize).min(3);
         edu_counts[idx] += 1;
     }
-    egui::Grid::new("pd_edu_breakdown")
+    egui::Grid::new("tab_edu_breakdown")
         .num_columns(2)
+        .spacing([16.0, 2.0])
         .show(ui, |ui| {
             for (i, name) in ["None", "Elementary", "High School", "University"]
                 .iter()
@@ -864,9 +1079,9 @@ fn render_residents_section(
             }
         });
 
-    // Individual resident list (scrollable, up to 50)
+    // Individual resident list (scrollable, clickable)
     ui.separator();
-    ui.label("Individual Residents:");
+    ui.label("Individual Residents (click to follow):");
     residents.sort_by(|a, b| {
         b.1.happiness
             .partial_cmp(&a.1.happiness)
@@ -876,7 +1091,7 @@ fn render_residents_section(
     egui::ScrollArea::vertical()
         .max_height(280.0)
         .show(ui, |ui| {
-            egui::Grid::new("pd_residents_list")
+            egui::Grid::new("tab_residents_list")
                 .num_columns(7)
                 .striped(true)
                 .show(ui, |ui| {
@@ -895,7 +1110,12 @@ fn render_residents_section(
                         if i >= 50 {
                             break;
                         }
-                        ui.label(gen_citizen_name(*ent, details.gender));
+                        let name = gen_citizen_name(*ent, details.gender);
+                        // Clickable name to select/follow citizen
+                        if ui.small_button(&name).clicked() {
+                            selected_citizen.0 = Some(*ent);
+                            follow_citizen.0 = Some(*ent);
+                        }
                         ui.label(format!("{}", details.age));
                         ui.label(education_short(details.education));
                         ui.colored_label(
@@ -928,11 +1148,11 @@ fn render_residents_section(
 }
 
 // =============================================================================
-// Workers section rendering
+// Tab content: Workers (clickable)
 // =============================================================================
 
 #[allow(clippy::type_complexity)]
-fn render_workers_section(
+fn render_workers_tab(
     ui: &mut egui::Ui,
     building_entity: Entity,
     citizens: &Query<
@@ -948,6 +1168,8 @@ fn render_workers_section(
         ),
         With<Citizen>,
     >,
+    selected_citizen: &mut SelectedCitizen,
+    follow_citizen: &mut FollowCitizen,
 ) {
     let mut workers: Vec<(Entity, &CitizenDetails, &CitizenStateComp)> = citizens
         .iter()
@@ -967,16 +1189,17 @@ fn render_workers_section(
     let avg_happiness: f32 = workers.iter().map(|w| w.1.happiness).sum::<f32>() / count as f32;
     let avg_salary: f32 = workers.iter().map(|w| w.1.salary).sum::<f32>() / count as f32;
 
-    egui::Grid::new("pd_worker_summary")
+    egui::Grid::new("tab_worker_summary")
         .num_columns(2)
+        .spacing([16.0, 4.0])
         .show(ui, |ui| {
-            ui.label("Avg happiness:");
+            ui.label("Avg Happiness:");
             ui.colored_label(
                 happiness_color(avg_happiness),
                 format!("{:.0}%", avg_happiness),
             );
             ui.end_row();
-            ui.label("Avg salary:");
+            ui.label("Avg Salary:");
             ui.label(format!("${:.0}/mo", avg_salary));
             ui.end_row();
             ui.label("Payroll:");
@@ -991,9 +1214,10 @@ fn render_workers_section(
         let idx = (w.1.education as usize).min(3);
         edu_counts[idx] += 1;
     }
-    ui.label("Workforce education:");
-    egui::Grid::new("pd_worker_edu")
+    ui.label("Workforce Education:");
+    egui::Grid::new("tab_wrk_edu")
         .num_columns(2)
+        .spacing([16.0, 2.0])
         .show(ui, |ui| {
             for (i, name) in ["None", "Elementary", "High School", "University"]
                 .iter()
@@ -1005,9 +1229,9 @@ fn render_workers_section(
             }
         });
 
-    // Individual worker list
+    // Individual worker list (clickable)
     ui.separator();
-    ui.label("Individual Workers:");
+    ui.label("Individual Workers (click to follow):");
     workers.sort_by(|a, b| {
         b.1.happiness
             .partial_cmp(&a.1.happiness)
@@ -1017,7 +1241,7 @@ fn render_workers_section(
     egui::ScrollArea::vertical()
         .max_height(200.0)
         .show(ui, |ui| {
-            egui::Grid::new("pd_workers_list")
+            egui::Grid::new("tab_workers_list")
                 .num_columns(5)
                 .striped(true)
                 .show(ui, |ui| {
@@ -1032,7 +1256,12 @@ fn render_workers_section(
                         if i >= 50 {
                             break;
                         }
-                        ui.label(gen_citizen_name(*ent, details.gender));
+                        let name = gen_citizen_name(*ent, details.gender);
+                        // Clickable name to select/follow citizen
+                        if ui.small_button(&name).clicked() {
+                            selected_citizen.0 = Some(*ent);
+                            follow_citizen.0 = Some(*ent);
+                        }
                         ui.label(format!("{}", details.age));
                         ui.label(education_short(details.education));
                         ui.colored_label(
@@ -1051,15 +1280,100 @@ fn render_workers_section(
 }
 
 // =============================================================================
+// Tab content: Environment
+// =============================================================================
+
+fn render_environment_tab(
+    ui: &mut egui::Ui,
+    building: &Building,
+    poll_level: u8,
+    noise_level: u8,
+    land_val: u8,
+    tree_grid: &TreeGrid,
+) {
+    let nearby_trees = count_nearby_trees(tree_grid, building.grid_x, building.grid_y, 5);
+    let (gs_label, gs_color) = green_space_label(nearby_trees);
+
+    egui::Grid::new("tab_env_grid")
+        .num_columns(2)
+        .spacing([16.0, 4.0])
+        .show(ui, |ui| {
+            ui.label("Pollution:");
+            ui.colored_label(pollution_color(poll_level), format!("{}/255", poll_level));
+            ui.end_row();
+
+            ui.label("Noise:");
+            ui.colored_label(noise_color(noise_level), format!("{}/100", noise_level));
+            ui.end_row();
+
+            ui.label("Green Space:");
+            ui.colored_label(
+                gs_color,
+                format!("{} ({} trees nearby)", gs_label, nearby_trees),
+            );
+            ui.end_row();
+
+            ui.label("Land Value:");
+            let lv_color = if land_val >= 180 {
+                egui::Color32::from_rgb(50, 200, 50)
+            } else if land_val >= 80 {
+                egui::Color32::from_rgb(220, 180, 50)
+            } else {
+                egui::Color32::from_rgb(180, 100, 60)
+            };
+            ui.colored_label(lv_color, format!("{}/255", land_val));
+            ui.end_row();
+
+            ui.label("Location:");
+            ui.label(format!("({}, {})", building.grid_x, building.grid_y));
+            ui.end_row();
+        });
+
+    // Environmental quality summary
+    ui.separator();
+    ui.label("Environmental Quality:");
+
+    let env_score = {
+        // Invert pollution and noise (lower is better), combine with green space
+        let poll_score = (255.0 - poll_level as f32) / 255.0 * 40.0;
+        let noise_score = (100.0 - noise_level as f32) / 100.0 * 30.0;
+        let green_score = (nearby_trees as f32).min(20.0) / 20.0 * 30.0;
+        (poll_score + noise_score + green_score).clamp(0.0, 100.0)
+    };
+
+    let env_color = if env_score >= 70.0 {
+        egui::Color32::from_rgb(50, 200, 50)
+    } else if env_score >= 40.0 {
+        egui::Color32::from_rgb(220, 180, 50)
+    } else {
+        egui::Color32::from_rgb(220, 50, 50)
+    };
+
+    let env_label = if env_score >= 80.0 {
+        "Excellent"
+    } else if env_score >= 60.0 {
+        "Good"
+    } else if env_score >= 40.0 {
+        "Fair"
+    } else if env_score >= 20.0 {
+        "Poor"
+    } else {
+        "Very Poor"
+    };
+
+    ui.colored_label(env_color, format!("{} ({:.0}/100)", env_label, env_score));
+}
+
+// =============================================================================
 // Plugin
 // =============================================================================
 
-/// Plugin that adds progressive disclosure to the Building Inspector.
+/// Plugin that adds the tabbed Building Inspector panel.
 pub struct ProgressiveDisclosurePlugin;
 
 impl Plugin for ProgressiveDisclosurePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SectionStates>()
+        app.init_resource::<SelectedBuildingTab>()
             .add_systems(Update, progressive_building_inspection_ui);
     }
 }
@@ -1073,91 +1387,37 @@ mod tests {
     use super::*;
 
     // =========================================================================
-    // InfoSection header labels
+    // BuildingTab labels
     // =========================================================================
 
     #[test]
-    fn test_info_section_headers() {
-        assert_eq!(InfoSection::Services.header(), "Services");
-        assert_eq!(InfoSection::Environment.header(), "Environment");
-        assert_eq!(InfoSection::Economy.header(), "Economy");
-        assert_eq!(InfoSection::Residents.header(), "Residents / Workers");
+    fn test_building_tab_labels() {
+        assert_eq!(BuildingTab::Overview.label(), "Overview");
+        assert_eq!(BuildingTab::Services.label(), "Services");
+        assert_eq!(BuildingTab::Economy.label(), "Economy");
+        assert_eq!(BuildingTab::Residents.label(), "Residents");
+        assert_eq!(BuildingTab::Environment.label(), "Environment");
     }
 
     #[test]
-    fn test_info_section_all_count() {
-        assert_eq!(InfoSection::ALL.len(), 4);
-    }
-
-    // =========================================================================
-    // SectionStates defaults
-    // =========================================================================
-
-    #[test]
-    fn test_section_states_default() {
-        let states = SectionStates::default();
-        // Services expanded by default
-        assert!(states.is_expanded(InfoSection::Services));
-        // Others collapsed by default
-        assert!(!states.is_expanded(InfoSection::Environment));
-        assert!(!states.is_expanded(InfoSection::Economy));
-        assert!(!states.is_expanded(InfoSection::Residents));
-    }
-
-    // =========================================================================
-    // SectionStates toggle
-    // =========================================================================
-
-    #[test]
-    fn test_section_states_toggle() {
-        let mut states = SectionStates::default();
-
-        // Toggle environment: collapsed -> expanded
-        states.toggle(InfoSection::Environment);
-        assert!(states.is_expanded(InfoSection::Environment));
-
-        // Toggle environment again: expanded -> collapsed
-        states.toggle(InfoSection::Environment);
-        assert!(!states.is_expanded(InfoSection::Environment));
+    fn test_building_tab_all_count() {
+        assert_eq!(BuildingTab::ALL.len(), 5);
     }
 
     #[test]
-    fn test_section_states_toggle_services() {
-        let mut states = SectionStates::default();
-        assert!(states.is_expanded(InfoSection::Services));
-
-        states.toggle(InfoSection::Services);
-        assert!(!states.is_expanded(InfoSection::Services));
-
-        states.toggle(InfoSection::Services);
-        assert!(states.is_expanded(InfoSection::Services));
+    fn test_building_tab_default_is_overview() {
+        let tab = BuildingTab::default();
+        assert_eq!(tab, BuildingTab::Overview);
     }
 
     // =========================================================================
-    // SectionStates set_expanded
+    // SelectedBuildingTab defaults
     // =========================================================================
 
     #[test]
-    fn test_section_states_set_expanded() {
-        let mut states = SectionStates::default();
-
-        states.set_expanded(InfoSection::Economy, true);
-        assert!(states.is_expanded(InfoSection::Economy));
-
-        states.set_expanded(InfoSection::Economy, false);
-        assert!(!states.is_expanded(InfoSection::Economy));
-    }
-
-    #[test]
-    fn test_section_states_independent() {
-        let mut states = SectionStates::default();
-
-        // Expanding one section should not affect others
-        states.set_expanded(InfoSection::Residents, true);
-        assert!(states.is_expanded(InfoSection::Services)); // still default
-        assert!(!states.is_expanded(InfoSection::Environment)); // still default
-        assert!(!states.is_expanded(InfoSection::Economy)); // still default
-        assert!(states.is_expanded(InfoSection::Residents)); // changed
+    fn test_selected_building_tab_default() {
+        let state = SelectedBuildingTab::default();
+        assert_eq!(state.0, BuildingTab::Overview);
     }
 
     // =========================================================================
@@ -1250,6 +1510,24 @@ mod tests {
         assert_eq!(color, egui::Color32::from_rgb(200, 50, 50));
     }
 
+    #[test]
+    fn test_noise_color_green() {
+        let color = noise_color(10);
+        assert_eq!(color, egui::Color32::from_rgb(50, 200, 50));
+    }
+
+    #[test]
+    fn test_noise_color_yellow() {
+        let color = noise_color(45);
+        assert_eq!(color, egui::Color32::from_rgb(200, 150, 50));
+    }
+
+    #[test]
+    fn test_noise_color_red() {
+        let color = noise_color(70);
+        assert_eq!(color, egui::Color32::from_rgb(200, 50, 50));
+    }
+
     // =========================================================================
     // Education abbreviation
     // =========================================================================
@@ -1319,28 +1597,62 @@ mod tests {
     }
 
     // =========================================================================
-    // Boundary conditions for section indexing
+    // Green space helpers
     // =========================================================================
 
     #[test]
-    fn test_all_sections_indexable() {
-        let states = SectionStates::default();
-        for section in InfoSection::ALL {
-            // Should not panic
-            let _ = states.is_expanded(section);
-        }
+    fn test_green_space_label_none() {
+        let (label, _) = green_space_label(0);
+        assert_eq!(label, "None");
     }
 
     #[test]
-    fn test_toggle_all_sections() {
-        let mut states = SectionStates::default();
-        for section in InfoSection::ALL {
-            states.toggle(section);
-        }
-        // After toggling all: Services was true->false, others were false->true
-        assert!(!states.is_expanded(InfoSection::Services));
-        assert!(states.is_expanded(InfoSection::Environment));
-        assert!(states.is_expanded(InfoSection::Economy));
-        assert!(states.is_expanded(InfoSection::Residents));
+    fn test_green_space_label_low() {
+        let (label, _) = green_space_label(2);
+        assert_eq!(label, "Low");
+    }
+
+    #[test]
+    fn test_green_space_label_moderate() {
+        let (label, _) = green_space_label(5);
+        assert_eq!(label, "Moderate");
+    }
+
+    #[test]
+    fn test_green_space_label_good() {
+        let (label, _) = green_space_label(15);
+        assert_eq!(label, "Good");
+    }
+
+    #[test]
+    fn test_green_space_label_excellent() {
+        let (label, _) = green_space_label(25);
+        assert_eq!(label, "Excellent");
+    }
+
+    #[test]
+    fn test_count_nearby_trees_empty_grid() {
+        let grid = TreeGrid::default();
+        assert_eq!(count_nearby_trees(&grid, 128, 128, 5), 0);
+    }
+
+    // =========================================================================
+    // Tab cycling (no mutation needed, just equality checks)
+    // =========================================================================
+
+    #[test]
+    fn test_building_tab_equality() {
+        assert_eq!(BuildingTab::Overview, BuildingTab::Overview);
+        assert_ne!(BuildingTab::Overview, BuildingTab::Services);
+        assert_ne!(BuildingTab::Economy, BuildingTab::Environment);
+    }
+
+    #[test]
+    fn test_all_tabs_in_order() {
+        assert_eq!(BuildingTab::ALL[0], BuildingTab::Overview);
+        assert_eq!(BuildingTab::ALL[1], BuildingTab::Services);
+        assert_eq!(BuildingTab::ALL[2], BuildingTab::Economy);
+        assert_eq!(BuildingTab::ALL[3], BuildingTab::Residents);
+        assert_eq!(BuildingTab::ALL[4], BuildingTab::Environment);
     }
 }
