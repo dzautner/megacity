@@ -6,6 +6,7 @@ pub mod info_panel;
 pub mod milestones;
 pub mod theme;
 pub mod toolbar;
+pub mod waste_dashboard;
 pub mod water_dashboard;
 
 pub struct UiPlugin;
@@ -13,6 +14,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin)
+            .add_plugins(waste_dashboard::WasteDashboardPlugin)
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
             .init_resource::<toolbar::OpenCategory>()
