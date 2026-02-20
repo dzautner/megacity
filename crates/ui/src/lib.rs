@@ -23,6 +23,7 @@ pub mod settings_panel;
 pub mod theme;
 pub mod toolbar;
 pub mod tutorial;
+pub mod two_key_shortcuts;
 pub mod waste_dashboard;
 pub mod water_dashboard;
 
@@ -46,6 +47,7 @@ impl Plugin for UiPlugin {
             .add_plugins(advisor_tips::AdvisorTipsPlugin)
             .add_plugins(search::SearchPlugin)
             .add_plugins(overlay_legend::OverlayLegendPlugin)
+            .add_plugins(two_key_shortcuts::TwoKeyShortcutPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
