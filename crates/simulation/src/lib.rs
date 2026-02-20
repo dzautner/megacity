@@ -199,9 +199,21 @@ pub struct SaveableRegistry {
 
 impl SaveableRegistry {
     /// Register a resource type that implements `Saveable`.
+    ///
+    /// Panics in debug builds if a resource with the same `SAVE_KEY` is already
+    /// registered, preventing silent data loss from duplicate registrations.
     pub fn register<T: Saveable>(&mut self) {
+        let key = T::SAVE_KEY.to_string();
+        if self.entries.iter().any(|e| e.key == key) {
+            warn!(
+                "SaveableRegistry: duplicate key '{}' — ignoring second registration",
+                key
+            );
+            debug_assert!(false, "SaveableRegistry: duplicate key '{}'", key);
+            return;
+        }
         self.entries.push(SaveableEntry {
-            key: T::SAVE_KEY.to_string(),
+            key,
             save_fn: Box::new(|world: &World| {
                 world.get_resource::<T>().and_then(|r| r.save_to_bytes())
             }),
@@ -567,5 +579,15 @@ mod saveable_tests {
         // TestCounter should be unchanged since its key wasn't in extensions
         let counter = world.resource::<TestCounter>();
         assert_eq!(counter.value, 5);
+    }
+
+    #[test]
+    #[should_panic(expected = "duplicate key")]
+    fn test_registry_duplicate_key_panics_in_debug() {
+        let mut registry = SaveableRegistry::default();
+        registry.register::<TestCounter>();
+
+        // Second registration with the same SAVE_KEY should panic in debug builds
+        registry.register::<TestCounter>();
     }
 }

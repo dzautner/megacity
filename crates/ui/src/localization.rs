@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
-use save::SaveableAppExt;
 use simulation::localization::{LocalizationState, LOCALE_NAMES, SUPPORTED_LOCALES};
 
 // =============================================================================
@@ -87,7 +86,6 @@ pub struct LocalizationUiPlugin;
 impl Plugin for LocalizationUiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LanguageSelectorVisible>()
-            .register_saveable::<LocalizationState>()
             .add_systems(Update, (language_selector_keybind, language_selector_ui));
     }
 }
