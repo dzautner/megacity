@@ -122,6 +122,11 @@ pub mod wind_damage;
 pub mod world_init;
 pub mod zones;
 
+#[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
+pub mod test_harness;
+
 use road_graph_csr::CsrGraph;
 use road_segments::RoadSegmentStore;
 use spatial_grid::SpatialGrid;

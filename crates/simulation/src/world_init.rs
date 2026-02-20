@@ -23,7 +23,19 @@ use crate::roads::RoadNetwork;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::utilities::{UtilitySource, UtilityType};
 
-pub fn init_world(mut commands: Commands, mut segments: ResMut<RoadSegmentStore>) {
+/// Marker resource that, when present, causes `init_world` to skip the
+/// Tel Aviv map generation. Used by the test harness to start with a blank grid.
+#[derive(Resource)]
+pub struct SkipWorldInit;
+
+pub fn init_world(
+    mut commands: Commands,
+    mut segments: ResMut<RoadSegmentStore>,
+    skip: Option<Res<SkipWorldInit>>,
+) {
+    if skip.is_some() {
+        return;
+    }
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
 
     // --- Tel Aviv terrain: Mediterranean coast on west, Yarkon River in north ---

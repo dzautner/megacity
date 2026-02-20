@@ -41,3 +41,14 @@ New features should NOT touch shared files. Follow this pattern:
 - No clippy warnings: `cargo clippy --workspace -- -D warnings`
 - Code must be formatted: `cargo fmt --all`
 - PR description must reference the issue number with "Closes #N"
+
+## Integration Test Plans
+- Every PR that adds or modifies simulation behavior MUST include integration tests using `TestCity`
+- Test harness: `simulation/src/test_harness.rs` provides `TestCity` builder for headless Bevy App tests
+- Integration tests live in: `simulation/src/integration_tests.rs`
+- Test pattern:
+  1. Set up city state using `TestCity::new()` builder methods (roads, zones, buildings, citizens, etc.)
+  2. Run simulation ticks with `tick()`, `tick_slow_cycle()`, or `tick_slow_cycles()`
+  3. Assert expected outcomes using query methods and assertion helpers
+- Name tests descriptively: `test_<feature>_<scenario>_<expected_outcome>`
+- Use `TestCity::with_tel_aviv()` for smoke/regression tests against the full map
