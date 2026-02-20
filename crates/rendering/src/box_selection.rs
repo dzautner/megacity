@@ -11,7 +11,6 @@ use simulation::config::CELL_SIZE;
 use simulation::grid::{CellType, WorldGrid};
 use simulation::multi_select::{MultiSelectState, SelectableItem};
 
-use crate::camera::LeftClickDrag;
 use crate::input::{CursorGridPos, DrawPhase, RoadDrawState, StatusMessage};
 
 // =============================================================================
@@ -68,7 +67,6 @@ impl BoxSelectionState {
 /// Guards:
 /// - Only activates when Shift is held
 /// - Does not activate during road drawing (Shift is used for angle snap)
-/// - Does not activate when left-click drag is being used for camera panning
 pub fn box_selection_start(
     buttons: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -120,7 +118,6 @@ pub fn box_selection_update(
 }
 
 /// On release, select all entities within the box and populate `MultiSelectState`.
-#[allow(clippy::too_many_arguments)]
 pub fn box_selection_release(
     buttons: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
