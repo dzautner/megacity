@@ -7,7 +7,7 @@
 //!
 //! These settings only affect the *visual* rendering of the day/night cycle.
 //! The simulation's `GameClock` continues to tick normally regardless of these settings.
-//! Settings persist across saves via the `Saveable` trait.
+//! Settings persist across saves via the `Saveable` trait (bitcode serialization).
 
 use bevy::prelude::*;
 
@@ -106,11 +106,11 @@ impl Saveable for DayNightControls {
 // Systems
 // =============================================================================
 
-/// Updates the visual hour based on the game clock and day/night controls.
+/// Updates the visual hour based on the game clock and day/night control settings.
 ///
-/// When locked, visual_hour stays at the locked value.
-/// When in Disabled cycle speed, visual_hour freezes at its current value.
-/// Otherwise, visual_hour follows the game clock hour (possibly at an altered rate).
+/// - When locked, `visual_hour` stays at the locked value.
+/// - When in `Disabled` cycle speed, `visual_hour` freezes at its current value.
+/// - Otherwise, `visual_hour` follows the game clock hour (possibly at an altered rate).
 pub fn update_visual_hour(
     clock: Res<crate::time_of_day::GameClock>,
     mut controls: ResMut<DayNightControls>,
