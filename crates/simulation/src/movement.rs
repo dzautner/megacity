@@ -426,7 +426,10 @@ pub fn move_citizens(
                 let (raw_tx, raw_ty) = WorldGrid::grid_to_world(target.0, target.1);
                 let raw_dist = ((raw_tx - pos.x).powi(2) + (raw_ty - pos.y).powi(2)).sqrt();
 
-                if raw_dist < speed_per_tick {
+                // Use a fixed minimum arrival threshold so that even at very low speeds
+                // (heavy snow/fog), citizens can still reach waypoints without orbiting.
+                let arrival_dist = speed_per_tick.max(2.0);
+                if raw_dist < arrival_dist {
                     pos.x = raw_tx;
                     pos.y = raw_ty;
                     vel.x = dx;
@@ -436,14 +439,18 @@ pub fn move_citizens(
                     let nx = dx / dist;
                     let ny = dy / dist;
 
-                    // Per-entity lane offset: shift perpendicular to travel direction
+                    // Per-entity lane offset: shift perpendicular to travel direction.
+                    // Scale the offset by (speed / raw_dist) clamped to [0, 1] so that
+                    // lateral drift diminishes as the citizen approaches the waypoint,
+                    // preventing orbiting at low speeds (issue #1163).
                     let lane = (entity.index() % 3) as f32 - 1.0;
                     let lane_offset = lane * 2.5;
                     let perp_x = -ny;
                     let perp_y = nx;
+                    let offset_scale = (speed_per_tick / raw_dist).min(1.0);
 
-                    pos.x += nx * speed_per_tick + perp_x * lane_offset * 0.02;
-                    pos.y += ny * speed_per_tick + perp_y * lane_offset * 0.02;
+                    pos.x += nx * speed_per_tick + perp_x * lane_offset * 0.02 * offset_scale;
+                    pos.y += ny * speed_per_tick + perp_y * lane_offset * 0.02 * offset_scale;
                     vel.x = nx * speed_per_tick;
                     vel.y = ny * speed_per_tick;
                 }
