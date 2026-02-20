@@ -136,6 +136,12 @@ pub fn migrate_save(save: &mut SaveData) -> u32 {
         save.wastewater_state = None;
         save.version = 19;
     }
+    // v19 -> v20: Added hazardous_waste_state (HazardousWasteState serialization).
+    // Uses `#[serde(default)]` so it deserializes as None from a v19 save.
+    if save.version == 19 {
+        save.hazardous_waste_state = None;
+        save.version = 20;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     original_version

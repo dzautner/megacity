@@ -31,7 +31,8 @@ use simulation::citizen::{CitizenDetails, CitizenState, PathCache, Position, Vel
 /// v17 = water_treatment_state (WaterTreatmentState serialization for water treatment plants)
 /// v18 = groundwater_depletion_state (GroundwaterDepletionState serialization)
 /// v19 = wastewater_state (WastewaterState serialization)
-pub const CURRENT_SAVE_VERSION: u32 = 19;
+/// v20 = hazardous_waste_state (HazardousWasteState serialization)
+pub const CURRENT_SAVE_VERSION: u32 = 20;
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -128,6 +129,8 @@ pub struct SaveData {
     pub groundwater_depletion_state: Option<SaveGroundwaterDepletionState>,
     #[serde(default)]
     pub wastewater_state: Option<SaveWastewaterState>,
+    #[serde(default)]
+    pub hazardous_waste_state: Option<SaveHazardousWasteState>,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -578,6 +581,22 @@ pub struct SaveWastewaterState {
     pub coverage_ratio: f32,
     pub pollution_events: u32,
     pub health_penalty_active: bool,
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Default)]
+pub struct SaveHazardousWasteState {
+    pub total_generation: f32,
+    pub treatment_capacity: f32,
+    pub overflow: f32,
+    pub illegal_dump_events: u32,
+    pub contamination_level: f32,
+    pub federal_fines: f64,
+    pub facility_count: u32,
+    pub daily_operating_cost: f64,
+    pub chemical_treated: f32,
+    pub thermal_treated: f32,
+    pub biological_treated: f32,
+    pub stabilization_treated: f32,
 }
 impl SaveData {
     pub fn encode(&self) -> Vec<u8> {
