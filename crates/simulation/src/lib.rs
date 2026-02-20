@@ -92,6 +92,7 @@ pub mod traffic;
 pub mod traffic_accidents;
 pub mod traffic_los;
 pub mod trees;
+pub mod tutorial;
 pub mod uhi_mitigation;
 pub mod unlocks;
 pub mod urban_growth_boundary;
@@ -403,6 +404,7 @@ impl Plugin for SimulationPlugin {
             form_transect::FormTransectPlugin,
             cumulative_zoning::CumulativeZoningPlugin,
             parking::ParkingPlugin,
+            tutorial::TutorialPlugin,
         ));
     }
 }
