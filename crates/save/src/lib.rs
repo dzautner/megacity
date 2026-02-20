@@ -879,9 +879,9 @@ fn handle_load(
         *v2.snow_stats = SnowStats::default();
 
         // Store extension map for the exclusive system to apply via SaveableRegistry.
-        if !save.extensions.is_empty() {
-            pending_ext.0 = Some(save.extensions.clone());
-        }
+        // Always enqueue -- even an empty map -- so that registered resources whose
+        // keys are absent get reset to defaults (prevents cross-save contamination).
+        pending_ext.0 = Some(save.extensions.clone());
 
         #[cfg(not(target_arch = "wasm32"))]
         println!("Loaded save from {}", save_file_path());
