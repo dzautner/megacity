@@ -683,9 +683,9 @@ mod tests {
 
     #[test]
     fn test_max_speed_reduction_depth_consistent() {
-        // At MAX_SPEED_REDUCTION_DEPTH, the reduction from SPEED_REDUCTION_PER_INCH
+        // At 12 inches depth, the reduction from SPEED_REDUCTION_PER_INCH
         // should reach a meaningful fraction of MAX_SNOW_SPEED_REDUCTION
-        let reduction_at_max = MAX_SPEED_REDUCTION_DEPTH * SPEED_REDUCTION_PER_INCH;
+        let reduction_at_max = 12.0_f32 * SPEED_REDUCTION_PER_INCH;
         assert!(
             reduction_at_max <= MAX_SNOW_SPEED_REDUCTION,
             "reduction at max depth ({}) should not exceed max reduction ({})",

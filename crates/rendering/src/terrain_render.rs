@@ -58,6 +58,7 @@ pub struct TerrainChunk {
 #[derive(Component)]
 pub struct ChunkDirty;
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_terrain_chunks(
     mut commands: Commands,
     grid: Res<WorldGrid>,
