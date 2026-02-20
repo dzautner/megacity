@@ -1094,36 +1094,23 @@ pub fn toggle_grid_snap(keys: Res<ButtonInput<KeyCode>>, mut grid_snap: ResMut<G
     }
 }
 
+/// Quick-access tool shortcuts (R/Z/B/I/V).
+/// Digit keys 1-3 are reserved for simulation speed; overlays use Tab cycling.
 pub fn keyboard_tool_switch(keys: Res<ButtonInput<KeyCode>>, mut tool: ResMut<ActiveTool>) {
-    if keys.just_pressed(KeyCode::Digit1) {
+    if keys.just_pressed(KeyCode::KeyR) {
         *tool = ActiveTool::Road;
     }
-    if keys.just_pressed(KeyCode::Digit2) {
+    if keys.just_pressed(KeyCode::KeyZ) {
         *tool = ActiveTool::ZoneResidentialLow;
     }
-    if keys.just_pressed(KeyCode::Digit3) {
-        *tool = ActiveTool::ZoneCommercialLow;
-    }
-    if keys.just_pressed(KeyCode::Digit4) {
-        *tool = ActiveTool::ZoneIndustrial;
-    }
-    if keys.just_pressed(KeyCode::Digit5) {
+    if keys.just_pressed(KeyCode::KeyB) {
         *tool = ActiveTool::Bulldoze;
     }
-    if keys.just_pressed(KeyCode::Digit6) {
-        *tool = ActiveTool::ZoneResidentialHigh;
-    }
-    if keys.just_pressed(KeyCode::Digit7) {
-        *tool = ActiveTool::ZoneCommercialHigh;
-    }
-    if keys.just_pressed(KeyCode::Digit8) {
-        *tool = ActiveTool::ZoneOffice;
-    }
-    if keys.just_pressed(KeyCode::Digit9) {
+    if keys.just_pressed(KeyCode::KeyI) {
         *tool = ActiveTool::Inspect;
     }
-    if keys.just_pressed(KeyCode::Digit0) {
-        *tool = ActiveTool::ZoneMixedUse;
+    if keys.just_pressed(KeyCode::KeyV) {
+        *tool = ActiveTool::ZoneCommercialLow;
     }
 }
 

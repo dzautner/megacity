@@ -35,7 +35,7 @@ pub fn budget_panel_ui(
         .default_open(true)
         .default_width(320.0)
         .show(contexts.ctx_mut(), |ui| {
-            ui.small("Press [B] to toggle");
+            ui.small("Budget panel");
             ui.separator();
 
             // Treasury

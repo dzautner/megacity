@@ -72,6 +72,7 @@ impl Plugin for RenderingPlugin {
                     camera::camera_orbit_drag,
                     camera::camera_zoom,
                     camera::camera_zoom_keyboard,
+                    camera::camera_rotate_keyboard,
                     camera::apply_orbit_camera,
                 ),
             )

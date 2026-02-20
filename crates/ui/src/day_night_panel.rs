@@ -23,20 +23,6 @@ pub struct DayNightPanelVisible(pub bool);
 // Systems
 // =============================================================================
 
-/// Toggles the day/night controls panel with the N key.
-pub fn day_night_panel_keybind(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut visible: ResMut<DayNightPanelVisible>,
-    mut contexts: EguiContexts,
-) {
-    if contexts.ctx_mut().wants_keyboard_input() {
-        return;
-    }
-    if keyboard.just_pressed(KeyCode::KeyN) {
-        visible.0 = !visible.0;
-    }
-}
-
 /// Renders the day/night controls window.
 pub fn day_night_panel_ui(
     mut contexts: EguiContexts,
