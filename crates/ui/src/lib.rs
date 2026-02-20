@@ -8,6 +8,7 @@ pub mod milestones;
 pub mod road_segment_info;
 pub mod theme;
 pub mod toolbar;
+pub mod tutorial;
 pub mod waste_dashboard;
 pub mod water_dashboard;
 
@@ -54,6 +55,7 @@ impl Plugin for UiPlugin {
                     info_panel::groundwater_tooltip_ui,
                     water_dashboard::water_dashboard_ui,
                     water_dashboard::water_dashboard_keybind,
+                    tutorial::tutorial_ui,
                 ),
             );
     }
