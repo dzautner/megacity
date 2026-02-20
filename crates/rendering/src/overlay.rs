@@ -15,10 +15,11 @@ pub enum OverlayMode {
     WaterPollution,
     GroundwaterLevel,
     GroundwaterQuality,
+    Wind,
 }
 
 /// Ordered list of all overlay modes for Tab/Shift+Tab cycling.
-const ALL_OVERLAYS: [OverlayMode; 12] = [
+const ALL_OVERLAYS: [OverlayMode; 13] = [
     OverlayMode::None,
     OverlayMode::Power,
     OverlayMode::Water,
@@ -31,6 +32,7 @@ const ALL_OVERLAYS: [OverlayMode; 12] = [
     OverlayMode::WaterPollution,
     OverlayMode::GroundwaterLevel,
     OverlayMode::GroundwaterQuality,
+    OverlayMode::Wind,
 ];
 
 impl OverlayMode {
@@ -61,6 +63,7 @@ impl OverlayMode {
             Self::WaterPollution => "Water Pollution",
             Self::GroundwaterLevel => "Groundwater Level",
             Self::GroundwaterQuality => "Groundwater Quality",
+            Self::Wind => "Wind",
         }
     }
 }
@@ -146,11 +149,12 @@ pub fn toggle_overlay_keys(keys: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<
         };
     }
     if keys.just_pressed(KeyCode::KeyW) {
-        // Toggle between groundwater level and quality sub-overlays:
-        // None -> Level -> Quality -> None
+        // Toggle between groundwater level, quality, and wind sub-overlays:
+        // None -> Level -> Quality -> Wind -> None
         overlay.mode = match overlay.mode {
             OverlayMode::GroundwaterLevel => OverlayMode::GroundwaterQuality,
-            OverlayMode::GroundwaterQuality => OverlayMode::None,
+            OverlayMode::GroundwaterQuality => OverlayMode::Wind,
+            OverlayMode::Wind => OverlayMode::None,
             _ => OverlayMode::GroundwaterLevel,
         };
     }
@@ -175,6 +179,7 @@ mod tests {
             OverlayMode::WaterPollution,
             OverlayMode::GroundwaterLevel,
             OverlayMode::GroundwaterQuality,
+            OverlayMode::Wind,
             OverlayMode::None, // wraps back
         ];
         for &exp in &expected {
@@ -187,6 +192,7 @@ mod tests {
     fn prev_cycles_backward_through_all_overlays() {
         let mut mode = OverlayMode::None;
         let expected = [
+            OverlayMode::Wind,
             OverlayMode::GroundwaterQuality,
             OverlayMode::GroundwaterLevel,
             OverlayMode::WaterPollution,
