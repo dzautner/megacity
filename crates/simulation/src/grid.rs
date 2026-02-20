@@ -98,6 +98,26 @@ impl RoadType {
             RoadType::Path => 0,
         }
     }
+
+    /// Returns the next upgrade tier for this road type, or `None` if already at max tier.
+    /// Upgrade path: Path -> Local -> Avenue -> Boulevard, OneWay -> Avenue.
+    /// Highway and Boulevard have no further upgrade.
+    pub fn upgrade_tier(self) -> Option<RoadType> {
+        match self {
+            RoadType::Path => Some(RoadType::Local),
+            RoadType::Local => Some(RoadType::Avenue),
+            RoadType::Avenue => Some(RoadType::Boulevard),
+            RoadType::OneWay => Some(RoadType::Avenue),
+            RoadType::Boulevard | RoadType::Highway => None,
+        }
+    }
+
+    /// Returns the cost to upgrade this road type to its next tier.
+    /// The upgrade cost is the difference between the next tier cost and the current cost.
+    /// Returns `None` if no upgrade is available.
+    pub fn upgrade_cost(self) -> Option<f64> {
+        self.upgrade_tier().map(|next| next.cost() - self.cost())
+    }
 }
 
 impl ZoneType {

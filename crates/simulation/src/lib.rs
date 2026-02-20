@@ -62,6 +62,7 @@ pub mod localization;
 pub mod lod;
 pub mod market;
 pub mod movement;
+pub mod multi_select;
 pub mod natural_resources;
 pub mod neighborhood_quality;
 pub mod nimby;
@@ -410,6 +411,7 @@ impl Plugin for SimulationPlugin {
             cumulative_zoning::CumulativeZoningPlugin,
             parking::ParkingPlugin,
             tutorial::TutorialPlugin,
+            multi_select::MultiSelectPlugin,
         ));
 
         // Localization infrastructure
