@@ -18,16 +18,10 @@ pub const ZONE_COST_PER_CELL: f64 = 5.0;
 // ---------------------------------------------------------------------------
 
 /// Configurable zone brush size: 1x1, 3x3, or 5x5.
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ZoneBrushSize {
     /// Half-extent: 0 => 1x1, 1 => 3x3, 2 => 5x5.
     pub half_extent: i32,
-}
-
-impl Default for ZoneBrushSize {
-    fn default() -> Self {
-        Self { half_extent: 0 } // 1x1
-    }
 }
 
 impl ZoneBrushSize {
