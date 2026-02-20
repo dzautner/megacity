@@ -35,7 +35,7 @@ jobs:
 
       - name: Build WASM
         working-directory: crates/app
-        run: trunk build --release
+        run: trunk build --release --public-url /megacity/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
