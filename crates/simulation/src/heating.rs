@@ -138,6 +138,7 @@ pub fn heating_demand(weather: &Weather) -> f32 {
 
 /// System: propagate heating from HeatingPlant entities via BFS, update HeatingGrid and HeatingStats.
 /// Runs on slow tick (every 100 ticks).
+#[allow(clippy::too_many_arguments)]
 pub fn update_heating(
     timer: Res<SlowTickTimer>,
     world_grid: Res<WorldGrid>,

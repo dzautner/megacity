@@ -42,9 +42,6 @@ const SPEED_REDUCTION_PER_INCH: f32 = 0.05;
 /// At 12+ inches, roads are at maximum slowdown (80% reduction).
 const MAX_SNOW_SPEED_REDUCTION: f32 = 0.80;
 
-/// Snow depth threshold (inches) above which maximum speed reduction applies.
-const MAX_SPEED_REDUCTION_DEPTH: f32 = 12.0;
-
 /// Heating demand increase per 6 inches of snow (fraction, i.e. 0.10 = +10%).
 const HEATING_INCREASE_PER_6_INCHES: f32 = 0.10;
 
@@ -184,12 +181,12 @@ pub fn snow_accumulation_amount(weather: &Weather) -> f32 {
     match weather.current_event {
         WeatherCondition::Snow => {
             // Scale accumulation with precipitation intensity
-            let intensity_factor = (weather.precipitation_intensity * 2.0).max(0.5).min(3.0);
+            let intensity_factor = (weather.precipitation_intensity * 2.0).clamp(0.5, 3.0);
             BASE_SNOW_ACCUMULATION_RATE * intensity_factor
         }
         WeatherCondition::Storm if weather.temperature < FREEZING_POINT_C => {
             // Heavy snow during storms
-            let intensity_factor = (weather.precipitation_intensity * 2.0).max(1.0).min(4.0);
+            let intensity_factor = (weather.precipitation_intensity * 2.0).clamp(1.0, 4.0);
             BASE_SNOW_ACCUMULATION_RATE * intensity_factor
         }
         _ => 0.0,
