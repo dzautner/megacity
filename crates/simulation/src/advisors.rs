@@ -415,7 +415,7 @@ fn find_first_fire(fire: &FireGrid) -> Option<(usize, usize)> {
 /// Find a zoned building cell (proxy for fire coverage gap location).
 fn find_fire_coverage_gap(grid: &WorldGrid) -> Option<(usize, usize)> {
     for (i, cell) in grid.cells.iter().enumerate() {
-        if cell.cell_type == CellType::Building && cell.zone != ZoneType::None {
+        if cell.building_id.is_some() && cell.zone != ZoneType::None {
             let x = i % GRID_WIDTH;
             let y = i / GRID_WIDTH;
             return Some((x, y));
@@ -1004,7 +1004,7 @@ fn fire_coverage_advice(
     let building_count = grid
         .cells
         .iter()
-        .filter(|c| c.cell_type == CellType::Building)
+        .filter(|c| c.building_id.is_some())
         .count();
 
     // If there are buildings and repeated fires, suggest fire coverage
@@ -1032,7 +1032,9 @@ impl crate::Saveable for DismissedAdvisorTips {
         if self.dismissed.is_empty() {
             return None;
         }
-        bitcode::encode(&self.dismissed.iter().copied().collect::<Vec<_>>()).ok()
+        Some(bitcode::encode(
+            &self.dismissed.iter().copied().collect::<Vec<_>>(),
+        ))
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
