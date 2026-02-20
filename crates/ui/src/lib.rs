@@ -5,6 +5,7 @@ pub mod advisor_tips;
 pub mod cell_info_panel;
 pub mod cell_tooltip;
 pub mod citizen_info;
+pub mod context_menu;
 pub mod day_night_panel;
 pub mod district_inspect;
 pub mod graphs;
@@ -36,6 +37,7 @@ impl Plugin for UiPlugin {
             .add_plugins(cell_info_panel::CellInfoPanelPlugin)
             .add_plugins(cell_tooltip::CellTooltipPlugin)
             .add_plugins(citizen_info::CitizenInfoPlugin)
+            .add_plugins(context_menu::ContextMenuPlugin)
             .add_plugins(district_inspect::DistrictInspectPlugin)
             .add_plugins(road_segment_info::RoadSegmentInfoPlugin)
             .add_plugins(waste_dashboard::WasteDashboardPlugin)

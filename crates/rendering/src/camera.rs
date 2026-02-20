@@ -12,6 +12,9 @@ const MAX_PITCH: f32 = 80.0 * std::f32::consts::PI / 180.0; // 80 degrees
 const ORBIT_SENSITIVITY: f32 = 0.005;
 const KEYBOARD_ROTATE_SPEED: f32 = 2.0;
 
+/// Movement threshold in pixels: right-click release below this triggers context menu.
+const RIGHT_DRAG_THRESHOLD: f32 = 5.0;
+
 /// Orbital camera model: camera orbits around a focus point on the ground.
 #[derive(Resource)]
 pub struct OrbitCamera {
@@ -46,6 +49,19 @@ pub struct CameraDrag {
 pub struct CameraOrbitDrag {
     pub dragging: bool,
     pub last_pos: Vec2,
+}
+
+/// Tracks right-click drag state: differentiates click from drag.
+/// When the mouse moves beyond `RIGHT_DRAG_THRESHOLD` pixels from the initial press,
+/// it becomes a camera orbit. Otherwise, on release, it triggers the context menu.
+#[derive(Resource, Default)]
+pub struct RightClickDrag {
+    pub pressed: bool,
+    pub start_pos: Vec2,
+    /// True once mouse has moved beyond threshold — this is an orbit drag, not a context-menu click.
+    pub is_dragging: bool,
+    /// Set to true for exactly one frame when right-click is released without exceeding the drag threshold.
+    pub just_released_click: bool,
 }
 
 /// Tracks left-click drag state: differentiates click from drag.
@@ -181,33 +197,60 @@ pub fn camera_pan_drag(
 }
 
 /// Right-mouse drag: orbit (horizontal = yaw, vertical = pitch).
+/// Only orbits after the mouse moves beyond RIGHT_DRAG_THRESHOLD pixels.
+/// If released before that, sets `RightClickDrag::just_released_click` for one frame.
 pub fn camera_orbit_drag(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut drag: ResMut<CameraOrbitDrag>,
+    mut right_click: ResMut<RightClickDrag>,
     mut orbit: ResMut<OrbitCamera>,
 ) {
     let Ok(window) = windows.get_single() else {
         return;
     };
 
+    // Clear the one-frame flag from the previous frame
+    right_click.just_released_click = false;
+
     if buttons.just_pressed(MouseButton::Right) {
         if let Some(pos) = window.cursor_position() {
             drag.dragging = true;
             drag.last_pos = pos;
+            right_click.pressed = true;
+            right_click.start_pos = pos;
+            right_click.is_dragging = false;
         }
     }
 
     if buttons.just_released(MouseButton::Right) {
         drag.dragging = false;
+        if right_click.pressed && !right_click.is_dragging {
+            right_click.just_released_click = true;
+        }
+        right_click.pressed = false;
+        right_click.is_dragging = false;
     }
 
     if drag.dragging {
         if let Some(pos) = window.cursor_position() {
-            let delta = pos - drag.last_pos;
-            orbit.yaw += delta.x * ORBIT_SENSITIVITY;
-            orbit.pitch = (orbit.pitch - delta.y * ORBIT_SENSITIVITY).clamp(MIN_PITCH, MAX_PITCH);
-            drag.last_pos = pos;
+            // Check if we've exceeded the drag threshold
+            if !right_click.is_dragging {
+                let dist = (pos - right_click.start_pos).length();
+                if dist > RIGHT_DRAG_THRESHOLD {
+                    right_click.is_dragging = true;
+                    drag.last_pos = pos;
+                }
+            }
+
+            // Only orbit once we've exceeded the threshold
+            if right_click.is_dragging {
+                let delta = pos - drag.last_pos;
+                orbit.yaw += delta.x * ORBIT_SENSITIVITY;
+                orbit.pitch =
+                    (orbit.pitch - delta.y * ORBIT_SENSITIVITY).clamp(MIN_PITCH, MAX_PITCH);
+                drag.last_pos = pos;
+            }
         }
     }
 }
