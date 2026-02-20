@@ -17,6 +17,7 @@ pub mod composting;
 pub mod config;
 pub mod crime;
 pub mod cso;
+pub mod cumulative_zoning;
 pub mod death_care;
 pub mod degree_days;
 pub mod disasters;
@@ -395,6 +396,7 @@ impl Plugin for SimulationPlugin {
             nimby::NimbyPlugin,
             walkability::WalkabilityPlugin,
             form_transect::FormTransectPlugin,
+            cumulative_zoning::CumulativeZoningPlugin,
         ));
     }
 }

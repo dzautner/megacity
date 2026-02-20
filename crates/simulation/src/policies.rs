@@ -32,6 +32,7 @@ pub enum Policy {
     NightShiftBan,
     IndustrialZoningRestriction,
     EminentDomain,
+    CumulativeZoning,
 }
 
 impl Policy {
@@ -54,6 +55,7 @@ impl Policy {
             Policy::NightShiftBan => 0.0,
             Policy::IndustrialZoningRestriction => 0.0,
             Policy::EminentDomain => 20.0,
+            Policy::CumulativeZoning => 0.0,
         }
     }
 
@@ -75,6 +77,7 @@ impl Policy {
             Policy::NightShiftBan => "Night Shift Ban",
             Policy::IndustrialZoningRestriction => "Industrial Zoning Restriction",
             Policy::EminentDomain => "Eminent Domain",
+            Policy::CumulativeZoning => "Cumulative Zoning",
         }
     }
 
@@ -100,6 +103,9 @@ impl Policy {
             Policy::EminentDomain => {
                 "Override citizen opposition to development at a happiness cost"
             }
+            Policy::CumulativeZoning => {
+                "Higher-intensity zones allow lower-intensity uses (Euclidean hierarchy)"
+            }
         }
     }
 
@@ -122,6 +128,7 @@ impl Policy {
             Policy::NightShiftBan,
             Policy::IndustrialZoningRestriction,
             Policy::EminentDomain,
+            Policy::CumulativeZoning,
         ]
     }
 }
