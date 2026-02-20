@@ -385,8 +385,7 @@ pub fn update_cursor_grid_pos(
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_tool_input(
-    buttons: Res<ButtonInput<MouseButton>>,
-    keys: Res<ButtonInput<KeyCode>>,
+    input: (Res<ButtonInput<MouseButton>>, Res<ButtonInput<KeyCode>>),
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
     mut grid: ResMut<WorldGrid>,
@@ -403,6 +402,8 @@ pub fn handle_tool_input(
     mut district_map: ResMut<simulation::districts::DistrictMap>,
     ugb: Res<UrbanGrowthBoundary>,
 ) {
+    let (buttons, keys) = input;
+
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
         return;
