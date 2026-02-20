@@ -2,10 +2,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::citizen::{
-    Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, HomeLocation, Needs,
-    PathCache, Personality, Position, Velocity,
+    Citizen, CitizenDetails, CitizenState, CitizenStateComp, HomeLocation, Position,
 };
-use crate::movement::ActivityTimer;
 use crate::spatial_grid::SpatialGrid;
 
 /// LOD tier for citizens. Stored as a component on ALL citizen entities
@@ -210,8 +208,9 @@ pub fn assign_lod_tiers(
     }
 }
 
-/// When a citizen enters Abstract tier, strip heavy components and insert CompressedCitizen.
-/// This reduces per-entity memory from ~200 bytes + 12 components to ~50 bytes + 5 components.
+/// When a citizen enters Abstract tier, insert a CompressedCitizen marker.
+/// Components (Needs, Personality, Family, etc.) are preserved on the entity so no
+/// data is lost on tier transitions. Expensive systems gate on LOD tier instead.
 #[allow(clippy::type_complexity)]
 pub fn compress_abstract_citizens(
     mut commands: Commands,
@@ -239,18 +238,12 @@ pub fn compress_abstract_citizens(
             0, // home district placeholder
             0, // work district placeholder
         );
-        commands.entity(entity).insert(compressed).remove::<(
-            PathCache,
-            Velocity,
-            Needs,
-            Personality,
-            Family,
-            ActivityTimer,
-        )>();
+        commands.entity(entity).insert(compressed);
     }
 }
 
-/// When a citizen leaves Abstract tier, restore full components from CompressedCitizen.
+/// When a citizen leaves Abstract tier, remove the CompressedCitizen marker.
+/// All original components remain intact on the entity, so no restoration is needed.
 #[allow(clippy::type_complexity)]
 pub fn decompress_active_citizens(
     mut commands: Commands,
@@ -260,20 +253,6 @@ pub fn decompress_active_citizens(
         if *lod == LodTier::Abstract {
             continue;
         }
-        // Re-add the stripped components with defaults
-        commands.entity(entity).insert((
-            Velocity { x: 0.0, y: 0.0 },
-            PathCache::new(Vec::new()),
-            Needs::default(),
-            Personality {
-                ambition: 0.5,
-                sociability: 0.5,
-                materialism: 0.5,
-                resilience: 0.5,
-            },
-            Family::default(),
-            ActivityTimer::default(),
-        ));
         commands.entity(entity).remove::<CompressedCitizen>();
     }
 }
