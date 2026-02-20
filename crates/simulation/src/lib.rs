@@ -89,6 +89,7 @@ pub mod wastewater;
 pub mod water_conservation;
 pub mod water_demand;
 pub mod water_pollution;
+pub mod water_pressure;
 pub mod water_sources;
 pub mod water_treatment;
 pub mod wealth;
@@ -311,6 +312,7 @@ impl Plugin for SimulationPlugin {
             cso::CsoPlugin,
             water_treatment::WaterTreatmentPlugin,
             water_conservation::WaterConservationPlugin,
+            water_pressure::WaterPressurePlugin,
             groundwater_depletion::GroundwaterDepletionPlugin,
             wastewater::WastewaterPlugin,
         ));
