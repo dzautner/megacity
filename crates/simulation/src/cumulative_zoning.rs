@@ -118,16 +118,10 @@ pub fn permitted_zone_types(zone: ZoneType) -> Vec<ZoneType> {
 ///
 /// When `enabled` is `false` (default), exclusive zoning applies: each zone
 /// only permits its own building type.
-#[derive(Resource, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct CumulativeZoningState {
     /// Whether cumulative zoning is enabled city-wide.
     pub enabled: bool,
-}
-
-impl Default for CumulativeZoningState {
-    fn default() -> Self {
-        Self { enabled: false }
-    }
 }
 
 // =============================================================================
