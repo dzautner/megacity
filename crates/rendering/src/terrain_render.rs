@@ -1375,5 +1375,5 @@ pub fn mark_all_chunks_dirty(
 }
 
 pub fn cell_color(cell: &simulation::grid::Cell) -> Color {
-    terrain_color(cell, 0, 0, Season::Spring, 0.0)
+    terrain_color(cell, 0, 0, Season::Spring, 0.0, ColorblindMode::Normal)
 }

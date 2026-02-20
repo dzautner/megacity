@@ -1051,8 +1051,7 @@ fn test_colorblind_mode_default_is_normal() {
 #[test]
 fn test_colorblind_mode_persists_across_ticks() {
     let mut city = TestCity::new();
-    city.app
-        .world_mut()
+    city.world_mut()
         .resource_mut::<crate::colorblind::ColorblindSettings>()
         .mode = crate::colorblind::ColorblindMode::Protanopia;
     city.tick(10);
