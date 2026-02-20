@@ -421,3 +421,23 @@ pub fn restore_wastewater(
         health_penalty_active: save.health_penalty_active,
     }
 }
+
+/// Restore a `HazardousWasteState` resource from saved data.
+pub fn restore_hazardous_waste(
+    save: &crate::save_types::SaveHazardousWasteState,
+) -> simulation::hazardous_waste::HazardousWasteState {
+    simulation::hazardous_waste::HazardousWasteState {
+        total_generation: save.total_generation,
+        treatment_capacity: save.treatment_capacity,
+        overflow: save.overflow,
+        illegal_dump_events: save.illegal_dump_events,
+        contamination_level: save.contamination_level,
+        federal_fines: save.federal_fines,
+        facility_count: save.facility_count,
+        daily_operating_cost: save.daily_operating_cost,
+        chemical_treated: save.chemical_treated,
+        thermal_treated: save.thermal_treated,
+        biological_treated: save.biological_treated,
+        stabilization_treated: save.stabilization_treated,
+    }
+}

@@ -11,6 +11,7 @@ use simulation::composting::CompostingState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
+use simulation::hazardous_waste::HazardousWasteState;
 use simulation::heat_wave::HeatWaveState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::loans::LoanBook;
@@ -50,6 +51,7 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub water_treatment_state: Res<'w, WaterTreatmentState>,
     pub groundwater_depletion_state: Res<'w, GroundwaterDepletionState>,
     pub wastewater_state: Res<'w, WastewaterState>,
+    pub hazardous_waste_state: Res<'w, HazardousWasteState>,
 }
 
 /// Mutable access to the V2+ resources.
@@ -77,4 +79,5 @@ pub(crate) struct V2ResourcesWrite<'w> {
     pub water_treatment_state: ResMut<'w, WaterTreatmentState>,
     pub groundwater_depletion_state: ResMut<'w, GroundwaterDepletionState>,
     pub wastewater_state: ResMut<'w, WastewaterState>,
+    pub hazardous_waste_state: ResMut<'w, HazardousWasteState>,
 }
