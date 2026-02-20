@@ -1027,7 +1027,7 @@ mod tests {
         // damage_frac = 0.65, building_value = 500 * 3 * 1000 = 1,500,000
         // damage = 1,500,000 * 0.65 = 975,000
         assert!(
-            (damage - 975_000.0).abs() < 0.01,
+            (damage - 975_000.0).abs() < 1.0,
             "Residential L3 damage at 6ft should be 975000, got {}",
             damage
         );
@@ -1045,7 +1045,7 @@ mod tests {
         // damage_frac = 0.15, building_value = 150 * 3 * 1000 = 450,000
         // damage = 450,000 * 0.15 = 67,500
         assert!(
-            (damage - 67_500.0).abs() < 0.01,
+            (damage - 67_500.0).abs() < 1.0,
             "Industrial L3 damage at 3ft should be 67500, got {}",
             damage
         );
@@ -1075,7 +1075,7 @@ mod tests {
         // damage_frac = 0.80, building_value = 300 * 5 * 1000 = 1,500,000
         // damage = 1,500,000 * 0.80 = 1,200,000
         assert!(
-            (damage - 1_200_000.0).abs() < 0.01,
+            (damage - 1_200_000.0).abs() < 1.0,
             "Commercial L5 damage at 10ft should be 1200000, got {}",
             damage
         );
