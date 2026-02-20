@@ -13,10 +13,12 @@ pub enum OverlayMode {
     Garbage,
     Noise,
     WaterPollution,
+    GroundwaterLevel,
+    GroundwaterQuality,
 }
 
 /// Ordered list of all overlay modes for Tab/Shift+Tab cycling.
-const ALL_OVERLAYS: [OverlayMode; 10] = [
+const ALL_OVERLAYS: [OverlayMode; 12] = [
     OverlayMode::None,
     OverlayMode::Power,
     OverlayMode::Water,
@@ -27,6 +29,8 @@ const ALL_OVERLAYS: [OverlayMode; 10] = [
     OverlayMode::Garbage,
     OverlayMode::Noise,
     OverlayMode::WaterPollution,
+    OverlayMode::GroundwaterLevel,
+    OverlayMode::GroundwaterQuality,
 ];
 
 impl OverlayMode {
@@ -55,6 +59,8 @@ impl OverlayMode {
             Self::Garbage => "Garbage",
             Self::Noise => "Noise",
             Self::WaterPollution => "Water Pollution",
+            Self::GroundwaterLevel => "Groundwater Level",
+            Self::GroundwaterQuality => "Groundwater Quality",
         }
     }
 }
@@ -139,6 +145,15 @@ pub fn toggle_overlay_keys(keys: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<
             OverlayMode::WaterPollution
         };
     }
+    if keys.just_pressed(KeyCode::KeyW) {
+        // Toggle between groundwater level and quality sub-overlays:
+        // None -> Level -> Quality -> None
+        overlay.mode = match overlay.mode {
+            OverlayMode::GroundwaterLevel => OverlayMode::GroundwaterQuality,
+            OverlayMode::GroundwaterQuality => OverlayMode::None,
+            _ => OverlayMode::GroundwaterLevel,
+        };
+    }
 }
 
 #[cfg(test)]
@@ -158,6 +173,8 @@ mod tests {
             OverlayMode::Garbage,
             OverlayMode::Noise,
             OverlayMode::WaterPollution,
+            OverlayMode::GroundwaterLevel,
+            OverlayMode::GroundwaterQuality,
             OverlayMode::None, // wraps back
         ];
         for &exp in &expected {
@@ -170,6 +187,8 @@ mod tests {
     fn prev_cycles_backward_through_all_overlays() {
         let mut mode = OverlayMode::None;
         let expected = [
+            OverlayMode::GroundwaterQuality,
+            OverlayMode::GroundwaterLevel,
             OverlayMode::WaterPollution,
             OverlayMode::Noise,
             OverlayMode::Garbage,

@@ -182,6 +182,58 @@ pub static CIVIDIS: ColorRamp = ColorRamp {
 };
 
 // ---------------------------------------------------------------------------
+// Groundwater Level ramp (16 control points)
+// Dry/depleted (red) -> warning (orange/yellow) -> moderate (light blue) ->
+// saturated (deep blue). Designed for groundwater level overlay.
+// ---------------------------------------------------------------------------
+pub static GROUNDWATER_LEVEL: ColorRamp = ColorRamp {
+    points: &[
+        [0.75, 0.15, 0.10], // 0   - dry (red)
+        [0.80, 0.25, 0.10],
+        [0.85, 0.40, 0.12],
+        [0.88, 0.55, 0.15], // ~0.20 - warning (orange)
+        [0.85, 0.70, 0.20],
+        [0.70, 0.78, 0.35], // ~0.33 - transitional (yellow-green)
+        [0.45, 0.72, 0.55],
+        [0.30, 0.65, 0.70], // ~0.47 - moderate (teal)
+        [0.22, 0.55, 0.75],
+        [0.18, 0.48, 0.78],
+        [0.15, 0.40, 0.80], // ~0.67 - good (medium blue)
+        [0.12, 0.35, 0.82],
+        [0.10, 0.28, 0.82],
+        [0.08, 0.22, 0.80], // ~0.87 - high (dark blue)
+        [0.06, 0.16, 0.75],
+        [0.04, 0.10, 0.68], // 1   - saturated (deep blue)
+    ],
+};
+
+// ---------------------------------------------------------------------------
+// Groundwater Quality ramp (16 control points)
+// Contaminated (brown) -> poor (dark olive) -> moderate (olive-green) ->
+// clean (bright green). Designed for groundwater quality overlay.
+// ---------------------------------------------------------------------------
+pub static GROUNDWATER_QUALITY: ColorRamp = ColorRamp {
+    points: &[
+        [0.40, 0.25, 0.12], // 0   - contaminated (brown)
+        [0.45, 0.28, 0.14],
+        [0.48, 0.32, 0.16],
+        [0.50, 0.36, 0.18], // ~0.20 - poor (dark brown)
+        [0.50, 0.40, 0.20],
+        [0.48, 0.45, 0.22], // ~0.33 - poor-moderate (olive)
+        [0.44, 0.50, 0.24],
+        [0.38, 0.55, 0.26], // ~0.47 - moderate (olive-green)
+        [0.32, 0.58, 0.28],
+        [0.26, 0.60, 0.30],
+        [0.20, 0.62, 0.32], // ~0.67 - good (green)
+        [0.16, 0.65, 0.34],
+        [0.12, 0.68, 0.36],
+        [0.10, 0.72, 0.38], // ~0.87 - very good (bright green)
+        [0.08, 0.76, 0.40],
+        [0.06, 0.80, 0.42], // 1   - clean (bright green)
+    ],
+};
+
+// ---------------------------------------------------------------------------
 // Categorical / boolean palettes
 // ---------------------------------------------------------------------------
 
@@ -368,6 +420,50 @@ mod tests {
         assert!((r - 0.4).abs() < 1e-5);
         assert!((g - 0.3).abs() < 1e-5);
         assert!((b - 0.2).abs() < 1e-5);
+    }
+
+    #[test]
+    fn groundwater_level_endpoints() {
+        let (r0, _g0, b0) = rgb(GROUNDWATER_LEVEL.sample(0.0));
+        // Should be red/warm (dry)
+        assert!(r0 > 0.60, "groundwater_level(0) should be reddish (dry)");
+
+        let (r1, _g1, b1) = rgb(GROUNDWATER_LEVEL.sample(1.0));
+        // Should be deep blue (saturated)
+        assert!(
+            b1 > r1,
+            "groundwater_level(1) should be blue (saturated), got r={r1} b={b1}"
+        );
+    }
+
+    #[test]
+    fn groundwater_quality_endpoints() {
+        let (r0, g0, _b0) = rgb(GROUNDWATER_QUALITY.sample(0.0));
+        // Should be brown (contaminated)
+        assert!(
+            r0 > g0,
+            "groundwater_quality(0) should be brownish, got r={r0} g={g0}"
+        );
+
+        let (_r1, g1, _b1) = rgb(GROUNDWATER_QUALITY.sample(1.0));
+        // Should be green (clean)
+        assert!(
+            g1 > 0.70,
+            "groundwater_quality(1) should be green, got g={g1}"
+        );
+    }
+
+    #[test]
+    fn groundwater_ramps_different_from_each_other() {
+        let level_mid = rgb(GROUNDWATER_LEVEL.sample(0.5));
+        let quality_mid = rgb(GROUNDWATER_QUALITY.sample(0.5));
+        let diff = (level_mid.0 - quality_mid.0).abs()
+            + (level_mid.1 - quality_mid.1).abs()
+            + (level_mid.2 - quality_mid.2).abs();
+        assert!(
+            diff > 0.1,
+            "groundwater level and quality ramps should differ at midpoint"
+        );
     }
 
     #[test]

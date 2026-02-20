@@ -80,9 +80,9 @@ impl Plugin for RenderingPlugin {
                     cursor_preview::update_cursor_preview,
                     cursor_preview::draw_bezier_preview,
                     road_render::sync_road_segment_meshes,
-                    day_night::update_day_night_cycle,
                 ),
             )
+            .add_systems(Update, day_night::update_day_night_cycle)
             .add_systems(
                 Update,
                 (
