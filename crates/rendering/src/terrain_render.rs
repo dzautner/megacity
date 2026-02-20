@@ -154,12 +154,12 @@ pub fn rebuild_dirty_chunks(
     traffic_grid: Res<TrafficGrid>,
     noise_grid: Res<NoisePollutionGrid>,
     water_pollution_grid: Res<WaterPollutionGrid>,
-    groundwater_grid: Res<GroundwaterGrid>,
-    water_quality_grid: Res<WaterQualityGrid>,
+    groundwater_grids: (Res<GroundwaterGrid>, Res<WaterQualityGrid>),
     weather: Res<Weather>,
     mut meshes: ResMut<Assets<Mesh>>,
     query: Query<(Entity, &TerrainChunk, &Mesh3d), With<ChunkDirty>>,
 ) {
+    let (groundwater_grid, water_quality_grid) = groundwater_grids;
     let overlay_grids = OverlayGrids {
         pollution: Some(&pollution_grid),
         land_value: Some(&land_value_grid),

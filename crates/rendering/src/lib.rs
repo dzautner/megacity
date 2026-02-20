@@ -82,10 +82,7 @@ impl Plugin for RenderingPlugin {
                     road_render::sync_road_segment_meshes,
                 ),
             )
-            .add_systems(
-                Update,
-                day_night::update_day_night_cycle,
-            )
+            .add_systems(Update, day_night::update_day_night_cycle)
             .add_systems(
                 Update,
                 (
