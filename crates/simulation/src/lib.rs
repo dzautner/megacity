@@ -121,6 +121,7 @@ pub mod traffic;
 pub mod traffic_accidents;
 pub mod traffic_congestion;
 pub mod traffic_los;
+pub mod transit_hub;
 pub mod trees;
 pub mod tutorial;
 pub mod uhi_mitigation;
@@ -333,6 +334,8 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "seasonal_rendering",
     "superblock_state",
     "traffic_los",
+    "transit_hub_stats",
+    "transit_hubs",
     "tutorial",
     "uhi_mitigation",
     "walkability",
@@ -515,6 +518,7 @@ impl Plugin for SimulationPlugin {
             traffic_los::TrafficLosPlugin,
             road_hierarchy::RoadHierarchyPlugin,
             bus_transit::BusTransitPlugin,
+            transit_hub::TransitHubPlugin,
             loans::LoansPlugin,
             bulldoze_refund::BulldozeRefundPlugin,
         ));
