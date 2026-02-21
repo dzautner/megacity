@@ -34,3 +34,6 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 futures-channel = "0.3"
 flate2 = "1.1"
+
+[lints]
+workspace = true

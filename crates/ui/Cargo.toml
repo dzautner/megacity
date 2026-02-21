@@ -9,3 +9,6 @@ bevy_egui = { workspace = true }
 simulation = { path = "../simulation" }
 rendering = { path = "../rendering" }
 save = { path = "../save" }
+
+[lints]
+workspace = true
