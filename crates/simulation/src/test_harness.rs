@@ -162,6 +162,42 @@ impl TestCity {
         self
     }
 
+    /// Place a curved road from (x0,y0) through control point (cx,cy) to (x1,y1)
+    /// using the `RoadSegmentStore::add_curved_segment`.
+    pub fn with_curved_road(
+        mut self,
+        x0: usize,
+        y0: usize,
+        cx: usize,
+        cy: usize,
+        x1: usize,
+        y1: usize,
+        road_type: RoadType,
+    ) -> Self {
+        let world = self.app.world_mut();
+        let (from, control, to) = {
+            let (wx0, wy0) = WorldGrid::grid_to_world(x0, y0);
+            let (wcx, wcy) = WorldGrid::grid_to_world(cx, cy);
+            let (wx1, wy1) = WorldGrid::grid_to_world(x1, y1);
+            (
+                bevy::math::Vec2::new(wx0, wy0),
+                bevy::math::Vec2::new(wcx, wcy),
+                bevy::math::Vec2::new(wx1, wy1),
+            )
+        };
+
+        world.resource_scope(|world, mut segments: Mut<RoadSegmentStore>| {
+            world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
+                world.resource_scope(|_world, mut roads: Mut<RoadNetwork>| {
+                    segments.add_curved_segment(
+                        from, control, to, road_type, 16.0, &mut grid, &mut roads,
+                    );
+                });
+            });
+        });
+
+        self
+    }
     /// Remove a single road cell at (x, y). Used to test path invalidation
     /// after bulldozing.
     pub fn remove_road_at(&mut self, x: usize, y: usize) {

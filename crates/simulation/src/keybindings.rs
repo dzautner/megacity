@@ -39,6 +39,7 @@ pub enum BindableAction {
     ToolBulldoze,
     ToolInspect,
     ToggleGridSnap,
+    ToggleCurveDraw,
     DeleteBuilding,
     Escape,
 
@@ -84,6 +85,7 @@ impl BindableAction {
             Self::ToolBulldoze => "Tool: Bulldoze",
             Self::ToolInspect => "Tool: Inspect",
             Self::ToggleGridSnap => "Toggle Grid Snap",
+            Self::ToggleCurveDraw => "Toggle Curve Draw",
             Self::DeleteBuilding => "Delete Building",
             Self::Escape => "Cancel / Deselect",
             Self::OverlayCycleNext => "Cycle Overlay",
@@ -120,6 +122,7 @@ impl BindableAction {
             | Self::ToolBulldoze
             | Self::ToolInspect
             | Self::ToggleGridSnap
+            | Self::ToggleCurveDraw
             | Self::DeleteBuilding
             | Self::Escape => "Tools",
 
@@ -156,6 +159,7 @@ impl BindableAction {
         Self::ToolBulldoze,
         Self::ToolInspect,
         Self::ToggleGridSnap,
+        Self::ToggleCurveDraw,
         Self::DeleteBuilding,
         Self::Escape,
         Self::OverlayCycleNext,
@@ -308,6 +312,7 @@ pub struct KeyBindings {
     pub tool_bulldoze: KeyBinding,
     pub tool_inspect: KeyBinding,
     pub toggle_grid_snap: KeyBinding,
+    pub toggle_curve_draw: KeyBinding,
     pub delete_building: KeyBinding,
     pub delete_building_alt: KeyBinding,
     pub escape: KeyBinding,
@@ -355,6 +360,7 @@ impl Default for KeyBindings {
             tool_bulldoze: KeyBinding::simple(KeyCode::KeyB),
             tool_inspect: KeyBinding::simple(KeyCode::KeyI),
             toggle_grid_snap: KeyBinding::simple(KeyCode::KeyF),
+            toggle_curve_draw: KeyBinding::simple(KeyCode::KeyG),
             delete_building: KeyBinding::simple(KeyCode::Delete),
             delete_building_alt: KeyBinding::simple(KeyCode::Backspace),
             escape: KeyBinding::simple(KeyCode::Escape),
@@ -395,6 +401,7 @@ impl KeyBindings {
             BindableAction::ToolBulldoze => self.tool_bulldoze,
             BindableAction::ToolInspect => self.tool_inspect,
             BindableAction::ToggleGridSnap => self.toggle_grid_snap,
+            BindableAction::ToggleCurveDraw => self.toggle_curve_draw,
             BindableAction::DeleteBuilding => self.delete_building,
             BindableAction::Escape => self.escape,
             BindableAction::OverlayCycleNext => self.overlay_cycle_next,
@@ -432,6 +439,7 @@ impl KeyBindings {
             BindableAction::ToolBulldoze => self.tool_bulldoze = binding,
             BindableAction::ToolInspect => self.tool_inspect = binding,
             BindableAction::ToggleGridSnap => self.toggle_grid_snap = binding,
+            BindableAction::ToggleCurveDraw => self.toggle_curve_draw = binding,
             BindableAction::DeleteBuilding => self.delete_building = binding,
             BindableAction::Escape => self.escape = binding,
             BindableAction::OverlayCycleNext => self.overlay_cycle_next = binding,

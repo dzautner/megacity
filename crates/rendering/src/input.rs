@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use simulation::bulldoze_refund;
 use simulation::config::CELL_SIZE;
+use simulation::curve_road_drawing::CurveDrawMode;
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid, ZoneType};
 use simulation::road_segments::RoadSegmentStore;
@@ -347,14 +348,19 @@ impl StatusMessage {
 pub enum DrawPhase {
     /// No road drawing in progress.
     Idle,
-    /// Start point has been placed; waiting for end point click.
+    /// Start point has been placed; waiting for end point click (straight)
+    /// or control point click (curve mode).
     PlacedStart,
+    /// Curve mode only: start and control point placed; waiting for end point.
+    PlacedControl,
 }
 
 #[derive(Resource)]
 pub struct RoadDrawState {
     pub phase: DrawPhase,
     pub start_pos: Vec2,
+    /// In curve mode, the user-specified control point (placed on second click).
+    pub control_pos: Vec2,
 }
 
 impl Default for RoadDrawState {
@@ -362,6 +368,7 @@ impl Default for RoadDrawState {
         Self {
             phase: DrawPhase::Idle,
             start_pos: Vec2::ZERO,
+            control_pos: Vec2::ZERO,
         }
     }
 }
@@ -470,12 +477,28 @@ pub fn update_cursor_grid_pos(
     }
 }
 
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+/// Approximate arc length of a cubic Bezier by sampling.
+fn estimate_arc_length(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) -> f32 {
+    let steps = 64;
+    let mut length = 0.0_f32;
+    let mut prev = p0;
+    for i in 1..=steps {
+        let t = i as f32 / steps as f32;
+        let u = 1.0 - t;
+        let pt = u * u * u * p0 + 3.0 * u * u * t * p1 + 3.0 * u * t * t * p2 + t * t * t * p3;
+        length += (pt - prev).length();
+        prev = pt;
+    }
+    length
+}
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn handle_tool_input(
     input: (
         Res<ButtonInput<MouseButton>>,
         Res<ButtonInput<KeyCode>>,
         Res<AngleSnapState>,
+        Res<CurveDrawMode>,
     ),
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -499,7 +522,7 @@ pub fn handle_tool_input(
     ),
     mut district_map: ResMut<simulation::districts::DistrictMap>,
 ) {
-    let (buttons, keys, angle_snap) = input;
+    let (buttons, keys, angle_snap, curve_mode) = input;
     let (left_drag, ugb, snap, brush_size, freehand) = misc;
 
     // Suppress tool actions when left-click is being used for camera panning
@@ -549,26 +572,40 @@ pub fn handle_tool_input(
     // Handle freeform Bezier road drawing
     if let Some(road_type) = freeform_road_type {
         if buttons.just_pressed(MouseButton::Left) {
+            let click_pos = if let Some(snapped) = snap.snapped_pos {
+                snapped
+            } else if angle_snap.active {
+                angle_snap.snapped_pos
+            } else {
+                cursor.world_pos
+            };
+
             match draw_state.phase {
                 DrawPhase::Idle => {
                     // First click: place start point (snap to intersection if close)
-                    draw_state.start_pos = snap.snapped_pos.unwrap_or(cursor.world_pos);
+                    draw_state.start_pos = click_pos;
                     draw_state.phase = DrawPhase::PlacedStart;
-                    status.set(
-                        "Click to place end point (Shift=snap angle, Esc=cancel)",
-                        false,
-                    );
+                    if curve_mode.enabled {
+                        status.set(
+                            "Click to place control point (C=toggle curve, Esc=cancel)",
+                            false,
+                        );
+                    } else {
+                        status.set(
+                            "Click to place end point (C=curve mode, Shift=snap angle, Esc=cancel)",
+                            false,
+                        );
+                    }
+                }
+                DrawPhase::PlacedStart if curve_mode.enabled => {
+                    // Curve mode — second click: place control point
+                    draw_state.control_pos = click_pos;
+                    draw_state.phase = DrawPhase::PlacedControl;
+                    status.set("Click to place end point (Esc=cancel)", false);
                 }
                 DrawPhase::PlacedStart => {
-                    // Second click: place end point and commit segment
-                    // Intersection snap takes precedence over angle snap
-                    let end_pos = if let Some(snapped) = snap.snapped_pos {
-                        snapped
-                    } else if angle_snap.active {
-                        angle_snap.snapped_pos
-                    } else {
-                        cursor.world_pos
-                    };
+                    // Straight mode — second click: place end point and commit
+                    let end_pos = click_pos;
                     let start_pos = draw_state.start_pos;
 
                     // Minimum length check
@@ -600,6 +637,55 @@ pub fn handle_tool_input(
                     // Chain: end becomes new start for next segment
                     draw_state.start_pos = end_pos;
                     // Stay in PlacedStart phase for chaining
+                }
+                DrawPhase::PlacedControl => {
+                    // Curve mode — third click: place end point and commit curve
+                    let end_pos = click_pos;
+                    let start_pos = draw_state.start_pos;
+                    let control_pos = draw_state.control_pos;
+
+                    // Minimum length check (start to end)
+                    if (end_pos - start_pos).length() < CELL_SIZE {
+                        status.set("Road too short", true);
+                        return;
+                    }
+
+                    // Compute cubic Bezier from quadratic control point for cost estimate
+                    let (p1, p2) = simulation::curve_road_drawing::quadratic_to_cubic(
+                        start_pos,
+                        control_pos,
+                        end_pos,
+                    );
+                    let arc_len = estimate_arc_length(start_pos, p1, p2, end_pos);
+                    let approx_cells = (arc_len / CELL_SIZE).ceil() as usize;
+                    let total_cost = road_type.cost() * approx_cells as f64;
+                    if budget.treasury < total_cost {
+                        status.set("Not enough money", true);
+                        return;
+                    }
+
+                    let (_seg_id, cells) = segments.add_curved_segment(
+                        start_pos,
+                        control_pos,
+                        end_pos,
+                        road_type,
+                        24.0,
+                        &mut grid,
+                        &mut roads,
+                    );
+
+                    let actual_cost = road_type.cost() * cells.len() as f64;
+                    budget.treasury -= actual_cost;
+
+                    // Mark dirty chunks for all affected cells
+                    for &(cx, cy) in &cells {
+                        mark_chunk_dirty_at(cx, cy, &chunks, &mut commands);
+                    }
+
+                    // Chain: end becomes new start for next segment
+                    draw_state.start_pos = end_pos;
+                    draw_state.phase = DrawPhase::PlacedStart;
+                    status.set("Click to place control point (Esc=cancel)", false);
                 }
             }
         }
@@ -1194,6 +1280,28 @@ pub fn toggle_grid_snap(
 ) {
     if bindings.toggle_grid_snap.just_pressed(&keys) {
         grid_snap.enabled = !grid_snap.enabled;
+    }
+}
+
+/// Toggle curve drawing mode with the G key (configurable via keybindings).
+pub fn toggle_curve_draw_mode(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut curve_mode: ResMut<CurveDrawMode>,
+    mut status: ResMut<StatusMessage>,
+    mut draw_state: ResMut<RoadDrawState>,
+    bindings: Res<simulation::keybindings::KeyBindings>,
+) {
+    if bindings.toggle_curve_draw.just_pressed(&keys) {
+        curve_mode.enabled = !curve_mode.enabled;
+        // Reset drawing state when toggling to avoid confusing partial state
+        if draw_state.phase != DrawPhase::Idle {
+            draw_state.phase = DrawPhase::Idle;
+        }
+        if curve_mode.enabled {
+            status.set("Curve drawing mode ON (G to toggle off)", false);
+        } else {
+            status.set("Curve drawing mode OFF", false);
+        }
     }
 }
 

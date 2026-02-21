@@ -269,6 +269,36 @@ impl RoadSegmentStore {
         (id, cells)
     }
 
+    /// Add a curved segment using a single user control point (quadratic-style).
+    /// The control point is promoted to cubic Bezier control points (p1, p2)
+    /// using the standard quadratic-to-cubic conversion.
+    /// Returns (SegmentId, rasterized cells).
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_curved_segment(
+        &mut self,
+        from: Vec2,
+        control: Vec2,
+        to: Vec2,
+        road_type: RoadType,
+        snap_dist: f32,
+        grid: &mut WorldGrid,
+        roads: &mut RoadNetwork,
+    ) -> (SegmentId, Vec<(usize, usize)>) {
+        let start_node = self.find_or_create_node(from, snap_dist);
+        let end_node = self.find_or_create_node(to, snap_dist);
+        let (p1, p2) = crate::curve_road_drawing::quadratic_to_cubic(from, control, to);
+        let id = self.add_segment(
+            start_node, end_node, from, p1, p2, to, road_type, grid, roads,
+        );
+        let cells = self
+            .segments
+            .iter()
+            .find(|s| s.id == id)
+            .map(|s| s.rasterized_cells.clone())
+            .unwrap_or_default();
+        (id, cells)
+    }
+
     /// Remove a segment and un-rasterize it from the grid
     pub fn remove_segment(&mut self, id: SegmentId, grid: &mut WorldGrid, roads: &mut RoadNetwork) {
         if let Some(idx) = self.segments.iter().position(|s| s.id == id) {

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use simulation::config::CELL_SIZE;
+use simulation::curve_road_drawing::CurveDrawMode;
 use simulation::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use simulation::services::ServiceBuilding;
 
@@ -212,15 +213,19 @@ pub fn bezier_normal(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
 
 /// Draw a full-width Bezier curve preview while in freeform road drawing mode.
 /// Intersection markers are handled by the `intersection_preview` module (UX-023).
+/// Supports both straight-line (2-click) and curve (3-click) drawing modes.
+#[allow(clippy::too_many_arguments)]
 pub fn draw_bezier_preview(
     draw_state: Res<RoadDrawState>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
     angle_snap: Res<AngleSnapState>,
     snap: Res<IntersectionSnap>,
+    curve_mode: Res<CurveDrawMode>,
     mut gizmos: Gizmos,
 ) {
-    if draw_state.phase != DrawPhase::PlacedStart || !cursor.valid {
+    // Must be in an active drawing phase with a valid cursor
+    if draw_state.phase == DrawPhase::Idle || !cursor.valid {
         return;
     }
 
@@ -231,8 +236,8 @@ pub fn draw_bezier_preview(
     };
 
     let start = draw_state.start_pos;
-    // Intersection snap takes precedence over angle snap
-    let end = if let Some(snapped) = snap.snapped_pos {
+    // Resolve cursor position with snap precedence
+    let cursor_pos = if let Some(snapped) = snap.snapped_pos {
         snapped
     } else if angle_snap.active {
         angle_snap.snapped_pos
@@ -240,11 +245,38 @@ pub fn draw_bezier_preview(
         cursor.world_pos
     };
 
-    // Bezier control points (straight-line approximation)
-    let p0 = start;
-    let p3 = end;
-    let p1 = p0 + (p3 - p0) / 3.0;
-    let p2 = p0 + (p3 - p0) * 2.0 / 3.0;
+    // Compute Bezier control points based on mode and phase
+    let (p0, p1, p2, p3, control_marker) = match draw_state.phase {
+        DrawPhase::PlacedStart if curve_mode.enabled => {
+            // Curve mode, first phase: cursor is the prospective control point.
+            // Show a straight preview from start to cursor.
+            let end = cursor_pos;
+            let cp0 = start;
+            let cp3 = end;
+            let cp1 = cp0 + (cp3 - cp0) / 3.0;
+            let cp2 = cp0 + (cp3 - cp0) * 2.0 / 3.0;
+            (cp0, cp1, cp2, cp3, None)
+        }
+        DrawPhase::PlacedStart => {
+            // Straight mode: cursor is the end point
+            let end = cursor_pos;
+            let cp0 = start;
+            let cp3 = end;
+            let cp1 = cp0 + (cp3 - cp0) / 3.0;
+            let cp2 = cp0 + (cp3 - cp0) * 2.0 / 3.0;
+            (cp0, cp1, cp2, cp3, None)
+        }
+        DrawPhase::PlacedControl => {
+            // Curve mode, second phase: control point is fixed, cursor is end
+            let control = draw_state.control_pos;
+            let end = cursor_pos;
+            let cp0 = start;
+            let cp3 = end;
+            let (cp1, cp2) = simulation::curve_road_drawing::quadratic_to_cubic(cp0, control, cp3);
+            (cp0, cp1, cp2, cp3, Some(control))
+        }
+        DrawPhase::Idle => unreachable!(),
+    };
 
     let half_w = road_half_width(road_type);
     let y = 0.5; // slightly above ground
@@ -296,8 +328,41 @@ pub fn draw_bezier_preview(
         Color::srgba(0.2, 1.0, 0.2, 0.9),
     );
 
+    // Draw control point marker (magenta diamond) when in curve mode
+    if let Some(ctrl) = control_marker {
+        let ctrl_3d = Vec3::new(ctrl.x, y + 0.2, ctrl.y);
+        let ctrl_color = Color::srgba(1.0, 0.3, 1.0, 0.9);
+        // Diamond shape
+        let d = half_w * 0.6;
+        gizmos.line(
+            ctrl_3d + Vec3::new(0.0, 0.0, -d),
+            ctrl_3d + Vec3::new(d, 0.0, 0.0),
+            ctrl_color,
+        );
+        gizmos.line(
+            ctrl_3d + Vec3::new(d, 0.0, 0.0),
+            ctrl_3d + Vec3::new(0.0, 0.0, d),
+            ctrl_color,
+        );
+        gizmos.line(
+            ctrl_3d + Vec3::new(0.0, 0.0, d),
+            ctrl_3d + Vec3::new(-d, 0.0, 0.0),
+            ctrl_color,
+        );
+        gizmos.line(
+            ctrl_3d + Vec3::new(-d, 0.0, 0.0),
+            ctrl_3d + Vec3::new(0.0, 0.0, -d),
+            ctrl_color,
+        );
+        // Draw guide lines from start/end to control point
+        let guide_color = Color::srgba(1.0, 0.3, 1.0, 0.3);
+        gizmos.line(start_3d, ctrl_3d, guide_color);
+        let end_3d = Vec3::new(p3.x, y, p3.y);
+        gizmos.line(end_3d, ctrl_3d, guide_color);
+    }
+
     // Draw end marker (yellow circle)
-    let end_3d = Vec3::new(end.x, y, end.y);
+    let end_3d = Vec3::new(p3.x, y, p3.y);
     gizmos.circle(
         Isometry3d::new(end_3d, Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
         half_w,

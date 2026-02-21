@@ -116,6 +116,7 @@ impl Plugin for RenderingPlugin {
                     input::handle_road_upgrade_tool,
                     input::keyboard_tool_switch,
                     input::toggle_grid_snap,
+                    input::toggle_curve_draw_mode,
                     input::handle_escape_key,
                     input::delete_selected_building,
                     input::tick_status_message,
