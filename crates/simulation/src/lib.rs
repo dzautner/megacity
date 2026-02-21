@@ -70,6 +70,7 @@ pub mod loans;
 pub mod localization;
 pub mod lod;
 pub mod market;
+pub mod mode_choice;
 pub mod movement;
 pub mod multi_select;
 pub mod natural_resources;
@@ -306,6 +307,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "keybindings",
     "landfill_state",
     "localization",
+    "mode_share_stats",
     "multi_select",
     "neighborhood_quality",
     "nimby_state",
@@ -592,6 +594,7 @@ impl Plugin for SimulationPlugin {
             virtual_population::VirtualPopulationPlugin,
             urban_growth_boundary::UrbanGrowthBoundaryPlugin,
             nimby::NimbyPlugin,
+            mode_choice::ModeChoicePlugin,
             walkability::WalkabilityPlugin,
             form_transect::FormTransectPlugin,
             cumulative_zoning::CumulativeZoningPlugin,

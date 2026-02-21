@@ -12,6 +12,7 @@ use crate::grid::WorldGrid;
 use crate::happiness::{
     ServiceCoverageGrid, COVERAGE_EDUCATION, COVERAGE_FIRE, COVERAGE_HEALTH, COVERAGE_POLICE,
 };
+use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::stats::CityStats;
 use crate::virtual_population::VirtualPopulation;
@@ -391,6 +392,7 @@ fn spawn_immigrant_families(
                 Needs::default(),
                 Family::default(),
                 ActivityTimer::default(),
+                ChosenTransportMode::default(),
             ));
         }
 

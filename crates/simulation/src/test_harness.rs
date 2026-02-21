@@ -17,6 +17,7 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::economy::CityBudget;
 use crate::grid::{Cell, CellType, RoadType, WorldGrid, ZoneType};
 use crate::groundwater;
+use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::natural_resources::ResourceGrid;
 use crate::road_graph_csr::CsrGraph;
@@ -373,6 +374,7 @@ impl TestCity {
             Needs::default(),
             Family::default(),
             ActivityTimer::default(),
+            ChosenTransportMode::default(),
         ));
         self
     }
@@ -419,6 +421,7 @@ impl TestCity {
             Needs::default(),
             Family::default(),
             ActivityTimer::default(),
+            ChosenTransportMode::default(),
         ));
         self
     }

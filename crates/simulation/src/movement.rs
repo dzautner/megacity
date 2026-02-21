@@ -12,6 +12,7 @@ use crate::citizen::{
 };
 use crate::grid::{RoadType, WorldGrid};
 use crate::lod::LodTier;
+use crate::mode_choice::ChosenTransportMode;
 use crate::pathfinding_sys::nearest_road_grid;
 use crate::road_graph_csr::{csr_find_path_with_traffic, CsrGraph, PathfindingData};
 use crate::roads::{RoadNetwork, RoadNode};
@@ -567,6 +568,7 @@ pub fn move_citizens(
             &mut Velocity,
             &mut PathCache,
             Option<&LodTier>,
+            Option<&ChosenTransportMode>,
         ),
         With<Citizen>,
     >,
@@ -582,9 +584,8 @@ pub fn move_citizens(
         * weather.travel_speed_multiplier_with_fog(fog.traffic_speed_modifier)
         * snow_mult;
 
-    query
-        .par_iter_mut()
-        .for_each(|(entity, state, mut pos, mut vel, mut path, lod)| {
+    query.par_iter_mut().for_each(
+        |(entity, state, mut pos, mut vel, mut path, lod, transport_mode)| {
             // Skip abstract citizens entirely
             if lod == Some(&LodTier::Abstract) {
                 vel.x = 0.0;
@@ -613,7 +614,10 @@ pub fn move_citizens(
                 // citizen's current grid cell. Congested roads reduce speed, creating
                 // visible traffic bunching.
                 let congestion_mult = congestion.get(target.0, target.1);
-                let effective_speed = speed_per_tick * congestion_mult;
+                let mode_mult = transport_mode
+                    .map(|m| m.0.speed_multiplier())
+                    .unwrap_or(1.0);
+                let effective_speed = speed_per_tick * congestion_mult * mode_mult;
 
                 // Use a fixed minimum arrival threshold so that even at very low speeds
                 // (heavy snow/fog/congestion), citizens can still reach waypoints without orbiting.
@@ -647,7 +651,8 @@ pub fn move_citizens(
                 vel.x = 0.0;
                 vel.y = 0.0;
             }
-        });
+        },
+    );
 }
 
 /// Compute a smoothed waypoint target using Catmull-Rom interpolation.

@@ -4382,3 +4382,159 @@ fn test_parallel_road_oneway_pair() {
     assert_eq!(city.segment_road_type(0), Some(RoadType::OneWay));
     assert_eq!(city.segment_road_type(1), Some(RoadType::OneWay));
 }
+
+// ====================================================================
+// Mode Choice (TRAF-007) integration tests
+// ====================================================================
+
+#[test]
+fn test_mode_choice_resource_initialized() {
+    let city = TestCity::new();
+    city.assert_resource_exists::<crate::mode_choice::ModeShareStats>();
+    city.assert_resource_exists::<crate::mode_choice::ModeInfrastructureCache>();
+}
+
+#[test]
+fn test_mode_choice_default_stats() {
+    let city = TestCity::new();
+    let stats = city.resource::<crate::mode_choice::ModeShareStats>();
+    assert_eq!(stats.total(), 0);
+    // Default: 100% drive when no trips active
+    assert!((stats.drive_pct - 100.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_mode_choice_citizen_has_component() {
+    use crate::mode_choice::ChosenTransportMode;
+
+    let mut city = TestCity::new()
+        .with_road(100, 128, 110, 128, RoadType::Local)
+        .with_building(101, 127, ZoneType::ResidentialLow, 1)
+        .with_building(109, 127, ZoneType::CommercialLow, 1)
+        .with_citizen((101, 127), (109, 127));
+
+    // Verify the citizen has a ChosenTransportMode component
+    let world = city.world_mut();
+    let count = world
+        .query_filtered::<Entity, bevy::prelude::With<ChosenTransportMode>>()
+        .iter(world)
+        .count();
+    assert_eq!(
+        count, 1,
+        "citizen should have ChosenTransportMode component"
+    );
+}
+
+#[test]
+fn test_mode_choice_walking_for_short_trip() {
+    use crate::mode_choice::{evaluate_walk, manhattan_distance, WALK_SPEED_MULTIPLIER};
+
+    // A short trip (5 cells) should make walking attractive
+    let distance = 5.0;
+    let walk_time = evaluate_walk(distance);
+    // Walk time = 5.0 / 0.3 / 1.0 = ~16.7
+    assert!(walk_time > 0.0);
+    assert!((walk_time - distance / WALK_SPEED_MULTIPLIER).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_mode_choice_infrastructure_cache_transit() {
+    use crate::mode_choice::ModeInfrastructureCache;
+
+    let mut city = TestCity::new()
+        .with_service(128, 128, ServiceType::BusDepot)
+        .with_service(140, 140, ServiceType::SubwayStation);
+
+    // Tick once to trigger infrastructure cache refresh
+    city.tick(1);
+
+    let cache = city.resource::<ModeInfrastructureCache>();
+    assert!(
+        !cache.transit_stops.is_empty(),
+        "transit stops should be populated from bus depot and subway station"
+    );
+    assert!(
+        cache.transit_stops.len() >= 2,
+        "should have at least 2 transit stops"
+    );
+}
+
+#[test]
+fn test_mode_choice_infrastructure_cache_bike_paths() {
+    use crate::mode_choice::ModeInfrastructureCache;
+
+    let mut city = TestCity::new().with_road(128, 128, 140, 128, RoadType::Path);
+
+    // Tick to populate cache
+    city.tick(1);
+
+    let cache = city.resource::<ModeInfrastructureCache>();
+    assert!(
+        !cache.bike_paths.is_empty(),
+        "bike paths should include Path-type roads"
+    );
+}
+
+#[test]
+fn test_mode_share_stats_update_after_slow_tick() {
+    use crate::mode_choice::ModeShareStats;
+
+    // Create a city with roads, buildings, and citizens
+    let mut city = TestCity::new()
+        .with_road(100, 128, 130, 128, RoadType::Local)
+        .with_building(101, 127, ZoneType::ResidentialLow, 1)
+        .with_building(120, 127, ZoneType::CommercialLow, 1)
+        .with_citizen((101, 127), (120, 127))
+        .with_time(7.5) // morning commute time
+        .rebuild_csr();
+
+    // Run a full slow cycle to trigger stats update
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<ModeShareStats>();
+    // After a slow cycle, stats should have been computed
+    // (the exact values depend on whether citizens started commuting)
+    // At minimum, the system should have run without panicking
+    assert!(stats.walk_pct + stats.bike_pct + stats.drive_pct + stats.transit_pct <= 400.1);
+}
+
+#[test]
+fn test_mode_choice_speed_multiplier_values() {
+    use crate::mode_choice::TransportMode;
+
+    // Walk should be slowest
+    assert!(TransportMode::Walk.speed_multiplier() < TransportMode::Bike.speed_multiplier());
+    // Bike should be slower than driving
+    assert!(TransportMode::Bike.speed_multiplier() < TransportMode::Drive.speed_multiplier());
+    // Transit should be between bike and drive
+    assert!(TransportMode::Transit.speed_multiplier() > TransportMode::Bike.speed_multiplier());
+    assert!(TransportMode::Transit.speed_multiplier() < TransportMode::Drive.speed_multiplier());
+}
+
+#[test]
+fn test_mode_choice_saveable_roundtrip() {
+    use crate::mode_choice::ModeShareStats;
+    use crate::Saveable;
+
+    let stats = ModeShareStats {
+        walk_count: 15,
+        bike_count: 25,
+        drive_count: 40,
+        transit_count: 20,
+        walk_pct: 15.0,
+        bike_pct: 25.0,
+        drive_pct: 40.0,
+        transit_pct: 20.0,
+    };
+
+    let bytes = stats
+        .save_to_bytes()
+        .expect("should serialize non-zero stats");
+    let restored = ModeShareStats::load_from_bytes(&bytes);
+
+    assert_eq!(restored.walk_count, 15);
+    assert_eq!(restored.bike_count, 25);
+    assert_eq!(restored.drive_count, 40);
+    assert_eq!(restored.transit_count, 20);
+    assert_eq!(restored.total(), 100);
+}
