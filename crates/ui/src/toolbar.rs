@@ -78,6 +78,7 @@ impl Default for ToolCatalog {
 
 struct ToolItem {
     tool: Option<ActiveTool>,
+    #[allow(dead_code)]
     icon: &'static str,
     name: &'static str,
     cost: Option<f64>,
