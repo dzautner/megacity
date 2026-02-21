@@ -31,6 +31,7 @@ pub mod tutorial;
 pub mod two_key_shortcuts;
 pub mod waste_dashboard;
 pub mod water_dashboard;
+pub mod zone_brush_ui;
 
 pub struct UiPlugin;
 
@@ -58,6 +59,7 @@ impl Plugin for UiPlugin {
             .add_plugins(minimap::MinimapPlugin)
             .add_plugins(notification_ticker::NotificationTickerPlugin)
             .add_plugins(box_selection::BoxSelectionUiPlugin)
+            .add_plugins(zone_brush_ui::ZoneBrushUiPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()

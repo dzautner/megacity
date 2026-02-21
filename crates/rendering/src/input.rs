@@ -282,6 +282,21 @@ impl ActiveTool {
             _ => None,
         }
     }
+
+    /// Returns the `ZoneType` for zone tools, or `None` for non-zone tools.
+    pub fn zone_type(&self) -> Option<ZoneType> {
+        match self {
+            ActiveTool::ZoneResidentialLow => Some(ZoneType::ResidentialLow),
+            ActiveTool::ZoneResidentialMedium => Some(ZoneType::ResidentialMedium),
+            ActiveTool::ZoneResidentialHigh => Some(ZoneType::ResidentialHigh),
+            ActiveTool::ZoneCommercialLow => Some(ZoneType::CommercialLow),
+            ActiveTool::ZoneCommercialHigh => Some(ZoneType::CommercialHigh),
+            ActiveTool::ZoneIndustrial => Some(ZoneType::Industrial),
+            ActiveTool::ZoneOffice => Some(ZoneType::Office),
+            ActiveTool::ZoneMixedUse => Some(ZoneType::MixedUse),
+            _ => None,
+        }
+    }
 }
 
 /// Grid snap mode: when enabled, cursor snaps to cell centers for precise placement.
@@ -473,11 +488,12 @@ pub fn handle_tool_input(
         Res<crate::camera::LeftClickDrag>,
         Res<UrbanGrowthBoundary>,
         Res<IntersectionSnap>,
+        Res<crate::zone_brush_preview::ZoneBrushSize>,
     ),
     mut district_map: ResMut<simulation::districts::DistrictMap>,
 ) {
     let (buttons, keys, angle_snap) = input;
-    let (left_drag, ugb, snap) = misc;
+    let (left_drag, ugb, snap, brush_size) = misc;
 
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
@@ -689,79 +705,32 @@ pub fn handle_tool_input(
             false
         }
 
-        // --- Zones ---
-        ActiveTool::ZoneResidentialLow => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::ResidentialLow,
-            &ugb,
-        ),
-        ActiveTool::ZoneResidentialMedium => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::ResidentialMedium,
-            &ugb,
-        ),
-        ActiveTool::ZoneResidentialHigh => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::ResidentialHigh,
-            &ugb,
-        ),
-        ActiveTool::ZoneCommercialLow => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::CommercialLow,
-            &ugb,
-        ),
-        ActiveTool::ZoneCommercialHigh => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::CommercialHigh,
-            &ugb,
-        ),
-        ActiveTool::ZoneIndustrial => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::Industrial,
-            &ugb,
-        ),
-        ActiveTool::ZoneOffice => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::Office,
-            &ugb,
-        ),
-        ActiveTool::ZoneMixedUse => apply_zone(
-            &mut grid,
-            &mut status,
-            &buttons,
-            gx,
-            gy,
-            ZoneType::MixedUse,
-            &ugb,
-        ),
+        // --- Zones (with brush size support) ---
+        ActiveTool::ZoneResidentialLow
+        | ActiveTool::ZoneResidentialMedium
+        | ActiveTool::ZoneResidentialHigh
+        | ActiveTool::ZoneCommercialLow
+        | ActiveTool::ZoneCommercialHigh
+        | ActiveTool::ZoneIndustrial
+        | ActiveTool::ZoneOffice
+        | ActiveTool::ZoneMixedUse => {
+            let zone = tool.zone_type().unwrap();
+            let zoned_cells = apply_zone_brush(
+                &mut grid,
+                &mut status,
+                &mut budget,
+                &buttons,
+                gx as i32,
+                gy as i32,
+                zone,
+                &ugb,
+                &brush_size,
+            );
+            for (zx, zy) in &zoned_cells {
+                mark_chunk_dirty_at(*zx, *zy, &chunks, &mut commands);
+            }
+            !zoned_cells.is_empty()
+        }
 
         // --- Utilities ---
         ActiveTool::PlacePowerPlant => place_utility_if_affordable(
@@ -1061,35 +1030,74 @@ fn try_zone(
     ZoneResult::Success
 }
 
-fn apply_zone(
+#[allow(clippy::too_many_arguments)]
+fn apply_zone_brush(
     grid: &mut WorldGrid,
     status: &mut StatusMessage,
+    budget: &mut simulation::economy::CityBudget,
     buttons: &ButtonInput<MouseButton>,
-    gx: usize,
-    gy: usize,
+    cx: i32,
+    cy: i32,
     zone: ZoneType,
     ugb: &UrbanGrowthBoundary,
-) -> bool {
-    let result = try_zone(grid, gx, gy, zone, ugb);
-    match result {
-        ZoneResult::Success => {
-            grid.get_mut(gx, gy).zone = zone;
-            true
-        }
-        ZoneResult::NotAdjacentToRoad => {
-            if buttons.just_pressed(MouseButton::Left) {
-                status.set("Zone must be adjacent to road", true);
+    brush: &crate::zone_brush_preview::ZoneBrushSize,
+) -> Vec<(usize, usize)> {
+    let half = brush.half_extent;
+    let cost_per_cell = crate::zone_brush_preview::ZONE_COST_PER_CELL;
+
+    // Collect valid cells in the brush area
+    let mut valid_cells = Vec::new();
+    for dy in -half..=half {
+        for dx in -half..=half {
+            let gx = cx + dx;
+            let gy = cy + dy;
+            if gx >= 0 && gy >= 0 {
+                let ux = gx as usize;
+                let uy = gy as usize;
+                if grid.in_bounds(ux, uy) {
+                    let result = try_zone(grid, ux, uy, zone, ugb);
+                    if matches!(result, ZoneResult::Success) {
+                        valid_cells.push((ux, uy));
+                    }
+                }
             }
-            false
         }
-        ZoneResult::OutsideUgb => {
-            if buttons.just_pressed(MouseButton::Left) {
-                status.set("Cannot zone outside urban growth boundary", true);
-            }
-            false
-        }
-        ZoneResult::InvalidCell => false,
     }
+
+    if valid_cells.is_empty() {
+        if buttons.just_pressed(MouseButton::Left) {
+            // Show reason for center cell
+            let ux = cx as usize;
+            let uy = cy as usize;
+            if grid.in_bounds(ux, uy) {
+                match try_zone(grid, ux, uy, zone, ugb) {
+                    ZoneResult::NotAdjacentToRoad => {
+                        status.set("Zone must be adjacent to road", true);
+                    }
+                    ZoneResult::OutsideUgb => {
+                        status.set("Cannot zone outside urban growth boundary", true);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        return Vec::new();
+    }
+
+    let total_cost = valid_cells.len() as f64 * cost_per_cell;
+    if budget.treasury < total_cost {
+        if buttons.just_pressed(MouseButton::Left) {
+            status.set("Not enough money", true);
+        }
+        return Vec::new();
+    }
+
+    // Apply zones to all valid cells
+    budget.treasury -= total_cost;
+    for (gx, gy) in &valid_cells {
+        grid.get_mut(*gx, *gy).zone = zone;
+    }
+    valid_cells
 }
 
 // ---------------------------------------------------------------------------

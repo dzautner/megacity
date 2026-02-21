@@ -34,6 +34,7 @@ pub mod wind_streamlines;
 
 pub mod parallel_snap;
 pub mod screenshot;
+pub mod zone_brush_preview;
 
 use angle_snap::AngleSnapState;
 use camera::{CameraDrag, LeftClickDrag, RightClickDrag};
@@ -195,6 +196,9 @@ impl Plugin for RenderingPlugin {
 
         // Box selection (UX-011)
         app.add_plugins(box_selection::BoxSelectionPlugin);
+
+        // Zone brush preview (UX-018)
+        app.add_plugins(zone_brush_preview::ZoneBrushPreviewPlugin);
     }
 }
 

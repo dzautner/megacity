@@ -57,6 +57,12 @@ pub fn update_cursor_preview(
         return;
     }
 
+    // Hide cursor preview when zone brush gizmos take over
+    if tool.zone_type().is_some() {
+        *vis = Visibility::Hidden;
+        return;
+    }
+
     let gx = cursor.grid_x as usize;
     let gy = cursor.grid_y as usize;
     let cell = grid.get(gx, gy);
