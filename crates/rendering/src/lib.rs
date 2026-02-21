@@ -5,6 +5,7 @@ pub mod angle_snap;
 pub mod box_selection;
 pub mod building_mesh_variants;
 pub mod building_meshes;
+pub mod building_preview_mesh;
 pub mod building_render;
 pub mod building_status_enhanced;
 pub mod camera;
@@ -72,6 +73,7 @@ impl Plugin for RenderingPlugin {
                     camera::setup_camera,
                     setup_lighting,
                     terrain_render::spawn_terrain_chunks,
+                    building_preview_mesh::setup_building_preview_meshes,
                     cursor_preview::spawn_cursor_preview,
                     building_meshes::load_building_models,
                 )
