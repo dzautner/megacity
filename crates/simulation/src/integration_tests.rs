@@ -5,6 +5,7 @@
 
 use crate::buildings::Building;
 use crate::citizen::CitizenState;
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::economy::CityBudget;
 use crate::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use crate::land_value::LandValueGrid;
@@ -6118,4 +6119,192 @@ fn test_undo_bulldoze_road_restores_road() {
         "Road should be restored after undoing bulldoze"
     );
     assert_eq!(grid.get(4, 4).road_type, road_type);
+}
+
+// Metro transit system (TRAF-006)
+// ===========================================================================
+
+#[test]
+fn test_metro_station_placement_and_ridership() {
+    use crate::metro_transit::MetroTransitState;
+
+    let mut city = TestCity::new()
+        .with_road(10, 50, 90, 50, RoadType::Avenue)
+        .with_building(12, 48, ZoneType::ResidentialLow, 2)
+        .with_building(88, 48, ZoneType::CommercialLow, 2)
+        .with_citizen((12, 48), (88, 48));
+
+    // Place metro stations and create a line
+    {
+        let world = city.world_mut();
+        let mut metro = world.resource_mut::<MetroTransitState>();
+        let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+
+        let s1 = metro
+            .add_station(15, 50, "West Station".to_string(), &grid)
+            .expect("station 1 should be placed");
+        let s2 = metro
+            .add_station(85, 50, "East Station".to_string(), &grid)
+            .expect("station 2 should be placed");
+        metro
+            .add_line("Red Line".to_string(), vec![s1, s2])
+            .expect("line should be created");
+    }
+
+    // Run a few slow cycles to accumulate ridership stats
+    city.tick_slow_cycles(3);
+
+    let metro = city.resource::<MetroTransitState>();
+    assert_eq!(metro.stats.total_stations, 2, "should have 2 stations");
+    assert_eq!(metro.stats.total_lines, 1, "should have 1 operational line");
+}
+
+#[test]
+fn test_metro_land_value_boost() {
+    use crate::metro_transit::MetroTransitState;
+
+    let mut city = TestCity::new();
+
+    // Record baseline land value at station location
+    let baseline = city.resource::<LandValueGrid>().get(50, 50);
+
+    // Place a metro station
+    {
+        let world = city.world_mut();
+        let mut metro = world.resource_mut::<MetroTransitState>();
+        let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+
+        let s1 = metro
+            .add_station(50, 50, "Central".to_string(), &grid)
+            .expect("station should be placed");
+        let s2 = metro
+            .add_station(80, 50, "East".to_string(), &grid)
+            .expect("station should be placed");
+        metro.add_line("Blue Line".to_string(), vec![s1, s2]);
+    }
+
+    // Run slow tick so land value boost is applied
+    city.tick_slow_cycle();
+
+    let boosted = city.resource::<LandValueGrid>().get(50, 50);
+    assert!(
+        boosted > baseline,
+        "land value at station ({}) should exceed baseline ({})",
+        boosted,
+        baseline
+    );
+}
+
+#[test]
+fn test_metro_maintenance_cost() {
+    use crate::metro_transit::MetroTransitState;
+
+    let mut city = TestCity::new().with_budget(100_000.0);
+
+    // Place stations and line
+    {
+        let world = city.world_mut();
+        let mut metro = world.resource_mut::<MetroTransitState>();
+        let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+
+        let s1 = metro.add_station(10, 10, "A".to_string(), &grid).unwrap();
+        let s2 = metro.add_station(20, 20, "B".to_string(), &grid).unwrap();
+        metro.add_line("Red".to_string(), vec![s1, s2]);
+    }
+
+    let cost = city
+        .resource::<MetroTransitState>()
+        .total_monthly_maintenance();
+    assert!(
+        cost > 0.0,
+        "metro maintenance cost should be positive, got {}",
+        cost
+    );
+
+    // Verify the cost is: 2 stations * $500/week * 4 + 1 line * $1200/week * 4
+    let expected = 2.0 * 500.0 * 4.0 + 1.0 * 1200.0 * 4.0;
+    assert!(
+        (cost - expected).abs() < 0.01,
+        "expected cost {}, got {}",
+        expected,
+        cost
+    );
+}
+
+#[test]
+fn test_metro_station_on_water_rejected() {
+    use crate::metro_transit::MetroTransitState;
+
+    // Create a grid with water at (50,50)
+    let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+    grid.get_mut(50, 50).cell_type = CellType::Water;
+
+    let mut metro = MetroTransitState::default();
+
+    // Placing on water should fail
+    let result = metro.add_station(50, 50, "Aquatic".to_string(), &grid);
+    assert!(
+        result.is_none(),
+        "should not be able to place station on water"
+    );
+
+    // Placing on grass should succeed
+    let result = metro.add_station(51, 50, "Dry".to_string(), &grid);
+    assert!(result.is_some(), "should place station on grass");
+}
+
+#[test]
+fn test_metro_travel_time_estimation() {
+    use crate::metro_transit::MetroTransitState;
+
+    let mut metro = MetroTransitState::default();
+    let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+
+    let s1 = metro
+        .add_station(50, 50, "West".to_string(), &grid)
+        .unwrap();
+    let s2 = metro
+        .add_station(100, 50, "East".to_string(), &grid)
+        .unwrap();
+    metro.add_line("Green".to_string(), vec![s1, s2]);
+
+    // Travel from near station 1 to near station 2
+    let time = metro
+        .estimate_travel_time(52, 50, 98, 50)
+        .expect("should have a viable route");
+    assert!(time > 0.0, "travel time should be positive");
+    assert!(
+        time < 0.5,
+        "metro trip should be under 30 min for ~50 cells"
+    );
+
+    // Travel from far away should fail
+    let no_route = metro.estimate_travel_time(200, 200, 98, 50);
+    assert!(
+        no_route.is_none(),
+        "should fail when too far from any station"
+    );
+}
+
+#[test]
+fn test_metro_saveable_roundtrip_integration() {
+    use crate::metro_transit::MetroTransitState;
+    use crate::Saveable;
+
+    let mut state = MetroTransitState::default();
+    let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+
+    state.add_station(10, 10, "Alpha".to_string(), &grid);
+    state.add_station(50, 50, "Beta".to_string(), &grid);
+    state.add_line("Red".to_string(), vec![0, 1]);
+
+    // Save
+    let bytes = state.save_to_bytes().expect("should produce bytes");
+    assert!(!bytes.is_empty());
+
+    // Load
+    let restored = MetroTransitState::load_from_bytes(&bytes);
+    assert_eq!(restored.stations.len(), 2);
+    assert_eq!(restored.lines.len(), 1);
+    assert_eq!(restored.lines[0].name, "Red");
 }
