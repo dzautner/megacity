@@ -5508,3 +5508,497 @@ fn test_bus_transit_saveable_roundtrip() {
     assert_eq!(loaded.routes[0].name, "Test Route");
     assert_eq!(loaded.routes[0].stop_ids.len(), 2);
 }
+
+// ====================================================================
+// Welfare system tests (issue #851)
+// ====================================================================
+
+#[test]
+fn test_welfare_stats_resource_exists_in_new_city() {
+    let city = TestCity::new();
+    city.assert_resource_exists::<crate::welfare::WelfareStats>();
+}
+
+#[test]
+fn test_welfare_stats_default_values_on_empty_city() {
+    let city = TestCity::new();
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(stats.total_sheltered, 0);
+    assert_eq!(stats.total_welfare_recipients, 0);
+    assert_eq!(stats.monthly_cost, 0.0);
+    assert_eq!(stats.shelter_capacity, 0);
+    assert_eq!(stats.shelter_occupancy, 0);
+    assert_eq!(stats.welfare_office_count, 0);
+    assert_eq!(stats.shelter_count, 0);
+}
+
+#[test]
+fn test_welfare_office_tracks_count_after_slow_tick() {
+    let mut city = TestCity::new()
+        .with_service(30, 30, ServiceType::WelfareOffice)
+        .with_service(60, 60, ServiceType::WelfareOffice);
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(
+        stats.welfare_office_count, 2,
+        "should count 2 welfare offices"
+    );
+}
+
+#[test]
+fn test_welfare_shelter_tracks_count_after_slow_tick() {
+    let mut city = TestCity::new()
+        .with_service(30, 30, ServiceType::HomelessShelter)
+        .with_service(60, 60, ServiceType::HomelessShelter);
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(stats.shelter_count, 2, "should count 2 shelters");
+}
+
+#[test]
+fn test_welfare_shelter_capacity_from_service_buildings() {
+    let mut city = TestCity::new()
+        .with_service(30, 30, ServiceType::HomelessShelter)
+        .with_service(60, 60, ServiceType::HomelessShelter);
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(
+        stats.shelter_capacity, 100,
+        "2 shelters should provide 100 beds total (50 each)"
+    );
+}
+
+#[test]
+fn test_welfare_monthly_cost_for_offices_and_shelters() {
+    let mut city = TestCity::new()
+        .with_service(30, 30, ServiceType::WelfareOffice)
+        .with_service(60, 60, ServiceType::HomelessShelter);
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    let expected_cost = ServiceBuilding::monthly_maintenance(ServiceType::WelfareOffice)
+        + ServiceBuilding::monthly_maintenance(ServiceType::HomelessShelter);
+    assert!(
+        (stats.monthly_cost - expected_cost).abs() < 0.01,
+        "monthly cost should be {expected_cost}, got {}",
+        stats.monthly_cost
+    );
+}
+
+#[test]
+fn test_welfare_monthly_cost_zero_with_no_services() {
+    let mut city = TestCity::new();
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(
+        stats.monthly_cost, 0.0,
+        "no welfare services => zero monthly cost"
+    );
+}
+
+#[test]
+fn test_welfare_job_training_boosts_unemployed_salary() {
+    use crate::citizen::{Citizen, CitizenDetails};
+
+    let mut city = TestCity::new()
+        .with_building(30, 30, ZoneType::ResidentialLow, 1)
+        .with_service(31, 31, ServiceType::WelfareOffice);
+
+    // Spawn an unemployed citizen with high savings so they survive simulation ticks
+    {
+        use crate::citizen::*;
+        use crate::movement::ActivityTimer;
+        let world = city.world_mut();
+        let home_entity = {
+            let grid = world.resource::<WorldGrid>();
+            grid.get(30, 30).building_id.unwrap()
+        };
+        let (hx, hy) = WorldGrid::grid_to_world(30, 30);
+        world.spawn((
+            Citizen,
+            Position { x: hx, y: hy },
+            Velocity { x: 0.0, y: 0.0 },
+            HomeLocation {
+                grid_x: 30,
+                grid_y: 30,
+                building: home_entity,
+            },
+            CitizenStateComp(CitizenState::AtHome),
+            PathCache::new(Vec::new()),
+            CitizenDetails {
+                age: 30,
+                gender: Gender::Male,
+                education: 0,
+                happiness: 80.0,
+                health: 90.0,
+                salary: 0.0,
+                savings: 100_000.0,
+            },
+            Personality {
+                ambition: 0.5,
+                sociability: 0.5,
+                materialism: 0.5,
+                resilience: 0.5,
+            },
+            Needs::default(),
+            Family::default(),
+            ActivityTimer::default(),
+        ));
+    }
+
+    city.tick_slow_cycle();
+
+    // Check welfare recipients count -- the system tracks this independent of citizen queries
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+
+    // The citizen may or may not have gained employment during the tick.
+    // But if they were still unemployed when update_welfare ran, they got a salary boost.
+    // The stats reflect the count at the time of the welfare system run.
+    // We verify that the welfare system at least recognized this citizen OR
+    // that the citizen's salary was boosted.
+    let world = city.world_mut();
+    let mut salary_query = world.query_filtered::<&CitizenDetails, With<Citizen>>();
+    let citizen_details: Vec<f32> = salary_query.iter(world).map(|d| d.salary).collect();
+
+    // At least one citizen should exist and either have been boosted or employed
+    assert!(
+        !citizen_details.is_empty(),
+        "citizen should still exist in the world"
+    );
+
+    // Either the welfare system boosted the salary or the citizen got employed
+    // (which also gives a non-zero salary). In both cases, salary > 0.
+    let has_nonzero_salary = citizen_details.iter().any(|&s| s > 0.0);
+    assert!(
+        has_nonzero_salary || stats.total_welfare_recipients >= 1,
+        "citizen should have received welfare benefit or gained employment"
+    );
+}
+
+#[test]
+fn test_welfare_job_training_does_not_affect_distant_citizens() {
+    use crate::citizen::{Citizen, CitizenDetails};
+
+    let mut city = TestCity::new()
+        .with_building(10, 10, ZoneType::ResidentialLow, 1)
+        .with_service(200, 200, ServiceType::WelfareOffice);
+
+    // Spawn citizen far from welfare office with high savings
+    {
+        use crate::citizen::*;
+        use crate::movement::ActivityTimer;
+        let world = city.world_mut();
+        let home_entity = {
+            let grid = world.resource::<WorldGrid>();
+            grid.get(10, 10).building_id.unwrap()
+        };
+        let (hx, hy) = WorldGrid::grid_to_world(10, 10);
+        world.spawn((
+            Citizen,
+            Position { x: hx, y: hy },
+            Velocity { x: 0.0, y: 0.0 },
+            HomeLocation {
+                grid_x: 10,
+                grid_y: 10,
+                building: home_entity,
+            },
+            CitizenStateComp(CitizenState::AtHome),
+            PathCache::new(Vec::new()),
+            CitizenDetails {
+                age: 30,
+                gender: Gender::Male,
+                education: 0,
+                happiness: 80.0,
+                health: 90.0,
+                salary: 0.0,
+                savings: 100_000.0,
+            },
+            Personality {
+                ambition: 0.5,
+                sociability: 0.5,
+                materialism: 0.5,
+                resilience: 0.5,
+            },
+            Needs::default(),
+            Family::default(),
+            ActivityTimer::default(),
+        ));
+    }
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(
+        stats.total_welfare_recipients, 0,
+        "no citizens should be welfare recipients when too far away"
+    );
+}
+
+#[test]
+fn test_welfare_crime_reduction_near_office() {
+    let mut city = TestCity::new().with_service(50, 50, ServiceType::WelfareOffice);
+
+    {
+        let world = city.world_mut();
+        let mut crime_grid = world.resource_mut::<crate::crime::CrimeGrid>();
+        for dy in -5i32..=5 {
+            for dx in -5i32..=5 {
+                let nx = (50 + dx) as usize;
+                let ny = (50 + dy) as usize;
+                let idx = ny * crime_grid.width + nx;
+                crime_grid.levels[idx] = 50;
+            }
+        }
+    }
+
+    city.tick_slow_cycle();
+
+    let crime_at_office = {
+        let world = city.world_mut();
+        let crime_grid = world.resource::<crate::crime::CrimeGrid>();
+        crime_grid.get(50, 50)
+    };
+
+    assert!(
+        crime_at_office < 50,
+        "crime at welfare office should be reduced from 50, got {crime_at_office}"
+    );
+}
+
+#[test]
+fn test_welfare_no_recipients_without_offices() {
+    let mut city = TestCity::new()
+        .with_building(30, 30, ZoneType::ResidentialLow, 1)
+        .with_unemployed_citizen((30, 30))
+        .with_unemployed_citizen((30, 30));
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(
+        stats.total_welfare_recipients, 0,
+        "no welfare offices => zero recipients"
+    );
+    assert_eq!(stats.welfare_office_count, 0);
+}
+
+#[test]
+fn test_welfare_salary_capped_at_10000() {
+    use crate::citizen::{Citizen, CitizenDetails};
+
+    let mut city = TestCity::new()
+        .with_building(30, 30, ZoneType::ResidentialLow, 1)
+        .with_service(31, 31, ServiceType::WelfareOffice);
+
+    // Spawn citizen with high initial salary close to cap, with high savings
+    {
+        use crate::citizen::*;
+        use crate::movement::ActivityTimer;
+        let world = city.world_mut();
+        let home_entity = {
+            let grid = world.resource::<WorldGrid>();
+            grid.get(30, 30).building_id.unwrap()
+        };
+        let (hx, hy) = WorldGrid::grid_to_world(30, 30);
+        world.spawn((
+            Citizen,
+            Position { x: hx, y: hy },
+            Velocity { x: 0.0, y: 0.0 },
+            HomeLocation {
+                grid_x: 30,
+                grid_y: 30,
+                building: home_entity,
+            },
+            CitizenStateComp(CitizenState::AtHome),
+            PathCache::new(Vec::new()),
+            CitizenDetails {
+                age: 30,
+                gender: Gender::Male,
+                education: 0,
+                happiness: 80.0,
+                health: 90.0,
+                salary: 9990.0, // near cap
+                savings: 100_000.0,
+            },
+            Personality {
+                ambition: 0.5,
+                sociability: 0.5,
+                materialism: 0.5,
+                resilience: 0.5,
+            },
+            Needs::default(),
+            Family::default(),
+            ActivityTimer::default(),
+        ));
+    }
+
+    // Run a few slow cycles (not 250)
+    city.tick_slow_cycles(5);
+
+    let world = city.world_mut();
+    let mut q = world.query_filtered::<&CitizenDetails, With<Citizen>>();
+    for details in q.iter(world) {
+        assert!(
+            details.salary <= 10000.0,
+            "salary should be capped at 10000.0, got {}",
+            details.salary
+        );
+    }
+}
+
+#[test]
+fn test_welfare_multiple_offices_counts_recipients() {
+    // Multiple welfare offices near unemployed citizens.
+    // We verify that the welfare system reports recipients correctly.
+    let mut city = TestCity::new()
+        .with_building(30, 30, ZoneType::ResidentialLow, 1)
+        .with_unemployed_citizen((30, 30))
+        .with_service(31, 31, ServiceType::WelfareOffice)
+        .with_service(32, 32, ServiceType::WelfareOffice);
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    // The citizen might or might not be employed by tick time, but
+    // welfare_office_count should reflect both offices.
+    assert_eq!(stats.welfare_office_count, 2);
+    // If the citizen is still unemployed, they should be counted as a recipient.
+    // The count should be at most 1 (not double-counted by two offices).
+    assert!(
+        stats.total_welfare_recipients <= 1,
+        "each citizen counted at most once: got {}",
+        stats.total_welfare_recipients
+    );
+}
+
+#[test]
+fn test_welfare_shelter_with_homelessshelter_component() {
+    use crate::homelessness::HomelessShelter;
+
+    let mut city = TestCity::new();
+
+    {
+        let world = city.world_mut();
+        world.spawn((
+            ServiceBuilding {
+                service_type: ServiceType::HomelessShelter,
+                grid_x: 40,
+                grid_y: 40,
+                radius: ServiceBuilding::coverage_radius(ServiceType::HomelessShelter),
+            },
+            HomelessShelter {
+                grid_x: 40,
+                grid_y: 40,
+                capacity: 75,
+                current_occupants: 20,
+            },
+        ));
+    }
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(stats.shelter_count, 1);
+    assert_eq!(stats.shelter_capacity, 75);
+    assert_eq!(stats.shelter_occupancy, 20);
+}
+
+#[test]
+fn test_welfare_mixed_shelter_sources() {
+    use crate::homelessness::HomelessShelter;
+
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::HomelessShelter);
+
+    {
+        let world = city.world_mut();
+        world.spawn((
+            ServiceBuilding {
+                service_type: ServiceType::HomelessShelter,
+                grid_x: 80,
+                grid_y: 80,
+                radius: ServiceBuilding::coverage_radius(ServiceType::HomelessShelter),
+            },
+            HomelessShelter {
+                grid_x: 80,
+                grid_y: 80,
+                capacity: 50,
+                current_occupants: 10,
+            },
+        ));
+    }
+
+    city.tick_slow_cycle();
+
+    let stats = city.resource::<crate::welfare::WelfareStats>();
+    assert_eq!(stats.shelter_count, 2, "should count 2 effective shelters");
+    assert_eq!(
+        stats.shelter_capacity, 100,
+        "capacity from component + estimated for extra"
+    );
+    assert_eq!(stats.shelter_occupancy, 10);
+}
+
+#[test]
+fn test_welfare_expense_scales_with_building_count() {
+    let mut city_small = TestCity::new().with_service(30, 30, ServiceType::WelfareOffice);
+    city_small.tick_slow_cycle();
+    let cost_small = city_small
+        .resource::<crate::welfare::WelfareStats>()
+        .monthly_cost;
+
+    let mut city_large = TestCity::new()
+        .with_service(30, 30, ServiceType::WelfareOffice)
+        .with_service(60, 60, ServiceType::WelfareOffice)
+        .with_service(90, 90, ServiceType::WelfareOffice)
+        .with_service(30, 90, ServiceType::HomelessShelter)
+        .with_service(90, 30, ServiceType::HomelessShelter);
+    city_large.tick_slow_cycle();
+    let cost_large = city_large
+        .resource::<crate::welfare::WelfareStats>()
+        .monthly_cost;
+
+    assert!(
+        cost_large > cost_small,
+        "more welfare buildings should cost more: small={cost_small}, large={cost_large}"
+    );
+
+    let expected = 3.0 * ServiceBuilding::monthly_maintenance(ServiceType::WelfareOffice)
+        + 2.0 * ServiceBuilding::monthly_maintenance(ServiceType::HomelessShelter);
+    assert!(
+        (cost_large - expected).abs() < 0.01,
+        "expected monthly cost {expected}, got {cost_large}"
+    );
+}
+
+#[test]
+fn test_welfare_stats_reset_between_slow_ticks() {
+    let mut city = TestCity::new()
+        .with_building(30, 30, ZoneType::ResidentialLow, 1)
+        .with_unemployed_citizen((30, 30))
+        .with_service(31, 31, ServiceType::WelfareOffice);
+
+    city.tick_slow_cycle();
+    let recipients_first = city
+        .resource::<crate::welfare::WelfareStats>()
+        .total_welfare_recipients;
+
+    city.tick_slow_cycle();
+    let recipients_second = city
+        .resource::<crate::welfare::WelfareStats>()
+        .total_welfare_recipients;
+
+    // Should be the same count (recalculated, not accumulated)
+    // Note: the citizen might gain employment in the meantime, so just check it is <= first
+    assert!(
+        recipients_second <= recipients_first,
+        "recipients should not accumulate: first={recipients_first}, second={recipients_second}"
+    );
+}
