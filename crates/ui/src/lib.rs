@@ -60,6 +60,7 @@ impl Plugin for UiPlugin {
             .add_plugins(notification_ticker::NotificationTickerPlugin)
             .add_plugins(box_selection::BoxSelectionUiPlugin)
             .add_plugins(zone_brush_ui::ZoneBrushUiPlugin)
+            .add_plugins(info_panel::budget::BudgetBreakdownPlugin)
             .init_resource::<day_night_panel::DayNightPanelVisible>()
             .init_resource::<milestones::Milestones>()
             .init_resource::<graphs::HistoryData>()
