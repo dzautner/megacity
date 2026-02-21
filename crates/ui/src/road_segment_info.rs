@@ -11,9 +11,10 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
-use rendering::input::{ActiveTool, CursorGridPos};
+use rendering::enhanced_select::SelectionKind;
+use rendering::input::ActiveTool;
 use simulation::config::CELL_SIZE;
-use simulation::grid::{CellType, WorldGrid};
+
 use simulation::road_maintenance::{RoadConditionGrid, RoadMaintenanceBudget};
 use simulation::road_segments::{RoadSegmentStore, SegmentId};
 use simulation::traffic::TrafficGrid;
@@ -45,48 +46,21 @@ pub struct RoadSegmentInfoCache {
 /// is over a road cell, we find the road segment whose rasterized cells contain
 /// that grid coordinate and store its ID in `SelectedRoadSegment`.
 pub fn detect_road_segment_selection(
-    buttons: Res<ButtonInput<MouseButton>>,
-    cursor: Res<CursorGridPos>,
+    selection_kind: Res<SelectionKind>,
     tool: Res<ActiveTool>,
-    grid: Res<WorldGrid>,
-    segments: Res<RoadSegmentStore>,
     mut selected: ResMut<SelectedRoadSegment>,
 ) {
-    if !buttons.just_pressed(MouseButton::Left) || !cursor.valid {
-        return;
-    }
-
-    // Only detect in Inspect mode
     if *tool != ActiveTool::Inspect {
         selected.0 = None;
         return;
     }
 
-    let gx = cursor.grid_x as usize;
-    let gy = cursor.grid_y as usize;
-
-    let cell = grid.get(gx, gy);
-
-    // If the cell has a building, the building inspector takes precedence
-    if cell.building_id.is_some() {
+    // Defer to the enhanced selection system for priority-based selection.
+    if let SelectionKind::RoadSegment(seg_id) = *selection_kind {
+        selected.0 = Some(seg_id);
+    } else if selection_kind.is_changed() {
         selected.0 = None;
-        return;
     }
-
-    // Only select on road cells
-    if cell.cell_type != CellType::Road {
-        selected.0 = None;
-        return;
-    }
-
-    // Find a segment whose rasterized cells include (gx, gy)
-    let found = segments
-        .segments
-        .iter()
-        .find(|s| s.rasterized_cells.contains(&(gx, gy)))
-        .map(|s| s.id);
-
-    selected.0 = found;
 }
 
 /// System that refreshes the info cache for the selected road segment.
