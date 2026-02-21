@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 
 pub mod angle_snap;
+pub mod auto_grid_draw;
 pub mod box_selection;
 pub mod building_mesh_variants;
 pub mod building_meshes;
@@ -231,6 +232,9 @@ impl Plugin for RenderingPlugin {
 
         // Freehand road drawing (UX-020)
         app.add_plugins(freehand_draw::FreehandDrawPlugin);
+
+        // Auto-grid road placement (TRAF-010)
+        app.add_plugins(auto_grid_draw::AutoGridDrawPlugin);
     }
 }
 

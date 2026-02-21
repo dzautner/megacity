@@ -9,6 +9,7 @@ pub mod achievements;
 pub mod advisors;
 pub mod agriculture;
 pub mod airport;
+pub mod auto_grid_road;
 pub mod blueprints;
 pub mod budget;
 pub mod building_upgrade;
@@ -614,6 +615,9 @@ impl Plugin for SimulationPlugin {
 
         // Freehand road drawing (UX-020)
         app.add_plugins(freehand_road::FreehandRoadPlugin);
+
+        // Auto-grid road placement (TRAF-010)
+        app.add_plugins(auto_grid_road::AutoGridRoadPlugin);
     }
 }
 
