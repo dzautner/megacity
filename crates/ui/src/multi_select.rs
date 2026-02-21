@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::input::{ActiveTool, CursorGridPos, StatusMessage};
+use simulation::bulldoze_refund;
 use simulation::economy::CityBudget;
 use simulation::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use simulation::multi_select::{
@@ -15,6 +16,7 @@ use simulation::multi_select::{
 };
 use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
+use simulation::utilities::UtilitySource;
 
 // =============================================================================
 // Systems
@@ -234,19 +236,22 @@ pub fn execute_batch_bulldoze(
     mut multi_select: ResMut<MultiSelectState>,
     mut grid: ResMut<WorldGrid>,
     mut roads: ResMut<RoadNetwork>,
+    mut budget: ResMut<CityBudget>,
     mut status: ResMut<StatusMessage>,
     mut commands: Commands,
     service_q: Query<&ServiceBuilding>,
+    utility_q: Query<&UtilitySource>,
 ) {
     for _event in events.read() {
         let items: Vec<SelectableItem> = multi_select.selected_items.clone();
         let mut demolished = 0usize;
+        let mut total_refund = 0.0_f64;
 
         for item in &items {
             match item {
                 SelectableItem::Building(entity) => {
-                    // Check if it's a multi-cell service building
-                    if let Ok(service) = service_q.get(*entity) {
+                    // Compute refund based on entity type
+                    let refund = if let Ok(service) = service_q.get(*entity) {
                         let (fw, fh) = ServiceBuilding::footprint(service.service_type);
                         let sx = service.grid_x;
                         let sy = service.grid_y;
@@ -258,6 +263,15 @@ pub fn execute_batch_bulldoze(
                                 }
                             }
                         }
+                        bulldoze_refund::refund_for_service(service.service_type)
+                    } else if let Ok(utility) = utility_q.get(*entity) {
+                        let ux = utility.grid_x;
+                        let uy = utility.grid_y;
+                        if grid.in_bounds(ux, uy) {
+                            grid.get_mut(ux, uy).building_id = None;
+                            grid.get_mut(ux, uy).zone = ZoneType::None;
+                        }
+                        bulldoze_refund::refund_for_utility(utility.utility_type)
                     } else {
                         // Regular building: scan grid for matching entity
                         for y in 0..grid.height {
@@ -268,21 +282,35 @@ pub fn execute_batch_bulldoze(
                                 }
                             }
                         }
-                    }
+                        0.0
+                    };
+                    total_refund += refund;
                     commands.entity(*entity).despawn();
                     demolished += 1;
                 }
                 SelectableItem::RoadCell { x, y } => {
                     if grid.in_bounds(*x, *y) && grid.get(*x, *y).cell_type == CellType::Road {
-                        roads.remove_road(&mut grid, *x, *y);
-                        demolished += 1;
+                        let road_type = grid.get(*x, *y).road_type;
+                        if roads.remove_road(&mut grid, *x, *y) {
+                            total_refund += bulldoze_refund::refund_for_road(road_type);
+                            demolished += 1;
+                        }
                     }
                 }
             }
         }
 
+        budget.treasury += total_refund;
         multi_select.clear();
-        status.set(format!("Demolished {} items", demolished), false);
+        let msg = if total_refund > 0.0 {
+            format!(
+                "Demolished {} items (refund: ${:.0})",
+                demolished, total_refund
+            )
+        } else {
+            format!("Demolished {} items", demolished)
+        };
+        status.set(msg, false);
     }
 }
 
