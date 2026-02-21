@@ -225,6 +225,12 @@ pub fn migrate_save(save: &mut SaveData) -> Result<u32, String> {
         save.agriculture_state = None;
         save.version = 31;
     }
+    // v31 -> v32: Added family graph (partner/children/parent indices on SaveCitizen).
+    // Uses `#[serde(default)]` so old citizens deserialize with u32::MAX (no relationship).
+    if save.version == 31 {
+        // Family fields on SaveCitizen already default correctly via serde.
+        save.version = 32;
+    }
     debug_assert_eq!(save.version, CURRENT_SAVE_VERSION);
 
     Ok(original_version)
