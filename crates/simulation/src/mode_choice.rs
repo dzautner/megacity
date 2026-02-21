@@ -1,5 +1,7 @@
 //! TRAF-007: Citizen Mode Choice (Car/Transit/Walk/Bike)
 //!
+//! Closes #858
+//!
 //! Citizens choose a transport mode for each trip based on distance, available
 //! infrastructure, and perceived travel time. This is the core mechanic that
 //! makes transit investment worthwhile.
@@ -356,7 +358,7 @@ pub fn manhattan_distance(from: (usize, usize), to: (usize, usize)) -> f32 {
 }
 
 /// Evaluate walking perceived time. Always available.
-fn evaluate_walk(distance: f32) -> f32 {
+pub fn evaluate_walk(distance: f32) -> f32 {
     let travel_time = distance / WALK_SPEED_MULTIPLIER;
     travel_time / WALK_COMFORT
 }
@@ -656,9 +658,11 @@ mod tests {
 
     #[test]
     fn test_walking_preferred_for_short_distance() {
-        // For a very short trip (5 cells), walking should be preferred over driving
-        // because driving has a parking overhead.
-        let distance = 5.0;
+        // For a very short trip (2 cells), walking should be preferred over driving
+        // because driving has a parking overhead of 5 cells.
+        // Walk: 2 / 0.3 / 1.0 = 6.67
+        // Drive: (2 + 5) / 1.0 / 0.9 = 7.78
+        let distance = 2.0;
         let walk_time = evaluate_walk(distance);
 
         let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
@@ -668,7 +672,7 @@ mod tests {
 
         assert!(
             walk_time < drive_time,
-            "For 5-cell trip, walking ({walk_time}) should be faster than driving ({drive_time})"
+            "For 2-cell trip, walking ({walk_time}) should be faster than driving ({drive_time})"
         );
     }
 

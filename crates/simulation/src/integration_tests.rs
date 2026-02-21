@@ -4685,6 +4685,10 @@ fn test_superblock_traffic_multiplier_interior() {
     assert!(
         (state.traffic_multiplier(20, 20) - 1.0).abs() < f32::EPSILON,
         "cells outside superblock should have no penalty"
+    );
+}
+
+// ====================================================================
 // Mode Choice (TRAF-007) integration tests
 // ====================================================================
 
@@ -4707,6 +4711,7 @@ fn test_mode_choice_default_stats() {
 #[test]
 fn test_mode_choice_citizen_has_component() {
     use crate::mode_choice::ChosenTransportMode;
+    use bevy::prelude::Entity;
 
     let mut city = TestCity::new()
         .with_road(100, 128, 110, 128, RoadType::Local)
@@ -5012,6 +5017,7 @@ fn test_invariant_nonreciprocal_marriage_detected_and_cleared() {
         Needs, PathCache, Personality, Position, Velocity,
     };
     use crate::grid::{RoadType, WorldGrid, ZoneType};
+    use crate::mode_choice::ChosenTransportMode;
     use crate::movement::ActivityTimer;
     use crate::simulation_invariants::InvariantViolations;
     use crate::test_harness::TestCity;
@@ -5060,6 +5066,7 @@ fn test_invariant_nonreciprocal_marriage_detected_and_cleared() {
                 Needs::default(),
                 Family::default(),
                 ActivityTimer::default(),
+                ChosenTransportMode::default(),
             ))
             .id();
 
@@ -5093,6 +5100,7 @@ fn test_invariant_nonreciprocal_marriage_detected_and_cleared() {
                 Needs::default(),
                 Family::default(),
                 ActivityTimer::default(),
+                ChosenTransportMode::default(),
             ))
             .id();
 
@@ -5121,8 +5129,12 @@ fn test_invariant_nonreciprocal_marriage_detected_and_cleared() {
     assert!(
         family_a.partner.is_none(),
         "Citizen A's non-reciprocal partner link should have been cleared"
+    );
+}
+
+#[test]
 fn test_mode_choice_walking_for_short_trip() {
-    use crate::mode_choice::{evaluate_walk, manhattan_distance, WALK_SPEED_MULTIPLIER};
+    use crate::mode_choice::{evaluate_walk, WALK_SPEED_MULTIPLIER};
 
     // A short trip (5 cells) should make walking attractive
     let distance = 5.0;
@@ -5335,6 +5347,9 @@ fn test_superblock_multiple_blocks_coverage() {
     assert_eq!(state.total_interior_cells, 18);
     // Each 5x5 has 25 cells, total = 50
     assert_eq!(state.total_coverage_cells, 50);
+}
+
+#[test]
 fn test_mode_choice_infrastructure_cache_bike_paths() {
     use crate::mode_choice::ModeInfrastructureCache;
 
