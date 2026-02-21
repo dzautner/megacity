@@ -8549,3 +8549,655 @@ fn test_tram_capacity_is_90() {
     use crate::tram_transit::TRAM_CAPACITY;
     assert_eq!(TRAM_CAPACITY, 90, "tram capacity should be 90 passengers");
 }
+
+// ====================================================================
+// TEST-064: Unlock / Progression System Tests
+// ====================================================================
+
+#[test]
+fn test_unlock_state_default_has_starter_unlocks() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let state = UnlockState::default();
+    // Starter nodes should be present
+    assert!(state.is_unlocked(UnlockNode::BasicRoads));
+    assert!(state.is_unlocked(UnlockNode::ResidentialZoning));
+    assert!(state.is_unlocked(UnlockNode::CommercialZoning));
+    assert!(state.is_unlocked(UnlockNode::IndustrialZoning));
+    assert!(state.is_unlocked(UnlockNode::BasicPower));
+    assert!(state.is_unlocked(UnlockNode::BasicWater));
+    // Tier 1 should NOT be unlocked by default
+    assert!(!state.is_unlocked(UnlockNode::FireService));
+    assert!(!state.is_unlocked(UnlockNode::PoliceService));
+}
+
+#[test]
+fn test_unlock_state_default_has_three_development_points() {
+    use crate::unlocks::UnlockState;
+    let state = UnlockState::default();
+    assert_eq!(state.development_points, 3);
+    assert_eq!(state.spent_points, 0);
+    assert_eq!(state.available_points(), 3);
+}
+
+#[test]
+fn test_unlock_node_cost_tiers() {
+    use crate::unlocks::UnlockNode;
+    // Starter: cost 0
+    assert_eq!(UnlockNode::BasicRoads.cost(), 0);
+    assert_eq!(UnlockNode::BasicWater.cost(), 0);
+    // Tier 1: cost 1
+    assert_eq!(UnlockNode::FireService.cost(), 1);
+    assert_eq!(UnlockNode::PoliceService.cost(), 1);
+    assert_eq!(UnlockNode::ElementaryEducation.cost(), 1);
+    assert_eq!(UnlockNode::SmallParks.cost(), 1);
+    assert_eq!(UnlockNode::BasicSanitation.cost(), 1);
+    // Tier 2: cost 2
+    assert_eq!(UnlockNode::HealthCare.cost(), 2);
+    assert_eq!(UnlockNode::HighDensityResidential.cost(), 2);
+    assert_eq!(UnlockNode::SolarPower.cost(), 2);
+    assert_eq!(UnlockNode::DeathCare.cost(), 2);
+    // Tier 3: cost 3
+    assert_eq!(UnlockNode::OfficeZoning.cost(), 3);
+    assert_eq!(UnlockNode::WindPower.cost(), 3);
+    assert_eq!(UnlockNode::PublicTransport.cost(), 3);
+    assert_eq!(UnlockNode::Telecom.cost(), 3);
+    // Tier 4: cost 5
+    assert_eq!(UnlockNode::Landmarks.cost(), 5);
+    assert_eq!(UnlockNode::NuclearPower.cost(), 5);
+    assert_eq!(UnlockNode::PolicySystem.cost(), 5);
+    // Tier 5: cost 7
+    assert_eq!(UnlockNode::InternationalAirports.cost(), 7);
+}
+
+#[test]
+fn test_unlock_node_required_population_tiers() {
+    use crate::unlocks::UnlockNode;
+    // Starter: 0
+    assert_eq!(UnlockNode::BasicRoads.required_population(), 0);
+    // Tier 1: 500
+    assert_eq!(UnlockNode::FireService.required_population(), 500);
+    assert_eq!(UnlockNode::PoliceService.required_population(), 500);
+    // Tier 2: 2000
+    assert_eq!(UnlockNode::HealthCare.required_population(), 2_000);
+    assert_eq!(
+        UnlockNode::HighDensityResidential.required_population(),
+        2_000
+    );
+    // Tier 3: 5000
+    assert_eq!(UnlockNode::OfficeZoning.required_population(), 5_000);
+    assert_eq!(UnlockNode::PublicTransport.required_population(), 5_000);
+    // Tier 4: varying
+    assert_eq!(UnlockNode::RegionalAirports.required_population(), 20_000);
+    assert_eq!(UnlockNode::Landmarks.required_population(), 50_000);
+    assert_eq!(UnlockNode::NuclearPower.required_population(), 50_000);
+    // Tier 5: 100000
+    assert_eq!(
+        UnlockNode::InternationalAirports.required_population(),
+        100_000
+    );
+}
+
+#[test]
+fn test_unlock_purchase_deducts_points() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    // Start with 3 available points
+    assert_eq!(state.available_points(), 3);
+    // Purchase FireService (cost 1)
+    assert!(state.purchase(UnlockNode::FireService));
+    assert_eq!(state.available_points(), 2);
+    assert!(state.is_unlocked(UnlockNode::FireService));
+    // Purchase PoliceService (cost 1)
+    assert!(state.purchase(UnlockNode::PoliceService));
+    assert_eq!(state.available_points(), 1);
+    // Purchase ElementaryEducation (cost 1)
+    assert!(state.purchase(UnlockNode::ElementaryEducation));
+    assert_eq!(state.available_points(), 0);
+}
+
+#[test]
+fn test_unlock_purchase_fails_insufficient_points() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    // HealthCare costs 2, we have 3 -> should succeed
+    assert!(state.purchase(UnlockNode::HealthCare));
+    assert_eq!(state.available_points(), 1);
+    // HighDensityResidential costs 2, we only have 1 -> should fail
+    assert!(!state.purchase(UnlockNode::HighDensityResidential));
+    assert!(!state.is_unlocked(UnlockNode::HighDensityResidential));
+    assert_eq!(state.available_points(), 1);
+}
+
+#[test]
+fn test_unlock_purchase_fails_for_already_unlocked() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    // BasicRoads is already unlocked (starter)
+    assert!(!state.purchase(UnlockNode::BasicRoads));
+    // Points should not change
+    assert_eq!(state.available_points(), 3);
+}
+
+#[test]
+fn test_unlock_can_purchase_checks_population_threshold() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    // Give enough DP: 10 total -> 10 available (3 initial + 7 extra)
+    state.development_points = 10;
+    // FireService requires 500 pop
+    assert!(!state.can_purchase(UnlockNode::FireService, 499));
+    assert!(state.can_purchase(UnlockNode::FireService, 500));
+    assert!(state.can_purchase(UnlockNode::FireService, 1000));
+    // HealthCare requires 2000 pop
+    assert!(!state.can_purchase(UnlockNode::HealthCare, 1999));
+    assert!(state.can_purchase(UnlockNode::HealthCare, 2000));
+}
+
+#[test]
+fn test_unlock_can_purchase_false_when_already_unlocked() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let state = UnlockState::default();
+    // BasicRoads is already unlocked; cost=0, pop=0, but already unlocked
+    assert!(!state.can_purchase(UnlockNode::BasicRoads, 0));
+}
+
+#[test]
+fn test_unlock_can_purchase_false_when_insufficient_points() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    // Spend all 3 points
+    state.spent_points = 3;
+    assert_eq!(state.available_points(), 0);
+    assert!(!state.can_purchase(UnlockNode::FireService, 1000));
+}
+
+#[test]
+fn test_unlock_all_nodes_have_names() {
+    use crate::unlocks::UnlockNode;
+    for &node in UnlockNode::all() {
+        assert!(!node.name().is_empty(), "Node {:?} has no name", node);
+    }
+}
+
+#[test]
+fn test_unlock_all_returns_all_variants() {
+    use crate::unlocks::UnlockNode;
+    let all = UnlockNode::all();
+    // Verify it includes some nodes from each tier
+    assert!(all.contains(&UnlockNode::BasicRoads));
+    assert!(all.contains(&UnlockNode::FireService));
+    assert!(all.contains(&UnlockNode::HealthCare));
+    assert!(all.contains(&UnlockNode::OfficeZoning));
+    assert!(all.contains(&UnlockNode::Landmarks));
+    assert!(all.contains(&UnlockNode::InternationalAirports));
+}
+
+#[test]
+fn test_unlock_service_mapping_fire_service() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    // Fire services not unlocked yet
+    assert!(!state.is_service_unlocked(ServiceType::FireStation));
+    assert!(!state.is_service_unlocked(ServiceType::FireHouse));
+    // Unlock fire service
+    state.development_points = 10;
+    state.purchase(UnlockNode::FireService);
+    assert!(state.is_service_unlocked(ServiceType::FireStation));
+    assert!(state.is_service_unlocked(ServiceType::FireHouse));
+    // FireHQ requires AdvancedEmergency, not just FireService
+    assert!(!state.is_service_unlocked(ServiceType::FireHQ));
+}
+
+#[test]
+fn test_unlock_service_mapping_police_service() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    assert!(!state.is_service_unlocked(ServiceType::PoliceStation));
+    state.development_points = 10;
+    state.purchase(UnlockNode::PoliceService);
+    assert!(state.is_service_unlocked(ServiceType::PoliceStation));
+    assert!(state.is_service_unlocked(ServiceType::PoliceKiosk));
+    // PoliceHQ and Prison require AdvancedEmergency
+    assert!(!state.is_service_unlocked(ServiceType::PoliceHQ));
+    assert!(!state.is_service_unlocked(ServiceType::Prison));
+}
+
+#[test]
+fn test_unlock_service_mapping_advanced_emergency() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    state.purchase(UnlockNode::AdvancedEmergency);
+    assert!(state.is_service_unlocked(ServiceType::FireHQ));
+    assert!(state.is_service_unlocked(ServiceType::PoliceHQ));
+    assert!(state.is_service_unlocked(ServiceType::Prison));
+    assert!(state.is_service_unlocked(ServiceType::MedicalCenter));
+}
+
+#[test]
+fn test_unlock_service_mapping_education() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    // Elementary education
+    state.purchase(UnlockNode::ElementaryEducation);
+    assert!(state.is_service_unlocked(ServiceType::ElementarySchool));
+    assert!(state.is_service_unlocked(ServiceType::Library));
+    assert!(state.is_service_unlocked(ServiceType::Kindergarten));
+    // High school not yet
+    assert!(!state.is_service_unlocked(ServiceType::HighSchool));
+    state.purchase(UnlockNode::HighSchoolEducation);
+    assert!(state.is_service_unlocked(ServiceType::HighSchool));
+    // University not yet
+    assert!(!state.is_service_unlocked(ServiceType::University));
+    state.purchase(UnlockNode::UniversityEducation);
+    assert!(state.is_service_unlocked(ServiceType::University));
+}
+
+#[test]
+fn test_unlock_service_mapping_sanitation() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    // Basic sanitation -> landfill, transfer station
+    state.purchase(UnlockNode::BasicSanitation);
+    assert!(state.is_service_unlocked(ServiceType::Landfill));
+    assert!(state.is_service_unlocked(ServiceType::TransferStation));
+    assert!(!state.is_service_unlocked(ServiceType::RecyclingCenter));
+    // Advanced sanitation -> recycling, incinerator
+    state.purchase(UnlockNode::AdvancedSanitation);
+    assert!(state.is_service_unlocked(ServiceType::RecyclingCenter));
+    assert!(state.is_service_unlocked(ServiceType::Incinerator));
+}
+
+#[test]
+fn test_unlock_service_mapping_transport() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    // Public transport -> bus, train
+    state.purchase(UnlockNode::PublicTransport);
+    assert!(state.is_service_unlocked(ServiceType::BusDepot));
+    assert!(state.is_service_unlocked(ServiceType::TrainStation));
+    assert!(!state.is_service_unlocked(ServiceType::SubwayStation));
+    // Advanced transport -> subway, tram, ferry
+    state.purchase(UnlockNode::AdvancedTransport);
+    assert!(state.is_service_unlocked(ServiceType::SubwayStation));
+    assert!(state.is_service_unlocked(ServiceType::TramDepot));
+    assert!(state.is_service_unlocked(ServiceType::FerryPier));
+}
+
+#[test]
+fn test_unlock_service_mapping_airports() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    assert!(!state.is_service_unlocked(ServiceType::SmallAirstrip));
+    state.purchase(UnlockNode::SmallAirstrips);
+    assert!(state.is_service_unlocked(ServiceType::SmallAirstrip));
+    assert!(!state.is_service_unlocked(ServiceType::RegionalAirport));
+    state.purchase(UnlockNode::RegionalAirports);
+    assert!(state.is_service_unlocked(ServiceType::RegionalAirport));
+    assert!(!state.is_service_unlocked(ServiceType::InternationalAirport));
+    state.purchase(UnlockNode::InternationalAirports);
+    assert!(state.is_service_unlocked(ServiceType::InternationalAirport));
+}
+
+#[test]
+fn test_unlock_service_mapping_telecom() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    assert!(!state.is_service_unlocked(ServiceType::CellTower));
+    assert!(!state.is_service_unlocked(ServiceType::DataCenter));
+    state.purchase(UnlockNode::Telecom);
+    assert!(state.is_service_unlocked(ServiceType::CellTower));
+    assert!(state.is_service_unlocked(ServiceType::DataCenter));
+}
+
+#[test]
+fn test_unlock_service_mapping_landmarks() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    assert!(!state.is_service_unlocked(ServiceType::CityHall));
+    state.purchase(UnlockNode::Landmarks);
+    assert!(state.is_service_unlocked(ServiceType::CityHall));
+    assert!(state.is_service_unlocked(ServiceType::Museum));
+    assert!(state.is_service_unlocked(ServiceType::Cathedral));
+    assert!(state.is_service_unlocked(ServiceType::TVStation));
+}
+
+#[test]
+fn test_unlock_service_mapping_death_care() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    assert!(!state.is_service_unlocked(ServiceType::Cemetery));
+    assert!(!state.is_service_unlocked(ServiceType::Crematorium));
+    state.purchase(UnlockNode::DeathCare);
+    assert!(state.is_service_unlocked(ServiceType::Cemetery));
+    assert!(state.is_service_unlocked(ServiceType::Crematorium));
+}
+
+#[test]
+fn test_unlock_service_mapping_postal() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    assert!(!state.is_service_unlocked(ServiceType::PostOffice));
+    assert!(!state.is_service_unlocked(ServiceType::MailSortingCenter));
+    state.purchase(UnlockNode::PostalService);
+    assert!(state.is_service_unlocked(ServiceType::PostOffice));
+    assert!(state.is_service_unlocked(ServiceType::MailSortingCenter));
+}
+
+#[test]
+fn test_unlock_service_mapping_heating() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    // Basic heating
+    assert!(!state.is_service_unlocked(ServiceType::HeatingBoiler));
+    state.purchase(UnlockNode::BasicHeating);
+    assert!(state.is_service_unlocked(ServiceType::HeatingBoiler));
+    assert!(!state.is_service_unlocked(ServiceType::DistrictHeatingPlant));
+    // District heating network
+    state.purchase(UnlockNode::DistrictHeatingNetwork);
+    assert!(state.is_service_unlocked(ServiceType::DistrictHeatingPlant));
+    assert!(state.is_service_unlocked(ServiceType::GeothermalPlant));
+}
+
+#[test]
+fn test_unlock_service_mapping_water_infrastructure() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    assert!(!state.is_service_unlocked(ServiceType::WaterTreatmentPlant));
+    assert!(!state.is_service_unlocked(ServiceType::WellPump));
+    state.purchase(UnlockNode::WaterInfrastructure);
+    assert!(state.is_service_unlocked(ServiceType::WaterTreatmentPlant));
+    assert!(state.is_service_unlocked(ServiceType::WellPump));
+}
+
+#[test]
+fn test_unlock_utility_mapping_basic_power_and_water() {
+    use crate::unlocks::UnlockState;
+    let state = UnlockState::default();
+    // Basic power and water are starter unlocks
+    assert!(state.is_utility_unlocked(UtilityType::PowerPlant));
+    assert!(state.is_utility_unlocked(UtilityType::WaterTower));
+    assert!(state.is_utility_unlocked(UtilityType::PumpingStation));
+    // Solar, wind, nuclear not unlocked yet
+    assert!(!state.is_utility_unlocked(UtilityType::SolarFarm));
+    assert!(!state.is_utility_unlocked(UtilityType::WindTurbine));
+    assert!(!state.is_utility_unlocked(UtilityType::NuclearPlant));
+}
+
+#[test]
+fn test_unlock_utility_mapping_advanced_power() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    // Solar
+    state.purchase(UnlockNode::SolarPower);
+    assert!(state.is_utility_unlocked(UtilityType::SolarFarm));
+    // Wind (also unlocks Geothermal utility)
+    state.purchase(UnlockNode::WindPower);
+    assert!(state.is_utility_unlocked(UtilityType::WindTurbine));
+    assert!(state.is_utility_unlocked(UtilityType::Geothermal));
+    // Nuclear
+    state.purchase(UnlockNode::NuclearPower);
+    assert!(state.is_utility_unlocked(UtilityType::NuclearPlant));
+}
+
+#[test]
+fn test_unlock_utility_mapping_sewage() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    assert!(!state.is_utility_unlocked(UtilityType::SewagePlant));
+    assert!(!state.is_utility_unlocked(UtilityType::WaterTreatment));
+    state.purchase(UnlockNode::SewagePlant);
+    assert!(state.is_utility_unlocked(UtilityType::SewagePlant));
+    assert!(state.is_utility_unlocked(UtilityType::WaterTreatment));
+}
+
+#[test]
+fn test_milestone_awards_development_points_at_500_pop() {
+    use crate::unlocks::UnlockState;
+    let mut city = TestCity::new();
+    // Inject population into CityStats
+    city.world_mut()
+        .resource_mut::<crate::stats::CityStats>()
+        .population = 500;
+    let initial_dp = city.resource::<UnlockState>().development_points;
+    // Run a slow tick cycle so the award_development_points system runs
+    city.tick_slow_cycle();
+    let state = city.resource::<UnlockState>();
+    // Should have gained 2 DP for the 500 milestone
+    assert_eq!(
+        state.development_points,
+        initial_dp + 2,
+        "Should gain 2 DP at 500 pop milestone"
+    );
+    assert_eq!(state.last_milestone_pop, 500);
+}
+
+#[test]
+fn test_milestone_awards_do_not_retrigger() {
+    use crate::unlocks::UnlockState;
+    let mut city = TestCity::new();
+    // Set population to 500
+    city.world_mut()
+        .resource_mut::<crate::stats::CityStats>()
+        .population = 500;
+    city.tick_slow_cycle();
+    let dp_after_first = city.resource::<UnlockState>().development_points;
+    // Run another slow tick cycle with same population -> should NOT gain more DP
+    city.world_mut()
+        .resource_mut::<crate::stats::CityStats>()
+        .population = 500;
+    city.tick_slow_cycle();
+    let dp_after_second = city.resource::<UnlockState>().development_points;
+    assert_eq!(
+        dp_after_first, dp_after_second,
+        "Milestone should not re-trigger at same population"
+    );
+}
+
+#[test]
+fn test_milestone_multiple_thresholds_in_sequence() {
+    use crate::unlocks::UnlockState;
+    let mut city = TestCity::new();
+    let initial_dp = city.resource::<UnlockState>().development_points;
+    // Jump to 2000 pop -> should award milestones for 500 (+2), 1000 (+2), 2000 (+3)
+    city.world_mut()
+        .resource_mut::<crate::stats::CityStats>()
+        .population = 2_000;
+    city.tick_slow_cycle();
+    let state = city.resource::<UnlockState>();
+    assert_eq!(
+        state.development_points,
+        initial_dp + 2 + 2 + 3,
+        "Should gain DP for all milestones up to 2000"
+    );
+    assert_eq!(state.last_milestone_pop, 2_000);
+}
+
+#[test]
+fn test_milestone_skipping_intermediate_thresholds_still_awards() {
+    use crate::unlocks::UnlockState;
+    let mut city = TestCity::new();
+    let initial_dp = city.resource::<UnlockState>().development_points;
+    // Jump straight to 10000 -> should award all milestones: 500(2)+1000(2)+2000(3)+5000(3)+10000(4)
+    city.world_mut()
+        .resource_mut::<crate::stats::CityStats>()
+        .population = 10_000;
+    city.tick_slow_cycle();
+    let state = city.resource::<UnlockState>();
+    let expected = initial_dp + 2 + 2 + 3 + 3 + 4;
+    assert_eq!(
+        state.development_points, expected,
+        "Should gain DP for all milestones up to 10000 (expected {})",
+        expected
+    );
+}
+
+#[test]
+fn test_unlock_state_resource_exists_in_test_city() {
+    use crate::unlocks::UnlockState;
+    let city = TestCity::new();
+    city.assert_resource_exists::<UnlockState>();
+    let state = city.resource::<UnlockState>();
+    // Default should have 6 starter unlocks
+    assert_eq!(state.unlocked_nodes.len(), 6);
+}
+
+#[test]
+fn test_achievement_tracker_resource_exists_in_test_city() {
+    use crate::achievements::AchievementTracker;
+    let city = TestCity::new();
+    city.assert_resource_exists::<AchievementTracker>();
+    let tracker = city.resource::<AchievementTracker>();
+    assert_eq!(tracker.unlocked_count(), 0);
+}
+
+#[test]
+fn test_achievement_dp_reward_increases_unlock_points() {
+    use crate::achievements::{Achievement, AchievementReward};
+    // Verify that DevelopmentPoints reward type maps correctly
+    let reward = Achievement::Millionaire.reward();
+    match reward {
+        AchievementReward::DevelopmentPoints(pts) => {
+            assert_eq!(pts, 5, "Millionaire should give 5 DP");
+        }
+        _ => panic!("Millionaire should reward DevelopmentPoints"),
+    }
+    let reward = Achievement::FullPowerCoverage.reward();
+    match reward {
+        AchievementReward::DevelopmentPoints(pts) => {
+            assert_eq!(pts, 3, "FullPowerCoverage should give 3 DP");
+        }
+        _ => panic!("FullPowerCoverage should reward DevelopmentPoints"),
+    }
+}
+
+#[test]
+fn test_achievement_treasury_reward_values() {
+    use crate::achievements::{Achievement, AchievementReward};
+    let reward = Achievement::Population1K.reward();
+    match reward {
+        AchievementReward::TreasuryBonus(amount) => {
+            assert!((amount - 5_000.0).abs() < 0.01, "Pop 1K should give $5K");
+        }
+        _ => panic!("Population1K should reward TreasuryBonus"),
+    }
+    let reward = Achievement::Population1M.reward();
+    match reward {
+        AchievementReward::TreasuryBonus(amount) => {
+            assert!(
+                (amount - 1_000_000.0).abs() < 0.01,
+                "Pop 1M should give $1M"
+            );
+        }
+        _ => panic!("Population1M should reward TreasuryBonus"),
+    }
+}
+
+#[test]
+fn test_achievement_tracker_no_double_unlock() {
+    use crate::achievements::{Achievement, AchievementTracker};
+    let mut tracker = AchievementTracker::default();
+    // First unlock via public unlocked map
+    assert!(!tracker.is_unlocked(Achievement::Population1K));
+    tracker.unlocked.insert(Achievement::Population1K, 100);
+    assert!(tracker.is_unlocked(Achievement::Population1K));
+    assert_eq!(tracker.unlocked_count(), 1);
+    // Inserting again overwrites but count stays the same
+    tracker.unlocked.insert(Achievement::Population1K, 200);
+    assert_eq!(tracker.unlocked_count(), 1);
+    // Verify is_unlocked still true
+    assert!(tracker.is_unlocked(Achievement::Population1K));
+}
+
+#[test]
+fn test_achievement_all_have_metadata() {
+    use crate::achievements::Achievement;
+    for &a in Achievement::ALL {
+        assert!(!a.name().is_empty(), "Achievement {:?} has no name", a);
+        assert!(
+            !a.description().is_empty(),
+            "Achievement {:?} has no description",
+            a
+        );
+        // Verify reward description is non-empty
+        let reward_desc = a.reward().description();
+        assert!(
+            !reward_desc.is_empty(),
+            "Achievement {:?} reward has no description",
+            a
+        );
+    }
+}
+
+#[test]
+fn test_unlock_purchase_sequence_exhausts_points() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    // We have 3 DP. Purchase three tier-1 items (cost 1 each)
+    assert!(state.purchase(UnlockNode::FireService));
+    assert!(state.purchase(UnlockNode::PoliceService));
+    assert!(state.purchase(UnlockNode::SmallParks));
+    assert_eq!(state.available_points(), 0);
+    // Cannot purchase anything more
+    assert!(!state.purchase(UnlockNode::ElementaryEducation));
+    assert!(!state.is_unlocked(UnlockNode::ElementaryEducation));
+}
+
+#[test]
+fn test_unlock_available_points_uses_saturating_sub() {
+    use crate::unlocks::UnlockState;
+    let mut state = UnlockState::default();
+    // Even if spent_points somehow exceeds development_points, available should be 0
+    state.spent_points = 100;
+    assert_eq!(state.available_points(), 0);
+}
+
+#[test]
+fn test_unlock_service_healthcare_chain() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    // HealthCare unlocks Hospital, MedicalClinic, HomelessShelter, WelfareOffice
+    assert!(!state.is_service_unlocked(ServiceType::Hospital));
+    assert!(!state.is_service_unlocked(ServiceType::MedicalClinic));
+    assert!(!state.is_service_unlocked(ServiceType::HomelessShelter));
+    assert!(!state.is_service_unlocked(ServiceType::WelfareOffice));
+    state.purchase(UnlockNode::HealthCare);
+    assert!(state.is_service_unlocked(ServiceType::Hospital));
+    assert!(state.is_service_unlocked(ServiceType::MedicalClinic));
+    assert!(state.is_service_unlocked(ServiceType::HomelessShelter));
+    assert!(state.is_service_unlocked(ServiceType::WelfareOffice));
+}
+
+#[test]
+fn test_unlock_service_parks_and_entertainment() {
+    use crate::unlocks::{UnlockNode, UnlockState};
+    let mut state = UnlockState::default();
+    state.development_points = 50;
+    // SmallParks -> SmallPark, Playground
+    state.purchase(UnlockNode::SmallParks);
+    assert!(state.is_service_unlocked(ServiceType::SmallPark));
+    assert!(state.is_service_unlocked(ServiceType::Playground));
+    assert!(!state.is_service_unlocked(ServiceType::LargePark));
+    // AdvancedParks -> LargePark, SportsField
+    state.purchase(UnlockNode::AdvancedParks);
+    assert!(state.is_service_unlocked(ServiceType::LargePark));
+    assert!(state.is_service_unlocked(ServiceType::SportsField));
+    // Entertainment -> Plaza, Stadium
+    assert!(!state.is_service_unlocked(ServiceType::Plaza));
+    state.purchase(UnlockNode::Entertainment);
+    assert!(state.is_service_unlocked(ServiceType::Plaza));
+    assert!(state.is_service_unlocked(ServiceType::Stadium));
+}
