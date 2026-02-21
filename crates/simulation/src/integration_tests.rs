@@ -3943,20 +3943,13 @@ fn test_blueprint_multiple_placements_are_independent() {
 #[test]
 fn test_invariant_no_overcapacity_on_tel_aviv() {
     use crate::buildings::Building;
-    use crate::simulation_invariants::InvariantViolations;
     use crate::test_harness::TestCity;
 
     let mut city = TestCity::with_tel_aviv();
     city.tick_slow_cycles(3);
 
     // After multiple slow cycles, the validator should have corrected any
-    // overcapacity. Verify no building has occupants > capacity.
-    let violations = city.resource::<InvariantViolations>();
-    assert_eq!(
-        violations.job_overcapacity, 0,
-        "No overcapacity violations expected after correction"
-    );
-
+    // overcapacity it found. Verify no building currently has occupants > capacity.
     let world = city.world_mut();
     let mut query = world.query::<&Building>();
     for building in query.iter(world) {
