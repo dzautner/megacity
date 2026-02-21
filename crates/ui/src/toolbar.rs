@@ -78,6 +78,7 @@ impl Default for ToolCatalog {
 
 struct ToolItem {
     tool: Option<ActiveTool>,
+    #[allow(dead_code)]
     icon: &'static str,
     name: &'static str,
     cost: Option<f64>,
@@ -1517,36 +1518,36 @@ pub fn toolbar_ui(
             });
         });
 
-    // ---- Category popup (shown above bottom bar when a category is open) ----
+    // ---- Category popup: compact horizontal strip just above the bottom bar ----
     if let Some(cat_idx) = open_cat.0 {
         if cat_idx < categories.len() {
             let cat = &categories[cat_idx];
             let bottom_rect = bottom_resp.response.rect;
+            let screen_width = contexts.ctx_mut().screen_rect().width();
 
             let mut should_close = false;
 
             egui::Area::new(egui::Id::new("category_popup"))
-                .fixed_pos(egui::pos2(
-                    bottom_rect.left() + 4.0,
-                    bottom_rect.top() - 8.0,
-                ))
+                .fixed_pos(egui::pos2(0.0, bottom_rect.top() - 2.0))
                 .pivot(egui::Align2::LEFT_BOTTOM)
                 .show(contexts.ctx_mut(), |ui| {
-                    egui::Frame::popup(ui.style()).show(ui, |ui| {
-                        ui.set_min_width(200.0);
-                        ui.heading(cat.name);
-                        ui.separator();
+                    egui::Frame::popup(ui.style())
+                        .inner_margin(egui::Margin::symmetric(8, 4))
+                        .show(ui, |ui| {
+                            ui.set_min_width(screen_width - 16.0);
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing.x = 4.0;
 
-                        // Grid layout: 3 columns
-                        egui::Grid::new("cat_items_grid")
-                            .num_columns(3)
-                            .spacing([8.0, 6.0])
-                            .show(ui, |ui| {
-                                for (i, item) in cat.items.iter().enumerate() {
+                                // Category label
+                                ui.label(egui::RichText::new(cat.name).strong().size(12.0));
+                                ui.separator();
+
+                                // All items in a single horizontal row
+                                for item in cat.items.iter() {
                                     let label_text = if let Some(cost) = item.cost {
-                                        format!("{} {} ${:.0}", item.icon, item.name, cost)
+                                        format!("{} ${:.0}", item.name, cost)
                                     } else {
-                                        format!("{} {}", item.icon, item.name)
+                                        item.name.to_string()
                                     };
 
                                     let is_active = match item.tool {
@@ -1558,7 +1559,10 @@ pub fn toolbar_ui(
                                     };
 
                                     let response = ui
-                                        .selectable_label(is_active, &label_text)
+                                        .selectable_label(
+                                            is_active,
+                                            egui::RichText::new(&label_text).size(11.0),
+                                        )
                                         .on_hover_ui(|ui| {
                                             show_tool_tooltip(ui, item);
                                         });
@@ -1575,13 +1579,9 @@ pub fn toolbar_ui(
                                             };
                                         }
                                     }
-
-                                    if (i + 1) % 3 == 0 {
-                                        ui.end_row();
-                                    }
                                 }
                             });
-                    });
+                        });
                 });
 
             if should_close {
