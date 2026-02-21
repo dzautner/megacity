@@ -2776,7 +2776,9 @@ fn test_speed_returns_to_normal_when_congestion_clears() {
     let congested_dist =
         ((congested_pos.0 - start_pos.0).powi(2) + (congested_pos.1 - start_pos.1).powi(2)).sqrt();
 
-    // Clear congestion and reset path for the citizen
+    // Clear congestion and reset citizen position + path for the free-flow phase.
+    // We reset position to the same starting point as the congested phase so the
+    // distance comparison is fair (both phases start from grid cell 50,50).
     {
         let world = city.world_mut();
         let mut traffic = world.resource_mut::<TrafficGrid>();
@@ -2788,13 +2790,17 @@ fn test_speed_returns_to_normal_when_congestion_clears() {
             congestion.set(x, 50, 1.0);
         }
         let waypoints: Vec<RoadNode> = (50..=120).map(|x| RoadNode(x, 50)).collect();
+        let (wx, wy) = WorldGrid::grid_to_world(50, 50);
         let mut q = world.query_filtered::<(
             &mut CitizenStateComp,
             &mut PathCache,
+            &mut Position,
         ), bevy::prelude::With<Citizen>>();
-        for (mut state, mut path) in q.iter_mut(world) {
+        for (mut state, mut path, mut pos) in q.iter_mut(world) {
             state.0 = CitizenState::CommutingToWork;
             *path = PathCache::new(waypoints.clone());
+            pos.x = wx;
+            pos.y = wy;
         }
     }
 
