@@ -6,17 +6,17 @@
 //!
 //! The grades follow the Highway Capacity Manual (HCM) convention:
 //! - A: Free flow (v/c ratio < 0.35)
-//! - B: Reasonably free flow (v/c ratio < 0.55)
-//! - C: Stable flow (v/c ratio < 0.70)
-//! - D: Approaching unstable (v/c ratio < 0.85)
+//! - B: Stable flow (v/c ratio < 0.55)
+//! - C: Stable flow, some restriction (v/c ratio < 0.77)
+//! - D: Approaching unstable (v/c ratio < 0.90)
 //! - E: Unstable flow (v/c ratio < 1.00)
-//! - F: Gridlock / forced flow (v/c ratio >= 1.00)
+//! - F: Forced flow / breakdown (v/c ratio >= 1.00)
 
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-use crate::grid::{CellType, RoadType, WorldGrid};
+use crate::grid::{CellType, WorldGrid};
 use crate::traffic::TrafficGrid;
 use crate::Saveable;
 
@@ -40,9 +40,9 @@ impl LosGrade {
             LosGrade::A
         } else if vc < 0.55 {
             LosGrade::B
-        } else if vc < 0.70 {
+        } else if vc < 0.77 {
             LosGrade::C
-        } else if vc < 0.85 {
+        } else if vc < 0.90 {
             LosGrade::D
         } else if vc < 1.00 {
             LosGrade::E
@@ -61,25 +61,37 @@ impl LosGrade {
     pub fn label(self) -> &'static str {
         match self {
             LosGrade::A => "LOS A (Free Flow)",
-            LosGrade::B => "LOS B (Reasonably Free)",
-            LosGrade::C => "LOS C (Stable Flow)",
+            LosGrade::B => "LOS B (Stable Flow)",
+            LosGrade::C => "LOS C (Restricted Flow)",
             LosGrade::D => "LOS D (Approaching Unstable)",
             LosGrade::E => "LOS E (Unstable Flow)",
-            LosGrade::F => "LOS F (Gridlock)",
+            LosGrade::F => "LOS F (Breakdown)",
         }
     }
-}
 
-/// Returns the capacity (max vehicles per tick) for a given road type.
-/// Higher-capacity roads tolerate more traffic before degrading LOS.
-fn road_capacity(road_type: RoadType) -> f32 {
-    match road_type {
-        RoadType::Path => 3.0,
-        RoadType::OneWay => 8.0,
-        RoadType::Local => 10.0,
-        RoadType::Avenue => 18.0,
-        RoadType::Boulevard => 25.0,
-        RoadType::Highway => 35.0,
+    /// RGBA color for overlay rendering.
+    /// Green (A) -> Yellow (C) -> Red (F).
+    pub fn color(self) -> [f32; 4] {
+        match self {
+            LosGrade::A => [0.0, 0.8, 0.0, 0.6], // green
+            LosGrade::B => [0.4, 0.8, 0.0, 0.6], // yellow-green
+            LosGrade::C => [0.8, 0.8, 0.0, 0.6], // yellow
+            LosGrade::D => [1.0, 0.5, 0.0, 0.6], // orange
+            LosGrade::E => [1.0, 0.2, 0.0, 0.6], // red-orange
+            LosGrade::F => [0.8, 0.0, 0.0, 0.6], // red
+        }
+    }
+
+    /// Single-character grade letter.
+    pub fn letter(self) -> char {
+        match self {
+            LosGrade::A => 'A',
+            LosGrade::B => 'B',
+            LosGrade::C => 'C',
+            LosGrade::D => 'D',
+            LosGrade::E => 'E',
+            LosGrade::F => 'F',
+        }
     }
 }
 
@@ -166,7 +178,7 @@ pub fn update_traffic_los(
             }
 
             let density = traffic.get(x, y) as f32;
-            let capacity = road_capacity(cell.road_type);
+            let capacity = cell.road_type.capacity() as f32;
             let vc_ratio = density / capacity;
             let grade = LosGrade::from_vc_ratio(vc_ratio);
             los_grid.set(x, y, grade);
@@ -196,20 +208,27 @@ impl Plugin for TrafficLosPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::grid::RoadType;
 
     #[test]
     fn test_los_grade_from_vc_ratio() {
+        // LOS A: v/c < 0.35
         assert_eq!(LosGrade::from_vc_ratio(0.0), LosGrade::A);
         assert_eq!(LosGrade::from_vc_ratio(0.20), LosGrade::A);
         assert_eq!(LosGrade::from_vc_ratio(0.34), LosGrade::A);
+        // LOS B: v/c < 0.55
         assert_eq!(LosGrade::from_vc_ratio(0.35), LosGrade::B);
         assert_eq!(LosGrade::from_vc_ratio(0.54), LosGrade::B);
+        // LOS C: v/c < 0.77
         assert_eq!(LosGrade::from_vc_ratio(0.55), LosGrade::C);
-        assert_eq!(LosGrade::from_vc_ratio(0.69), LosGrade::C);
-        assert_eq!(LosGrade::from_vc_ratio(0.70), LosGrade::D);
-        assert_eq!(LosGrade::from_vc_ratio(0.84), LosGrade::D);
-        assert_eq!(LosGrade::from_vc_ratio(0.85), LosGrade::E);
+        assert_eq!(LosGrade::from_vc_ratio(0.76), LosGrade::C);
+        // LOS D: v/c < 0.90
+        assert_eq!(LosGrade::from_vc_ratio(0.77), LosGrade::D);
+        assert_eq!(LosGrade::from_vc_ratio(0.89), LosGrade::D);
+        // LOS E: v/c < 1.00
+        assert_eq!(LosGrade::from_vc_ratio(0.90), LosGrade::E);
         assert_eq!(LosGrade::from_vc_ratio(0.99), LosGrade::E);
+        // LOS F: v/c >= 1.00
         assert_eq!(LosGrade::from_vc_ratio(1.00), LosGrade::F);
         assert_eq!(LosGrade::from_vc_ratio(2.50), LosGrade::F);
     }
@@ -256,10 +275,10 @@ mod tests {
     #[test]
     fn test_road_capacity_ordering() {
         // Higher road types should have more capacity
-        assert!(road_capacity(RoadType::Path) < road_capacity(RoadType::Local));
-        assert!(road_capacity(RoadType::Local) < road_capacity(RoadType::Avenue));
-        assert!(road_capacity(RoadType::Avenue) < road_capacity(RoadType::Boulevard));
-        assert!(road_capacity(RoadType::Boulevard) < road_capacity(RoadType::Highway));
+        assert!(RoadType::Path.capacity() < RoadType::Local.capacity());
+        assert!(RoadType::Local.capacity() < RoadType::Avenue.capacity());
+        assert!(RoadType::Avenue.capacity() < RoadType::Boulevard.capacity());
+        assert!(RoadType::Boulevard.capacity() < RoadType::Highway.capacity());
     }
 
     #[test]
@@ -275,6 +294,28 @@ mod tests {
         for grade in &grades {
             assert!(!grade.label().is_empty());
         }
+    }
+
+    #[test]
+    fn test_los_color_has_alpha() {
+        let grades = [
+            LosGrade::A,
+            LosGrade::B,
+            LosGrade::C,
+            LosGrade::D,
+            LosGrade::E,
+            LosGrade::F,
+        ];
+        for grade in &grades {
+            let color = grade.color();
+            assert!(color[3] > 0.0, "Alpha should be > 0 for {grade:?}");
+        }
+    }
+
+    #[test]
+    fn test_los_letter() {
+        assert_eq!(LosGrade::A.letter(), 'A');
+        assert_eq!(LosGrade::F.letter(), 'F');
     }
 
     #[test]
@@ -302,10 +343,10 @@ mod tests {
 
     #[test]
     fn test_highway_needs_more_traffic_for_congestion() {
-        // A highway with 15 vehicles should still be LOS A or B,
-        // while a local road with the same should be LOS F
-        let highway_vc = 15.0 / road_capacity(RoadType::Highway);
-        let local_vc = 15.0 / road_capacity(RoadType::Local);
+        // A highway with 15 vehicles should have better LOS than a local road
+        // (highway: 15/80=0.19 -> A, local: 15/20=0.75 -> C)
+        let highway_vc = 15.0 / RoadType::Highway.capacity() as f32;
+        let local_vc = 15.0 / RoadType::Local.capacity() as f32;
 
         let highway_grade = LosGrade::from_vc_ratio(highway_vc);
         let local_grade = LosGrade::from_vc_ratio(local_vc);
@@ -314,5 +355,20 @@ mod tests {
             (highway_grade as u8) < (local_grade as u8),
             "Highway should have better LOS than local road with same traffic"
         );
+    }
+
+    #[test]
+    fn test_boundary_thresholds_match_spec() {
+        // Verify exact boundary values from the TRAF-002 spec
+        assert_eq!(LosGrade::from_vc_ratio(0.349), LosGrade::A);
+        assert_eq!(LosGrade::from_vc_ratio(0.351), LosGrade::B);
+        assert_eq!(LosGrade::from_vc_ratio(0.549), LosGrade::B);
+        assert_eq!(LosGrade::from_vc_ratio(0.551), LosGrade::C);
+        assert_eq!(LosGrade::from_vc_ratio(0.769), LosGrade::C);
+        assert_eq!(LosGrade::from_vc_ratio(0.771), LosGrade::D);
+        assert_eq!(LosGrade::from_vc_ratio(0.899), LosGrade::D);
+        assert_eq!(LosGrade::from_vc_ratio(0.901), LosGrade::E);
+        assert_eq!(LosGrade::from_vc_ratio(0.999), LosGrade::E);
+        assert_eq!(LosGrade::from_vc_ratio(1.001), LosGrade::F);
     }
 }
