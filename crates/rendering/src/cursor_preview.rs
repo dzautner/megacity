@@ -2,7 +2,6 @@ use bevy::prelude::*;
 
 use simulation::config::CELL_SIZE;
 use simulation::grid::{CellType, RoadType, WorldGrid, ZoneType};
-use simulation::road_segments::RoadSegmentStore;
 use simulation::services::ServiceBuilding;
 
 use crate::angle_snap::AngleSnapState;
@@ -184,85 +183,14 @@ fn bezier_normal(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
     Vec2::new(-tan.y, tan.x) / len
 }
 
-/// Find approximate intersection points between a preview Bezier curve and
-/// existing road segments. Returns world-space 2D positions of intersections.
-fn find_preview_intersections(
-    p0: Vec2,
-    p1: Vec2,
-    p2: Vec2,
-    p3: Vec2,
-    store: &RoadSegmentStore,
-) -> Vec<Vec2> {
-    let mut intersections = Vec::new();
-    let preview_samples = 48;
-
-    // Pre-sample the preview curve
-    let mut preview_points: Vec<Vec2> = Vec::with_capacity(preview_samples + 1);
-    for i in 0..=preview_samples {
-        let t = i as f32 / preview_samples as f32;
-        preview_points.push(bezier_eval(p0, p1, p2, p3, t));
-    }
-
-    for segment in &store.segments {
-        let seg_samples = 32;
-        let mut seg_points: Vec<Vec2> = Vec::with_capacity(seg_samples + 1);
-        for i in 0..=seg_samples {
-            let t = i as f32 / seg_samples as f32;
-            seg_points.push(segment.evaluate(t));
-        }
-
-        // Check for line-segment intersections between consecutive sample pairs
-        for i in 0..preview_samples {
-            let a1 = preview_points[i];
-            let a2 = preview_points[i + 1];
-            for j in 0..seg_samples {
-                let b1 = seg_points[j];
-                let b2 = seg_points[j + 1];
-                if let Some(pt) = segment_intersection(a1, a2, b1, b2) {
-                    // Avoid duplicate markers that are too close together
-                    let dominated = intersections
-                        .iter()
-                        .any(|&p: &Vec2| (p - pt).length() < 8.0);
-                    if !dominated {
-                        intersections.push(pt);
-                    }
-                }
-            }
-        }
-    }
-
-    intersections
-}
-
-/// 2D line-segment intersection test. Returns the intersection point if
-/// the two segments (a1-a2) and (b1-b2) cross each other.
-fn segment_intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
-    let d1 = a2 - a1;
-    let d2 = b2 - b1;
-    let cross = d1.x * d2.y - d1.y * d2.x;
-    if cross.abs() < 1e-6 {
-        return None; // parallel
-    }
-    let d = b1 - a1;
-    let t = (d.x * d2.y - d.y * d2.x) / cross;
-    let u = (d.x * d1.y - d.y * d1.x) / cross;
-    if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
-        Some(a1 + d1 * t)
-    } else {
-        None
-    }
-}
-
-/// Draw a full-width Bezier curve preview while in freeform road drawing mode,
-/// with intersection markers where the preview crosses existing roads.
-#[allow(clippy::too_many_arguments)]
+/// Draw a full-width Bezier curve preview while in freeform road drawing mode.
+/// Intersection markers are handled by the `intersection_preview` module (UX-023).
 pub fn draw_bezier_preview(
     draw_state: Res<RoadDrawState>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
     angle_snap: Res<AngleSnapState>,
     snap: Res<IntersectionSnap>,
-    segment_store: Res<RoadSegmentStore>,
     mut gizmos: Gizmos,
 ) {
     if draw_state.phase != DrawPhase::PlacedStart || !cursor.valid {
@@ -348,31 +276,6 @@ pub fn draw_bezier_preview(
         half_w,
         Color::srgba(1.0, 1.0, 0.3, 0.9),
     );
-
-    // Find and draw intersection markers
-    let isections = find_preview_intersections(p0, p1, p2, p3, &segment_store);
-    let marker_color = Color::srgba(1.0, 0.4, 0.1, 0.95);
-    for pt in &isections {
-        let pos = Vec3::new(pt.x, y + 0.1, pt.y);
-        let marker_size = half_w * 0.8;
-        gizmos.circle(
-            Isometry3d::new(pos, Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
-            marker_size,
-            marker_color,
-        );
-        // Draw an inner cross for visibility
-        let cross_size = marker_size * 0.7;
-        gizmos.line(
-            pos + Vec3::new(-cross_size, 0.0, -cross_size),
-            pos + Vec3::new(cross_size, 0.0, cross_size),
-            marker_color,
-        );
-        gizmos.line(
-            pos + Vec3::new(-cross_size, 0.0, cross_size),
-            pos + Vec3::new(cross_size, 0.0, -cross_size),
-            marker_color,
-        );
-    }
 }
 
 fn check_footprint_valid(grid: &WorldGrid, gx: usize, gy: usize, fw: usize, fh: usize) -> bool {
