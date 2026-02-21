@@ -9,7 +9,37 @@ members = [
 ]
 
 [workspace.dependencies]
-bevy = { version = "0.15" }
+# default-features = false so desktop-only features (x11) don't leak into WASM builds.
+# Platform-specific features (x11, wayland, webgl2) are enabled in crates/app/Cargo.toml
+# via target-gated dependency sections.
+bevy = { version = "0.15", default-features = false, features = [
+    "animation",
+    "bevy_asset",
+    "bevy_audio",
+    "bevy_color",
+    "bevy_core_pipeline",
+    "bevy_gilrs",
+    "bevy_gizmos",
+    "bevy_gltf",
+    "bevy_pbr",
+    "bevy_picking",
+    "bevy_render",
+    "bevy_scene",
+    "bevy_sprite",
+    "bevy_state",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_winit",
+    "default_font",
+    "hdr",
+    "ktx2",
+    "multi_threaded",
+    "png",
+    "smaa_luts",
+    "sysinfo_plugin",
+    "tonemapping_luts",
+    "vorbis",
+] }
 bevy_egui = "0.33"
 fastnoise-lite = "1.1"
 pathfinding = "4"
@@ -22,4 +52,3 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
-

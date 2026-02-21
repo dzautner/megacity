@@ -21,13 +21,17 @@ name = "frame_perf"
 harness = false
 required-features = ["bench"]
 
+# Desktop-only: enable native windowing backends
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-bevy = { workspace = true, features = ["wayland"] }
+bevy = { workspace = true, features = ["x11", "wayland"] }
 
+# WASM-only: enable WebGL2 renderer and wire up JS entropy sources
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy = { workspace = true, features = ["webgl2"] }
-# Each version of getrandom needs its WASM backend enabled
+# getrandom 0.2: used by bevy_utils, const-random-macro, rand 0.8
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+# getrandom 0.3: used by ahash (via const-random), jobserver
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+# getrandom 0.4: used by uuid 1.x (Bevy entity/asset IDs)
 getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 uuid = { version = "1", features = ["js"] }
