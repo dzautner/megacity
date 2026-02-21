@@ -671,7 +671,7 @@ fn restore_resources_from_save(world: &mut World, save: &SaveData) {
         world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
             let mut roads = world.resource_mut::<RoadNetwork>();
             for (x, y, _) in &saved_road_types {
-                roads.place_road(&mut *grid, *x, *y);
+                roads.place_road(&mut grid, *x, *y);
             }
             // Restore the saved road types (place_road overwrites with Local)
             for (x, y, rt) in &saved_road_types {
@@ -688,7 +688,7 @@ fn restore_resources_from_save(world: &mut World, save: &SaveData) {
             let mut restored = restore_road_segment_store(saved_segments);
             world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
                 let mut roads = world.resource_mut::<RoadNetwork>();
-                restored.rasterize_all(&mut *grid, &mut *roads);
+                restored.rasterize_all(&mut grid, &mut roads);
             });
             *world.resource_mut::<RoadSegmentStore>() = restored;
         } else {
@@ -1041,12 +1041,12 @@ fn spawn_entities_from_save(world: &mut World, save: &SaveData) {
 
     // Spawn citizens
     let mut citizen_entities: Vec<Entity> = Vec::with_capacity(save.citizens.len());
-    {
+
+    // Pre-compute all citizen data in an inner scope so the grid borrow
+    // ends before we call world.spawn().
+    let citizen_spawn_data: Vec<_> = {
         let grid = world.resource::<WorldGrid>();
-        // Pre-compute all citizen data (to avoid repeated grid lookups while
-        // world is borrowed mutably for spawning).
-        let citizen_spawn_data: Vec<_> = save
-            .citizens
+        save.citizens
             .iter()
             .map(|sc| {
                 let state = match sc.state {
@@ -1170,16 +1170,12 @@ fn spawn_entities_from_save(world: &mut World, save: &SaveData) {
                     LodTier::default(),
                 )
             })
-            .collect();
+            .collect()
+    }; // grid borrow ends here
 
-        // Drop grid borrow before spawning
-        drop(grid);
-
-        // Spawn citizens
-        for data in citizen_spawn_data {
-            let entity = world.spawn(data).id();
-            citizen_entities.push(entity);
-        }
+    for data in citizen_spawn_data {
+        let entity = world.spawn(data).id();
+        citizen_entities.push(entity);
     }
 
     // Second pass: restore family relationships using saved citizen indices.
