@@ -32,6 +32,7 @@ pub mod traffic_arrows;
 pub mod traffic_los_render;
 pub mod wind_streamlines;
 
+pub mod enhanced_select;
 pub mod grid_align;
 pub mod parallel_snap;
 pub mod screenshot;
@@ -210,6 +211,9 @@ impl Plugin for RenderingPlugin {
 
         // Zone brush preview (UX-018)
         app.add_plugins(zone_brush_preview::ZoneBrushPreviewPlugin);
+
+        // Enhanced click-to-select with priority ordering (UX-009)
+        app.add_plugins(enhanced_select::EnhancedSelectPlugin);
     }
 }
 

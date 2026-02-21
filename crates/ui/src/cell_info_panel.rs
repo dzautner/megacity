@@ -12,7 +12,8 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
-use rendering::input::{ActiveTool, CursorGridPos, SelectedBuilding};
+use rendering::enhanced_select::SelectionKind;
+use rendering::input::{ActiveTool, SelectedBuilding};
 use simulation::config::{CELL_SIZE, GRID_WIDTH};
 use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::land_value::LandValueGrid;
@@ -28,43 +29,21 @@ pub struct SelectedCell(pub Option<(usize, usize)>);
 /// Update the selected cell when the player clicks on an empty cell with the
 /// Inspect tool. Clears the selection when a building is selected instead.
 pub fn update_selected_cell(
-    buttons: Res<ButtonInput<MouseButton>>,
-    cursor: Res<CursorGridPos>,
+    selection_kind: Res<SelectionKind>,
     tool: Res<ActiveTool>,
-    grid: Res<WorldGrid>,
-    selected_building: Res<SelectedBuilding>,
     mut selected_cell: ResMut<SelectedCell>,
 ) {
-    if !buttons.just_pressed(MouseButton::Left) || !cursor.valid {
-        return;
-    }
-
-    // Only activate on Inspect tool
     if *tool != ActiveTool::Inspect {
         selected_cell.0 = None;
         return;
     }
 
-    let gx = cursor.grid_x as usize;
-    let gy = cursor.grid_y as usize;
-
-    if !grid.in_bounds(gx, gy) {
-        selected_cell.0 = None;
-        return;
-    }
-
-    let cell = grid.get(gx, gy);
-
-    // If a building was selected by this click, clear cell selection
-    if selected_building.0.is_some() {
-        selected_cell.0 = None;
-        return;
-    }
-
-    // Show the panel for empty cells (grass with no building)
-    if cell.building_id.is_none() {
+    // Defer to the enhanced selection system for priority-based selection.
+    // Only show the cell panel when the enhanced selector determined an
+    // empty cell was the lowest-priority selection.
+    if let SelectionKind::Cell(gx, gy) = *selection_kind {
         selected_cell.0 = Some((gx, gy));
-    } else {
+    } else if selection_kind.is_changed() {
         selected_cell.0 = None;
     }
 }

@@ -514,9 +514,9 @@ pub fn handle_tool_input(
     let gx = cursor.grid_x as usize;
     let gy = cursor.grid_y as usize;
 
-    // Always update selected building on click, regardless of active tool.
-    // This powers the Building Inspector panel.
-    if buttons.just_pressed(MouseButton::Left) {
+    // Update selected building on click for non-Inspect tools.
+    // In Inspect mode, the enhanced_select system handles priority-based selection.
+    if buttons.just_pressed(MouseButton::Left) && *tool != ActiveTool::Inspect {
         selected.0 = grid.get(gx, gy).building_id;
     }
 
@@ -710,13 +710,9 @@ pub fn handle_tool_input(
             }
         }
         ActiveTool::Inspect => {
-            if buttons.just_pressed(MouseButton::Left) {
-                let cell = grid.get(gx, gy);
-                selected.0 = cell.building_id;
-                if cell.building_id.is_none() {
-                    status.set("No building here", false);
-                }
-            }
+            // Selection is handled by the enhanced_select system (UX-009)
+            // which provides priority-based selection:
+            // citizens > buildings > roads > cells.
             false
         }
 
@@ -1390,6 +1386,7 @@ pub fn handle_escape_key(
     mut draw_state: ResMut<RoadDrawState>,
     mut selected: ResMut<SelectedBuilding>,
     mut tool: ResMut<ActiveTool>,
+    mut selection_kind: ResMut<crate::enhanced_select::SelectionKind>,
 ) {
     if !bindings.escape.just_pressed(&keys) {
         return;
@@ -1401,9 +1398,10 @@ pub fn handle_escape_key(
         return;
     }
 
-    // Level 2: Deselect selected building
-    if selected.0.is_some() {
+    // Level 2: Deselect any selection (building, citizen, road, cell)
+    if selected.0.is_some() || *selection_kind != crate::enhanced_select::SelectionKind::None {
         selected.0 = None;
+        *selection_kind = crate::enhanced_select::SelectionKind::None;
         return;
     }
 

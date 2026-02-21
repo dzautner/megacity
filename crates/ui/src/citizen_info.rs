@@ -12,7 +12,8 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::camera::OrbitCamera;
-use rendering::input::{ActiveTool, CursorGridPos};
+use rendering::enhanced_select::SelectionKind;
+use rendering::input::ActiveTool;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     Personality, Position, WorkLocation,
@@ -204,47 +205,27 @@ fn needs_bar(ui: &mut egui::Ui, label: &str, value: f32) {
 /// a small radius of the cursor position. Citizens are matched by their
 /// world-space Position component against the cursor grid position.
 pub fn detect_citizen_selection(
-    buttons: Res<ButtonInput<MouseButton>>,
-    cursor: Res<CursorGridPos>,
+    selection_kind: Res<SelectionKind>,
     tool: Res<ActiveTool>,
-    citizens: Query<(Entity, &Position), With<Citizen>>,
     mut selected: ResMut<SelectedCitizen>,
     mut follow: ResMut<FollowCitizen>,
 ) {
-    if !buttons.just_pressed(MouseButton::Left) || !cursor.valid {
-        return;
-    }
-
     if *tool != ActiveTool::Inspect {
         selected.0 = None;
         follow.0 = None;
         return;
     }
 
-    // Convert cursor grid position to world coordinates (center of cell)
-    let world_x = cursor.grid_x as f32 * CELL_SIZE + CELL_SIZE * 0.5;
-    let world_y = cursor.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
-
-    // Search radius in world units (2 cells wide)
-    let radius = CELL_SIZE * 2.0;
-    let radius_sq = radius * radius;
-
-    let mut best: Option<(Entity, f32)> = None;
-
-    for (entity, pos) in &citizens {
-        let dx = pos.x - world_x;
-        let dy = pos.y - world_y;
-        let dist_sq = dx * dx + dy * dy;
-        if dist_sq < radius_sq && (best.is_none() || dist_sq < best.unwrap().1) {
-            best = Some((entity, dist_sq));
-        }
-    }
-
-    if let Some((entity, _)) = best {
+    // Defer to the enhanced selection system for priority-based selection.
+    // Only show the citizen panel when the enhanced selector determined a
+    // citizen was the highest-priority entity at the click position.
+    if let SelectionKind::Citizen(entity) = *selection_kind {
         selected.0 = Some(entity);
-        // Don't auto-follow; user presses "Follow" button.
+    } else if selection_kind.is_changed() {
+        // Another entity type was selected; clear citizen selection.
+        selected.0 = None;
+        follow.0 = None;
     }
-    // Don't clear selection on empty click - let building inspector handle that.
 }
 
 /// Camera follow system: if FollowCitizen is active, move the camera focus
