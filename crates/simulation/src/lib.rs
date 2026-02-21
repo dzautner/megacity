@@ -74,6 +74,7 @@ pub mod loans;
 pub mod localization;
 pub mod lod;
 pub mod market;
+pub mod metro_transit;
 pub mod mode_choice;
 pub mod movement;
 pub mod multi_select;
@@ -316,6 +317,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "keybindings",
     "landfill_state",
     "localization",
+    "metro_transit",
     "mode_share_stats",
     "multi_select",
     "neighborhood_quality",
@@ -574,6 +576,7 @@ impl Plugin for SimulationPlugin {
             flood_protection::FloodProtectionPlugin,
             trees::TreesPlugin,
             airport::AirportPlugin,
+            metro_transit::MetroTransitPlugin,
             outside_connections::OutsideConnectionsPlugin,
             snow::SnowPlugin,
         ));
