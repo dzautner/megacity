@@ -9,6 +9,7 @@ use crate::citizen::{
 };
 use crate::education::EducationGrid;
 use crate::grid::{WorldGrid, ZoneType};
+use crate::mode_choice::ChosenTransportMode;
 use crate::time_of_day::GameClock;
 
 // ---------------------------------------------------------------------------
@@ -539,6 +540,7 @@ pub fn life_events(
                     parent: Some(*parent_entity),
                     ..Default::default()
                 },
+                ChosenTransportMode::default(),
             ))
             .id();
 
