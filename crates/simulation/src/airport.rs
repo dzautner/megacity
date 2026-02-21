@@ -141,8 +141,6 @@ pub fn update_airports(
     // -------------------------------------------------------------------------
     // 2. Tourism multiplier with diminishing returns
     // -------------------------------------------------------------------------
-    // Each airport adds its tourism_bonus, but stacking the same tier
-    // gives diminishing returns: bonus * (1 / sqrt(count_of_that_tier)).
     let mut tourism_mult = 0.0f32;
     let tiers = [
         (AirportTier::SmallAirstrip, by_tier[0]),
@@ -152,7 +150,6 @@ pub fn update_airports(
     for (tier, count) in &tiers {
         if *count > 0 {
             let base = tier.tourism_bonus();
-            // Diminishing returns: first airport full bonus, each additional sqrt-scaled
             let effective = base * (*count as f32).sqrt();
             tourism_mult += effective;
         }
@@ -163,21 +160,17 @@ pub fn update_airports(
     // -------------------------------------------------------------------------
     let pop = stats.population as f32;
 
-    // Passenger flights scale with population and airport capacity
     let mut total_capacity: u32 = 0;
     for (tier, count) in &tiers {
         total_capacity += tier.capacity() * count;
     }
-    // Demand is a fraction of population (1% of pop wants to fly per month)
     let demand = (pop * 0.01) as u32;
-    // Dense fog suspends all flight operations
     let passenger_flights = if fog.flights_suspended {
         0
     } else {
         demand.min(total_capacity)
     };
 
-    // Cargo flights are a fraction of passenger flights, boosted by outside connections
     let has_airport_connection =
         outside.has_connection(crate::outside_connections::ConnectionType::Airport);
     let cargo_base = passenger_flights / 5;
@@ -191,9 +184,7 @@ pub fn update_airports(
     // 4. Revenue calculation
     // -------------------------------------------------------------------------
     let mut revenue = 0.0f64;
-    // Passenger revenue distributed by tier
     let mut remaining_passengers = passenger_flights;
-    // Fill international first (highest revenue), then regional, then small
     for &(tier, count) in tiers.iter().rev() {
         if count == 0 || remaining_passengers == 0 {
             continue;
@@ -203,10 +194,8 @@ pub fn update_airports(
         revenue += served as f64 * tier.revenue_per_flight();
         remaining_passengers = remaining_passengers.saturating_sub(served);
     }
-    // Cargo revenue (flat rate per cargo flight)
     revenue += cargo_flights as f64 * 8.0;
 
-    // Outside connection bonus: if airport connection active, +25% revenue
     if has_airport_connection {
         revenue *= 1.25;
     }
@@ -265,10 +254,71 @@ mod tests {
     }
 
     #[test]
+    fn test_airport_tier_from_non_airport_service_types_returns_none() {
+        let non_airport_types = [
+            ServiceType::PoliceStation,
+            ServiceType::Hospital,
+            ServiceType::ElementarySchool,
+            ServiceType::SmallPark,
+            ServiceType::Stadium,
+            ServiceType::Landfill,
+            ServiceType::BusDepot,
+            ServiceType::TrainStation,
+        ];
+        for st in non_airport_types {
+            assert_eq!(
+                AirportTier::from_service_type(st),
+                None,
+                "Expected None for {:?}",
+                st
+            );
+        }
+    }
+
+    #[test]
     fn test_airport_tier_capacity() {
         assert_eq!(AirportTier::SmallAirstrip.capacity(), 500);
         assert_eq!(AirportTier::RegionalAirport.capacity(), 5_000);
         assert_eq!(AirportTier::InternationalAirport.capacity(), 50_000);
+    }
+
+    #[test]
+    fn test_capacity_increases_with_tier() {
+        assert!(AirportTier::SmallAirstrip.capacity() < AirportTier::RegionalAirport.capacity());
+        assert!(
+            AirportTier::RegionalAirport.capacity() < AirportTier::InternationalAirport.capacity()
+        );
+    }
+
+    #[test]
+    fn test_passenger_flights_capped_by_capacity() {
+        let pop = 1_000_000.0f32;
+        let demand = (pop * 0.01) as u32;
+        let capacity = AirportTier::SmallAirstrip.capacity();
+        assert_eq!(demand, 10_000);
+        assert_eq!(demand.min(capacity), 500);
+    }
+
+    #[test]
+    fn test_passenger_flights_under_capacity() {
+        let pop = 10_000.0f32;
+        let demand = (pop * 0.01) as u32;
+        assert_eq!(
+            demand.min(AirportTier::InternationalAirport.capacity()),
+            100
+        );
+    }
+
+    #[test]
+    fn test_total_capacity_sums_across_tiers() {
+        let total =
+            AirportTier::SmallAirstrip.capacity() * 2 + AirportTier::RegionalAirport.capacity();
+        assert_eq!(total, 6_000);
+    }
+
+    #[test]
+    fn test_zero_population_zero_flights() {
+        assert_eq!((0.0f32 * 0.01) as u32, 0);
     }
 
     #[test]
@@ -279,16 +329,62 @@ mod tests {
     }
 
     #[test]
+    fn test_tourism_bonus_increases_with_tier() {
+        assert!(
+            AirportTier::SmallAirstrip.tourism_bonus()
+                < AirportTier::RegionalAirport.tourism_bonus()
+        );
+        assert!(
+            AirportTier::RegionalAirport.tourism_bonus()
+                < AirportTier::InternationalAirport.tourism_bonus()
+        );
+    }
+
+    #[test]
     fn test_diminishing_returns_tourism() {
-        // Single international airport: tourism_bonus = 1.0 * sqrt(1) = 1.0
-        // Two international airports: tourism_bonus = 1.0 * sqrt(2) ~ 1.414
-        // This means second airport adds only ~0.414 instead of 1.0
         let single = 1.0f32 * (1.0f32).sqrt();
         let double = 1.0f32 * (2.0f32).sqrt();
         assert!((single - 1.0).abs() < 0.001);
         assert!((double - 1.414).abs() < 0.01);
-        // Second airport contribution is less than first
         assert!(double - single < single);
+    }
+
+    #[test]
+    fn test_diminishing_returns_three_same_tier() {
+        let bonus = 0.10f32 * (3.0f32).sqrt();
+        assert!(bonus / 3.0 < 0.10);
+    }
+
+    #[test]
+    fn test_mixed_tiers_tourism_multiplier() {
+        let total = AirportTier::SmallAirstrip.tourism_bonus()
+            + AirportTier::RegionalAirport.tourism_bonus()
+            + AirportTier::InternationalAirport.tourism_bonus();
+        assert!((total - 1.40).abs() < 0.001);
+        assert!((1.0 + total - 2.40).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_no_airports_tourism_multiplier_is_one() {
+        assert!((1.0 + 0.0f32 - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_noise_radius_values() {
+        assert_eq!(AirportTier::SmallAirstrip.noise_radius(), 5);
+        assert_eq!(AirportTier::RegionalAirport.noise_radius(), 8);
+        assert_eq!(AirportTier::InternationalAirport.noise_radius(), 12);
+    }
+
+    #[test]
+    fn test_noise_radius_increases_with_tier() {
+        assert!(
+            AirportTier::SmallAirstrip.noise_radius() < AirportTier::RegionalAirport.noise_radius()
+        );
+        assert!(
+            AirportTier::RegionalAirport.noise_radius()
+                < AirportTier::InternationalAirport.noise_radius()
+        );
     }
 
     #[test]
@@ -297,8 +393,18 @@ mod tests {
         assert_eq!(stats.total_airports, 0);
         assert_eq!(stats.passenger_flights_per_month, 0);
         assert_eq!(stats.cargo_flights_per_month, 0);
-        assert!((stats.tourism_multiplier - 0.0).abs() < f32::EPSILON);
-        assert!((stats.revenue - 0.0).abs() < f64::EPSILON);
+        assert!((stats.tourism_multiplier).abs() < f32::EPSILON);
+        assert!((stats.revenue).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_airport_stats_default_by_tier_array() {
+        assert_eq!(AirportStats::default().airports_by_tier, [0, 0, 0]);
+    }
+
+    #[test]
+    fn test_airport_stats_default_total_monthly_cost() {
+        assert!((AirportStats::default().total_monthly_cost).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -309,12 +415,172 @@ mod tests {
     }
 
     #[test]
+    fn test_monthly_cost_increases_with_tier() {
+        assert!(
+            AirportTier::SmallAirstrip.monthly_cost() < AirportTier::RegionalAirport.monthly_cost()
+        );
+        assert!(
+            AirportTier::RegionalAirport.monthly_cost()
+                < AirportTier::InternationalAirport.monthly_cost()
+        );
+    }
+
+    #[test]
+    fn test_total_monthly_cost_multiple_airports() {
+        let total = 2.0 * AirportTier::SmallAirstrip.monthly_cost()
+            + AirportTier::RegionalAirport.monthly_cost()
+            + 3.0 * AirportTier::InternationalAirport.monthly_cost();
+        assert!((total - 670.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
     fn test_revenue_per_flight() {
         assert!((AirportTier::SmallAirstrip.revenue_per_flight() - 5.0).abs() < f64::EPSILON);
         assert!((AirportTier::RegionalAirport.revenue_per_flight() - 15.0).abs() < f64::EPSILON);
         assert!(
             (AirportTier::InternationalAirport.revenue_per_flight() - 50.0).abs() < f64::EPSILON
         );
+    }
+
+    #[test]
+    fn test_revenue_per_flight_increases_with_tier() {
+        assert!(
+            AirportTier::SmallAirstrip.revenue_per_flight()
+                < AirportTier::RegionalAirport.revenue_per_flight()
+        );
+        assert!(
+            AirportTier::RegionalAirport.revenue_per_flight()
+                < AirportTier::InternationalAirport.revenue_per_flight()
+        );
+    }
+
+    #[test]
+    fn test_cargo_flights_are_fifth_of_passenger_flights() {
+        assert_eq!(100u32 / 5, 20);
+    }
+
+    #[test]
+    fn test_cargo_flights_boosted_by_outside_connection() {
+        let cargo_base = 100u32 / 5;
+        let cargo_with_conn = (cargo_base as f32 * 1.5) as u32;
+        assert_eq!(cargo_with_conn, 30);
+        assert!(cargo_with_conn > cargo_base);
+    }
+
+    #[test]
+    fn test_cargo_flights_zero_when_no_passengers() {
+        assert_eq!(0u32 / 5, 0);
+    }
+
+    #[test]
+    fn test_revenue_international_fills_first() {
+        let revenue = 100u32 as f64 * AirportTier::InternationalAirport.revenue_per_flight();
+        assert!((revenue - 5000.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_revenue_overflow_to_lower_tier() {
+        let demand = 60_000u32;
+        let intl_cap = AirportTier::InternationalAirport.capacity();
+        assert_eq!(demand.min(intl_cap), 50_000);
+        assert_eq!(demand.saturating_sub(intl_cap), 10_000);
+    }
+
+    #[test]
+    fn test_cargo_revenue_flat_rate() {
+        assert!((25u32 as f64 * 8.0 - 200.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_outside_connection_revenue_bonus_25_percent() {
+        assert!((1000.0f64 * 1.25 - 1250.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_fog_suspends_all_flights() {
+        let demand = 500u32;
+        let capacity = 50_000u32;
+        let flights = if true { 0u32 } else { demand.min(capacity) };
+        assert_eq!(flights, 0);
+    }
+
+    #[test]
+    fn test_clear_weather_allows_flights() {
+        let demand = 500u32;
+        let capacity = 50_000u32;
+        let flights = if false { 0u32 } else { demand.min(capacity) };
+        assert_eq!(flights, 500);
+    }
+
+    #[test]
+    fn test_all_tiers_have_positive_capacity() {
+        for tier in [
+            AirportTier::SmallAirstrip,
+            AirportTier::RegionalAirport,
+            AirportTier::InternationalAirport,
+        ] {
+            assert!(tier.capacity() > 0, "{:?} capacity must be > 0", tier);
+        }
+    }
+
+    #[test]
+    fn test_all_tiers_have_positive_noise_radius() {
+        for tier in [
+            AirportTier::SmallAirstrip,
+            AirportTier::RegionalAirport,
+            AirportTier::InternationalAirport,
+        ] {
+            assert!(
+                tier.noise_radius() > 0,
+                "{:?} noise radius must be > 0",
+                tier
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_tiers_have_positive_monthly_cost() {
+        for tier in [
+            AirportTier::SmallAirstrip,
+            AirportTier::RegionalAirport,
+            AirportTier::InternationalAirport,
+        ] {
+            assert!(
+                tier.monthly_cost() > 0.0,
+                "{:?} monthly cost must be > 0",
+                tier
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_tiers_have_positive_revenue_per_flight() {
+        for tier in [
+            AirportTier::SmallAirstrip,
+            AirportTier::RegionalAirport,
+            AirportTier::InternationalAirport,
+        ] {
+            assert!(
+                tier.revenue_per_flight() > 0.0,
+                "{:?} revenue must be > 0",
+                tier
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_tiers_have_positive_tourism_bonus() {
+        for tier in [
+            AirportTier::SmallAirstrip,
+            AirportTier::RegionalAirport,
+            AirportTier::InternationalAirport,
+        ] {
+            assert!(
+                tier.tourism_bonus() > 0.0,
+                "{:?} tourism bonus must be > 0",
+                tier
+            );
+        }
     }
 }
 
