@@ -470,7 +470,7 @@ pub fn update_cursor_grid_pos(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_tool_input(
     input: (
         Res<ButtonInput<MouseButton>>,
@@ -495,11 +495,12 @@ pub fn handle_tool_input(
         Res<UrbanGrowthBoundary>,
         Res<IntersectionSnap>,
         Res<crate::zone_brush_preview::ZoneBrushSize>,
+        Res<simulation::freehand_road::FreehandDrawState>,
     ),
     mut district_map: ResMut<simulation::districts::DistrictMap>,
 ) {
     let (buttons, keys, angle_snap) = input;
-    let (left_drag, ugb, snap, brush_size) = misc;
+    let (left_drag, ugb, snap, brush_size, freehand) = misc;
 
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
@@ -527,8 +528,11 @@ pub fn handle_tool_input(
     // Check if Ctrl is held for legacy grid-snap mode
     let ctrl_held = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
 
+    // Skip freeform road drawing when freehand mode is active (handled by freehand_draw system)
+    let freehand_active = freehand.enabled;
+
     // Determine if this is a freeform road tool
-    let freeform_road_type = if !ctrl_held {
+    let freeform_road_type = if !ctrl_held && !freehand_active {
         match *tool {
             ActiveTool::Road => Some(RoadType::Local),
             ActiveTool::RoadAvenue => Some(RoadType::Avenue),
@@ -1468,8 +1472,15 @@ pub fn handle_escape_key(
     mut selected: ResMut<SelectedBuilding>,
     mut tool: ResMut<ActiveTool>,
     mut selection_kind: ResMut<crate::enhanced_select::SelectionKind>,
+    mut freehand: ResMut<simulation::freehand_road::FreehandDrawState>,
 ) {
     if !bindings.escape.just_pressed(&keys) {
+        return;
+    }
+
+    // Level 0: Cancel active freehand stroke
+    if freehand.drawing {
+        freehand.reset_stroke();
         return;
     }
 
