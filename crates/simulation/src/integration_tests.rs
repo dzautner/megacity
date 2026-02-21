@@ -3947,6 +3947,7 @@ fn test_invariant_overcapacity_detected_and_corrected() {
     use crate::grid::{WorldGrid, ZoneType};
     use crate::simulation_invariants::InvariantViolations;
     use crate::test_harness::TestCity;
+    use bevy::prelude::Entity;
 
     let mut city = TestCity::new().with_building(50, 50, ZoneType::Industrial, 1);
 
