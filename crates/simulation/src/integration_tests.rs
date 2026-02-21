@@ -2294,8 +2294,6 @@ fn test_saveable_registry_has_no_duplicate_keys() {
 /// cannot create additional employed citizens that would confound the test.
 #[test]
 fn test_job_seeking_does_not_overfill_capacity() {
-    use bevy::prelude::*;
-
     let home_pos = (10, 10);
     let work_pos = (15, 15);
 

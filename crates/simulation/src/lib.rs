@@ -588,7 +588,6 @@ pub fn lod_frame_ready(counter: Res<LodFrameCounter>) -> bool {
 #[cfg(test)]
 mod saveable_tests {
     use super::*;
-    use bevy::prelude::*;
 
     /// A trivial resource implementing `Saveable` for testing.
     #[derive(Resource, Default, Debug, PartialEq)]
