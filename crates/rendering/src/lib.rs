@@ -34,6 +34,7 @@ pub mod wind_streamlines;
 
 pub mod enhanced_select;
 pub mod grid_align;
+pub mod parallel_draw;
 pub mod parallel_snap;
 pub mod screenshot;
 pub mod zone_brush_preview;
@@ -206,6 +207,9 @@ impl Plugin for RenderingPlugin {
 
         // Parallel road snapping (UX-026)
         app.add_plugins(parallel_snap::ParallelSnapPlugin);
+
+        // Parallel road drawing mode (UX-021)
+        app.add_plugins(parallel_draw::ParallelDrawPlugin);
 
         // Box selection (UX-011)
         app.add_plugins(box_selection::BoxSelectionPlugin);
