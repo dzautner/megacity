@@ -366,7 +366,8 @@ impl Plugin for ChartDataPlugin {
                 (
                     record_traffic_hourly.after(crate::traffic::update_traffic_density),
                     record_chart_snapshots.after(crate::economy::collect_taxes),
-                ),
+                )
+                    .in_set(crate::SimulationSet::PostSim),
             );
 
         // Register for save/load

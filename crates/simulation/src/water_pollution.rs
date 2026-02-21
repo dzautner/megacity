@@ -218,7 +218,8 @@ impl Plugin for WaterPollutionPlugin {
         app.init_resource::<WaterPollutionGrid>().add_systems(
             FixedUpdate,
             (update_water_pollution, water_pollution_health_penalty)
-                .after(crate::imports_exports::process_trade),
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

@@ -345,8 +345,10 @@ pub struct TutorialPlugin;
 
 impl Plugin for TutorialPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TutorialState>()
-            .add_systems(Update, check_tutorial_progress);
+        app.init_resource::<TutorialState>().add_systems(
+            Update,
+            check_tutorial_progress.in_set(crate::SimulationUpdateSet::Visual),
+        );
 
         // Register for save/load via the SaveableRegistry
         app.init_resource::<crate::SaveableRegistry>();

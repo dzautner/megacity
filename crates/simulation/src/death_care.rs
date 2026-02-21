@@ -206,7 +206,9 @@ impl Plugin for DeathCarePlugin {
             .init_resource::<DeathCareStats>()
             .add_systems(
                 FixedUpdate,
-                death_care_processing.after(crate::imports_exports::process_trade),
+                death_care_processing
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

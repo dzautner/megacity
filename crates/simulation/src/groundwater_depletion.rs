@@ -693,7 +693,9 @@ impl Plugin for GroundwaterDepletionPlugin {
         app.init_resource::<GroundwaterDepletionState>()
             .add_systems(
                 FixedUpdate,
-                update_groundwater_depletion.after(crate::imports_exports::process_trade),
+                update_groundwater_depletion
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

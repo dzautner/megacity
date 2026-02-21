@@ -227,7 +227,9 @@ impl Plugin for NaturalResourcesPlugin {
             .init_resource::<ResourceBalance>()
             .add_systems(
                 FixedUpdate,
-                update_resource_production.after(crate::imports_exports::process_trade),
+                update_resource_production
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

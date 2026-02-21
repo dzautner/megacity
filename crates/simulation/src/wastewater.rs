@@ -705,7 +705,8 @@ impl Plugin for WastewaterPlugin {
         app.init_resource::<WastewaterState>().add_systems(
             FixedUpdate,
             (update_wastewater, wastewater_health_penalty)
-                .after(crate::imports_exports::process_trade),
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

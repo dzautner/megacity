@@ -471,7 +471,9 @@ impl Plugin for SpecializationPlugin {
             .init_resource::<SpecializationBonuses>()
             .add_systems(
                 FixedUpdate,
-                compute_specializations.after(crate::stats::update_stats),
+                compute_specializations
+                    .after(crate::stats::update_stats)
+                    .in_set(crate::SimulationSet::PostSim),
             );
     }
 }

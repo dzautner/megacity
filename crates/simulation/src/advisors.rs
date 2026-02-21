@@ -1059,7 +1059,9 @@ impl Plugin for AdvisorsPlugin {
             .add_event::<AdvisorJumpToLocation>()
             .add_systems(
                 FixedUpdate,
-                update_advisors.after(crate::stats::update_stats),
+                update_advisors
+                    .after(crate::stats::update_stats)
+                    .in_set(crate::SimulationSet::PostSim),
             );
 
         app.world_mut()

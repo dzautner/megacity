@@ -369,7 +369,9 @@ impl Plugin for UhiMitigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UhiMitigationState>().add_systems(
             FixedUpdate,
-            apply_uhi_mitigation.after(crate::urban_heat_island::update_uhi_grid),
+            apply_uhi_mitigation
+                .after(crate::urban_heat_island::update_uhi_grid)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry.

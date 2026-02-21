@@ -1188,7 +1188,9 @@ impl Plugin for FloodSimulationPlugin {
             .init_resource::<FloodState>()
             .add_systems(
                 FixedUpdate,
-                update_flood_simulation.after(crate::storm_drainage::update_storm_drainage),
+                update_flood_simulation
+                    .after(crate::storm_drainage::update_storm_drainage)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

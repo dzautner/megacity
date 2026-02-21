@@ -382,7 +382,9 @@ impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FogState>().add_systems(
             FixedUpdate,
-            update_fog.after(crate::imports_exports::process_trade),
+            update_fog
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

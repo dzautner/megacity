@@ -458,7 +458,9 @@ impl Plugin for BudgetBreakdownPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BudgetTrends>().add_systems(
             FixedUpdate,
-            snapshot_budget_trends.after(simulation::economy::collect_taxes),
+            snapshot_budget_trends
+                .after(simulation::economy::collect_taxes)
+                .in_set(simulation::SimulationSet::PostSim),
         );
     }
 }

@@ -471,7 +471,8 @@ impl Plugin for FarTransferPlugin {
             FixedUpdate,
             (update_far_bonuses, update_far_transfers)
                 .chain()
-                .after(crate::buildings::building_spawner),
+                .after(crate::buildings::building_spawner)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry.

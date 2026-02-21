@@ -390,7 +390,8 @@ impl Plugin for WasteEffectsPlugin {
                     check_waste_crisis,
                 )
                     .chain()
-                    .after(crate::garbage::update_waste_collection),
+                    .after(crate::garbage::update_waste_collection)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

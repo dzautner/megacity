@@ -342,7 +342,9 @@ impl Plugin for WalkabilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WalkabilityGrid>().add_systems(
             FixedUpdate,
-            update_walkability.after(crate::happiness::update_service_coverage),
+            update_walkability
+                .after(crate::happiness::update_service_coverage)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry.

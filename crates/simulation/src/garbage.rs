@@ -964,7 +964,8 @@ impl Plugin for GarbagePlugin {
                     update_waste_collection,
                 )
                     .chain()
-                    .after(crate::land_value::update_land_value),
+                    .after(crate::land_value::update_land_value)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

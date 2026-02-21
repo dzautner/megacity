@@ -246,7 +246,9 @@ impl Plugin for WelfarePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WelfareStats>().add_systems(
             FixedUpdate,
-            update_welfare.after(crate::homelessness::recover_from_homelessness),
+            update_welfare
+                .after(crate::homelessness::recover_from_homelessness)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

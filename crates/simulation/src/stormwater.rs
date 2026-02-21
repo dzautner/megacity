@@ -510,7 +510,9 @@ impl Plugin for StormwaterPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<StormwaterGrid>().add_systems(
             FixedUpdate,
-            update_stormwater.after(crate::imports_exports::process_trade),
+            update_stormwater
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

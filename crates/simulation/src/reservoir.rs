@@ -993,7 +993,9 @@ impl Plugin for ReservoirPlugin {
             .add_event::<ReservoirWarningEvent>()
             .add_systems(
                 FixedUpdate,
-                update_reservoir_levels.after(crate::water_sources::replenish_reservoirs),
+                update_reservoir_levels
+                    .after(crate::water_sources::replenish_reservoirs)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

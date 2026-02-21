@@ -793,7 +793,9 @@ impl Plugin for ClimateChangePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ClimateState>().add_systems(
             FixedUpdate,
-            yearly_climate_assessment.after(crate::weather::update_weather),
+            yearly_climate_assessment
+                .after(crate::weather::update_weather)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry

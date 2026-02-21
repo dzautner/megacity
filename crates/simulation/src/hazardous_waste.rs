@@ -630,7 +630,9 @@ impl Plugin for HazardousWastePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HazardousWasteState>().add_systems(
             FixedUpdate,
-            update_hazardous_waste.after(crate::imports_exports::process_trade),
+            update_hazardous_waste
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

@@ -376,7 +376,9 @@ impl Plugin for HeatWavePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HeatWaveState>().add_systems(
             FixedUpdate,
-            update_heat_wave.after(crate::imports_exports::process_trade),
+            update_heat_wave
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

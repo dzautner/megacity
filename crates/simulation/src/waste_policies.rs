@@ -340,7 +340,9 @@ impl Plugin for WastePoliciesPlugin {
             .init_resource::<WastePolicyEffects>()
             .add_systems(
                 FixedUpdate,
-                update_waste_policies.after(crate::garbage::update_waste_generation),
+                update_waste_policies
+                    .after(crate::garbage::update_waste_generation)
+                    .in_set(crate::SimulationSet::Simulation),
             );
 
         // Register for save/load via the SaveableRegistry.

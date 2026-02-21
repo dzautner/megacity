@@ -645,7 +645,9 @@ impl Plugin for SeasonalRenderingPlugin {
             .init_resource::<SeasonalEffectsConfig>()
             .add_systems(
                 FixedUpdate,
-                update_seasonal_rendering.after(crate::weather::update_weather),
+                update_seasonal_rendering
+                    .after(crate::weather::update_weather)
+                    .in_set(crate::SimulationSet::Simulation),
             );
 
         // Register for save/load via the SaveableRegistry

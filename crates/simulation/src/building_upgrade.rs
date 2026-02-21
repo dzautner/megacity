@@ -122,7 +122,8 @@ impl Plugin for BuildingUpgradePlugin {
             FixedUpdate,
             (upgrade_buildings, downgrade_buildings)
                 .chain()
-                .after(crate::lifecycle::emigration),
+                .after(crate::lifecycle::emigration)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

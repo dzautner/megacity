@@ -389,7 +389,8 @@ impl Plugin for RoadMaintenancePlugin {
                 FixedUpdate,
                 (degrade_roads, repair_roads, update_road_maintenance_stats)
                     .chain()
-                    .after(crate::traffic::update_traffic_density),
+                    .after(crate::traffic::update_traffic_density)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

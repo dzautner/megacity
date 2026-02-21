@@ -422,7 +422,8 @@ impl Plugin for DistrictsPlugin {
                 FixedUpdate,
                 (aggregate_districts, district_stats)
                     .chain()
-                    .after(crate::garbage::update_waste_collection),
+                    .after(crate::garbage::update_waste_collection)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

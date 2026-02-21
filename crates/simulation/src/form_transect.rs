@@ -302,8 +302,10 @@ pub struct FormTransectPlugin;
 
 impl Plugin for FormTransectPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<TransectGrid>()
-            .add_systems(FixedUpdate, enforce_transect_constraints);
+        app.init_resource::<TransectGrid>().add_systems(
+            FixedUpdate,
+            enforce_transect_constraints.in_set(crate::SimulationSet::Simulation),
+        );
 
         // Register for save/load via the SaveableRegistry.
         app.init_resource::<crate::SaveableRegistry>();

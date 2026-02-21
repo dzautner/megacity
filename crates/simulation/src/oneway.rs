@@ -270,8 +270,16 @@ impl Plugin for OneWayPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OneWayDirectionMap>()
             .add_event::<ToggleOneWayEvent>()
-            .add_systems(Update, handle_toggle_oneway)
-            .add_systems(Update, rebuild_csr_with_oneway.after(handle_toggle_oneway));
+            .add_systems(
+                Update,
+                handle_toggle_oneway.in_set(crate::SimulationUpdateSet::Input),
+            )
+            .add_systems(
+                Update,
+                rebuild_csr_with_oneway
+                    .after(handle_toggle_oneway)
+                    .in_set(crate::SimulationUpdateSet::Input),
+            );
 
         // Register for save/load via the SaveableRegistry.
         app.init_resource::<crate::SaveableRegistry>();

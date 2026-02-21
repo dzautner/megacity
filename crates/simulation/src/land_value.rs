@@ -136,7 +136,9 @@ impl Plugin for LandValuePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LandValueGrid>().add_systems(
             FixedUpdate,
-            update_land_value.after(crate::pollution::update_pollution),
+            update_land_value
+                .after(crate::pollution::update_pollution)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

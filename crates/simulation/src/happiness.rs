@@ -522,7 +522,8 @@ impl Plugin for HappinessPlugin {
             FixedUpdate,
             (update_service_coverage, update_happiness)
                 .chain()
-                .after(crate::postal::update_postal_coverage),
+                .after(crate::postal::update_postal_coverage)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

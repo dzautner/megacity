@@ -765,7 +765,8 @@ impl Plugin for NimbyPlugin {
                     apply_construction_slowdown,
                 )
                     .chain()
-                    .after(crate::zones::update_zone_demand),
+                    .after(crate::zones::update_zone_demand)
+                    .in_set(crate::SimulationSet::Simulation),
             );
         app.init_resource::<SaveableRegistry>();
         app.world_mut()

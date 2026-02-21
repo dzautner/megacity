@@ -535,7 +535,9 @@ impl Plugin for LandfillPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LandfillState>().add_systems(
             FixedUpdate,
-            update_landfill_state.after(crate::garbage::update_waste_generation),
+            update_landfill_state
+                .after(crate::garbage::update_waste_generation)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry.

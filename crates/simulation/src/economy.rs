@@ -211,7 +211,9 @@ impl Plugin for EconomyPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CityBudget>().add_systems(
             FixedUpdate,
-            collect_taxes.after(crate::happiness::update_happiness),
+            collect_taxes
+                .after(crate::happiness::update_happiness)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

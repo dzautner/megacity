@@ -341,7 +341,9 @@ impl Plugin for HeatMitigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HeatMitigationState>().add_systems(
             FixedUpdate,
-            update_heat_mitigation.after(crate::heat_wave::update_heat_wave),
+            update_heat_mitigation
+                .after(crate::heat_wave::update_heat_wave)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry.

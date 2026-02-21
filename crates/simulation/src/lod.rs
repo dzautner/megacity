@@ -412,11 +412,14 @@ impl Plugin for LodPlugin {
                     update_spatial_grid.run_if(crate::lod_frame_ready),
                     assign_lod_tiers.run_if(crate::lod_frame_ready),
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(crate::SimulationUpdateSet::Visual),
             )
             .add_systems(
                 Update,
-                (compress_abstract_citizens, decompress_active_citizens).after(assign_lod_tiers),
+                (compress_abstract_citizens, decompress_active_citizens)
+                    .after(assign_lod_tiers)
+                    .in_set(crate::SimulationUpdateSet::Visual),
             );
     }
 }

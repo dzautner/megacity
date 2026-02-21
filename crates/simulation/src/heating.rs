@@ -424,7 +424,9 @@ impl Plugin for HeatingPlugin {
             .init_resource::<HeatingStats>()
             .add_systems(
                 FixedUpdate,
-                update_heating.after(crate::imports_exports::process_trade),
+                update_heating
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

@@ -255,7 +255,9 @@ impl Plugin for WaterPressurePlugin {
 
         app.add_systems(
             FixedUpdate,
-            update_water_pressure.after(crate::utilities::propagate_utilities),
+            update_water_pressure
+                .after(crate::utilities::propagate_utilities)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

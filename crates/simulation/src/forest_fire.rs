@@ -567,7 +567,9 @@ impl Plugin for ForestFirePlugin {
             .init_resource::<ForestFireStats>()
             .add_systems(
                 FixedUpdate,
-                update_forest_fire.after(crate::fire::fire_damage),
+                update_forest_fire
+                    .after(crate::fire::fire_damage)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

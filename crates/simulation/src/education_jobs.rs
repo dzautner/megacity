@@ -596,11 +596,15 @@ impl Plugin for EducationJobsPlugin {
         app.init_resource::<EmploymentStats>()
             .add_systems(
                 FixedUpdate,
-                assign_workplace_details.after(crate::buildings::progress_construction),
+                assign_workplace_details
+                    .after(crate::buildings::progress_construction)
+                    .in_set(crate::SimulationSet::PreSim),
             )
             .add_systems(
                 FixedUpdate,
-                job_matching.after(crate::life_simulation::job_seeking),
+                job_matching
+                    .after(crate::life_simulation::job_seeking)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

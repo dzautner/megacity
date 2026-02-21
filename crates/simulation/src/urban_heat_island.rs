@@ -649,7 +649,9 @@ impl Plugin for UrbanHeatIslandPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UhiGrid>().add_systems(
             FixedUpdate,
-            update_uhi_grid.after(crate::imports_exports::process_trade),
+            update_uhi_grid
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

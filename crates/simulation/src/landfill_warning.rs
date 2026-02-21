@@ -651,7 +651,9 @@ impl Plugin for LandfillWarningPlugin {
             .add_event::<LandfillWarningEvent>()
             .add_systems(
                 FixedUpdate,
-                update_landfill_capacity.after(crate::imports_exports::process_trade),
+                update_landfill_capacity
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

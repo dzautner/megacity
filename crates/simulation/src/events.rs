@@ -329,7 +329,8 @@ impl Plugin for EventsPlugin {
                 FixedUpdate,
                 (random_city_events, apply_active_effects)
                     .chain()
-                    .after(crate::stats::update_stats),
+                    .after(crate::stats::update_stats)
+                    .in_set(crate::SimulationSet::PostSim),
             );
     }
 }

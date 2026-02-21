@@ -462,7 +462,8 @@ impl Plugin for DisastersPlugin {
                 apply_earthquake_damage,
             )
                 .chain()
-                .after(crate::fire::fire_damage),
+                .after(crate::fire::fire_damage)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

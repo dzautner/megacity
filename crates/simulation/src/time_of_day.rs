@@ -130,7 +130,15 @@ pub struct TimeOfDayPlugin;
 impl Plugin for TimeOfDayPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameClock>()
-            .add_systems(FixedUpdate, tick_game_clock.after(crate::tick_slow_timer))
-            .add_systems(Update, sync_fixed_timestep);
+            .add_systems(
+                FixedUpdate,
+                tick_game_clock
+                    .after(crate::tick_slow_timer)
+                    .in_set(crate::SimulationSet::PreSim),
+            )
+            .add_systems(
+                Update,
+                sync_fixed_timestep.in_set(crate::SimulationUpdateSet::Visual),
+            );
     }
 }
