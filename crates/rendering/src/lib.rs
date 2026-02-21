@@ -107,6 +107,7 @@ impl Plugin for RenderingPlugin {
                         .before(input::handle_tool_input),
                     input::handle_tool_input,
                     input::handle_tree_tool,
+                    input::handle_road_upgrade_tool,
                     input::keyboard_tool_switch,
                     input::toggle_grid_snap,
                     input::handle_escape_key,
