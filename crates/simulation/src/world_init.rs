@@ -16,6 +16,7 @@ use crate::economy::CityBudget;
 use crate::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use crate::groundwater;
 use crate::lod::LodTier;
+use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::natural_resources;
 use crate::natural_resources::ResourceGrid;
@@ -902,6 +903,7 @@ fn spawn_tel_aviv_citizens(
                 Family::default(),
                 ActivityTimer::default(),
                 LodTier::default(),
+                ChosenTransportMode::default(),
             ));
 
             citizen_count += 1;

@@ -8,6 +8,7 @@ use crate::citizen::{
 };
 use crate::grid::WorldGrid;
 use crate::lod::LodTier;
+use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::virtual_population::VirtualPopulation;
 
@@ -175,6 +176,7 @@ pub fn spawn_citizens(
             Family::default(),
             ActivityTimer::default(),
             LodTier::default(),
+            ChosenTransportMode::default(),
         ));
 
         if let Ok((_, mut home_b, home_mu)) = buildings.get_mut(home_entity) {
