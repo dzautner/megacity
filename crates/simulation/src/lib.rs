@@ -25,6 +25,7 @@ pub mod config;
 pub mod crime;
 pub mod cso;
 pub mod cumulative_zoning;
+pub mod curve_road_drawing;
 pub mod day_night_controls;
 pub mod death_care;
 pub mod degree_days;
@@ -487,6 +488,7 @@ impl Plugin for SimulationPlugin {
             recycling::RecyclingPlugin,
             road_maintenance::RoadMaintenancePlugin,
             road_upgrade::RoadUpgradePlugin,
+            curve_road_drawing::CurveRoadDrawingPlugin,
             oneway::OneWayPlugin,
             traffic_accidents::TrafficAccidentsPlugin,
             traffic_congestion::TrafficCongestionPlugin,
