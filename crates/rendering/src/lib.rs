@@ -34,6 +34,7 @@ pub mod traffic_los_render;
 pub mod wind_streamlines;
 
 pub mod enhanced_select;
+pub mod freehand_draw;
 pub mod grid_align;
 pub mod intersection_preview;
 pub mod parallel_snap;
@@ -222,6 +223,9 @@ impl Plugin for RenderingPlugin {
 
         // Intersection auto-detection preview (UX-023)
         app.add_plugins(intersection_preview::IntersectionPreviewPlugin);
+
+        // Freehand road drawing (UX-020)
+        app.add_plugins(freehand_draw::FreehandDrawPlugin);
     }
 }
 

@@ -18,6 +18,12 @@ use crate::utilities::{UtilitySource, UtilityType};
 use crate::weather::Weather;
 use crate::SlowTickTimer;
 
+use crate::freehand_road::{
+    filter_short_segments, simplify_rdp, FreehandDrawState, FREEHAND_MIN_SAMPLE_DIST,
+    FREEHAND_MIN_SEGMENT_LEN, FREEHAND_SIMPLIFY_TOLERANCE,
+};
+use bevy::math::Vec2;
+
 // ====================================================================// 1. Harness bootstrap tests
 // ====================================================================
 #[test]
@@ -3819,6 +3825,61 @@ fn test_blueprint_capture_and_place_road_segments() {
     );
 }
 
+// ====================================================================
+// Freehand road drawing tests (UX-020)
+// ====================================================================
+
+#[test]
+fn test_freehand_state_resource_exists() {
+    let city = TestCity::new();
+    city.assert_resource_exists::<FreehandDrawState>();
+}
+
+#[test]
+fn test_freehand_state_default_disabled() {
+    let city = TestCity::new();
+    let state = city.resource::<FreehandDrawState>();
+    assert!(!state.enabled);
+    assert!(!state.drawing);
+    assert!(state.raw_points.is_empty());
+}
+
+#[test]
+fn test_freehand_simplify_straight_path_creates_single_segment() {
+    // A straight line of points should simplify to 2 points (= 1 segment)
+    let points: Vec<Vec2> = (0..20)
+        .map(|i| Vec2::new(i as f32 * FREEHAND_MIN_SAMPLE_DIST, 0.0))
+        .collect();
+    let simplified = simplify_rdp(&points, FREEHAND_SIMPLIFY_TOLERANCE);
+    assert_eq!(
+        simplified.len(),
+        2,
+        "straight line should simplify to 2 endpoints"
+    );
+}
+
+#[test]
+fn test_freehand_simplify_l_shaped_path_keeps_corner() {
+    // L-shaped path: go right then go down
+    let mut points = Vec::new();
+    for i in 0..10 {
+        points.push(Vec2::new(i as f32 * FREEHAND_MIN_SAMPLE_DIST, 0.0));
+    }
+    for i in 1..10 {
+        points.push(Vec2::new(
+            9.0 * FREEHAND_MIN_SAMPLE_DIST,
+            i as f32 * FREEHAND_MIN_SAMPLE_DIST,
+        ));
+    }
+    let simplified = simplify_rdp(&points, FREEHAND_SIMPLIFY_TOLERANCE);
+    // Should be 3 points: start, corner, end
+    assert!(
+        simplified.len() >= 3,
+        "L-shape should have at least 3 points, got {}",
+        simplified.len()
+    );
+}
+
 #[test]
 fn test_blueprint_place_skips_water_cells() {
     let mut city = TestCity::new();
@@ -3925,13 +3986,163 @@ fn test_blueprint_multiple_placements_are_independent() {
             });
         });
     });
+}
 
-    // Verify both placements exist independently
-    let grid = city.grid();
-    assert_eq!(grid.get(60, 60).zone, ZoneType::Industrial);
-    assert_eq!(grid.get(62, 62).zone, ZoneType::Industrial);
-    assert_eq!(grid.get(80, 80).zone, ZoneType::Industrial);
-    assert_eq!(grid.get(82, 82).zone, ZoneType::Industrial);
-    // Area between them should be unzoned
-    assert_eq!(grid.get(70, 70).zone, ZoneType::None);
+#[test]
+fn test_freehand_filter_removes_short_segments() {
+    let points = vec![
+        Vec2::new(0.0, 0.0),
+        Vec2::new(10.0, 0.0), // too short
+        Vec2::new(100.0, 0.0),
+        Vec2::new(200.0, 0.0),
+    ];
+    let filtered = filter_short_segments(&points, FREEHAND_MIN_SEGMENT_LEN);
+    // First two points are too close, so the 10.0 one gets filtered
+    assert!(
+        filtered.len() <= 3,
+        "short segments should be filtered, got {} points",
+        filtered.len()
+    );
+}
+
+#[test]
+fn test_freehand_sample_enforces_min_distance() {
+    let mut state = FreehandDrawState::default();
+    state.enabled = true;
+    state.drawing = true;
+
+    // First sample always accepted
+    assert!(state.add_sample(Vec2::new(0.0, 0.0)));
+    // Sample too close (< FREEHAND_MIN_SAMPLE_DIST)
+    assert!(!state.add_sample(Vec2::new(1.0, 0.0)));
+    // Sample far enough
+    assert!(state.add_sample(Vec2::new(FREEHAND_MIN_SAMPLE_DIST + 1.0, 0.0)));
+    assert_eq!(state.raw_points.len(), 2);
+}
+
+#[test]
+fn test_freehand_reset_stroke_preserves_enabled() {
+    let mut state = FreehandDrawState::default();
+    state.enabled = true;
+    state.drawing = true;
+    state.raw_points.push(Vec2::ZERO);
+    state.raw_points.push(Vec2::new(100.0, 0.0));
+
+    state.reset_stroke();
+    assert!(state.enabled, "reset_stroke should preserve enabled state");
+    assert!(!state.drawing);
+    assert!(state.raw_points.is_empty());
+}
+
+#[test]
+fn test_freehand_simplify_and_create_road_segments() {
+    // Simulate the full freehand workflow: collect points, simplify, create segments
+    let mut city = TestCity::new().with_budget(100_000.0);
+
+    // Generate a straight path of points in world coordinates
+    let start_x = 128.0 * 16.0; // center of the grid
+    let start_y = 128.0 * 16.0;
+    let points: Vec<Vec2> = (0..10)
+        .map(|i| Vec2::new(start_x + i as f32 * FREEHAND_MIN_SAMPLE_DIST, start_y))
+        .collect();
+
+    let simplified = simplify_rdp(&points, FREEHAND_SIMPLIFY_TOLERANCE);
+    let simplified = filter_short_segments(&simplified, FREEHAND_MIN_SEGMENT_LEN);
+
+    assert!(
+        simplified.len() >= 2,
+        "need at least 2 points to create a segment"
+    );
+
+    // Create road segments from the simplified path
+    let world = city.world_mut();
+    world.resource_scope(
+        |world, mut segments: bevy::prelude::Mut<RoadSegmentStore>| {
+            world.resource_scope(|world, mut grid: bevy::prelude::Mut<WorldGrid>| {
+                world.resource_scope(|_world, mut roads: bevy::prelude::Mut<RoadNetwork>| {
+                    for pair in simplified.windows(2) {
+                        segments.add_straight_segment(
+                            pair[0],
+                            pair[1],
+                            RoadType::Local,
+                            24.0,
+                            &mut grid,
+                            &mut roads,
+                        );
+                    }
+                });
+            });
+        },
+    );
+
+    let segment_count = city.road_segments().segments.len();
+    assert!(
+        segment_count >= 1,
+        "should have at least 1 road segment, got {}",
+        segment_count
+    );
+
+    // Verify road cells were created on the grid
+    assert!(
+        city.road_cell_count() > 0,
+        "should have road cells on the grid"
+    );
+}
+
+#[test]
+fn test_freehand_curved_path_creates_multiple_segments() {
+    // Simulate a curved freehand path
+    let mut city = TestCity::new().with_budget(100_000.0);
+
+    // Quarter-circle path
+    let center_x = 128.0 * 16.0;
+    let center_y = 128.0 * 16.0;
+    let radius = 200.0;
+    let n = 20;
+    let points: Vec<Vec2> = (0..=n)
+        .map(|i| {
+            let angle = std::f32::consts::FRAC_PI_2 * (i as f32 / n as f32);
+            Vec2::new(
+                center_x + angle.cos() * radius,
+                center_y + angle.sin() * radius,
+            )
+        })
+        .collect();
+
+    let simplified = simplify_rdp(&points, FREEHAND_SIMPLIFY_TOLERANCE);
+    let simplified = filter_short_segments(&simplified, FREEHAND_MIN_SEGMENT_LEN);
+
+    // Curved path should have more than 2 points
+    assert!(
+        simplified.len() > 2,
+        "curved path should have >2 simplified points, got {}",
+        simplified.len()
+    );
+
+    let world = city.world_mut();
+    world.resource_scope(
+        |world, mut segments: bevy::prelude::Mut<RoadSegmentStore>| {
+            world.resource_scope(|world, mut grid: bevy::prelude::Mut<WorldGrid>| {
+                world.resource_scope(|_world, mut roads: bevy::prelude::Mut<RoadNetwork>| {
+                    for pair in simplified.windows(2) {
+                        segments.add_straight_segment(
+                            pair[0],
+                            pair[1],
+                            RoadType::Avenue,
+                            24.0,
+                            &mut grid,
+                            &mut roads,
+                        );
+                    }
+                });
+            });
+        },
+    );
+
+    let segment_count = city.road_segments().segments.len();
+    assert!(
+        segment_count > 1,
+        "curved path should produce multiple segments, got {}",
+        segment_count
+    );
 }

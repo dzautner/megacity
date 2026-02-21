@@ -43,6 +43,7 @@ pub mod flood_simulation;
 pub mod fog;
 pub mod forest_fire;
 pub mod form_transect;
+pub mod freehand_road;
 pub mod garbage;
 pub mod grid;
 pub mod groundwater;
@@ -605,6 +606,9 @@ impl Plugin for SimulationPlugin {
 
         // Customizable keybindings
         app.add_plugins(keybindings::KeyBindingsPlugin);
+
+        // Freehand road drawing (UX-020)
+        app.add_plugins(freehand_road::FreehandRoadPlugin);
     }
 }
 
