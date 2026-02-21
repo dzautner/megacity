@@ -192,3 +192,4 @@ mod tests {
         assert!((c.get(10, 20) - 0.5).abs() < f32::EPSILON);
     }
 }
+
