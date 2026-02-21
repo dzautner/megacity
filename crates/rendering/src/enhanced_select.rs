@@ -167,10 +167,8 @@ fn find_nearest_citizen(
         let dy = pos.y - click_world.y;
         let dist_sq = dx * dx + dy * dy;
 
-        if dist_sq < radius_sq {
-            if best.is_none() || dist_sq < best.unwrap().1 {
-                best = Some((entity, dist_sq));
-            }
+        if dist_sq < radius_sq && (best.is_none() || dist_sq < best.unwrap().1) {
+            best = Some((entity, dist_sq));
         }
     }
 
@@ -359,13 +357,13 @@ mod tests {
 
     #[test]
     fn test_min_distance_to_straight_segment() {
-        use simulation::road_segments::RoadSegment;
+        use simulation::road_segments::{RoadSegment, SegmentNodeId};
 
         // Create a straight segment from (0,0) to (100,0)
         let segment = RoadSegment {
             id: SegmentId(0),
-            start_node: 0,
-            end_node: 1,
+            start_node: SegmentNodeId(0),
+            end_node: SegmentNodeId(1),
             p0: Vec2::new(0.0, 0.0),
             p1: Vec2::new(33.3, 0.0),
             p2: Vec2::new(66.6, 0.0),
