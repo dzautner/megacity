@@ -2451,7 +2451,6 @@ fn test_traffic_los_grading_uses_road_type_capacity() {
 #[test]
 fn test_invariant_no_job_overcapacity_after_ticks() {
     use crate::buildings::Building;
-    use crate::citizen::Citizen;
     use crate::grid::{RoadType, ZoneType};
     use crate::simulation_invariants::InvariantViolations;
     use crate::test_harness::TestCity;
@@ -2494,6 +2493,7 @@ fn test_invariant_marriage_reciprocity_after_ticks() {
     use crate::citizen::{Citizen, Family};
     use crate::simulation_invariants::InvariantViolations;
     use crate::test_harness::TestCity;
+    use bevy::prelude::{Entity, With};
 
     // Use Tel Aviv map which has citizens that can form marriages
     let mut city = TestCity::with_tel_aviv();
@@ -2536,6 +2536,7 @@ fn test_invariant_employment_consistency_after_ticks() {
     use crate::citizen::{Citizen, WorkLocation};
     use crate::simulation_invariants::InvariantViolations;
     use crate::test_harness::TestCity;
+    use bevy::prelude::{Entity, With};
     use std::collections::HashMap;
 
     let mut city = TestCity::with_tel_aviv();
