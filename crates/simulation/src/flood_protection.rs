@@ -1066,7 +1066,7 @@ mod tests {
 
     #[test]
     fn test_aging_increases_failure_probability() {
-        let mut young = ProtectionStructure::new(0, 0, ProtectionType::Levee);
+        let young = ProtectionStructure::new(0, 0, ProtectionType::Levee);
         let mut old = ProtectionStructure::new(0, 0, ProtectionType::Levee);
         old.age_days = 7200; // 20 years
 

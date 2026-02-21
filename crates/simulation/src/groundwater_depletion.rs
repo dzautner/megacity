@@ -387,7 +387,7 @@ mod tests {
         // Each cell dropped by 10, so total extraction = 10 * total_cells.
         let total = GRID_WIDTH * GRID_HEIGHT;
         let grid = uniform_grid(90);
-        let mut state = state_with_previous(100);
+        let state = state_with_previous(100);
 
         // Manually run the extraction/recharge delta logic
         let mut extraction: f32 = 0.0;

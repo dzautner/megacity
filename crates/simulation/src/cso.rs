@@ -838,12 +838,12 @@ mod tests {
         let stormwater = stormwater_inflow_gph(total_runoff);
         let capacity_0 = calculate_combined_capacity(road_cells, 0);
         let flow_0 = calculate_combined_flow(sewage, stormwater, 0.0);
-        let discharge_0 = (flow_0 - capacity_0).max(0.0_f32);
+        let _discharge_0 = (flow_0 - capacity_0).max(0.0_f32);
 
         // 50% separation
         let capacity_50 = calculate_combined_capacity(road_cells, 10);
         let flow_50 = calculate_combined_flow(sewage, stormwater, 0.5);
-        let discharge_50 = (flow_50 - capacity_50).max(0.0_f32);
+        let _discharge_50 = (flow_50 - capacity_50).max(0.0_f32);
 
         // With partial separation, stormwater entering the combined sewer is halved,
         // but capacity is also halved. The net effect on CSO depends on the balance.

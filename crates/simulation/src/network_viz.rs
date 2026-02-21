@@ -293,8 +293,6 @@ impl Plugin for NetworkVizPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-    use crate::roads::RoadNetwork;
 
     #[test]
     fn test_source_color_assignment() {
