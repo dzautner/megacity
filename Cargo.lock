@@ -3456,6 +3456,7 @@ name = "megacity"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "criterion",
  "getrandom 0.2.17",
  "getrandom 0.3.4",
  "getrandom 0.4.1",
@@ -4821,9 +4822,14 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bitcode",
+ "flate2",
+ "futures-channel",
+ "js-sys",
  "rendering",
  "serde",
  "simulation",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

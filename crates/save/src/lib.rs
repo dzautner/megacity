@@ -10,6 +10,9 @@ mod save_types;
 pub mod saveable_ext;
 pub mod serialization;
 
+#[cfg(target_arch = "wasm32")]
+mod wasm_idb;
+
 pub use saveable_ext::SaveableAppExt;
 
 use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
@@ -101,6 +104,17 @@ struct PendingLoadExtensions(Option<std::collections::BTreeMap<String, Vec<u8>>>
 #[derive(Resource, Default)]
 struct PendingNewGameReset(bool);
 
+/// On WASM, holds bytes arriving from an async IndexedDB read.
+/// The `poll_wasm_load` system checks this each frame and, when data arrives,
+/// fires an internal `WasmLoadReady` event so the normal restore path runs.
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Default)]
+struct WasmLoadBuffer(std::rc::Rc<std::cell::RefCell<Option<Result<Vec<u8>, String>>>>);
+
+/// Internal event carrying bytes loaded asynchronously from IndexedDB.
+#[cfg(target_arch = "wasm32")]
+#[derive(Event)]
+struct WasmLoadReady(Vec<u8>);
 /// Bundles entity queries for despawning existing game entities during load/new-game.
 #[derive(SystemParam)]
 struct ExistingEntities<'w, 's> {
@@ -153,19 +167,45 @@ impl Plugin for SavePlugin {
             .init_resource::<SaveableRegistry>()
             .init_resource::<PendingSaveData>()
             .init_resource::<PendingLoadExtensions>()
-            .init_resource::<PendingNewGameReset>()
-            .add_systems(
-                Update,
-                (
-                    handle_save,
-                    handle_load,
-                    handle_new_game,
-                    // Extension-map systems run AFTER the core handlers in the same frame.
-                    flush_save_with_extensions.after(handle_save),
-                    apply_load_extensions.after(handle_load),
-                    reset_saveable_extensions.after(handle_new_game),
-                ),
-            );
+            .init_resource::<PendingNewGameReset>();
+
+        // On WASM, register IndexedDB async load infrastructure.
+        #[cfg(target_arch = "wasm32")]
+        app.add_event::<WasmLoadReady>()
+            .init_resource::<WasmLoadBuffer>();
+
+        app.add_systems(
+            Update,
+            (
+                handle_save,
+                handle_new_game,
+                // Extension-map systems run AFTER the core handlers in the same frame.
+                flush_save_with_extensions.after(handle_save),
+                reset_saveable_extensions.after(handle_new_game),
+            ),
+        );
+
+        // Native: synchronous load path.
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(
+            Update,
+            (handle_load, apply_load_extensions.after(handle_load)),
+        );
+
+        // WASM: async two-phase load path.
+        // 1) `start_wasm_load` consumes LoadGameEvent and kicks off async IndexedDB read
+        // 2) `poll_wasm_load` checks for completed read and fires WasmLoadReady
+        // 3) `handle_wasm_load_ready` restores world state from the loaded bytes
+        #[cfg(target_arch = "wasm32")]
+        app.add_systems(
+            Update,
+            (
+                start_wasm_load,
+                poll_wasm_load.after(start_wasm_load),
+                handle_wasm_load_ready.after(poll_wasm_load),
+                apply_load_extensions.after(handle_wasm_load_ready),
+            ),
+        );
     }
 }
 
@@ -310,6 +350,7 @@ fn handle_save(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(clippy::too_many_arguments)]
 fn handle_load(
     mut events: EventReader<LoadGameEvent>,
@@ -326,7 +367,6 @@ fn handle_load(
     mut pending_ext: ResMut<PendingLoadExtensions>,
 ) {
     for _ in events.read() {
-        #[cfg(not(target_arch = "wasm32"))]
         let bytes = {
             let path = save_file_path();
             match std::fs::read(&path) {
@@ -337,599 +377,687 @@ fn handle_load(
                 }
             }
         };
-        #[cfg(target_arch = "wasm32")]
-        let bytes = match wasm_load_bytes() {
-            Ok(b) => b,
-            Err(e) => {
-                eprintln!("Failed to load from localStorage: {}", e);
-                continue;
-            }
-        };
 
-        let mut save = match SaveData::decode(&bytes) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("Failed to decode save: {}", e);
-                continue;
-            }
-        };
+        restore_from_bytes(
+            &bytes,
+            &mut commands,
+            &mut grid,
+            &mut roads,
+            &mut segments,
+            &mut clock,
+            &mut budget,
+            &mut demand,
+            &existing,
+            &mut v2,
+            &mut lifecycle_timer,
+            &mut pending_ext,
+        );
 
-        // Migrate older save formats to current version
-        let old_version = match migrate_save(&mut save) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Save migration failed: {}", e);
-                continue;
-            }
-        };
-        if old_version != CURRENT_SAVE_VERSION {
-            println!(
-                "Migrated save from v{} to v{}",
-                old_version, CURRENT_SAVE_VERSION
-            );
-        }
-
-        // Clear existing entities -- deduplicate to avoid double-despawn when
-        // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
-        for entity in existing.all_entities() {
-            if let Some(mut ec) = commands.get_entity(entity) {
-                ec.despawn();
-            }
-        }
-
-        // Restore grid
-        *grid = WorldGrid::new(save.grid.width, save.grid.height);
-        for (i, sc) in save.grid.cells.iter().enumerate() {
-            grid.cells[i].elevation = sc.elevation;
-            grid.cells[i].cell_type = match sc.cell_type {
-                1 => simulation::grid::CellType::Water,
-                2 => simulation::grid::CellType::Road,
-                _ => simulation::grid::CellType::Grass,
-            };
-            grid.cells[i].zone = u8_to_zone_type(sc.zone);
-            grid.cells[i].road_type = u8_to_road_type(sc.road_type);
-            grid.cells[i].has_power = sc.has_power;
-            grid.cells[i].has_water = sc.has_water;
-        }
-
-        // Restore roads - use saved road types, not default Local
-        *roads = RoadNetwork::default();
-        // Save the road types before place_road overwrites them
-        let saved_road_types: Vec<(usize, usize, u8)> = save
-            .roads
-            .road_positions
-            .iter()
-            .map(|(x, y)| {
-                let idx = y * grid.width + x;
-                let rt = if idx < save.grid.cells.len() {
-                    save.grid.cells[idx].road_type
-                } else {
-                    0
-                };
-                (*x, *y, rt)
-            })
-            .collect();
-        for (x, y, _) in &saved_road_types {
-            roads.place_road(&mut grid, *x, *y);
-        }
-        // Restore the saved road types (place_road overwrites with Local)
-        for (x, y, rt) in &saved_road_types {
-            if grid.in_bounds(*x, *y) {
-                grid.get_mut(*x, *y).road_type = u8_to_road_type(*rt);
-            }
-        }
-
-        // Restore road segments (if present in save)
-        if let Some(ref saved_segments) = save.road_segments {
-            let mut restored = restore_road_segment_store(saved_segments);
-            restored.rasterize_all(&mut grid, &mut roads);
-            *segments = restored;
-        } else {
-            *segments = RoadSegmentStore::default();
-        }
-
-        // Restore clock
-        clock.day = save.clock.day;
-        clock.hour = save.clock.hour;
-        clock.speed = save.clock.speed;
-        clock.paused = false;
-
-        // Restore budget
-        budget.treasury = save.budget.treasury;
-        budget.tax_rate = save.budget.tax_rate;
-        budget.last_collection_day = save.budget.last_collection_day;
-
-        // Restore demand
-        demand.residential = save.demand.residential;
-        demand.commercial = save.demand.commercial;
-        demand.industrial = save.demand.industrial;
-        demand.office = save.demand.office;
-        demand.vacancy_residential = save.demand.vacancy_residential;
-        demand.vacancy_commercial = save.demand.vacancy_commercial;
-        demand.vacancy_industrial = save.demand.vacancy_industrial;
-        demand.vacancy_office = save.demand.vacancy_office;
-
-        // Restore buildings
-        for sb in &save.buildings {
-            let zone = u8_to_zone_type(sb.zone_type);
-            let building = Building {
-                zone_type: zone,
-                level: sb.level,
-                grid_x: sb.grid_x,
-                grid_y: sb.grid_y,
-                capacity: sb.capacity,
-                occupants: sb.occupants,
-            };
-            let entity = if zone.is_mixed_use() {
-                // Restore MixedUseBuilding component; use saved data if non-zero,
-                // otherwise derive from static capacities for the level.
-                let (comm_cap, res_cap) =
-                    if sb.commercial_capacity > 0 || sb.residential_capacity > 0 {
-                        (sb.commercial_capacity, sb.residential_capacity)
-                    } else {
-                        MixedUseBuilding::capacities_for_level(sb.level)
-                    };
-                commands
-                    .spawn((
-                        building,
-                        MixedUseBuilding {
-                            commercial_capacity: comm_cap,
-                            commercial_occupants: sb.commercial_occupants,
-                            residential_capacity: res_cap,
-                            residential_occupants: sb.residential_occupants,
-                        },
-                    ))
-                    .id()
-            } else {
-                commands.spawn(building).id()
-            };
-            if grid.in_bounds(sb.grid_x, sb.grid_y) {
-                grid.get_mut(sb.grid_x, sb.grid_y).building_id = Some(entity);
-            }
-        }
-
-        // Restore utility sources
-        for su in &save.utility_sources {
-            let ut = u8_to_utility_type(su.utility_type);
-            commands.spawn(UtilitySource {
-                utility_type: ut,
-                grid_x: su.grid_x,
-                grid_y: su.grid_y,
-                range: su.range,
-            });
-        }
-
-        // Restore service buildings
-        for ss in &save.service_buildings {
-            if let Some(service_type) = u8_to_service_type(ss.service_type) {
-                let radius = ServiceBuilding::coverage_radius(service_type);
-                let entity = commands
-                    .spawn(ServiceBuilding {
-                        service_type,
-                        grid_x: ss.grid_x,
-                        grid_y: ss.grid_y,
-                        radius,
-                    })
-                    .id();
-                if grid.in_bounds(ss.grid_x, ss.grid_y) {
-                    grid.get_mut(ss.grid_x, ss.grid_y).building_id = Some(entity);
-                }
-            }
-        }
-
-        // Restore water sources
-        if let Some(ref saved_water_sources) = save.water_sources {
-            for sws in saved_water_sources {
-                if let Some(ws) = restore_water_source(sws) {
-                    let entity = commands.spawn(ws).id();
-                    if grid.in_bounds(sws.grid_x, sws.grid_y) {
-                        grid.get_mut(sws.grid_x, sws.grid_y).building_id = Some(entity);
-                    }
-                }
-            }
-        }
-
-        // Restore citizens
-        let mut citizen_entities: Vec<Entity> = Vec::with_capacity(save.citizens.len());
-        for sc in &save.citizens {
-            let state = match sc.state {
-                1 => CitizenState::CommutingToWork,
-                2 => CitizenState::Working,
-                3 => CitizenState::CommutingHome,
-                4 => CitizenState::CommutingToShop,
-                5 => CitizenState::Shopping,
-                6 => CitizenState::CommutingToLeisure,
-                7 => CitizenState::AtLeisure,
-                8 => CitizenState::CommutingToSchool,
-                9 => CitizenState::AtSchool,
-                _ => CitizenState::AtHome,
-            };
-
-            // We need building entities for home/work locations.
-            // Find them from the grid if possible, otherwise use a dummy.
-            let home_building = if grid.in_bounds(sc.home_x, sc.home_y) {
-                grid.get(sc.home_x, sc.home_y)
-                    .building_id
-                    .unwrap_or(Entity::PLACEHOLDER)
-            } else {
-                Entity::PLACEHOLDER
-            };
-
-            let work_building = if grid.in_bounds(sc.work_x, sc.work_y) {
-                grid.get(sc.work_x, sc.work_y)
-                    .building_id
-                    .unwrap_or(Entity::PLACEHOLDER)
-            } else {
-                Entity::PLACEHOLDER
-            };
-
-            // Restore position: use saved position if available (non-zero),
-            // otherwise fall back to home grid position (backward compat).
-            let (pos_x, pos_y) = if sc.pos_x != 0.0 || sc.pos_y != 0.0 {
-                (sc.pos_x, sc.pos_y)
-            } else {
-                WorldGrid::grid_to_world(sc.home_x, sc.home_y)
-            };
-
-            // Restore path cache: convert saved waypoints to RoadNodes and
-            // validate that all waypoints reference valid grid positions.
-            let (path_cache, restored_state) = {
-                let waypoints: Vec<RoadNode> = sc
-                    .path_waypoints
-                    .iter()
-                    .map(|&(x, y)| RoadNode(x, y))
-                    .collect();
-
-                let all_valid = waypoints.iter().all(|n| grid.in_bounds(n.0, n.1));
-
-                if !waypoints.is_empty() && all_valid {
-                    let mut pc = PathCache::new(waypoints);
-                    pc.current_index = sc.path_current_index;
-                    (pc, state)
-                } else if state.is_commuting() {
-                    (PathCache::new(vec![]), CitizenState::AtHome)
-                } else {
-                    (PathCache::new(vec![]), state)
-                }
-            };
-
-            // Restore velocity from saved data (defaults to zero for old saves).
-            let velocity = Velocity {
-                x: sc.velocity_x,
-                y: sc.velocity_y,
-            };
-
-            // Restore gender from saved value; fall back to age parity for old saves
-            let gender = if sc.gender == 1 {
-                Gender::Female
-            } else {
-                Gender::Male
-            };
-
-            // Restore salary: use saved value if non-zero, otherwise derive from education
-            let salary = if sc.salary != 0.0 {
-                sc.salary
-            } else {
-                CitizenDetails::base_salary_for_education(sc.education)
-            };
-
-            // Restore savings: use saved value if non-zero, otherwise derive from salary
-            let savings = if sc.savings != 0.0 {
-                sc.savings
-            } else {
-                salary * 2.0
-            };
-
-            let cit_entity = commands
-                .spawn((
-                    Citizen,
-                    CitizenDetails {
-                        age: sc.age,
-                        gender,
-                        happiness: sc.happiness,
-                        health: sc.health,
-                        education: sc.education,
-                        salary,
-                        savings,
-                    },
-                    CitizenStateComp(restored_state),
-                    HomeLocation {
-                        grid_x: sc.home_x,
-                        grid_y: sc.home_y,
-                        building: home_building,
-                    },
-                    WorkLocation {
-                        grid_x: sc.work_x,
-                        grid_y: sc.work_y,
-                        building: work_building,
-                    },
-                    Position { x: pos_x, y: pos_y },
-                    velocity,
-                    path_cache,
-                    Personality {
-                        ambition: sc.ambition,
-                        sociability: sc.sociability,
-                        materialism: sc.materialism,
-                        resilience: sc.resilience,
-                    },
-                    Needs {
-                        hunger: sc.need_hunger,
-                        energy: sc.need_energy,
-                        social: sc.need_social,
-                        fun: sc.need_fun,
-                        comfort: sc.need_comfort,
-                    },
-                    Family::default(),
-                    ActivityTimer(sc.activity_timer),
-                    LodTier::default(),
-                ))
-                .id();
-            citizen_entities.push(cit_entity);
-        }
-
-        // Second pass: restore family relationships using saved citizen indices.
-        // Each SaveCitizen stores partner/children/parent as indices into the
-        // citizen array. Convert those indices to the new Entity IDs.
-        let num_citizens = citizen_entities.len();
-        for (i, sc) in save.citizens.iter().enumerate() {
-            let mut family = Family::default();
-            if (sc.family_partner as usize) < num_citizens {
-                family.partner = Some(citizen_entities[sc.family_partner as usize]);
-            }
-            for &child_idx in &sc.family_children {
-                if (child_idx as usize) < num_citizens {
-                    family.children.push(citizen_entities[child_idx as usize]);
-                }
-            }
-            if (sc.family_parent as usize) < num_citizens {
-                family.parent = Some(citizen_entities[sc.family_parent as usize]);
-            }
-            // Only update if there are actual relationships to restore
-            if family.partner.is_some() || !family.children.is_empty() || family.parent.is_some() {
-                if let Some(mut ec) = commands.get_entity(citizen_entities[i]) {
-                    ec.insert(family);
-                }
-            }
-        }
-
-        // Restore V2 fields (policies, weather, unlocks, extended budget, loans)
-        // If the save is from V1 (fields are None), use defaults.
-        if let Some(ref saved_policies) = save.policies {
-            *v2.policies = restore_policies(saved_policies);
-        } else {
-            *v2.policies = Policies::default();
-        }
-
-        if let Some(ref saved_weather) = save.weather {
-            *v2.weather = restore_weather(saved_weather);
-            *v2.climate_zone = restore_climate_zone(saved_weather);
-        } else {
-            *v2.weather = Weather::default();
-            *v2.climate_zone = ClimateZone::default();
-        }
-
-        if let Some(ref saved_unlocks) = save.unlock_state {
-            *v2.unlock_state = restore_unlock_state(saved_unlocks);
-        } else {
-            *v2.unlock_state = UnlockState::default();
-        }
-
-        if let Some(ref saved_ext_budget) = save.extended_budget {
-            *v2.extended_budget = restore_extended_budget(saved_ext_budget);
-        } else {
-            *v2.extended_budget = ExtendedBudget::default();
-        }
-
-        if let Some(ref saved_loans) = save.loan_book {
-            *v2.loan_book = restore_loan_book(saved_loans);
-        } else {
-            *v2.loan_book = LoanBook::default();
-        }
-
-        // Restore lifecycle timer (prevents mass aging/death burst on load)
-        if let Some(ref saved_timer) = save.lifecycle_timer {
-            *lifecycle_timer = restore_lifecycle_timer(saved_timer);
-        } else {
-            // Old save without lifecycle timer: set last_aging_day to current day
-            // to prevent immediate aging burst on load.
-            lifecycle_timer.last_aging_day = clock.day;
-            lifecycle_timer.last_emigration_tick = 0;
-        }
-
-        // Restore virtual population (prevents population count mismatch on load)
-        if let Some(ref saved_vp) = save.virtual_population {
-            *v2.virtual_population = restore_virtual_population(saved_vp);
-        } else {
-            *v2.virtual_population = VirtualPopulation::default();
-        }
-
-        // Restore life sim timer (prevents all life events firing simultaneously on load)
-        if let Some(ref saved_lst) = save.life_sim_timer {
-            *v2.life_sim_timer = restore_life_sim_timer(saved_lst);
-        } else {
-            *v2.life_sim_timer = LifeSimTimer::default();
-        }
-
-        // Restore stormwater grid
-        if let Some(ref saved_sw) = save.stormwater_grid {
-            *v2.stormwater_grid = restore_stormwater_grid(saved_sw);
-        } else {
-            *v2.stormwater_grid = StormwaterGrid::default();
-        }
-
-        // Restore degree days (HDD/CDD tracking)
-        if let Some(ref saved_dd) = save.degree_days {
-            *v2.degree_days = restore_degree_days(saved_dd);
-        } else {
-            *v2.degree_days = DegreeDays::default();
-        }
-
-        // Restore construction modifiers (recomputed each tick from weather, but
-        // persisting avoids a 1-tick stale value after load).
-        if let Some(ref saved_cm) = save.construction_modifiers {
-            *v2.construction_modifiers = restore_construction_modifiers(saved_cm);
-        } else {
-            *v2.construction_modifiers = ConstructionModifiers::default();
-        }
-
-        // Restore recycling state and economics
-        if let Some(ref saved_recycling) = save.recycling_state {
-            let (rs, re) = restore_recycling(saved_recycling);
-            *v2.recycling_state = rs;
-            *v2.recycling_economics = re;
-        } else {
-            *v2.recycling_state = RecyclingState::default();
-            *v2.recycling_economics = RecyclingEconomics::default();
-        }
-
-        // Restore wind damage state
-        if let Some(ref saved_wds) = save.wind_damage_state {
-            *v2.wind_damage_state = restore_wind_damage_state(saved_wds);
-        } else {
-            *v2.wind_damage_state = WindDamageState::default();
-        }
-
-        // Restore UHI grid
-        if let Some(ref saved_uhi) = save.uhi_grid {
-            *v2.uhi_grid = restore_uhi_grid(saved_uhi);
-        } else {
-            *v2.uhi_grid = UhiGrid::default();
-        }
-
-        // Restore drought state
-        if let Some(ref saved_drought) = save.drought_state {
-            *v2.drought_state = restore_drought(saved_drought);
-        } else {
-            *v2.drought_state = DroughtState::default();
-        }
-
-        // Restore heat wave state
-        if let Some(ref saved_hw) = save.heat_wave_state {
-            *v2.heat_wave_state = restore_heat_wave(saved_hw);
-        } else {
-            *v2.heat_wave_state = HeatWaveState::default();
-        }
-
-        // Restore composting state
-        if let Some(ref saved_cs) = save.composting_state {
-            *v2.composting_state = restore_composting(saved_cs);
-        } else {
-            *v2.composting_state = CompostingState::default();
-        }
-
-        // Restore cold snap state
-        if let Some(ref saved_cs) = save.cold_snap_state {
-            *v2.cold_snap_state = restore_cold_snap(saved_cs);
-        } else {
-            *v2.cold_snap_state = ColdSnapState::default();
-        }
-
-        // Restore water treatment state
-        if let Some(ref wts) = save.water_treatment_state {
-            *v2.water_treatment_state = restore_water_treatment(wts);
-        } else {
-            *v2.water_treatment_state = WaterTreatmentState::default();
-        }
-
-        // Restore groundwater depletion state
-        if let Some(ref gds) = save.groundwater_depletion_state {
-            *v2.groundwater_depletion_state = restore_groundwater_depletion(gds);
-        } else {
-            *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
-        }
-
-        // Restore wastewater state
-        if let Some(ref ws) = save.wastewater_state {
-            *v2.wastewater_state = restore_wastewater(ws);
-        } else {
-            *v2.wastewater_state = WastewaterState::default();
-        }
-
-        // Restore hazardous waste state
-        if let Some(ref hws) = save.hazardous_waste_state {
-            *v2.hazardous_waste_state = restore_hazardous_waste(hws);
-        } else {
-            *v2.hazardous_waste_state = HazardousWasteState::default();
-        }
-
-        // Restore storm drainage state
-        if let Some(ref sds) = save.storm_drainage_state {
-            *v2.storm_drainage_state = restore_storm_drainage(sds);
-        } else {
-            *v2.storm_drainage_state = StormDrainageState::default();
-        }
-
-        // Restore landfill capacity state
-        if let Some(ref lcs) = save.landfill_capacity_state {
-            *v2.landfill_capacity_state = restore_landfill_capacity(lcs);
-        } else {
-            *v2.landfill_capacity_state = LandfillCapacityState::default();
-        }
-
-        // Restore flood state
-        if let Some(ref fs) = save.flood_state {
-            *v2.flood_state = restore_flood_state(fs);
-        }
-        // FloodGrid is transient, always reset to default
-        *v2.flood_grid = FloodGrid::default();
-
-        // Restore reservoir state
-        if let Some(ref rs) = save.reservoir_state {
-            *v2.reservoir_state = restore_reservoir_state(rs);
-        }
-
-        // Restore landfill gas state
-        if let Some(ref lgs) = save.landfill_gas_state {
-            *v2.landfill_gas_state = restore_landfill_gas(lgs);
-        }
-
-        // Restore CSO state
-        if let Some(ref s) = save.cso_state {
-            *v2.cso_state = restore_cso(s);
-        }
-
-        // Restore water conservation state
-        if let Some(ref s) = save.water_conservation_state {
-            *v2.water_conservation_state = restore_water_conservation(s);
-        }
-
-        // Restore fog state
-        if let Some(ref s) = save.fog_state {
-            *v2.fog_state = restore_fog_state(s);
-        }
-
-        // Restore agriculture state
-        if let Some(ref s) = save.agriculture_state {
-            *v2.agriculture_state = restore_agriculture(s);
-        }
-
-        // Restore urban growth boundary
-        if let Some(ref s) = save.urban_growth_boundary {
-            *v2.urban_growth_boundary = restore_urban_growth_boundary(s);
-        } else {
-            *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
-        }
-
-        // Restore snow state
-        if let Some(ref s) = save.snow_state {
-            let (sg, sp) = restore_snow(s);
-            *v2.snow_grid = sg;
-            *v2.snow_plowing_state = sp;
-        } else {
-            *v2.snow_grid = SnowGrid::default();
-            *v2.snow_plowing_state = SnowPlowingState::default();
-        }
-        *v2.snow_stats = SnowStats::default();
-
-        // Store extension map for the exclusive system to apply via SaveableRegistry.
-        // Always enqueue -- even an empty map -- so that registered resources whose
-        // keys are absent get reset to defaults (prevents cross-save contamination).
-        pending_ext.0 = Some(save.extensions.clone());
-
-        #[cfg(not(target_arch = "wasm32"))]
         println!("Loaded save from {}", save_file_path());
-        #[cfg(target_arch = "wasm32")]
-        println!("Loaded save from localStorage");
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn restore_from_bytes(
+    bytes: &[u8],
+    commands: &mut Commands,
+    grid: &mut ResMut<WorldGrid>,
+    roads: &mut ResMut<RoadNetwork>,
+    segments: &mut ResMut<RoadSegmentStore>,
+    clock: &mut ResMut<GameClock>,
+    budget: &mut ResMut<CityBudget>,
+    demand: &mut ResMut<ZoneDemand>,
+    existing: &ExistingEntities,
+    v2: &mut V2ResourcesWrite,
+    lifecycle_timer: &mut ResMut<LifecycleTimer>,
+    pending_ext: &mut ResMut<PendingLoadExtensions>,
+) {
+    let mut save = match SaveData::decode(bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to decode save: {}", e);
+            return;
+        }
+    };
+
+    // Migrate older save formats to current version
+    let old_version = match migrate_save(&mut save) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Save migration failed: {}", e);
+            return;
+        }
+    };
+    if old_version != CURRENT_SAVE_VERSION {
+        println!(
+            "Migrated save from v{} to v{}",
+            old_version, CURRENT_SAVE_VERSION
+        );
+    }
+
+    // Clear existing entities -- deduplicate to avoid double-despawn when
+    // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
+    for entity in existing.all_entities() {
+        if let Some(mut ec) = commands.get_entity(entity) {
+            ec.despawn();
+        }
+    }
+
+    // Restore grid
+    **grid = WorldGrid::new(save.grid.width, save.grid.height);
+    for (i, sc) in save.grid.cells.iter().enumerate() {
+        grid.cells[i].elevation = sc.elevation;
+        grid.cells[i].cell_type = match sc.cell_type {
+            1 => simulation::grid::CellType::Water,
+            2 => simulation::grid::CellType::Road,
+            _ => simulation::grid::CellType::Grass,
+        };
+        grid.cells[i].zone = u8_to_zone_type(sc.zone);
+        grid.cells[i].road_type = u8_to_road_type(sc.road_type);
+        grid.cells[i].has_power = sc.has_power;
+        grid.cells[i].has_water = sc.has_water;
+    }
+
+    // Restore roads - use saved road types, not default Local
+    **roads = RoadNetwork::default();
+    // Save the road types before place_road overwrites them
+    let saved_road_types: Vec<(usize, usize, u8)> = save
+        .roads
+        .road_positions
+        .iter()
+        .map(|(x, y)| {
+            let idx = y * grid.width + x;
+            let rt = if idx < save.grid.cells.len() {
+                save.grid.cells[idx].road_type
+            } else {
+                0
+            };
+            (*x, *y, rt)
+        })
+        .collect();
+    for (x, y, _) in &saved_road_types {
+        roads.place_road(grid, *x, *y);
+    }
+    // Restore the saved road types (place_road overwrites with Local)
+    for (x, y, rt) in &saved_road_types {
+        if grid.in_bounds(*x, *y) {
+            grid.get_mut(*x, *y).road_type = u8_to_road_type(*rt);
+        }
+    }
+
+    // Restore road segments (if present in save)
+    if let Some(ref saved_segments) = save.road_segments {
+        let mut restored = restore_road_segment_store(saved_segments);
+        restored.rasterize_all(grid, roads);
+        **segments = restored;
+    } else {
+        **segments = RoadSegmentStore::default();
+    }
+
+    // Restore clock
+    clock.day = save.clock.day;
+    clock.hour = save.clock.hour;
+    clock.speed = save.clock.speed;
+    clock.paused = false;
+
+    // Restore budget
+    budget.treasury = save.budget.treasury;
+    budget.tax_rate = save.budget.tax_rate;
+    budget.last_collection_day = save.budget.last_collection_day;
+
+    // Restore demand
+    demand.residential = save.demand.residential;
+    demand.commercial = save.demand.commercial;
+    demand.industrial = save.demand.industrial;
+    demand.office = save.demand.office;
+    demand.vacancy_residential = save.demand.vacancy_residential;
+    demand.vacancy_commercial = save.demand.vacancy_commercial;
+    demand.vacancy_industrial = save.demand.vacancy_industrial;
+    demand.vacancy_office = save.demand.vacancy_office;
+
+    // Restore buildings
+    for sb in &save.buildings {
+        let zone = u8_to_zone_type(sb.zone_type);
+        let building = Building {
+            zone_type: zone,
+            level: sb.level,
+            grid_x: sb.grid_x,
+            grid_y: sb.grid_y,
+            capacity: sb.capacity,
+            occupants: sb.occupants,
+        };
+        let entity = if zone.is_mixed_use() {
+            // Restore MixedUseBuilding component; use saved data if non-zero,
+            // otherwise derive from static capacities for the level.
+            let (comm_cap, res_cap) = if sb.commercial_capacity > 0 || sb.residential_capacity > 0 {
+                (sb.commercial_capacity, sb.residential_capacity)
+            } else {
+                MixedUseBuilding::capacities_for_level(sb.level)
+            };
+            commands
+                .spawn((
+                    building,
+                    MixedUseBuilding {
+                        commercial_capacity: comm_cap,
+                        commercial_occupants: sb.commercial_occupants,
+                        residential_capacity: res_cap,
+                        residential_occupants: sb.residential_occupants,
+                    },
+                ))
+                .id()
+        } else {
+            commands.spawn(building).id()
+        };
+        if grid.in_bounds(sb.grid_x, sb.grid_y) {
+            grid.get_mut(sb.grid_x, sb.grid_y).building_id = Some(entity);
+        }
+    }
+
+    // Restore utility sources
+    for su in &save.utility_sources {
+        let ut = u8_to_utility_type(su.utility_type);
+        commands.spawn(UtilitySource {
+            utility_type: ut,
+            grid_x: su.grid_x,
+            grid_y: su.grid_y,
+            range: su.range,
+        });
+    }
+
+    // Restore service buildings
+    for ss in &save.service_buildings {
+        if let Some(service_type) = u8_to_service_type(ss.service_type) {
+            let radius = ServiceBuilding::coverage_radius(service_type);
+            let entity = commands
+                .spawn(ServiceBuilding {
+                    service_type,
+                    grid_x: ss.grid_x,
+                    grid_y: ss.grid_y,
+                    radius,
+                })
+                .id();
+            if grid.in_bounds(ss.grid_x, ss.grid_y) {
+                grid.get_mut(ss.grid_x, ss.grid_y).building_id = Some(entity);
+            }
+        }
+    }
+
+    // Restore water sources
+    if let Some(ref saved_water_sources) = save.water_sources {
+        for sws in saved_water_sources {
+            if let Some(ws) = restore_water_source(sws) {
+                let entity = commands.spawn(ws).id();
+                if grid.in_bounds(sws.grid_x, sws.grid_y) {
+                    grid.get_mut(sws.grid_x, sws.grid_y).building_id = Some(entity);
+                }
+            }
+        }
+    }
+
+    // Restore citizens
+    let mut citizen_entities: Vec<Entity> = Vec::with_capacity(save.citizens.len());
+    for sc in &save.citizens {
+        let state = match sc.state {
+            1 => CitizenState::CommutingToWork,
+            2 => CitizenState::Working,
+            3 => CitizenState::CommutingHome,
+            4 => CitizenState::CommutingToShop,
+            5 => CitizenState::Shopping,
+            6 => CitizenState::CommutingToLeisure,
+            7 => CitizenState::AtLeisure,
+            8 => CitizenState::CommutingToSchool,
+            9 => CitizenState::AtSchool,
+            _ => CitizenState::AtHome,
+        };
+
+        // We need building entities for home/work locations.
+        // Find them from the grid if possible, otherwise use a dummy.
+        let home_building = if grid.in_bounds(sc.home_x, sc.home_y) {
+            grid.get(sc.home_x, sc.home_y)
+                .building_id
+                .unwrap_or(Entity::PLACEHOLDER)
+        } else {
+            Entity::PLACEHOLDER
+        };
+
+        let work_building = if grid.in_bounds(sc.work_x, sc.work_y) {
+            grid.get(sc.work_x, sc.work_y)
+                .building_id
+                .unwrap_or(Entity::PLACEHOLDER)
+        } else {
+            Entity::PLACEHOLDER
+        };
+
+        // Restore position: use saved position if available (non-zero),
+        // otherwise fall back to home grid position (backward compat).
+        let (pos_x, pos_y) = if sc.pos_x != 0.0 || sc.pos_y != 0.0 {
+            (sc.pos_x, sc.pos_y)
+        } else {
+            WorldGrid::grid_to_world(sc.home_x, sc.home_y)
+        };
+
+        // Restore path cache: convert saved waypoints to RoadNodes and
+        // validate that all waypoints reference valid grid positions.
+        let (path_cache, restored_state) = {
+            let waypoints: Vec<RoadNode> = sc
+                .path_waypoints
+                .iter()
+                .map(|&(x, y)| RoadNode(x, y))
+                .collect();
+
+            let all_valid = waypoints.iter().all(|n| grid.in_bounds(n.0, n.1));
+
+            if !waypoints.is_empty() && all_valid {
+                let mut pc = PathCache::new(waypoints);
+                pc.current_index = sc.path_current_index;
+                (pc, state)
+            } else if state.is_commuting() {
+                (PathCache::new(vec![]), CitizenState::AtHome)
+            } else {
+                (PathCache::new(vec![]), state)
+            }
+        };
+
+        // Restore velocity from saved data (defaults to zero for old saves).
+        let velocity = Velocity {
+            x: sc.velocity_x,
+            y: sc.velocity_y,
+        };
+
+        // Restore gender from saved value; fall back to age parity for old saves
+        let gender = if sc.gender == 1 {
+            Gender::Female
+        } else {
+            Gender::Male
+        };
+
+        // Restore salary: use saved value if non-zero, otherwise derive from education
+        let salary = if sc.salary != 0.0 {
+            sc.salary
+        } else {
+            CitizenDetails::base_salary_for_education(sc.education)
+        };
+
+        // Restore savings: use saved value if non-zero, otherwise derive from salary
+        let savings = if sc.savings != 0.0 {
+            sc.savings
+        } else {
+            salary * 2.0
+        };
+
+        let cit_entity = commands
+            .spawn((
+                Citizen,
+                CitizenDetails {
+                    age: sc.age,
+                    gender,
+                    happiness: sc.happiness,
+                    health: sc.health,
+                    education: sc.education,
+                    salary,
+                    savings,
+                },
+                CitizenStateComp(restored_state),
+                HomeLocation {
+                    grid_x: sc.home_x,
+                    grid_y: sc.home_y,
+                    building: home_building,
+                },
+                WorkLocation {
+                    grid_x: sc.work_x,
+                    grid_y: sc.work_y,
+                    building: work_building,
+                },
+                Position { x: pos_x, y: pos_y },
+                velocity,
+                path_cache,
+                Personality {
+                    ambition: sc.ambition,
+                    sociability: sc.sociability,
+                    materialism: sc.materialism,
+                    resilience: sc.resilience,
+                },
+                Needs {
+                    hunger: sc.need_hunger,
+                    energy: sc.need_energy,
+                    social: sc.need_social,
+                    fun: sc.need_fun,
+                    comfort: sc.need_comfort,
+                },
+                Family::default(),
+                ActivityTimer(sc.activity_timer),
+                LodTier::default(),
+            ))
+            .id();
+        citizen_entities.push(cit_entity);
+    }
+
+    // Second pass: restore family relationships using saved citizen indices.
+    // Each SaveCitizen stores partner/children/parent as indices into the
+    // citizen array. Convert those indices to the new Entity IDs.
+    let num_citizens = citizen_entities.len();
+    for (i, sc) in save.citizens.iter().enumerate() {
+        let mut family = Family::default();
+        if (sc.family_partner as usize) < num_citizens {
+            family.partner = Some(citizen_entities[sc.family_partner as usize]);
+        }
+        for &child_idx in &sc.family_children {
+            if (child_idx as usize) < num_citizens {
+                family.children.push(citizen_entities[child_idx as usize]);
+            }
+        }
+        if (sc.family_parent as usize) < num_citizens {
+            family.parent = Some(citizen_entities[sc.family_parent as usize]);
+        }
+        // Only update if there are actual relationships to restore
+        if family.partner.is_some() || !family.children.is_empty() || family.parent.is_some() {
+            if let Some(mut ec) = commands.get_entity(citizen_entities[i]) {
+                ec.insert(family);
+            }
+        }
+    }
+
+    // Restore V2 fields (policies, weather, unlocks, extended budget, loans)
+    // If the save is from V1 (fields are None), use defaults.
+    if let Some(ref saved_policies) = save.policies {
+        *v2.policies = restore_policies(saved_policies);
+    } else {
+        *v2.policies = Policies::default();
+    }
+
+    if let Some(ref saved_weather) = save.weather {
+        *v2.weather = restore_weather(saved_weather);
+        *v2.climate_zone = restore_climate_zone(saved_weather);
+    } else {
+        *v2.weather = Weather::default();
+        *v2.climate_zone = ClimateZone::default();
+    }
+
+    if let Some(ref saved_unlocks) = save.unlock_state {
+        *v2.unlock_state = restore_unlock_state(saved_unlocks);
+    } else {
+        *v2.unlock_state = UnlockState::default();
+    }
+
+    if let Some(ref saved_ext_budget) = save.extended_budget {
+        *v2.extended_budget = restore_extended_budget(saved_ext_budget);
+    } else {
+        *v2.extended_budget = ExtendedBudget::default();
+    }
+
+    if let Some(ref saved_loans) = save.loan_book {
+        *v2.loan_book = restore_loan_book(saved_loans);
+    } else {
+        *v2.loan_book = LoanBook::default();
+    }
+
+    // Restore lifecycle timer (prevents mass aging/death burst on load)
+    if let Some(ref saved_timer) = save.lifecycle_timer {
+        **lifecycle_timer = restore_lifecycle_timer(saved_timer);
+    } else {
+        // Old save without lifecycle timer: set last_aging_day to current day
+        // to prevent immediate aging burst on load.
+        lifecycle_timer.last_aging_day = clock.day;
+        lifecycle_timer.last_emigration_tick = 0;
+    }
+
+    // Restore virtual population (prevents population count mismatch on load)
+    if let Some(ref saved_vp) = save.virtual_population {
+        *v2.virtual_population = restore_virtual_population(saved_vp);
+    } else {
+        *v2.virtual_population = VirtualPopulation::default();
+    }
+
+    // Restore life sim timer (prevents all life events firing simultaneously on load)
+    if let Some(ref saved_lst) = save.life_sim_timer {
+        *v2.life_sim_timer = restore_life_sim_timer(saved_lst);
+    } else {
+        *v2.life_sim_timer = LifeSimTimer::default();
+    }
+
+    // Restore stormwater grid
+    if let Some(ref saved_sw) = save.stormwater_grid {
+        *v2.stormwater_grid = restore_stormwater_grid(saved_sw);
+    } else {
+        *v2.stormwater_grid = StormwaterGrid::default();
+    }
+
+    // Restore degree days (HDD/CDD tracking)
+    if let Some(ref saved_dd) = save.degree_days {
+        *v2.degree_days = restore_degree_days(saved_dd);
+    } else {
+        *v2.degree_days = DegreeDays::default();
+    }
+
+    // Restore construction modifiers (recomputed each tick from weather, but
+    // persisting avoids a 1-tick stale value after load).
+    if let Some(ref saved_cm) = save.construction_modifiers {
+        *v2.construction_modifiers = restore_construction_modifiers(saved_cm);
+    } else {
+        *v2.construction_modifiers = ConstructionModifiers::default();
+    }
+
+    // Restore recycling state and economics
+    if let Some(ref saved_recycling) = save.recycling_state {
+        let (rs, re) = restore_recycling(saved_recycling);
+        *v2.recycling_state = rs;
+        *v2.recycling_economics = re;
+    } else {
+        *v2.recycling_state = RecyclingState::default();
+        *v2.recycling_economics = RecyclingEconomics::default();
+    }
+
+    // Restore wind damage state
+    if let Some(ref saved_wds) = save.wind_damage_state {
+        *v2.wind_damage_state = restore_wind_damage_state(saved_wds);
+    } else {
+        *v2.wind_damage_state = WindDamageState::default();
+    }
+
+    // Restore UHI grid
+    if let Some(ref saved_uhi) = save.uhi_grid {
+        *v2.uhi_grid = restore_uhi_grid(saved_uhi);
+    } else {
+        *v2.uhi_grid = UhiGrid::default();
+    }
+
+    // Restore drought state
+    if let Some(ref saved_drought) = save.drought_state {
+        *v2.drought_state = restore_drought(saved_drought);
+    } else {
+        *v2.drought_state = DroughtState::default();
+    }
+
+    // Restore heat wave state
+    if let Some(ref saved_hw) = save.heat_wave_state {
+        *v2.heat_wave_state = restore_heat_wave(saved_hw);
+    } else {
+        *v2.heat_wave_state = HeatWaveState::default();
+    }
+
+    // Restore composting state
+    if let Some(ref saved_cs) = save.composting_state {
+        *v2.composting_state = restore_composting(saved_cs);
+    } else {
+        *v2.composting_state = CompostingState::default();
+    }
+
+    // Restore cold snap state
+    if let Some(ref saved_cs) = save.cold_snap_state {
+        *v2.cold_snap_state = restore_cold_snap(saved_cs);
+    } else {
+        *v2.cold_snap_state = ColdSnapState::default();
+    }
+
+    // Restore water treatment state
+    if let Some(ref wts) = save.water_treatment_state {
+        *v2.water_treatment_state = restore_water_treatment(wts);
+    } else {
+        *v2.water_treatment_state = WaterTreatmentState::default();
+    }
+
+    // Restore groundwater depletion state
+    if let Some(ref gds) = save.groundwater_depletion_state {
+        *v2.groundwater_depletion_state = restore_groundwater_depletion(gds);
+    } else {
+        *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
+    }
+
+    // Restore wastewater state
+    if let Some(ref ws) = save.wastewater_state {
+        *v2.wastewater_state = restore_wastewater(ws);
+    } else {
+        *v2.wastewater_state = WastewaterState::default();
+    }
+
+    // Restore hazardous waste state
+    if let Some(ref hws) = save.hazardous_waste_state {
+        *v2.hazardous_waste_state = restore_hazardous_waste(hws);
+    } else {
+        *v2.hazardous_waste_state = HazardousWasteState::default();
+    }
+
+    // Restore storm drainage state
+    if let Some(ref sds) = save.storm_drainage_state {
+        *v2.storm_drainage_state = restore_storm_drainage(sds);
+    } else {
+        *v2.storm_drainage_state = StormDrainageState::default();
+    }
+
+    // Restore landfill capacity state
+    if let Some(ref lcs) = save.landfill_capacity_state {
+        *v2.landfill_capacity_state = restore_landfill_capacity(lcs);
+    } else {
+        *v2.landfill_capacity_state = LandfillCapacityState::default();
+    }
+
+    // Restore flood state
+    if let Some(ref fs) = save.flood_state {
+        *v2.flood_state = restore_flood_state(fs);
+    }
+    // FloodGrid is transient, always reset to default
+    *v2.flood_grid = FloodGrid::default();
+
+    // Restore reservoir state
+    if let Some(ref rs) = save.reservoir_state {
+        *v2.reservoir_state = restore_reservoir_state(rs);
+    }
+
+    // Restore landfill gas state
+    if let Some(ref lgs) = save.landfill_gas_state {
+        *v2.landfill_gas_state = restore_landfill_gas(lgs);
+    }
+
+    // Restore CSO state
+    if let Some(ref s) = save.cso_state {
+        *v2.cso_state = restore_cso(s);
+    }
+
+    // Restore water conservation state
+    if let Some(ref s) = save.water_conservation_state {
+        *v2.water_conservation_state = restore_water_conservation(s);
+    }
+
+    // Restore fog state
+    if let Some(ref s) = save.fog_state {
+        *v2.fog_state = restore_fog_state(s);
+    }
+
+    // Restore agriculture state
+    if let Some(ref s) = save.agriculture_state {
+        *v2.agriculture_state = restore_agriculture(s);
+    }
+
+    // Restore urban growth boundary
+    if let Some(ref s) = save.urban_growth_boundary {
+        *v2.urban_growth_boundary = restore_urban_growth_boundary(s);
+    } else {
+        *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
+    }
+
+    // Restore snow state
+    if let Some(ref s) = save.snow_state {
+        let (sg, sp) = restore_snow(s);
+        *v2.snow_grid = sg;
+        *v2.snow_plowing_state = sp;
+    } else {
+        *v2.snow_grid = SnowGrid::default();
+        *v2.snow_plowing_state = SnowPlowingState::default();
+    }
+    *v2.snow_stats = SnowStats::default();
+
+    // Store extension map for the exclusive system to apply via SaveableRegistry.
+    // Always enqueue -- even an empty map -- so that registered resources whose
+    // keys are absent get reset to defaults (prevents cross-save contamination).
+    pending_ext.0 = Some(save.extensions.clone());
+}
+
+// ---------------------------------------------------------------------------
+// WASM: async IndexedDB load systems
+// ---------------------------------------------------------------------------
+
+/// Phase 1: consumes `LoadGameEvent` and kicks off an async IndexedDB read.
+#[cfg(target_arch = "wasm32")]
+fn start_wasm_load(mut events: EventReader<LoadGameEvent>, buffer: Res<WasmLoadBuffer>) {
+    for _ in events.read() {
+        let slot = buffer.0.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            let result = wasm_idb::idb_load().await;
+            *slot.borrow_mut() = Some(result);
+        });
+    }
+}
+
+/// Phase 2: polls the shared buffer; when bytes arrive, fires `WasmLoadReady`.
+#[cfg(target_arch = "wasm32")]
+fn poll_wasm_load(buffer: Res<WasmLoadBuffer>, mut ready_events: EventWriter<WasmLoadReady>) {
+    let mut slot = buffer.0.borrow_mut();
+    if let Some(result) = slot.take() {
+        match result {
+            Ok(bytes) => {
+                ready_events.send(WasmLoadReady(bytes));
+            }
+            Err(e) => {
+                web_sys::console::error_1(&format!("Failed to load from IndexedDB: {}", e).into());
+            }
+        }
+    }
+}
+
+/// Phase 3: restores world state from the bytes loaded by IndexedDB.
+#[cfg(target_arch = "wasm32")]
+#[allow(clippy::too_many_arguments)]
+fn handle_wasm_load_ready(
+    mut events: EventReader<WasmLoadReady>,
+    mut commands: Commands,
+    mut grid: ResMut<WorldGrid>,
+    mut roads: ResMut<RoadNetwork>,
+    mut segments: ResMut<RoadSegmentStore>,
+    mut clock: ResMut<GameClock>,
+    mut budget: ResMut<CityBudget>,
+    mut demand: ResMut<ZoneDemand>,
+    existing: ExistingEntities,
+    mut v2: V2ResourcesWrite,
+    mut lifecycle_timer: ResMut<LifecycleTimer>,
+    mut pending_ext: ResMut<PendingLoadExtensions>,
+) {
+    for event in events.read() {
+        restore_from_bytes(
+            &event.0,
+            &mut commands,
+            &mut grid,
+            &mut roads,
+            &mut segments,
+            &mut clock,
+            &mut budget,
+            &mut demand,
+            &existing,
+            &mut v2,
+            &mut lifecycle_timer,
+            &mut pending_ext,
+        );
+
+        web_sys::console::log_1(&"Loaded save from IndexedDB".into());
     }
 }
 
@@ -1076,10 +1204,19 @@ fn flush_save_with_extensions(world: &mut World) {
 
     #[cfg(target_arch = "wasm32")]
     {
-        match wasm_save_bytes(&bytes) {
-            Ok(()) => println!("Saved {} bytes to localStorage", bytes.len()),
-            Err(e) => eprintln!("Failed to save to localStorage: {}", e),
-        }
+        let len = bytes.len();
+        wasm_bindgen_futures::spawn_local(async move {
+            match wasm_idb::idb_save(bytes).await {
+                Ok(()) => {
+                    web_sys::console::log_1(&format!("Saved {} bytes to IndexedDB", len).into());
+                }
+                Err(e) => {
+                    web_sys::console::error_1(
+                        &format!("Failed to save to IndexedDB: {}", e).into(),
+                    );
+                }
+            }
+        });
     }
 }
 
@@ -1117,124 +1254,7 @@ fn reset_saveable_extensions(world: &mut World) {
     world.insert_resource(registry);
 }
 
-#[cfg(target_arch = "wasm32")]
-const SAVE_KEY: &str = "megacity_save";
-
 #[cfg(not(target_arch = "wasm32"))]
 fn save_file_path() -> String {
     "megacity_save.bin".to_string()
-}
-
-// ---------------------------------------------------------------------------
-// WASM localStorage helpers
-// ---------------------------------------------------------------------------
-
-#[cfg(target_arch = "wasm32")]
-fn wasm_save_bytes(bytes: &[u8]) -> Result<(), String> {
-    use flate2::write::DeflateEncoder;
-    use flate2::Compression;
-    use std::io::Write;
-
-    let window = web_sys::window().ok_or("no window")?;
-    let storage = window
-        .local_storage()
-        .map_err(|_| "localStorage error")?
-        .ok_or("no localStorage")?;
-    // Compress with deflate, then encode as base64 for localStorage
-    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
-    encoder
-        .write_all(bytes)
-        .map_err(|e| format!("compression write error: {}", e))?;
-    let compressed = encoder
-        .finish()
-        .map_err(|e| format!("compression finish error: {}", e))?;
-    let encoded = base64_encode(&compressed);
-    storage
-        .set_item(SAVE_KEY, &encoded)
-        .map_err(|_| "failed to set localStorage item")?;
-    Ok(())
-}
-
-#[cfg(target_arch = "wasm32")]
-fn wasm_load_bytes() -> Result<Vec<u8>, String> {
-    use flate2::read::DeflateDecoder;
-    use std::io::Read;
-
-    let window = web_sys::window().ok_or("no window")?;
-    let storage = window
-        .local_storage()
-        .map_err(|_| "localStorage error")?
-        .ok_or("no localStorage")?;
-    let encoded = storage
-        .get_item(SAVE_KEY)
-        .map_err(|_| "failed to get localStorage item")?
-        .ok_or("no save found")?;
-    let raw = base64_decode(&encoded).map_err(|e| format!("base64 decode error: {}", e))?;
-
-    // Try to decompress; fall back to raw bytes for old uncompressed saves
-    let mut decoder = DeflateDecoder::new(&raw[..]);
-    let mut decompressed = Vec::new();
-    match decoder.read_to_end(&mut decompressed) {
-        Ok(_) => Ok(decompressed),
-        Err(_) => Ok(raw),
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn base64_encode(data: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
-    for chunk in data.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        result.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
-        result.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
-        if chunk.len() > 1 {
-            result.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-        if chunk.len() > 2 {
-            result.push(CHARS[(triple & 0x3F) as usize] as char);
-        } else {
-            result.push('=');
-        }
-    }
-    result
-}
-
-#[cfg(target_arch = "wasm32")]
-fn base64_decode(input: &str) -> Result<Vec<u8>, &'static str> {
-    fn decode_char(c: u8) -> Result<u32, &'static str> {
-        match c {
-            b'A'..=b'Z' => Ok((c - b'A') as u32),
-            b'a'..=b'z' => Ok((c - b'a' + 26) as u32),
-            b'0'..=b'9' => Ok((c - b'0' + 52) as u32),
-            b'+' => Ok(62),
-            b'/' => Ok(63),
-            _ => Err("invalid base64 character"),
-        }
-    }
-    let input = input.as_bytes();
-    let mut result = Vec::with_capacity(input.len() * 3 / 4);
-    let chunks: Vec<&[u8]> = input.chunks(4).collect();
-    for chunk in chunks {
-        if chunk.len() < 2 {
-            break;
-        }
-        let a = decode_char(chunk[0])?;
-        let b = decode_char(chunk[1])?;
-        result.push(((a << 2) | (b >> 4)) as u8);
-        if chunk.len() > 2 && chunk[2] != b'=' {
-            let c = decode_char(chunk[2])?;
-            result.push((((b & 0xF) << 4) | (c >> 2)) as u8);
-            if chunk.len() > 3 && chunk[3] != b'=' {
-                let d = decode_char(chunk[3])?;
-                result.push((((c & 0x3) << 6) | d) as u8);
-            }
-        }
-    }
-    Ok(result)
 }
