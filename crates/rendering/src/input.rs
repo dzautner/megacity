@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use simulation::bulldoze_refund;
 use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid, ZoneType};
@@ -7,7 +8,7 @@ use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::services::{self, ServiceBuilding, ServiceType};
 use simulation::urban_growth_boundary::UrbanGrowthBoundary;
-use simulation::utilities::UtilityType;
+use simulation::utilities::{UtilitySource, UtilityType};
 
 use crate::angle_snap::AngleSnapState;
 use crate::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
@@ -484,6 +485,7 @@ pub fn handle_tool_input(
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
     service_q: Query<&ServiceBuilding>,
+    utility_q: Query<&UtilitySource>,
     misc: (
         Res<crate::camera::LeftClickDrag>,
         Res<UrbanGrowthBoundary>,
@@ -664,8 +666,8 @@ pub fn handle_tool_input(
         ActiveTool::Bulldoze => {
             let cell = grid.get(gx, gy);
             if let Some(entity) = cell.building_id {
-                // Check if it's a multi-cell service building
-                if let Ok(service) = service_q.get(entity) {
+                // Compute refund before clearing the entity
+                let refund = if let Ok(service) = service_q.get(entity) {
                     let (fw, fh) = ServiceBuilding::footprint(service.service_type);
                     let sx = service.grid_x;
                     let sy = service.grid_y;
@@ -678,10 +680,17 @@ pub fn handle_tool_input(
                             }
                         }
                     }
+                    bulldoze_refund::refund_for_service(service.service_type)
+                } else if let Ok(utility) = utility_q.get(entity) {
+                    grid.get_mut(gx, gy).building_id = None;
+                    grid.get_mut(gx, gy).zone = ZoneType::None;
+                    bulldoze_refund::refund_for_utility(utility.utility_type)
                 } else {
                     grid.get_mut(gx, gy).building_id = None;
                     grid.get_mut(gx, gy).zone = ZoneType::None;
-                }
+                    0.0
+                };
+                budget.treasury += refund;
                 // Despawn the entity so mesh cleanup picks it up
                 commands.entity(entity).despawn();
                 true
@@ -689,7 +698,13 @@ pub fn handle_tool_input(
                 grid.get_mut(gx, gy).zone = ZoneType::None;
                 true
             } else if cell.cell_type == simulation::grid::CellType::Road {
-                roads.remove_road(&mut grid, gx, gy)
+                let road_type = cell.road_type;
+                if roads.remove_road(&mut grid, gx, gy) {
+                    budget.treasury += bulldoze_refund::refund_for_road(road_type);
+                    true
+                } else {
+                    false
+                }
             } else {
                 false
             }
@@ -1212,9 +1227,11 @@ pub fn delete_selected_building(
     bindings: Res<simulation::keybindings::KeyBindings>,
     mut selected: ResMut<SelectedBuilding>,
     mut grid: ResMut<WorldGrid>,
+    mut budget: ResMut<CityBudget>,
     mut status: ResMut<StatusMessage>,
     mut commands: Commands,
     service_q: Query<&ServiceBuilding>,
+    utility_q: Query<&UtilitySource>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
 ) {
     if !bindings.delete_building.just_pressed(&keys)
@@ -1227,8 +1244,8 @@ pub fn delete_selected_building(
         return;
     };
 
-    // Check if it is a multi-cell service building
-    if let Ok(service) = service_q.get(entity) {
+    // Compute refund based on entity type
+    let refund = if let Ok(service) = service_q.get(entity) {
         let (fw, fh) = ServiceBuilding::footprint(service.service_type);
         let sx = service.grid_x;
         let sy = service.grid_y;
@@ -1241,6 +1258,16 @@ pub fn delete_selected_building(
                 }
             }
         }
+        bulldoze_refund::refund_for_service(service.service_type)
+    } else if let Ok(utility) = utility_q.get(entity) {
+        let ux = utility.grid_x;
+        let uy = utility.grid_y;
+        if grid.in_bounds(ux, uy) {
+            grid.get_mut(ux, uy).building_id = None;
+            grid.get_mut(ux, uy).zone = ZoneType::None;
+            mark_chunk_dirty_at(ux, uy, &chunks, &mut commands);
+        }
+        bulldoze_refund::refund_for_utility(utility.utility_type)
     } else {
         // Regular building: scan grid for matching entity
         for y in 0..grid.height {
@@ -1252,11 +1279,18 @@ pub fn delete_selected_building(
                 }
             }
         }
-    }
+        0.0
+    };
 
+    budget.treasury += refund;
     commands.entity(entity).despawn();
     selected.0 = None;
-    status.set("Building demolished", false);
+    let msg = if refund > 0.0 {
+        format!("Building demolished (refund: ${:.0})", refund)
+    } else {
+        "Building demolished".to_string()
+    };
+    status.set(msg, false);
 }
 
 // ---------------------------------------------------------------------------

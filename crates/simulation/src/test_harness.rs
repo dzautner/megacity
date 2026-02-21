@@ -7,6 +7,7 @@ use bevy::app::App;
 use bevy::prelude::*;
 
 use crate::buildings::Building;
+use crate::bulldoze_refund;
 use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
@@ -166,6 +167,55 @@ impl TestCity {
                 roads.remove_road(&mut grid, x, y);
             });
         });
+    }
+
+    /// Bulldoze a road cell at (x, y) and credit the refund to the treasury.
+    pub fn bulldoze_road_at(&mut self, x: usize, y: usize) {
+        let world = self.app.world_mut();
+        world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
+            let road_type = grid.get(x, y).road_type;
+            world.resource_scope(|world, mut roads: Mut<RoadNetwork>| {
+                if roads.remove_road(&mut grid, x, y) {
+                    world.resource_scope(|_world, mut budget: Mut<CityBudget>| {
+                        budget.treasury += bulldoze_refund::refund_for_road(road_type);
+                    });
+                }
+            });
+        });
+    }
+
+    /// Bulldoze a service building at (x, y) and credit the refund to the
+    /// treasury. The entity is despawned and grid cells are cleared.
+    pub fn bulldoze_service_at(&mut self, x: usize, y: usize) {
+        let world = self.app.world_mut();
+        let entity = {
+            let grid = world.resource::<WorldGrid>();
+            grid.get(x, y).building_id
+        };
+        let Some(entity) = entity else {
+            return;
+        };
+        // Look up the service type for refund calculation
+        if let Some(service) = world.get::<ServiceBuilding>(entity) {
+            let service_type = service.service_type;
+            let sx = service.grid_x;
+            let sy = service.grid_y;
+            let (fw, fh) = ServiceBuilding::footprint(service_type);
+            let refund = bulldoze_refund::refund_for_service(service_type);
+            {
+                let mut grid = world.resource_mut::<WorldGrid>();
+                for fy in sy..sy + fh {
+                    for fx in sx..sx + fw {
+                        if grid.in_bounds(fx, fy) {
+                            grid.get_mut(fx, fy).building_id = None;
+                            grid.get_mut(fx, fy).zone = ZoneType::None;
+                        }
+                    }
+                }
+            }
+            world.resource_mut::<CityBudget>().treasury += refund;
+        }
+        world.despawn(entity);
     }
 
     /// Set a single cell's zone type.

@@ -9,6 +9,7 @@ pub mod airport;
 pub mod budget;
 pub mod building_upgrade;
 pub mod buildings;
+pub mod bulldoze_refund;
 pub mod chart_data;
 pub mod citizen;
 pub mod citizen_spawner;
@@ -357,6 +358,7 @@ impl Plugin for SimulationPlugin {
             traffic_accidents::TrafficAccidentsPlugin,
             traffic_los::TrafficLosPlugin,
             loans::LoansPlugin,
+            bulldoze_refund::BulldozeRefundPlugin,
         ));
 
         // Day/night visual controls
