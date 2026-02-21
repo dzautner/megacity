@@ -8,6 +8,7 @@ use simulation::grid::{RoadType, WorldGrid, ZoneType};
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::services::{self, ServiceBuilding, ServiceType};
+use simulation::undo_redo::CityAction;
 use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::utilities::{UtilitySource, UtilityType};
 
@@ -523,11 +524,12 @@ pub fn handle_tool_input(
         Res<IntersectionSnap>,
         Res<crate::zone_brush_preview::ZoneBrushSize>,
         Res<simulation::freehand_road::FreehandDrawState>,
+        EventWriter<CityAction>,
     ),
     mut district_map: ResMut<simulation::districts::DistrictMap>,
 ) {
     let (buttons, keys, angle_snap, curve_mode) = input;
-    let (left_drag, ugb, snap, brush_size, freehand) = misc;
+    let (left_drag, ugb, snap, brush_size, freehand, mut action_writer) = misc;
 
     // Suppress tool actions when left-click is being used for camera panning
     if left_drag.is_dragging {
@@ -626,13 +628,28 @@ pub fn handle_tool_input(
                         return;
                     }
 
-                    let (_seg_id, cells) = segments.add_straight_segment(
+                    let (seg_id, cells) = segments.add_straight_segment(
                         start_pos, end_pos, road_type, 24.0, &mut grid, &mut roads,
                     );
 
                     let actual_cost = road_type.cost() * cells.len() as f64;
                     budget.treasury -= actual_cost;
 
+                    // Record undo action for the road segment
+                    if let Some(seg) = segments.get_segment(seg_id) {
+                        action_writer.send(CityAction::PlaceRoadSegment {
+                            segment_id: seg_id,
+                            start_node: seg.start_node,
+                            end_node: seg.end_node,
+                            p0: seg.p0,
+                            p1: seg.p1,
+                            p2: seg.p2,
+                            p3: seg.p3,
+                            road_type,
+                            rasterized_cells: cells.clone(),
+                            cost: actual_cost,
+                        });
+                    }
                     // Mark dirty chunks for all affected cells
                     for &(cx, cy) in &cells {
                         mark_chunk_dirty_at(cx, cy, &chunks, &mut commands);
@@ -668,7 +685,7 @@ pub fn handle_tool_input(
                         return;
                     }
 
-                    let (_seg_id, cells) = segments.add_curved_segment(
+                    let (seg_id, cells) = segments.add_curved_segment(
                         start_pos,
                         control_pos,
                         end_pos,
@@ -679,6 +696,22 @@ pub fn handle_tool_input(
                     );
 
                     let actual_cost = road_type.cost() * cells.len() as f64;
+
+                    // Record undo action for the curved road segment
+                    if let Some(seg) = segments.get_segment(seg_id) {
+                        action_writer.send(CityAction::PlaceRoadSegment {
+                            segment_id: seg_id,
+                            start_node: seg.start_node,
+                            end_node: seg.end_node,
+                            p0: seg.p0,
+                            p1: seg.p1,
+                            p2: seg.p2,
+                            p3: seg.p3,
+                            road_type,
+                            rasterized_cells: cells.clone(),
+                            cost: actual_cost,
+                        });
+                    }
                     budget.treasury -= actual_cost;
 
                     // Mark dirty chunks for all affected cells
@@ -710,6 +743,7 @@ pub fn handle_tool_input(
             RoadType::Local,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::RoadAvenue => place_road_if_affordable(
             &mut roads,
@@ -720,6 +754,7 @@ pub fn handle_tool_input(
             RoadType::Avenue,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::RoadBoulevard => place_road_if_affordable(
             &mut roads,
@@ -730,6 +765,7 @@ pub fn handle_tool_input(
             RoadType::Boulevard,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::RoadHighway => place_road_if_affordable(
             &mut roads,
@@ -740,6 +776,7 @@ pub fn handle_tool_input(
             RoadType::Highway,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::RoadOneWay => place_road_if_affordable(
             &mut roads,
@@ -750,6 +787,7 @@ pub fn handle_tool_input(
             RoadType::OneWay,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::RoadPath => place_road_if_affordable(
             &mut roads,
@@ -760,6 +798,7 @@ pub fn handle_tool_input(
             RoadType::Path,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::Bulldoze => {
             let cell = grid.get(gx, gy);
@@ -778,11 +817,27 @@ pub fn handle_tool_input(
                             }
                         }
                     }
-                    bulldoze_refund::refund_for_service(service.service_type)
+                    let stype = service.service_type;
+                    let r = bulldoze_refund::refund_for_service(stype);
+                    action_writer.send(CityAction::BulldozeService {
+                        service_type: stype,
+                        grid_x: service.grid_x,
+                        grid_y: service.grid_y,
+                        refund: r,
+                    });
+                    r
                 } else if let Ok(utility) = utility_q.get(entity) {
                     grid.get_mut(gx, gy).building_id = None;
                     grid.get_mut(gx, gy).zone = ZoneType::None;
-                    bulldoze_refund::refund_for_utility(utility.utility_type)
+                    let utype = utility.utility_type;
+                    let r = bulldoze_refund::refund_for_utility(utype);
+                    action_writer.send(CityAction::BulldozeUtility {
+                        utility_type: utype,
+                        grid_x: utility.grid_x,
+                        grid_y: utility.grid_y,
+                        refund: r,
+                    });
+                    r
                 } else {
                     grid.get_mut(gx, gy).building_id = None;
                     grid.get_mut(gx, gy).zone = ZoneType::None;
@@ -793,12 +848,25 @@ pub fn handle_tool_input(
                 commands.entity(entity).despawn();
                 true
             } else if cell.zone != ZoneType::None {
+                let old_zone = cell.zone;
                 grid.get_mut(gx, gy).zone = ZoneType::None;
+                action_writer.send(CityAction::BulldozeZone {
+                    x: gx,
+                    y: gy,
+                    zone: old_zone,
+                });
                 true
             } else if cell.cell_type == simulation::grid::CellType::Road {
                 let road_type = cell.road_type;
                 if roads.remove_road(&mut grid, gx, gy) {
-                    budget.treasury += bulldoze_refund::refund_for_road(road_type);
+                    let refund = bulldoze_refund::refund_for_road(road_type);
+                    budget.treasury += refund;
+                    action_writer.send(CityAction::BulldozeRoad {
+                        x: gx,
+                        y: gy,
+                        road_type,
+                        refund,
+                    });
                     true
                 } else {
                     false
@@ -835,6 +903,16 @@ pub fn handle_tool_input(
                 &ugb,
                 &brush_size,
             );
+            if !zoned_cells.is_empty() {
+                let cost_per_cell = crate::zone_brush_preview::ZONE_COST_PER_CELL;
+                let total_cost = zoned_cells.len() as f64 * cost_per_cell;
+                let cells_with_zones: Vec<(usize, usize, ZoneType)> =
+                    zoned_cells.iter().map(|&(zx, zy)| (zx, zy, zone)).collect();
+                action_writer.send(CityAction::PlaceZone {
+                    cells: cells_with_zones,
+                    cost: total_cost,
+                });
+            }
             for (zx, zy) in &zoned_cells {
                 mark_chunk_dirty_at(*zx, *zy, &chunks, &mut commands);
             }
@@ -851,6 +929,7 @@ pub fn handle_tool_input(
             UtilityType::PowerPlant,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlaceSolarFarm => place_utility_if_affordable(
             &mut commands,
@@ -861,6 +940,7 @@ pub fn handle_tool_input(
             UtilityType::SolarFarm,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlaceWindTurbine => place_utility_if_affordable(
             &mut commands,
@@ -871,6 +951,7 @@ pub fn handle_tool_input(
             UtilityType::WindTurbine,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlaceWaterTower => place_utility_if_affordable(
             &mut commands,
@@ -881,6 +962,7 @@ pub fn handle_tool_input(
             UtilityType::WaterTower,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlaceSewagePlant => place_utility_if_affordable(
             &mut commands,
@@ -891,6 +973,7 @@ pub fn handle_tool_input(
             UtilityType::SewagePlant,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlaceNuclearPlant => place_utility_if_affordable(
             &mut commands,
@@ -901,6 +984,7 @@ pub fn handle_tool_input(
             UtilityType::NuclearPlant,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlaceGeothermal => place_utility_if_affordable(
             &mut commands,
@@ -911,6 +995,7 @@ pub fn handle_tool_input(
             UtilityType::Geothermal,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlacePumpingStation => place_utility_if_affordable(
             &mut commands,
@@ -921,6 +1006,7 @@ pub fn handle_tool_input(
             UtilityType::PumpingStation,
             gx,
             gy,
+            &mut action_writer,
         ),
         ActiveTool::PlaceWaterTreatment => place_utility_if_affordable(
             &mut commands,
@@ -931,6 +1017,7 @@ pub fn handle_tool_input(
             UtilityType::WaterTreatment,
             gx,
             gy,
+            &mut action_writer,
         ),
 
         // --- Terrain tools ---
@@ -1060,6 +1147,7 @@ pub fn handle_tool_input(
                     st,
                     gx,
                     gy,
+                    &mut action_writer,
                 )
             } else {
                 false
@@ -1086,11 +1174,18 @@ fn place_road_if_affordable(
     road_type: RoadType,
     gx: usize,
     gy: usize,
+    action_writer: &mut EventWriter<CityAction>,
 ) -> bool {
     let cost = road_type.cost();
     if budget.treasury >= cost {
         if roads.place_road_typed(grid, gx, gy, road_type) {
             budget.treasury -= cost;
+            action_writer.send(CityAction::PlaceGridRoad {
+                x: gx,
+                y: gy,
+                road_type,
+                cost,
+            });
             true
         } else {
             false
@@ -1226,11 +1321,18 @@ fn place_utility_if_affordable(
     utility_type: UtilityType,
     gx: usize,
     gy: usize,
+    action_writer: &mut EventWriter<CityAction>,
 ) -> bool {
     let cost = services::utility_cost(utility_type);
     if budget.treasury >= cost {
         if services::place_utility_source(commands, grid, utility_type, gx, gy) {
             budget.treasury -= cost;
+            action_writer.send(CityAction::PlaceUtility {
+                utility_type,
+                grid_x: gx,
+                grid_y: gy,
+                cost,
+            });
             true
         } else {
             false
@@ -1257,12 +1359,19 @@ fn place_service_if_affordable(
     service_type: ServiceType,
     gx: usize,
     gy: usize,
+    action_writer: &mut EventWriter<CityAction>,
 ) -> bool {
     use simulation::services::ServiceBuilding;
     let cost = ServiceBuilding::cost(service_type);
     if budget.treasury >= cost {
         if services::place_service(commands, grid, service_type, gx, gy) {
             budget.treasury -= cost;
+            action_writer.send(CityAction::PlaceService {
+                service_type,
+                grid_x: gx,
+                grid_y: gy,
+                cost,
+            });
             true
         } else {
             false

@@ -120,6 +120,7 @@ pub mod traffic_los;
 pub mod trees;
 pub mod tutorial;
 pub mod uhi_mitigation;
+pub mod undo_redo;
 pub mod unlocks;
 pub mod urban_growth_boundary;
 pub mod urban_heat_island;
@@ -631,6 +632,9 @@ impl Plugin for SimulationPlugin {
 
         // Auto-grid road placement (TRAF-010)
         app.add_plugins(auto_grid_road::AutoGridRoadPlugin);
+
+        // Undo/redo system
+        app.add_plugins(undo_redo::UndoRedoPlugin);
     }
 }
 
