@@ -102,14 +102,14 @@ struct PendingLoadBytes(Option<Vec<u8>>);
 /// stores it in `PendingLoadBytes` and triggers state transition.
 #[cfg(target_arch = "wasm32")]
 #[derive(Resource, Default)]
-struct WasmLoadBuffer(std::rc::Rc<std::cell::RefCell<Option<Result<Vec<u8>, String>>>>);
+struct WasmLoadBuffer(std::sync::Arc<std::sync::Mutex<Option<Result<Vec<u8>, String>>>>);
 
 /// On WASM, holds save error messages from async IndexedDB writes.
 /// The `poll_wasm_save_error` system checks this each frame and, when an error
 /// is present, emits a user-facing notification.
 #[cfg(target_arch = "wasm32")]
 #[derive(Resource, Default)]
-struct WasmSaveErrorBuffer(std::rc::Rc<std::cell::RefCell<Option<String>>>);
+struct WasmSaveErrorBuffer(std::sync::Arc<std::sync::Mutex<Option<String>>>);
 
 pub struct SavePlugin;
 
@@ -224,7 +224,7 @@ fn start_wasm_load(mut events: EventReader<LoadGameEvent>, buffer: Res<WasmLoadB
         let slot = buffer.0.clone();
         wasm_bindgen_futures::spawn_local(async move {
             let result = wasm_idb::idb_load().await;
-            *slot.borrow_mut() = Some(result);
+            *slot.lock().unwrap() = Some(result);
         });
     }
 }
@@ -237,7 +237,7 @@ fn poll_wasm_load(
     mut pending: ResMut<PendingLoadBytes>,
     mut next_state: ResMut<NextState<SaveLoadState>>,
 ) {
-    let mut slot = buffer.0.borrow_mut();
+    let mut slot = buffer.0.lock().unwrap();
     if let Some(result) = slot.take() {
         match result {
             Ok(bytes) => {
@@ -258,7 +258,7 @@ fn poll_wasm_save_error(
     buffer: Res<WasmSaveErrorBuffer>,
     mut notifications: EventWriter<simulation::notifications::NotificationEvent>,
 ) {
-    let mut slot = buffer.0.borrow_mut();
+    let mut slot = buffer.0.lock().unwrap();
     if let Some(error_msg) = slot.take() {
         web_sys::console::error_1(&format!("Save error surfaced to UI: {}", error_msg).into());
         notifications.send(simulation::notifications::NotificationEvent {
@@ -502,7 +502,7 @@ fn exclusive_save(world: &mut World) {
                 Err(e) => {
                     let msg = e.to_string();
                     web_sys::console::error_1(&msg.clone().into());
-                    *error_slot.borrow_mut() = Some(msg);
+                    *error_slot.lock().unwrap() = Some(msg);
                 }
             }
         });
