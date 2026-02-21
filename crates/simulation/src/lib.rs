@@ -102,6 +102,7 @@ pub mod road_maintenance;
 pub mod road_segments;
 pub mod road_upgrade;
 pub mod roads;
+pub mod roundabout;
 pub mod save_load_state;
 pub mod seasonal_rendering;
 pub mod services;
@@ -332,6 +333,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "oneway_direction_map",
     "parking_policy",
     "road_hierarchy",
+    "roundabout_registry",
     "seasonal_effects_config",
     "seasonal_rendering",
     "superblock_state",
@@ -526,6 +528,7 @@ impl Plugin for SimulationPlugin {
             transit_hub::TransitHubPlugin,
             loans::LoansPlugin,
             bulldoze_refund::BulldozeRefundPlugin,
+            roundabout::RoundaboutPlugin,
         ));
 
         // Day/night visual controls
