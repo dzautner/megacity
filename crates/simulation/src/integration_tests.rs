@@ -2349,3 +2349,158 @@ fn test_job_seeking_does_not_overfill_capacity() {
     // WorkLocations without going through the occupants counter -- that
     // is tracked as a separate concern.
 }
+
+// ====================================================================
+// Traffic congestion tests
+// ====================================================================
+
+use crate::citizen::{Citizen, CitizenStateComp, PathCache, Position, Velocity};
+use crate::traffic::TrafficGrid;
+use crate::traffic_congestion::TrafficCongestion;
+
+#[test]
+fn test_traffic_congestion_resource_exists() {
+    let city = TestCity::new();
+    city.assert_resource_exists::<TrafficCongestion>();
+}
+
+#[test]
+fn test_traffic_congestion_defaults_to_free_flow() {
+    let city = TestCity::new();
+    let congestion = city.resource::<TrafficCongestion>();
+    // All cells should start at 1.0 (free flow)
+    assert!(
+        (congestion.get(10, 10) - 1.0).abs() < f32::EPSILON,
+        "Default congestion multiplier should be 1.0"
+    );
+}
+
+#[test]
+fn test_citizens_move_slower_on_congested_roads() {
+    // Set up: a straight road with a citizen commuting along it.
+    // Measure speed with and without congestion.
+    let mut city = TestCity::new()
+        .with_road(50, 50, 70, 50, RoadType::Local)
+        .with_building(48, 50, ZoneType::ResidentialLow, 1)
+        .with_building(72, 50, ZoneType::CommercialLow, 1)
+        .with_citizen((48, 50), (72, 50));
+
+    // Set clock to morning commute time
+    city = city.with_time(7.5);
+
+    // Run enough ticks to get the citizen commuting and moving
+    city.tick(20);
+
+    // Record position after some ticks of free-flow movement
+    let free_flow_positions: Vec<(f32, f32)> = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        q.iter(world).map(|p| (p.x, p.y)).collect()
+    };
+
+    // Now inject heavy congestion on the road cells
+    {
+        let world = city.world_mut();
+        let mut traffic = world.resource_mut::<TrafficGrid>();
+        for x in 50..=70 {
+            // Set density well above capacity (Local road capacity = 20)
+            traffic.set(x, 50, 20);
+        }
+    }
+
+    // Run congestion update system
+    city.tick(10);
+
+    // Verify congestion multipliers are reduced
+    let congestion_mult = {
+        let congestion = city.resource::<TrafficCongestion>();
+        congestion.get(60, 50)
+    };
+    assert!(
+        congestion_mult < 0.5,
+        "Congestion multiplier should be significantly reduced when at capacity, got {}",
+        congestion_mult
+    );
+}
+
+#[test]
+fn test_congestion_clears_when_traffic_drops() {
+    let mut city = TestCity::new().with_road(50, 50, 70, 50, RoadType::Local);
+
+    // Inject congestion
+    {
+        let world = city.world_mut();
+        let mut traffic = world.resource_mut::<TrafficGrid>();
+        for x in 50..=70 {
+            traffic.set(x, 50, 30); // over capacity
+        }
+    }
+
+    // Let congestion system run
+    city.tick(10);
+
+    // Verify congestion is present
+    {
+        let congestion = city.resource::<TrafficCongestion>();
+        let mult = congestion.get(60, 50);
+        assert!(
+            mult < 0.5,
+            "Should be congested with high traffic, got {}",
+            mult
+        );
+    }
+
+    // Clear traffic (simulating cars leaving)
+    {
+        let world = city.world_mut();
+        let mut traffic = world.resource_mut::<TrafficGrid>();
+        for x in 50..=70 {
+            traffic.set(x, 50, 0);
+        }
+    }
+
+    // Let congestion system update
+    city.tick(10);
+
+    // Verify congestion has cleared
+    {
+        let congestion = city.resource::<TrafficCongestion>();
+        let mult = congestion.get(60, 50);
+        assert!(
+            (mult - 1.0).abs() < f32::EPSILON,
+            "Congestion should clear when traffic drops to zero, got {}",
+            mult
+        );
+    }
+}
+
+#[test]
+fn test_higher_capacity_roads_congest_less() {
+    let mut city = TestCity::new()
+        .with_road(50, 50, 70, 50, RoadType::Local) // capacity 20
+        .with_road(50, 55, 70, 55, RoadType::Highway); // capacity 80
+
+    // Apply same traffic volume to both roads
+    {
+        let world = city.world_mut();
+        let mut traffic = world.resource_mut::<TrafficGrid>();
+        for x in 50..=70 {
+            traffic.set(x, 50, 15); // 75% of Local capacity, ~19% of Highway
+            traffic.set(x, 55, 15);
+        }
+    }
+
+    city.tick(10);
+
+    let congestion = city.resource::<TrafficCongestion>();
+    let local_mult = congestion.get(60, 50);
+    let highway_mult = congestion.get(60, 55);
+
+    assert!(
+        highway_mult > local_mult,
+        "Highway (capacity 80) should be less congested than Local (capacity 20) \
+         at same volume. Highway mult={}, Local mult={}",
+        highway_mult,
+        local_mult
+    );
+}

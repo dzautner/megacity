@@ -16,6 +16,7 @@ use crate::roads::{RoadNetwork, RoadNode};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
 use crate::traffic::TrafficGrid;
+use crate::traffic_congestion::TrafficCongestion;
 
 /// Time budget for pathfinding per tick (native). Processes as many paths as
 /// fit within this duration, naturally handling commute bursts by doing more
@@ -421,6 +422,7 @@ pub fn move_citizens(
     weather: Res<crate::weather::Weather>,
     fog: Res<crate::fog::FogState>,
     snow_stats: Res<crate::snow::SnowStats>,
+    congestion: Res<TrafficCongestion>,
     mut query: Query<
         (
             Entity,
@@ -471,9 +473,15 @@ pub fn move_citizens(
                 let (raw_tx, raw_ty) = WorldGrid::grid_to_world(target.0, target.1);
                 let raw_dist = ((raw_tx - pos.x).powi(2) + (raw_ty - pos.y).powi(2)).sqrt();
 
+                // Apply traffic congestion: look up the speed multiplier for the
+                // citizen's current grid cell. Congested roads reduce speed, creating
+                // visible traffic bunching.
+                let congestion_mult = congestion.get(target.0, target.1);
+                let effective_speed = speed_per_tick * congestion_mult;
+
                 // Use a fixed minimum arrival threshold so that even at very low speeds
-                // (heavy snow/fog), citizens can still reach waypoints without orbiting.
-                let arrival_dist = speed_per_tick.max(2.0);
+                // (heavy snow/fog/congestion), citizens can still reach waypoints without orbiting.
+                let arrival_dist = effective_speed.max(2.0);
                 if raw_dist < arrival_dist {
                     pos.x = raw_tx;
                     pos.y = raw_ty;
@@ -492,12 +500,12 @@ pub fn move_citizens(
                     let lane_offset = lane * 2.5;
                     let perp_x = -ny;
                     let perp_y = nx;
-                    let offset_scale = (speed_per_tick / raw_dist).min(1.0);
+                    let offset_scale = (effective_speed / raw_dist).min(1.0);
 
-                    pos.x += nx * speed_per_tick + perp_x * lane_offset * 0.02 * offset_scale;
-                    pos.y += ny * speed_per_tick + perp_y * lane_offset * 0.02 * offset_scale;
-                    vel.x = nx * speed_per_tick;
-                    vel.y = ny * speed_per_tick;
+                    pos.x += nx * effective_speed + perp_x * lane_offset * 0.02 * offset_scale;
+                    pos.y += ny * effective_speed + perp_y * lane_offset * 0.02 * offset_scale;
+                    vel.x = nx * effective_speed;
+                    vel.y = ny * effective_speed;
                 }
             } else {
                 vel.x = 0.0;
