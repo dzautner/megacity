@@ -2374,3 +2374,222 @@ fn test_simulation_set_phases_configured() {
     // Sanity: game clock should have advanced (PreSim systems ran)
     assert!(city.clock().hour > 6.0 || city.clock().day > 1);
 }
+
+// ====================================================================
+// Traffic congestion tests
+// ====================================================================
+
+use crate::citizen::{Citizen, Position};
+use crate::traffic_congestion::TrafficCongestion;
+
+#[test]
+fn test_traffic_congestion_resource_exists() {
+    let city = TestCity::new();
+    city.assert_resource_exists::<TrafficCongestion>();
+}
+
+#[test]
+fn test_traffic_congestion_defaults_to_free_flow() {
+    let city = TestCity::new();
+    let congestion = city.resource::<TrafficCongestion>();
+    // All cells should start at 1.0 (free flow)
+    assert!(
+        (congestion.get(10, 10) - 1.0).abs() < f32::EPSILON,
+        "Default congestion multiplier should be 1.0"
+    );
+}
+
+#[test]
+fn test_citizens_move_slower_on_congested_roads() {
+    // Set up: a straight road with a citizen commuting along it.
+    // We test that the movement system respects congestion multipliers by
+    // measuring distance traveled with and without congestion set directly
+    // on the TrafficCongestion resource.
+    let mut city = TestCity::new()
+        .with_road(50, 50, 80, 50, RoadType::Local)
+        .with_building(48, 50, ZoneType::ResidentialLow, 1)
+        .with_building(82, 50, ZoneType::CommercialLow, 1)
+        .with_citizen((48, 50), (82, 50))
+        .with_time(7.5);
+
+    // Run ticks to get the citizen commuting (path request -> commuting state)
+    city.tick(5);
+
+    // Record starting position
+    let start_pos = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        let pos = q.iter(world).next().expect("should have a citizen");
+        (pos.x, pos.y)
+    };
+
+    // Run some ticks at free flow (congestion = 1.0 by default)
+    city.tick(10);
+
+    let free_flow_pos = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        let pos = q.iter(world).next().expect("should have a citizen");
+        (pos.x, pos.y)
+    };
+    let free_flow_dist =
+        ((free_flow_pos.0 - start_pos.0).powi(2) + (free_flow_pos.1 - start_pos.1).powi(2)).sqrt();
+
+    // Now reset citizen to the same start position and inject heavy congestion
+    {
+        let world = city.world_mut();
+        // Set congestion directly on all road cells the citizen will traverse
+        let mut congestion = world.resource_mut::<TrafficCongestion>();
+        for x in 50..=80 {
+            congestion.set(x, 50, 0.2); // 80% speed reduction
+        }
+        // Reset citizen position back to start
+        let mut q = world.query_filtered::<&mut Position, bevy::prelude::With<Citizen>>();
+        for mut pos in q.iter_mut(world) {
+            pos.x = start_pos.0;
+            pos.y = start_pos.1;
+        }
+    }
+
+    // Run same number of ticks under congestion
+    city.tick(10);
+
+    let congested_pos = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        let pos = q.iter(world).next().expect("should have a citizen");
+        (pos.x, pos.y)
+    };
+    let congested_dist =
+        ((congested_pos.0 - start_pos.0).powi(2) + (congested_pos.1 - start_pos.1).powi(2)).sqrt();
+
+    // The citizen under congestion should have traveled less distance
+    assert!(
+        free_flow_dist > 0.1,
+        "Citizen should have moved during free flow, dist={}",
+        free_flow_dist
+    );
+    assert!(
+        congested_dist < free_flow_dist,
+        "Citizen should move slower under congestion. Free flow dist={}, congested dist={}",
+        free_flow_dist,
+        congested_dist
+    );
+}
+
+#[test]
+fn test_speed_returns_to_normal_when_congestion_clears() {
+    // Verify that clearing congestion restores normal speed.
+    let mut city = TestCity::new()
+        .with_road(50, 50, 80, 50, RoadType::Local)
+        .with_building(48, 50, ZoneType::ResidentialLow, 1)
+        .with_building(82, 50, ZoneType::CommercialLow, 1)
+        .with_citizen((48, 50), (82, 50))
+        .with_time(7.5);
+
+    // Get citizen commuting
+    city.tick(5);
+
+    // Inject congestion
+    {
+        let world = city.world_mut();
+        let mut congestion = world.resource_mut::<TrafficCongestion>();
+        for x in 50..=80 {
+            congestion.set(x, 50, 0.2);
+        }
+    }
+
+    let start_pos = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        let pos = q.iter(world).next().expect("should have a citizen");
+        (pos.x, pos.y)
+    };
+
+    // Move under congestion
+    city.tick(5);
+
+    let congested_pos = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        let pos = q.iter(world).next().expect("should have a citizen");
+        (pos.x, pos.y)
+    };
+    let congested_dist =
+        ((congested_pos.0 - start_pos.0).powi(2) + (congested_pos.1 - start_pos.1).powi(2)).sqrt();
+
+    // Now clear congestion (restore free flow)
+    {
+        let world = city.world_mut();
+        let mut congestion = world.resource_mut::<TrafficCongestion>();
+        for x in 50..=80 {
+            congestion.set(x, 50, 1.0);
+        }
+    }
+
+    let mid_pos = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        let pos = q.iter(world).next().expect("should have a citizen");
+        (pos.x, pos.y)
+    };
+
+    // Move under free flow for same number of ticks
+    city.tick(5);
+
+    let free_flow_pos = {
+        let world = city.world_mut();
+        let mut q = world.query_filtered::<&Position, bevy::prelude::With<Citizen>>();
+        let pos = q.iter(world).next().expect("should have a citizen");
+        (pos.x, pos.y)
+    };
+    let free_flow_dist =
+        ((free_flow_pos.0 - mid_pos.0).powi(2) + (free_flow_pos.1 - mid_pos.1).powi(2)).sqrt();
+
+    // After clearing congestion, citizen should move faster
+    assert!(
+        free_flow_dist > congested_dist,
+        "Speed should return to normal after congestion clears. \
+         Congested dist={}, free flow dist={}",
+        congested_dist,
+        free_flow_dist
+    );
+}
+
+#[test]
+fn test_higher_capacity_roads_congest_less() {
+    // Use the congestion_speed_multiplier function directly to verify
+    // that the same traffic volume produces different multipliers for
+    // different road capacities.
+    use crate::traffic_congestion::congestion_speed_multiplier;
+
+    // 15 vehicles on a Local road (capacity 20) = ratio 0.75
+    let local_ratio = 15.0 / 20.0;
+    let local_mult = congestion_speed_multiplier(local_ratio);
+
+    // 15 vehicles on a Highway (capacity 80) = ratio 0.1875
+    let highway_ratio = 15.0 / 80.0;
+    let highway_mult = congestion_speed_multiplier(highway_ratio);
+
+    assert!(
+        highway_mult > local_mult,
+        "Highway (capacity 80) should be less congested than Local (capacity 20) \
+         at same volume. Highway mult={}, Local mult={}",
+        highway_mult,
+        local_mult
+    );
+
+    // Local at 75% should be significantly slowed
+    assert!(
+        local_mult < 0.5,
+        "Local road at 75% capacity should have multiplier < 0.5, got {}",
+        local_mult
+    );
+
+    // Highway at ~19% should still be fast
+    assert!(
+        highway_mult > 0.9,
+        "Highway at ~19% capacity should have multiplier > 0.9, got {}",
+        highway_mult
+    );
+}

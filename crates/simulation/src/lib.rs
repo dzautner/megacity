@@ -103,6 +103,7 @@ pub mod time_of_day;
 pub mod tourism;
 pub mod traffic;
 pub mod traffic_accidents;
+pub mod traffic_congestion;
 pub mod traffic_los;
 pub mod trees;
 pub mod tutorial;
@@ -471,6 +472,7 @@ impl Plugin for SimulationPlugin {
             road_maintenance::RoadMaintenancePlugin,
             oneway::OneWayPlugin,
             traffic_accidents::TrafficAccidentsPlugin,
+            traffic_congestion::TrafficCongestionPlugin,
             traffic_los::TrafficLosPlugin,
             loans::LoansPlugin,
             bulldoze_refund::BulldozeRefundPlugin,
