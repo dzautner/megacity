@@ -101,6 +101,33 @@ pub fn settings_panel_ui(
             if ui.button("Customize Keybindings...").clicked() {
                 kb_visible.0 = true;
             }
+
+            ui.add_space(16.0);
+
+            // --- About / Version section ---
+            ui.heading("About");
+            ui.separator();
+
+            let build_version = env!("CARGO_PKG_VERSION");
+            let save_version = save::serialization::CURRENT_SAVE_VERSION;
+
+            ui.horizontal(|ui| {
+                ui.label("Build version:");
+                ui.label(
+                    egui::RichText::new(build_version)
+                        .strong()
+                        .color(egui::Color32::from_gray(200)),
+                );
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Save format:");
+                ui.label(
+                    egui::RichText::new(format!("v{save_version}"))
+                        .strong()
+                        .color(egui::Color32::from_gray(200)),
+                );
+            });
         });
 
     if !open {
