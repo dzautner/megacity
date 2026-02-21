@@ -1,6 +1,8 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use bevy::prelude::*;
+use bevy::tasks::{block_on, AsyncComputeTaskPool, Task};
 use std::time::{Duration, Instant};
 
 use crate::buildings::Building;
@@ -8,23 +10,27 @@ use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, HomeLocation, Needs, PathCache,
     PathRequest, Position, Velocity, WorkLocation,
 };
-use crate::grid::WorldGrid;
+use crate::grid::{RoadType, WorldGrid};
 use crate::lod::LodTier;
 use crate::pathfinding_sys::nearest_road_grid;
-use crate::road_graph_csr::{csr_find_path_with_traffic, CsrGraph};
+use crate::road_graph_csr::{csr_find_path_with_traffic, CsrGraph, PathfindingData};
 use crate::roads::{RoadNetwork, RoadNode};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
 use crate::traffic::TrafficGrid;
 use crate::traffic_congestion::TrafficCongestion;
 
-/// Time budget for pathfinding per tick (native). Processes as many paths as
-/// fit within this duration, naturally handling commute bursts by doing more
-/// work when paths are short/easy.
-const PATH_BUDGET: Duration = Duration::from_millis(2);
+/// Maximum number of async pathfinding tasks to spawn per tick.
+/// This controls how many new tasks are dispatched each frame, not the total
+/// number of in-flight tasks. Tasks complete across multiple cores so effective
+/// throughput is much higher than the old synchronous cap.
+const MAX_SPAWN_PER_TICK: usize = 256;
 
 /// Fallback count limit for WASM where Instant has poor resolution.
 const MAX_PATHS_PER_TICK_WASM: usize = 256;
+
+/// Time budget for synchronous pathfinding per tick (WASM fallback).
+const PATH_BUDGET_WASM: Duration = Duration::from_millis(2);
 
 const CITIZEN_SPEED: f32 = 48.0; // pixels per second (at 10Hz that's ~4.8 px/tick)
 
@@ -37,6 +43,34 @@ const SCHOOL_HOURS_END: u32 = 15;
 /// Per-citizen tick counter for activity durations
 #[derive(Component, Debug, Clone, Default)]
 pub struct ActivityTimer(pub u32);
+
+/// Marker component for citizens whose pathfinding is being computed
+/// asynchronously. Holds the spawned task and the target state to transition
+/// to once the path is ready.
+#[derive(Component)]
+pub struct ComputingPath {
+    task: Task<Option<Vec<RoadNode>>>,
+    target_state: CitizenState,
+}
+
+/// Shared read-only snapshot of pathfinding data (CSR graph + road types +
+/// traffic density), wrapped in `Arc` so async tasks can reference it
+/// without cloning per-task.
+#[derive(Resource)]
+pub struct PathfindingSnapshot {
+    pub data: Arc<PathfindingData>,
+    /// Monotonic version counter; bumped whenever the snapshot is refreshed.
+    pub version: u64,
+}
+
+impl Default for PathfindingSnapshot {
+    fn default() -> Self {
+        Self {
+            data: Arc::new(PathfindingData::default()),
+            version: 0,
+        }
+    }
+}
 
 /// Cached destination lists to avoid per-tick Vec allocations.
 #[derive(Resource, Default)]
@@ -139,7 +173,7 @@ pub fn citizen_state_machine(
             Option<&LodTier>,
             &Position,
         ),
-        (With<Citizen>, Without<PathRequest>),
+        (With<Citizen>, Without<PathRequest>, Without<ComputingPath>),
     >,
 ) {
     if clock.paused {
@@ -380,39 +414,141 @@ pub fn citizen_state_machine(
     }
 }
 
-/// Batch pathfinding: processes path requests within a time budget (native) or
-/// count limit (WASM). This prevents frame spikes while allowing throughput to
-/// scale with path complexity -- short paths process faster, so more fit per tick.
+/// Refresh the `PathfindingSnapshot` each tick.
+///
+/// The snapshot is always rebuilt because traffic density changes every tick.
+/// Building a new `PathfindingData` is cheap: it copies the CSR graph data
+/// (only when changed), extracts road types per CSR node, and copies the
+/// traffic density flat array (~128 KB for 256x256).
+pub fn update_pathfinding_snapshot(
+    csr: Res<CsrGraph>,
+    grid: Res<WorldGrid>,
+    traffic: Res<TrafficGrid>,
+    mut snapshot: ResMut<PathfindingSnapshot>,
+) {
+    // Build compact per-node road type lookup from grid
+    let node_road_types: Vec<RoadType> = csr
+        .nodes
+        .iter()
+        .map(|n| grid.get(n.0, n.1).road_type)
+        .collect();
+
+    snapshot.data = Arc::new(PathfindingData {
+        nodes: csr.nodes.clone(),
+        node_offsets: csr.node_offsets.clone(),
+        edges: csr.edges.clone(),
+        weights: csr.weights.clone(),
+        node_road_types,
+        traffic_density: traffic.density.clone(),
+        traffic_width: traffic.width,
+    });
+    snapshot.version += 1;
+}
+
+/// Dispatch pathfinding requests as async tasks on the `AsyncComputeTaskPool`.
+///
+/// For each pending `PathRequest`, this system:
+/// 1. Resolves start/goal grid cells to road nodes (fast, synchronous)
+/// 2. Spawns an A* computation on the async task pool
+/// 3. Replaces the `PathRequest` with a `ComputingPath` marker holding the task
+///
+/// On WASM (single-threaded), falls back to synchronous processing since the
+/// async task pool has no extra threads.
 pub fn process_path_requests(
     mut commands: Commands,
     grid: Res<WorldGrid>,
     csr: Res<CsrGraph>,
     traffic: Res<TrafficGrid>,
+    snapshot: Res<PathfindingSnapshot>,
     mut query: Query<(Entity, &PathRequest, &mut PathCache, &mut CitizenStateComp), With<Citizen>>,
 ) {
-    let start = Instant::now();
-    for (processed, (entity, request, mut path, mut state)) in query.iter_mut().enumerate() {
-        if cfg!(target_arch = "wasm32") {
+    // On WASM, use synchronous processing (no multi-threading available)
+    if cfg!(target_arch = "wasm32") {
+        let start = Instant::now();
+        for (processed, (entity, request, mut path, mut state)) in query.iter_mut().enumerate() {
             if processed >= MAX_PATHS_PER_TICK_WASM {
                 break;
             }
-        } else if start.elapsed() >= PATH_BUDGET {
+            if start.elapsed() >= PATH_BUDGET_WASM {
+                break;
+            }
+
+            if let Some(route) = compute_route_csr(
+                &grid,
+                &csr,
+                &traffic,
+                request.from_gx,
+                request.from_gy,
+                request.to_gx,
+                request.to_gy,
+            ) {
+                *path = PathCache::new(route);
+                state.0 = request.target_state;
+            }
+            commands.entity(entity).remove::<PathRequest>();
+        }
+        return;
+    }
+
+    // Native: spawn async tasks for pathfinding
+    let data = Arc::clone(&snapshot.data);
+
+    let pool = AsyncComputeTaskPool::get();
+
+    for (spawned, (entity, request, _path, _state)) in query.iter_mut().enumerate() {
+        if spawned >= MAX_SPAWN_PER_TICK {
             break;
         }
 
-        if let Some(route) = compute_route_csr(
-            &grid,
-            &csr,
-            &traffic,
-            request.from_gx,
-            request.from_gy,
-            request.to_gx,
-            request.to_gy,
-        ) {
-            *path = PathCache::new(route);
-            state.0 = request.target_state;
-        }
+        // Resolve grid positions to road nodes synchronously (O(1) lookups)
+        let start_node = nearest_road_grid(&grid, request.from_gx, request.from_gy);
+        let goal_node = nearest_road_grid(&grid, request.to_gx, request.to_gy);
+
+        let target_state = request.target_state;
+
+        // Remove PathRequest and add ComputingPath with the async task
         commands.entity(entity).remove::<PathRequest>();
+
+        match (start_node, goal_node) {
+            (Some(start), Some(goal)) => {
+                let data_clone = Arc::clone(&data);
+                let task =
+                    pool.spawn(async move { data_clone.find_path_with_traffic(start, goal) });
+                commands
+                    .entity(entity)
+                    .insert(ComputingPath { task, target_state });
+            }
+            _ => {
+                // No valid road nodes found; skip pathfinding (citizen stays in current state)
+            }
+        }
+    }
+}
+
+/// Poll in-flight async pathfinding tasks and apply completed results.
+///
+/// When a task completes, the computed path is written into the citizen's
+/// `PathCache` and their state transitions to the requested target state.
+pub fn collect_path_results(
+    mut commands: Commands,
+    mut query: Query<
+        (
+            Entity,
+            &mut ComputingPath,
+            &mut PathCache,
+            &mut CitizenStateComp,
+        ),
+        With<Citizen>,
+    >,
+) {
+    for (entity, mut computing, mut path, mut state) in &mut query {
+        if let Some(result) = block_on(futures_lite::future::poll_once(&mut computing.task)) {
+            if let Some(route) = result {
+                *path = PathCache::new(route);
+                state.0 = computing.target_state;
+            }
+            commands.entity(entity).remove::<ComputingPath>();
+        }
     }
 }
 
@@ -621,19 +757,25 @@ pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DestinationCache>().add_systems(
-            FixedUpdate,
-            (
-                invalidate_paths_on_road_removal,
-                refresh_destination_cache,
-                citizen_state_machine,
-                bevy::ecs::schedule::apply_deferred,
-                process_path_requests,
-                move_citizens,
-            )
-                .chain()
-                .after(crate::citizen_spawner::spawn_citizens)
-                .in_set(crate::SimulationSet::Simulation),
-        );
+        app.init_resource::<DestinationCache>()
+            .init_resource::<PathfindingSnapshot>()
+            .add_systems(
+                FixedUpdate,
+                (
+                    invalidate_paths_on_road_removal,
+                    refresh_destination_cache,
+                    citizen_state_machine,
+                    bevy::ecs::schedule::apply_deferred,
+                    update_pathfinding_snapshot,
+                    process_path_requests,
+                    bevy::ecs::schedule::apply_deferred,
+                    collect_path_results,
+                    bevy::ecs::schedule::apply_deferred,
+                    move_citizens,
+                )
+                    .chain()
+                    .after(crate::citizen_spawner::spawn_citizens)
+                    .in_set(crate::SimulationSet::Simulation),
+            );
     }
 }

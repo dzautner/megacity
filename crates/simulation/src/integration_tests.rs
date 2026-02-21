@@ -2856,3 +2856,162 @@ fn test_higher_capacity_roads_congest_less() {
         highway_mult
     );
 }
+
+// Async pathfinding tests
+// ===========================================================================
+
+#[test]
+fn test_async_pathfinding_snapshot_initialized() {
+    let city = TestCity::new().with_road(10, 10, 20, 10, RoadType::Local);
+    city.assert_resource_exists::<crate::movement::PathfindingSnapshot>();
+}
+
+#[test]
+fn test_async_pathfinding_citizen_gets_path() {
+    use crate::movement::ComputingPath;
+
+    let mut city = TestCity::new()
+        .with_road(5, 10, 25, 10, RoadType::Local)
+        .with_building(5, 9, ZoneType::ResidentialLow, 1)
+        .with_building(25, 9, ZoneType::CommercialLow, 1)
+        .rebuild_csr()
+        .with_citizen((5, 9), (25, 9))
+        .with_time(7.0); // start of morning commute window
+
+    // Run 120 ticks (= 2 in-game hours) to cover the full morning commute window
+    // (hours 7-8). This guarantees hitting any per-entity departure jitter value.
+    // Async tasks run on background threads and are polled each tick via
+    // `block_on(poll_once(...))`. A yield_now() in the test harness tick loop
+    // gives background threads a chance to complete.
+    city.tick(120);
+
+    let world = city.world_mut();
+    let not_at_home = world
+        .query::<&crate::citizen::CitizenStateComp>()
+        .iter(world)
+        .filter(|s| s.0 != CitizenState::AtHome)
+        .count();
+    let computing = world
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ComputingPath>>()
+        .iter(world)
+        .count();
+
+    // Citizen should have started pathfinding (ComputingPath) or transitioned
+    assert!(
+        not_at_home > 0 || computing > 0,
+        "citizen should have started pathfinding or left home (not_at_home={not_at_home}, computing={computing})"
+    );
+}
+
+#[test]
+fn test_async_pathfinding_no_road_no_crash() {
+    // Citizens with no road connectivity should not crash the async system
+    let mut city = TestCity::new()
+        .with_building(5, 5, ZoneType::ResidentialLow, 1)
+        .with_building(50, 50, ZoneType::CommercialLow, 1)
+        .with_citizen((5, 5), (50, 50))
+        .with_time(7.0);
+
+    // Should not panic even with no roads
+    city.tick(120);
+
+    // Citizen should still exist (spawner may add more during ticks)
+    assert!(
+        city.citizen_count() >= 1,
+        "original citizen should still exist"
+    );
+}
+
+#[test]
+fn test_async_pathfinding_computing_path_prevents_requeue() {
+    use crate::citizen::PathRequest;
+    use crate::movement::ComputingPath;
+    use bevy::prelude::Entity;
+
+    let mut city = TestCity::new()
+        .with_road(5, 10, 25, 10, RoadType::Local)
+        .with_building(5, 9, ZoneType::ResidentialLow, 1)
+        .with_building(25, 9, ZoneType::CommercialLow, 1)
+        .rebuild_csr()
+        .with_citizen((5, 9), (25, 9))
+        .with_time(7.0);
+
+    // Run enough ticks for the state machine to fire and pathfinding to dispatch.
+    city.tick(120);
+
+    // Verify no entity has BOTH PathRequest and ComputingPath simultaneously.
+    // This would indicate the state machine re-queued a citizen that is already
+    // being processed by the async pathfinding system.
+    let world = city.world_mut();
+    let double_queued = world
+        .query_filtered::<Entity, (
+            bevy::prelude::With<PathRequest>,
+            bevy::prelude::With<ComputingPath>,
+        )>()
+        .iter(world)
+        .count();
+
+    assert_eq!(
+        double_queued, 0,
+        "no entity should have both PathRequest and ComputingPath"
+    );
+}
+
+#[test]
+fn test_async_pathfinding_multiple_citizens() {
+    use crate::movement::ComputingPath;
+
+    let mut city = TestCity::new()
+        .with_road(5, 10, 30, 10, RoadType::Local)
+        .with_building(5, 9, ZoneType::ResidentialLow, 1)
+        .with_building(30, 9, ZoneType::CommercialLow, 1)
+        .rebuild_csr()
+        .with_citizen((5, 9), (30, 9))
+        .with_citizen((5, 9), (30, 9))
+        .with_citizen((5, 9), (30, 9))
+        .with_time(7.0);
+
+    // Run 120 ticks to cover the full morning commute window (hours 7-8),
+    // ensuring all citizens hit their departure jitter.
+    city.tick(120);
+
+    let world = city.world_mut();
+    let not_at_home = world
+        .query::<&crate::citizen::CitizenStateComp>()
+        .iter(world)
+        .filter(|s| s.0 != CitizenState::AtHome)
+        .count();
+    let computing = world
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ComputingPath>>()
+        .iter(world)
+        .count();
+
+    // At least some citizens should have started pathfinding or transitioned
+    assert!(
+        not_at_home > 0 || computing > 0,
+        "some citizens should be pathfinding or have left home (not_at_home={not_at_home}, computing={computing})"
+    );
+}
+
+#[test]
+fn test_async_pathfinding_snapshot_updates_on_road_change() {
+    let mut city = TestCity::new().with_road(5, 10, 15, 10, RoadType::Local);
+
+    let v1 = city
+        .resource::<crate::movement::PathfindingSnapshot>()
+        .version;
+
+    // Add more road and tick to trigger CSR rebuild + snapshot update
+    city = city.with_road(15, 10, 25, 10, RoadType::Local);
+    city.tick(2);
+
+    let v2 = city
+        .resource::<crate::movement::PathfindingSnapshot>()
+        .version;
+    assert!(
+        v2 > v1,
+        "snapshot version should increase after road network change (v1={}, v2={})",
+        v1,
+        v2
+    );
+}

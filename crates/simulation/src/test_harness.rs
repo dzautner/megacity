@@ -19,6 +19,7 @@ use crate::grid::{Cell, CellType, RoadType, WorldGrid, ZoneType};
 use crate::groundwater;
 use crate::movement::ActivityTimer;
 use crate::natural_resources::ResourceGrid;
+use crate::road_graph_csr::CsrGraph;
 use crate::road_segments::RoadSegmentStore;
 use crate::roads::{RoadNetwork, RoadNode};
 use crate::services::{ServiceBuilding, ServiceType};
@@ -483,6 +484,20 @@ impl TestCity {
         self
     }
 
+    /// Rebuild the CSR graph from the current RoadNetwork.
+    ///
+    /// This is necessary for pathfinding tests using `TestCity::new()` because
+    /// the `Update` schedule (which normally triggers CSR rebuild) is never run
+    /// when using `run_schedule(FixedUpdate)` directly.
+    pub fn rebuild_csr(mut self) -> Self {
+        let world = self.app.world_mut();
+        world.resource_scope(|world, roads: Mut<RoadNetwork>| {
+            let mut csr = world.resource_mut::<CsrGraph>();
+            *csr = CsrGraph::from_road_network(&roads);
+        });
+        self
+    }
+
     // -----------------------------------------------------------------------
     // Simulation
     // -----------------------------------------------------------------------
@@ -491,9 +506,14 @@ impl TestCity {
     /// schedule. This bypasses Bevy's time system entirely, which avoids
     /// issues with `MinimalPlugins` + `ScheduleRunnerPlugin` not advancing
     /// virtual time between updates.
+    ///
+    /// A `yield_now()` is inserted between ticks so that background threads
+    /// (e.g. `AsyncComputeTaskPool`) get a chance to make progress even when
+    /// the test drives the schedule in a tight loop on a low-core CI runner.
     pub fn tick(&mut self, n: u32) {
         for _ in 0..n {
             self.app.world_mut().run_schedule(FixedUpdate);
+            std::thread::yield_now();
         }
     }
 
