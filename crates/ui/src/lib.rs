@@ -65,6 +65,8 @@ impl Plugin for UiPlugin {
             .init_resource::<graphs::HistoryData>()
             .init_resource::<graphs::ChartsState>()
             .init_resource::<toolbar::OpenCategory>()
+            .init_resource::<toolbar::ToolCatalog>()
+            .init_resource::<info_panel::CoverageCache>()
             .init_resource::<info_panel::JournalVisible>()
             .init_resource::<info_panel::ChartsVisible>()
             .init_resource::<info_panel::AdvisorVisible>()
@@ -79,6 +81,7 @@ impl Plugin for UiPlugin {
                     graphs::record_history,
                     toolbar::toolbar_ui,
                     info_panel::info_panel_ui,
+                    info_panel::update_coverage_cache,
                 ),
             )
             .add_systems(
