@@ -45,7 +45,10 @@ New features should NOT touch shared files. Follow this pattern:
 ## Integration Test Plans
 - Every PR that adds or modifies simulation behavior MUST include integration tests using `TestCity`
 - Test harness: `simulation/src/test_harness.rs` provides `TestCity` builder for headless Bevy App tests
-- Integration tests live in: `simulation/src/integration_tests.rs`
+- Integration test files live in: `simulation/src/integration_tests/` (one file per feature domain)
+- New tests go in a NEW file: `simulation/src/integration_tests/<feature>_tests.rs`
+- Add `mod <feature>_tests;` to `simulation/src/integration_tests/mod.rs`
+- Do NOT append tests to existing test files — create a new file to avoid merge conflicts
 - Test pattern:
   1. Set up city state using `TestCity::new()` builder methods (roads, zones, buildings, citizens, etc.)
   2. Run simulation ticks with `tick()`, `tick_slow_cycle()`, or `tick_slow_cycles()`
