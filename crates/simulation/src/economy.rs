@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::buildings::{Building, MixedUseBuilding};
+use crate::game_params::GameParams;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::services::ServiceBuilding;
 use crate::time_of_day::GameClock;
@@ -44,9 +45,11 @@ pub fn collect_taxes(
     policies: Res<crate::policies::Policies>,
     tourism: Res<crate::tourism::Tourism>,
     mut extended: ResMut<crate::budget::ExtendedBudget>,
+    game_params: Res<GameParams>,
 ) {
-    // Collect every 30 days
-    if clock.day <= budget.last_collection_day + 30 {
+    // Collect every N days (configurable via GameParams)
+    let interval = game_params.economy.tax_collection_interval_days;
+    if clock.day <= budget.last_collection_day + interval {
         return;
     }
     budget.last_collection_day = clock.day;

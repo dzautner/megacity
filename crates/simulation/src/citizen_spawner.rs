@@ -6,19 +6,17 @@ use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
+use crate::game_params::GameParams;
 use crate::grid::WorldGrid;
 use crate::lod::LodTier;
 use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::virtual_population::VirtualPopulation;
 
-const SPAWN_INTERVAL: u32 = 5; // sim ticks between spawn attempts
-const MAX_SPAWN_PER_TICK: u32 = 200;
-const BURST_SPAWN_PER_TICK: u32 = 5000; // fast spawning when below capacity
-
 #[derive(Resource, Default)]
 pub struct CitizenSpawnTimer(pub u32);
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_citizens(
     mut commands: Commands,
     _grid: Res<WorldGrid>,
@@ -27,9 +25,10 @@ pub fn spawn_citizens(
     under_construction: Query<Entity, With<UnderConstruction>>,
     mut virtual_pop: ResMut<VirtualPopulation>,
     citizens: Query<&crate::citizen::Citizen>,
+    game_params: Res<GameParams>,
 ) {
     timer.0 += 1;
-    if timer.0 < SPAWN_INTERVAL {
+    if timer.0 < game_params.citizen_spawner.spawn_interval_ticks {
         return;
     }
     timer.0 = 0;
@@ -91,9 +90,9 @@ pub fn spawn_citizens(
     let target_fill = (total_res_capacity as f32 * 0.5) as u32;
     let current_pop = real_count + virtual_pop.total_virtual;
     let max_this_tick = if current_pop < target_fill {
-        BURST_SPAWN_PER_TICK
+        game_params.citizen_spawner.burst_spawn_per_tick
     } else {
-        MAX_SPAWN_PER_TICK
+        game_params.citizen_spawner.max_spawn_per_tick
     };
 
     let mut spawned = 0u32;
