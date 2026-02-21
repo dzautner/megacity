@@ -6,18 +6,24 @@ use simulation::road_segments::RoadSegmentStore;
 use simulation::services::ServiceBuilding;
 
 use crate::angle_snap::AngleSnapState;
+use crate::building_preview_mesh::BuildingPreviewMeshes;
 use crate::input::{ActiveTool, CursorGridPos, DrawPhase, IntersectionSnap, RoadDrawState};
 
 /// Marker for the cursor ghost preview entity
 #[derive(Component)]
 pub struct CursorPreview;
 
+/// Tracks which zone type the preview mesh currently represents so we only
+/// swap meshes when the active tool changes zone category.
+#[derive(Component, Default, Clone, Copy, PartialEq, Eq)]
+pub struct PreviewMeshZone(pub Option<ZoneType>);
+
 pub fn spawn_cursor_preview(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    preview_meshes: Res<BuildingPreviewMeshes>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Cuboid::new(CELL_SIZE, 1.0, CELL_SIZE));
+    let mesh = preview_meshes.flat_cuboid.clone();
     let material = materials.add(StandardMaterial {
         base_color: Color::srgba(1.0, 1.0, 1.0, 0.4),
         alpha_mode: AlphaMode::Blend,
@@ -27,6 +33,7 @@ pub fn spawn_cursor_preview(
 
     commands.spawn((
         CursorPreview,
+        PreviewMeshZone(None),
         Mesh3d(mesh),
         MeshMaterial3d(material),
         Transform::from_xyz(0.0, 0.5, 0.0),
@@ -34,31 +41,31 @@ pub fn spawn_cursor_preview(
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_cursor_preview(
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
     grid: Res<WorldGrid>,
+    preview_meshes: Res<BuildingPreviewMeshes>,
     mut query: Query<
         (
             &mut Transform,
             &mut Visibility,
             &MeshMaterial3d<StandardMaterial>,
+            &mut Mesh3d,
+            &mut PreviewMeshZone,
         ),
         With<CursorPreview>,
     >,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let Ok((mut transform, mut vis, mat_handle)) = query.get_single_mut() else {
+    let Ok((mut transform, mut vis, mat_handle, mut mesh3d, mut preview_zone)) =
+        query.get_single_mut()
+    else {
         return;
     };
 
     if !cursor.valid {
-        *vis = Visibility::Hidden;
-        return;
-    }
-
-    // Hide cursor preview when zone brush gizmos take over
-    if tool.zone_type().is_some() {
         *vis = Visibility::Hidden;
         return;
     }
@@ -73,6 +80,20 @@ pub fn update_cursor_preview(
     } else {
         (1, 1)
     };
+
+    // Determine the zone type the current tool targets (if any)
+    let target_zone = tool.zone_type();
+    let is_zone_tool = target_zone.is_some();
+
+    // Swap the preview mesh if the zone type changed
+    if preview_zone.0 != target_zone {
+        let new_mesh = match target_zone {
+            Some(zone) => preview_meshes.get(zone),
+            None => preview_meshes.flat_cuboid.clone(),
+        };
+        mesh3d.0 = new_mesh;
+        preview_zone.0 = target_zone;
+    }
 
     // Determine preview color and validity based on tool
     let (preview_color, valid) = match *tool {
@@ -127,11 +148,17 @@ pub fn update_cursor_preview(
     let offset_x = (fw as f32 - 1.0) * CELL_SIZE * 0.5;
     let offset_z = (fh as f32 - 1.0) * CELL_SIZE * 0.5;
     transform.translation.x = wx + offset_x;
-    transform.translation.y = 0.5;
     transform.translation.z = wz + offset_z;
 
-    // Scale mesh to footprint size
-    transform.scale = Vec3::new(fw as f32, 1.0, fh as f32);
+    // For zone tools with 3D preview meshes, position at ground level.
+    // For other tools, keep the flat cuboid slightly above ground.
+    if is_zone_tool {
+        transform.translation.y = 0.0;
+        transform.scale = Vec3::ONE;
+    } else {
+        transform.translation.y = 0.5;
+        transform.scale = Vec3::new(fw as f32, 1.0, fh as f32);
+    }
 
     // Update material color
     let final_color = if valid {
