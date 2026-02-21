@@ -5269,8 +5269,7 @@ fn test_superblock_multiple_blocks_coverage() {
     assert_eq!(state.total_coverage_cells, 50);
 }
 // Bus Transit System (TRAF-005) Integration Tests
-// ====================================================================
-
+// =============================================================
 #[test]
 fn test_bus_transit_add_stops_and_route() {
     use crate::bus_transit::BusTransitState;
@@ -5335,6 +5334,87 @@ fn test_bus_transit_route_activation_with_depot() {
     assert!(
         transit.routes[0].active,
         "Route should be active with depot nearby"
+    );
+}
+
+// ====================================================================
+// Auto-Grid Road Placement (TRAF-010)
+// ====================================================================
+
+#[test]
+fn test_auto_grid_generates_roads_in_area() {
+    use crate::auto_grid_road::{compute_grid_plan, execute_grid_plan, AutoGridConfig};
+    use crate::grid::{CellType, RoadType};
+    use crate::road_segments::RoadSegmentStore;
+    use crate::roads::RoadNetwork;
+    use crate::test_harness::TestCity;
+
+    let mut city = TestCity::new().with_budget(100_000.0);
+    let config = AutoGridConfig {
+        block_size: 6,
+        road_type: RoadType::Local,
+    };
+
+    let plan = {
+        let grid = city.grid();
+        compute_grid_plan((50, 50), (70, 70), &config, grid)
+    };
+
+    assert!(!plan.segments.is_empty(), "plan should have segments");
+    assert!(plan.total_cells > 0, "plan should place road cells");
+    assert!(plan.total_cost > 0.0, "plan should have a cost");
+
+    let world = city.world_mut();
+    world.resource_scope(
+        |world, mut segments: bevy::prelude::Mut<RoadSegmentStore>| {
+            world.resource_scope(
+                |world, mut grid: bevy::prelude::Mut<crate::grid::WorldGrid>| {
+                    world.resource_scope(|_world, mut roads: bevy::prelude::Mut<RoadNetwork>| {
+                        let cells =
+                            execute_grid_plan(&plan, &config, &mut segments, &mut grid, &mut roads);
+                        assert!(!cells.is_empty(), "should have placed road cells");
+                        for &(x, y) in &cells {
+                            assert_eq!(grid.get(x, y).cell_type, CellType::Road);
+                        }
+                    });
+                },
+            );
+        },
+    );
+}
+
+#[test]
+fn test_auto_grid_block_size_affects_density() {
+    use crate::auto_grid_road::{compute_grid_plan, AutoGridConfig};
+    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+    use crate::grid::{RoadType, WorldGrid};
+
+    let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+
+    let plan_small = compute_grid_plan(
+        (50, 50),
+        (80, 80),
+        &AutoGridConfig {
+            block_size: 4,
+            road_type: RoadType::Local,
+        },
+        &grid,
+    );
+    let plan_large = compute_grid_plan(
+        (50, 50),
+        (80, 80),
+        &AutoGridConfig {
+            block_size: 8,
+            road_type: RoadType::Local,
+        },
+        &grid,
+    );
+
+    assert!(
+        plan_small.total_cells > plan_large.total_cells,
+        "smaller block size ({}) should produce more roads than larger ({})",
+        plan_small.total_cells,
+        plan_large.total_cells
     );
 }
 
@@ -5507,4 +5587,70 @@ fn test_bus_transit_saveable_roundtrip() {
     assert_eq!(loaded.routes.len(), 1);
     assert_eq!(loaded.routes[0].name, "Test Route");
     assert_eq!(loaded.routes[0].stop_ids.len(), 2);
+}
+
+#[test]
+fn test_auto_grid_respects_water_obstacles() {
+    use crate::auto_grid_road::{compute_grid_plan, execute_grid_plan, AutoGridConfig};
+    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+    use crate::grid::{CellType, RoadType, WorldGrid};
+    use crate::road_segments::RoadSegmentStore;
+    use crate::roads::RoadNetwork;
+
+    let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+    let mut roads = RoadNetwork::default();
+    let mut segments = RoadSegmentStore::default();
+
+    for x in 55..=65 {
+        for y in 55..=65 {
+            grid.get_mut(x, y).cell_type = CellType::Water;
+        }
+    }
+
+    let config = AutoGridConfig {
+        block_size: 6,
+        road_type: RoadType::Local,
+    };
+
+    let plan = compute_grid_plan((50, 50), (70, 70), &config, &grid);
+    let cells = execute_grid_plan(&plan, &config, &mut segments, &mut grid, &mut roads);
+
+    for x in 55..=65 {
+        for y in 55..=65 {
+            assert_ne!(grid.get(x, y).cell_type, CellType::Road);
+        }
+    }
+
+    assert!(!cells.is_empty(), "should still place some roads");
+}
+
+#[test]
+fn test_auto_grid_cost_scales_with_road_type() {
+    use crate::auto_grid_road::{compute_grid_plan, AutoGridConfig};
+    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+    use crate::grid::{RoadType, WorldGrid};
+
+    let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+
+    let plan_local = compute_grid_plan(
+        (50, 50),
+        (70, 70),
+        &AutoGridConfig {
+            block_size: 6,
+            road_type: RoadType::Local,
+        },
+        &grid,
+    );
+    let plan_avenue = compute_grid_plan(
+        (50, 50),
+        (70, 70),
+        &AutoGridConfig {
+            block_size: 6,
+            road_type: RoadType::Avenue,
+        },
+        &grid,
+    );
+
+    assert_eq!(plan_local.total_cells, plan_avenue.total_cells);
+    assert!(plan_avenue.total_cost > plan_local.total_cost);
 }

@@ -189,6 +189,7 @@ fn tool_description(item: &ToolItem) -> Option<&'static str> {
         // Districts
         ActiveTool::DistrictPaint(_) => "Paint cells to assign to this district",
         ActiveTool::DistrictErase => "Remove district assignment from cells",
+        ActiveTool::AutoGrid => "Auto-generate a grid of roads in a rectangular area",
     })
 }
 
@@ -376,6 +377,13 @@ fn build_categories() -> Vec<ToolCategory> {
                     tool: Some(ActiveTool::RoadUpgrade),
                     icon: "Up",
                     name: "Upgrade",
+                    cost: None,
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::AutoGrid),
+                    icon: "##",
+                    name: "Auto-Grid",
                     cost: None,
                     overlay: None,
                 },
