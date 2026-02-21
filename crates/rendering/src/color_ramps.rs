@@ -333,14 +333,14 @@ mod tests {
             "inferno(0) should be near-black"
         );
 
-        let (r1, g1, b1) = rgb(INFERNO.sample(1.0));
+        let (r1, g1, _b1) = rgb(INFERNO.sample(1.0));
         // Should be pale yellow
         assert!(r1 > 0.90 && g1 > 0.90, "inferno(1) should be pale yellow");
     }
 
     #[test]
     fn cividis_endpoints() {
-        let (r0, g0, b0) = rgb(CIVIDIS.sample(0.0));
+        let (r0, _g0, b0) = rgb(CIVIDIS.sample(0.0));
         // Should be dark navy
         assert!(r0 < 0.05 && b0 > 0.25, "cividis(0) should be dark navy");
 
@@ -424,7 +424,7 @@ mod tests {
 
     #[test]
     fn groundwater_level_endpoints() {
-        let (r0, _g0, b0) = rgb(GROUNDWATER_LEVEL.sample(0.0));
+        let (r0, _g0, _b0) = rgb(GROUNDWATER_LEVEL.sample(0.0));
         // Should be red/warm (dry)
         assert!(r0 > 0.60, "groundwater_level(0) should be reddish (dry)");
 
