@@ -98,7 +98,6 @@ impl RoadType {
             RoadType::Path => 0,
         }
     }
-
     /// Returns the next upgrade tier for this road type, or `None` if already at max tier.
     /// Upgrade path: Path -> Local -> Avenue -> Boulevard, OneWay -> Avenue.
     /// Highway and Boulevard have no further upgrade.
