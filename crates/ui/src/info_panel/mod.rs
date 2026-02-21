@@ -1,5 +1,5 @@
 mod advisor;
-mod budget;
+pub mod budget;
 mod building_inspection;
 mod event_journal;
 mod groundwater_tooltip;
@@ -171,6 +171,7 @@ pub struct InfoPanelExtras<'w> {
     pub heating_stats: Res<'w, HeatingStats>,
     pub weather: Res<'w, Weather>,
     pub groundwater_stats: Res<'w, GroundwaterStats>,
+    pub budget_visible: ResMut<'w, BudgetPanelVisible>,
 }
 
 // ---------------------------------------------------------------------------
@@ -560,6 +561,10 @@ pub fn info_panel_ui(
                     budget.tax_rate = tax_pct / 100.0;
                 }
             });
+
+            if ui.button("Budget Details...").clicked() {
+                extras.budget_visible.0 = !extras.budget_visible.0;
+            }
 
             // ---- Road Maintenance ----
             ui.separator();
