@@ -10,17 +10,42 @@ use rendering::camera::OrbitCamera;
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
+    // --- Window configuration ---------------------------------------------------
+    // On WASM we must point Bevy at the existing <canvas id="bevy-canvas"> so
+    // winit attaches event listeners to the right element. We also enable
+    // `fit_canvas_to_parent` so the drawing-buffer resolution stays in sync with
+    // the CSS layout size, preventing the coordinate mismatch that made every
+    // click land in the wrong place and the UI appear unresponsive.
+    let primary_window = {
+        #[allow(unused_mut)]
+        let mut win = Window {
             title: "MegaCity".to_string(),
             resolution: (1280.0, 720.0).into(),
             present_mode: PresentMode::AutoVsync,
             ..default()
-        }),
+        };
+
+        // WASM-specific canvas binding
+        #[cfg(target_arch = "wasm32")]
+        {
+            win.canvas = Some("#bevy-canvas".to_string());
+            win.fit_canvas_to_parent = true;
+            win.prevent_default_event_handling = true;
+        }
+
+        win
+    };
+
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(primary_window),
         ..default()
     }))
     .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::reactive_low_power(std::time::Duration::from_millis(16)),
+        // Continuous ensures the game loop runs every frame (driven by
+        // requestAnimationFrame on WASM). reactive_low_power was previously used
+        // here, but on WASM the timer-based wake could stall the event loop
+        // and make the simulation appear frozen.
+        focused_mode: UpdateMode::Continuous,
         unfocused_mode: UpdateMode::reactive_low_power(std::time::Duration::from_millis(100)),
     })
     .add_plugins((
