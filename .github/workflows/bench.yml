@@ -1,0 +1,134 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: "Git ref to use as baseline (default: main)"
+        required: false
+        default: "main"
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: bench
+
+      # ── Run benchmarks on current commit ──────────────────────────
+      - name: Run simulation benchmarks
+        run: |
+          cargo bench -p simulation --bench city_perf --features simulation/bench \
+            -- --output-format bencher 2>/dev/null | tee sim_bench.txt
+
+      - name: Run frame benchmarks
+        run: |
+          cargo bench -p megacity --bench frame_perf --features megacity/bench \
+            -- --output-format bencher 2>/dev/null | tee frame_bench.txt
+
+      # ── Collect Criterion JSON results ────────────────────────────
+      - name: Collect benchmark results
+        run: |
+          echo "## Benchmark Results" > bench_report.md
+          echo "" >> bench_report.md
+          echo "**Commit:** \`${{ github.sha }}\`" >> bench_report.md
+          echo "**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> bench_report.md
+          echo "" >> bench_report.md
+
+          echo "### Simulation Benchmarks" >> bench_report.md
+          echo '```' >> bench_report.md
+          cat sim_bench.txt >> bench_report.md
+          echo '```' >> bench_report.md
+          echo "" >> bench_report.md
+
+          echo "### Frame Benchmarks" >> bench_report.md
+          echo '```' >> bench_report.md
+          cat frame_bench.txt >> bench_report.md
+          echo '```' >> bench_report.md
+          echo "" >> bench_report.md
+
+          # ── Check for regressions using Criterion's saved estimates ──
+          echo "### Regression Check" >> bench_report.md
+          REGRESSION_FOUND=false
+          for estimate in target/criterion/*/new/estimates.json; do
+            if [ -f "$estimate" ]; then
+              bench_name=$(echo "$estimate" | sed 's|target/criterion/||;s|/new/estimates.json||')
+              mean_ns=$(python3 -c "
+          import json, sys
+          with open('$estimate') as f:
+              data = json.load(f)
+          print(data['mean']['point_estimate'])
+          " 2>/dev/null || echo "0")
+
+              mean_ms=$(python3 -c "print(f'{$mean_ns / 1_000_000:.3f}')" 2>/dev/null || echo "0")
+              echo "- **$bench_name**: ${mean_ms}ms" >> bench_report.md
+
+              # Check against performance budgets
+              case "$bench_name" in
+                *tel_aviv_fixed_update*)
+                  BUDGET_MS=5.0
+                  ;;
+                *full_update_schedule*)
+                  BUDGET_MS=5.0
+                  ;;
+                *fixed_plus_update*)
+                  BUDGET_MS=16.0
+                  ;;
+                *)
+                  BUDGET_MS=""
+                  ;;
+              esac
+
+              if [ -n "$BUDGET_MS" ]; then
+                OVER=$(python3 -c "print('true' if $mean_ms > $BUDGET_MS else 'false')" 2>/dev/null || echo "false")
+                if [ "$OVER" = "true" ]; then
+                  echo "  - **OVER BUDGET** (budget: ${BUDGET_MS}ms)" >> bench_report.md
+                  REGRESSION_FOUND=true
+                else
+                  echo "  - Within budget (budget: ${BUDGET_MS}ms)" >> bench_report.md
+                fi
+              fi
+            fi
+          done
+
+          if [ "$REGRESSION_FOUND" = "true" ]; then
+            echo "" >> bench_report.md
+            echo "**WARNING: One or more benchmarks exceeded their performance budget.**" >> bench_report.md
+          fi
+
+          cat bench_report.md >> $GITHUB_STEP_SUMMARY
+
+      # ── Upload Criterion HTML reports ─────────────────────────────
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: criterion-reports
+          path: target/criterion/
+          retention-days: 30
+
+      - name: Upload benchmark summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-report
+          path: bench_report.md
+          retention-days: 90
