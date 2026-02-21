@@ -8200,7 +8200,7 @@ fn test_policy_disabling_removes_effects() {
 fn test_policy_cost_deducted_from_budget_after_tax_collection() {
     let mut city = TestCity::new()
         .with_budget(100_000.0)
-        .with_road(10, 50, 100, 50, RoadType::LocalStreet)
+        .with_road(10, 50, 100, 50, RoadType::Local)
         .with_zone_rect(11, 48, 20, 49, ZoneType::ResidentialLow)
         .with_building(15, 48, ZoneType::ResidentialLow, 1);
     {
@@ -8236,7 +8236,7 @@ fn test_policy_cost_deducted_from_budget_after_tax_collection() {
 fn test_policy_no_cost_when_no_policies_active() {
     let mut city = TestCity::new()
         .with_budget(100_000.0)
-        .with_road(10, 50, 100, 50, RoadType::LocalStreet)
+        .with_road(10, 50, 100, 50, RoadType::Local)
         .with_building(15, 48, ZoneType::ResidentialLow, 1);
     city.tick_slow_cycles(3);
     let extended = city.resource::<crate::budget::ExtendedBudget>();
