@@ -87,6 +87,9 @@ pub fn age_citizens(
         }
     }
 
+    let despawn_set: std::collections::HashSet<Entity> =
+        to_despawn.iter().map(|&(e, _, _)| e).collect();
+
     for &(entity, work_building, partner) in &to_despawn {
         if let Some(wb) = work_building {
             if let Ok(mut building) = buildings.get_mut(wb) {
@@ -94,14 +97,17 @@ pub fn age_citizens(
             }
         }
         if let Some(partner_entity) = partner {
-            if let Ok((_, _, _, _, partner_family)) = citizens.get(partner_entity) {
-                let children = partner_family.children.clone();
-                let parent = partner_family.parent;
-                commands.entity(partner_entity).insert(Family {
-                    partner: None,
-                    children,
-                    parent,
-                });
+            // Skip if partner is also being despawned (avoids inserting on a dead entity)
+            if !despawn_set.contains(&partner_entity) {
+                if let Ok((_, _, _, _, partner_family)) = citizens.get(partner_entity) {
+                    let children = partner_family.children.clone();
+                    let parent = partner_family.parent;
+                    commands.entity(partner_entity).insert(Family {
+                        partner: None,
+                        children,
+                        parent,
+                    });
+                }
             }
         }
         commands.entity(entity).despawn();
@@ -147,6 +153,9 @@ pub fn emigration(
         }
     }
 
+    let despawn_set: std::collections::HashSet<Entity> =
+        to_despawn.iter().map(|&(e, _, _)| e).collect();
+
     for &(entity, work_building, partner) in &to_despawn {
         if let Some(wb) = work_building {
             if let Ok(mut building) = buildings.get_mut(wb) {
@@ -154,14 +163,17 @@ pub fn emigration(
             }
         }
         if let Some(partner_entity) = partner {
-            if let Ok((_, _, _, _, partner_family)) = citizens.get(partner_entity) {
-                let children = partner_family.children.clone();
-                let parent = partner_family.parent;
-                commands.entity(partner_entity).insert(Family {
-                    partner: None,
-                    children,
-                    parent,
-                });
+            // Skip if partner is also being despawned (avoids inserting on a dead entity)
+            if !despawn_set.contains(&partner_entity) {
+                if let Ok((_, _, _, _, partner_family)) = citizens.get(partner_entity) {
+                    let children = partner_family.children.clone();
+                    let parent = partner_family.parent;
+                    commands.entity(partner_entity).insert(Family {
+                        partner: None,
+                        children,
+                        parent,
+                    });
+                }
             }
         }
         commands.entity(entity).despawn();
