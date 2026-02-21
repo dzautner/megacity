@@ -624,7 +624,8 @@ impl Plugin for MovementPlugin {
                 move_citizens,
             )
                 .chain()
-                .after(crate::citizen_spawner::spawn_citizens),
+                .after(crate::citizen_spawner::spawn_citizens)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

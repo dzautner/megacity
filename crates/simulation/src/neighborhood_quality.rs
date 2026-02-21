@@ -425,7 +425,9 @@ impl Plugin for NeighborhoodQualityPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NeighborhoodQualityIndex>().add_systems(
             FixedUpdate,
-            update_neighborhood_quality.after(crate::crime::update_crime),
+            update_neighborhood_quality
+                .after(crate::crime::update_crime)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry.

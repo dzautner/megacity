@@ -283,7 +283,9 @@ impl Plugin for NetworkVizPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NetworkVizData>().add_systems(
             FixedUpdate,
-            compute_network_viz.after(crate::utilities::propagate_utilities),
+            compute_network_viz
+                .after(crate::utilities::propagate_utilities)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

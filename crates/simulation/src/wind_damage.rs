@@ -708,7 +708,9 @@ impl Plugin for WindDamagePlugin {
             .add_event::<WindDamageEvent>()
             .add_systems(
                 FixedUpdate,
-                update_wind_damage.after(crate::imports_exports::process_trade),
+                update_wind_damage
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

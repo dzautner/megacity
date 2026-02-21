@@ -270,7 +270,10 @@ impl Plugin for ParkingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ParkingPolicyState>()
             .init_resource::<ParkingEffects>()
-            .add_systems(FixedUpdate, update_parking_effects);
+            .add_systems(
+                FixedUpdate,
+                update_parking_effects.in_set(crate::SimulationSet::Simulation),
+            );
 
         // Register for save/load via the SaveableRegistry.
         app.init_resource::<crate::SaveableRegistry>();

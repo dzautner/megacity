@@ -2425,7 +2425,8 @@ impl Plugin for WeatherPlugin {
                     update_precipitation,
                     update_construction_modifiers,
                 )
-                    .after(crate::imports_exports::process_trade),
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

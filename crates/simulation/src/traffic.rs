@@ -125,7 +125,9 @@ impl Plugin for TrafficPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TrafficGrid>().add_systems(
             FixedUpdate,
-            update_traffic_density.after(crate::movement::move_citizens),
+            update_traffic_density
+                .after(crate::movement::move_citizens)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

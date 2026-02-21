@@ -276,7 +276,9 @@ impl Plugin for InclusionaryZoningPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InclusionaryZoningState>().add_systems(
             FixedUpdate,
-            update_inclusionary_zoning.after(crate::buildings::progress_construction),
+            update_inclusionary_zoning
+                .after(crate::buildings::progress_construction)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry.

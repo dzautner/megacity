@@ -145,8 +145,10 @@ pub struct DayNightControlsPlugin;
 
 impl Plugin for DayNightControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DayNightControls>()
-            .add_systems(Update, update_visual_hour);
+        app.init_resource::<DayNightControls>().add_systems(
+            Update,
+            update_visual_hour.in_set(crate::SimulationUpdateSet::Input),
+        );
 
         // Register for save/load via the SaveableRegistry
         app.init_resource::<crate::SaveableRegistry>();

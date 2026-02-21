@@ -465,7 +465,9 @@ impl Plugin for FloodProtectionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FloodProtectionState>().add_systems(
             FixedUpdate,
-            update_flood_protection.after(crate::flood_simulation::update_flood_simulation),
+            update_flood_protection
+                .after(crate::flood_simulation::update_flood_simulation)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the SaveableRegistry

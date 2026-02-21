@@ -223,7 +223,9 @@ impl Plugin for PollutionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PollutionGrid>().add_systems(
             FixedUpdate,
-            update_pollution.after(crate::education::propagate_education),
+            update_pollution
+                .after(crate::education::propagate_education)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

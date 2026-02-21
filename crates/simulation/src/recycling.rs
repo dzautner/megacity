@@ -585,7 +585,9 @@ impl Plugin for RecyclingPlugin {
             .init_resource::<RecyclingState>()
             .add_systems(
                 FixedUpdate,
-                update_recycling_economics.after(crate::garbage::update_waste_generation),
+                update_recycling_economics
+                    .after(crate::garbage::update_waste_generation)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

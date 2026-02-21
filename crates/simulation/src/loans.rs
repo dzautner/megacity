@@ -336,7 +336,8 @@ impl Plugin for LoansPlugin {
                 FixedUpdate,
                 (process_loan_payments, update_credit_rating)
                     .chain()
-                    .after(crate::economy::collect_taxes),
+                    .after(crate::economy::collect_taxes)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

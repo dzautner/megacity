@@ -116,7 +116,9 @@ impl Plugin for EducationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EducationGrid>().add_systems(
             FixedUpdate,
-            propagate_education.after(crate::utilities::propagate_utilities),
+            propagate_education
+                .after(crate::utilities::propagate_utilities)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

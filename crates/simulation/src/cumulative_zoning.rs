@@ -205,8 +205,10 @@ pub struct CumulativeZoningPlugin;
 
 impl Plugin for CumulativeZoningPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CumulativeZoningState>()
-            .add_systems(FixedUpdate, sync_cumulative_zoning_policy);
+        app.init_resource::<CumulativeZoningState>().add_systems(
+            FixedUpdate,
+            sync_cumulative_zoning_policy.in_set(crate::SimulationSet::Simulation),
+        );
 
         // Register for save/load via the SaveableRegistry.
         app.init_resource::<crate::SaveableRegistry>();

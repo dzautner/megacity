@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use std::collections::BTreeMap;
 
+pub use simulation_sets::{SimulationSet, SimulationUpdateSet};
+
 pub mod abandonment;
 pub mod achievements;
 pub mod advisors;
@@ -89,6 +91,7 @@ pub mod road_segments;
 pub mod roads;
 pub mod seasonal_rendering;
 pub mod services;
+pub mod simulation_sets;
 pub mod snow;
 pub mod spatial_grid;
 pub mod specialization;
@@ -388,6 +391,23 @@ pub struct SimulationPlugin;
 
 impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
+        // -- Deterministic phase ordering ----------------------------------------
+        // FixedUpdate: PreSim → Simulation → PostSim
+        app.configure_sets(
+            FixedUpdate,
+            (
+                SimulationSet::PreSim,
+                SimulationSet::Simulation,
+                SimulationSet::PostSim,
+            )
+                .chain(),
+        );
+        // Update: Input → Visual
+        app.configure_sets(
+            Update,
+            (SimulationUpdateSet::Input, SimulationUpdateSet::Visual).chain(),
+        );
+
         // Core resources and systems that don't belong to any feature
         app.init_resource::<TickCounter>()
             .init_resource::<SlowTickTimer>()
@@ -399,8 +419,11 @@ impl Plugin for SimulationPlugin {
             .init_resource::<LodFrameCounter>()
             .add_systems(Startup, world_init::init_world)
             .add_systems(PostStartup, validate_saveable_registry)
-            .add_systems(FixedUpdate, tick_slow_timer)
-            .add_systems(Update, tick_lod_frame_counter);
+            .add_systems(FixedUpdate, tick_slow_timer.in_set(SimulationSet::PreSim))
+            .add_systems(
+                Update,
+                tick_lod_frame_counter.in_set(SimulationUpdateSet::Visual),
+            );
 
         // Core simulation chain
         app.add_plugins((

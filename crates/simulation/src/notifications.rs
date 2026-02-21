@@ -249,7 +249,9 @@ impl Plugin for NotificationsPlugin {
             .add_event::<NotificationEvent>()
             .add_systems(
                 FixedUpdate,
-                (collect_notifications, sweep_expired_notifications).chain(),
+                (collect_notifications, sweep_expired_notifications)
+                    .chain()
+                    .in_set(crate::SimulationSet::PostSim),
             );
     }
 }

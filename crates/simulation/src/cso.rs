@@ -913,7 +913,9 @@ impl Plugin for CsoPlugin {
             .add_event::<CsoEvent>()
             .add_systems(
                 FixedUpdate,
-                update_sewer_overflow.after(crate::imports_exports::process_trade),
+                update_sewer_overflow
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

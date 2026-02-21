@@ -159,11 +159,14 @@ impl Plugin for AbandonmentPlugin {
                 process_abandoned_buildings,
             )
                 .chain()
-                .after(crate::utilities::propagate_utilities),
+                .after(crate::utilities::propagate_utilities)
+                .in_set(crate::SimulationSet::Simulation),
         )
         .add_systems(
             FixedUpdate,
-            abandoned_land_value_penalty.after(crate::land_value::update_land_value),
+            abandoned_land_value_penalty
+                .after(crate::land_value::update_land_value)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

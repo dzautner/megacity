@@ -706,7 +706,8 @@ impl Plugin for SnowPlugin {
                 FixedUpdate,
                 (update_snow, update_snow_plowing)
                     .chain()
-                    .after(crate::weather::update_weather),
+                    .after(crate::weather::update_weather)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

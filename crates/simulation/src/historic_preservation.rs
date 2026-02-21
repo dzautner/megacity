@@ -228,7 +228,8 @@ impl Plugin for HistoricPreservationPlugin {
                     apply_historic_land_value_bonus.after(crate::land_value::update_land_value),
                     update_historic_tourism.after(crate::tourism::update_tourism),
                     decay_removal_penalties,
-                ),
+                )
+                    .in_set(crate::SimulationSet::Simulation),
             );
 
         // Register for save/load via the SaveableRegistry.

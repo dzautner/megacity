@@ -241,7 +241,8 @@ impl Plugin for PostalPlugin {
                 FixedUpdate,
                 update_postal_coverage
                     .after(crate::traffic::update_traffic_density)
-                    .before(crate::happiness::update_service_coverage),
+                    .before(crate::happiness::update_service_coverage)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

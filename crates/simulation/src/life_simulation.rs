@@ -810,11 +810,14 @@ impl Plugin for LifeSimulationPlugin {
                     life_events,
                     retire_workers,
                 )
-                    .after(crate::happiness::update_happiness),
+                    .after(crate::happiness::update_happiness)
+                    .in_set(crate::SimulationSet::Simulation),
             )
             .add_systems(
                 FixedUpdate,
-                (evolve_personality, update_health).after(update_needs),
+                (evolve_personality, update_health)
+                    .after(update_needs)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

@@ -725,7 +725,9 @@ impl Plugin for OutsideConnectionsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OutsideConnections>().add_systems(
             FixedUpdate,
-            update_outside_connections.after(crate::airport::update_airports),
+            update_outside_connections
+                .after(crate::airport::update_airports)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

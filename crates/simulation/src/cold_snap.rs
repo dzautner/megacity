@@ -1160,7 +1160,9 @@ impl Plugin for ColdSnapPlugin {
             .add_event::<ColdSnapEvent>()
             .add_systems(
                 FixedUpdate,
-                update_cold_snap.after(crate::imports_exports::process_trade),
+                update_cold_snap
+                    .after(crate::imports_exports::process_trade)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

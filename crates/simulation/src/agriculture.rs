@@ -701,7 +701,9 @@ impl Plugin for AgriculturePlugin {
             .add_event::<FrostEvent>()
             .add_systems(
                 FixedUpdate,
-                update_agriculture.after(crate::natural_resources::update_resource_production),
+                update_agriculture
+                    .after(crate::natural_resources::update_resource_production)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

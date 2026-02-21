@@ -601,7 +601,8 @@ impl Plugin for ImmigrationPlugin {
                 FixedUpdate,
                 (compute_attractiveness, immigration_wave)
                     .chain()
-                    .after(crate::stats::update_stats),
+                    .after(crate::stats::update_stats)
+                    .in_set(crate::SimulationSet::Simulation),
             );
     }
 }

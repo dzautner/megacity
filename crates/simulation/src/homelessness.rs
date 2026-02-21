@@ -279,7 +279,8 @@ impl Plugin for HomelessnessPlugin {
                 recover_from_homelessness,
             )
                 .chain()
-                .after(crate::happiness::update_happiness),
+                .after(crate::happiness::update_happiness)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

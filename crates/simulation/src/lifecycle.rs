@@ -119,7 +119,8 @@ impl Plugin for LifecyclePlugin {
             FixedUpdate,
             (age_citizens, emigration)
                 .chain()
-                .after(crate::districts::district_stats),
+                .after(crate::districts::district_stats)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

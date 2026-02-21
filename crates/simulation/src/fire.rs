@@ -335,7 +335,8 @@ impl Plugin for FirePlugin {
                 fire_damage,
             )
                 .chain()
-                .after(crate::happiness::update_service_coverage),
+                .after(crate::happiness::update_service_coverage)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

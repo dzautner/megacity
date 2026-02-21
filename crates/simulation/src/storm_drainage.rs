@@ -740,7 +740,9 @@ impl Plugin for StormDrainagePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<StormDrainageState>().add_systems(
             FixedUpdate,
-            update_storm_drainage.after(crate::imports_exports::process_trade),
+            update_storm_drainage
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

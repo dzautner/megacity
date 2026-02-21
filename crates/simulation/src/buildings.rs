@@ -587,7 +587,8 @@ impl Plugin for BuildingsPlugin {
                     progress_construction,
                 )
                     .chain()
-                    .after(crate::zones::update_zone_demand),
+                    .after(crate::zones::update_zone_demand)
+                    .in_set(crate::SimulationSet::PreSim),
             );
     }
 }

@@ -636,7 +636,8 @@ impl Plugin for AchievementsPlugin {
                 FixedUpdate,
                 check_achievements
                     .after(crate::stats::update_stats)
-                    .after(crate::specialization::compute_specializations),
+                    .after(crate::specialization::compute_specializations)
+                    .in_set(crate::SimulationSet::PostSim),
             );
     }
 }

@@ -180,7 +180,9 @@ impl Plugin for TrafficLosPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TrafficLosGrid>().add_systems(
             FixedUpdate,
-            update_traffic_los.after(crate::traffic::update_traffic_density),
+            update_traffic_los
+                .after(crate::traffic::update_traffic_density)
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load

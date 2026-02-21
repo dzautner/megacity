@@ -518,7 +518,8 @@ impl Plugin for WaterSourcesPlugin {
                 aggregate_water_source_supply,
                 replenish_reservoirs,
             )
-                .after(crate::imports_exports::process_trade),
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

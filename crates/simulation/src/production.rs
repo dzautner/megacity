@@ -695,7 +695,8 @@ impl Plugin for ProductionPlugin {
             FixedUpdate,
             (assign_industry_type, update_production_chains)
                 .chain()
-                .after(crate::agriculture::update_agriculture),
+                .after(crate::agriculture::update_agriculture)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

@@ -537,7 +537,10 @@ impl Plugin for KeyBindingsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<KeyBindings>()
             .init_resource::<RebindState>()
-            .add_systems(Update, capture_rebind_input);
+            .add_systems(
+                Update,
+                capture_rebind_input.in_set(crate::SimulationUpdateSet::Input),
+            );
 
         // Register for save/load via the SaveableRegistry.
         app.init_resource::<crate::SaveableRegistry>();

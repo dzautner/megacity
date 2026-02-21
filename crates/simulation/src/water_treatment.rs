@@ -964,7 +964,9 @@ impl Plugin for WaterTreatmentPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WaterTreatmentState>().add_systems(
             FixedUpdate,
-            update_water_treatment.after(crate::imports_exports::process_trade),
+            update_water_treatment
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

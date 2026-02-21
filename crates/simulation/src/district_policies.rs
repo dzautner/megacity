@@ -592,7 +592,9 @@ impl Plugin for DistrictPoliciesPlugin {
             .init_resource::<DistrictPolicyLookup>()
             .add_systems(
                 FixedUpdate,
-                update_district_policies.after(crate::districts::district_stats),
+                update_district_policies
+                    .after(crate::districts::district_stats)
+                    .in_set(crate::SimulationSet::Simulation),
             );
 
         // Register for save/load via the SaveableRegistry.

@@ -826,7 +826,9 @@ impl Plugin for LandfillGasPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LandfillGasState>().add_systems(
             FixedUpdate,
-            update_landfill_gas.after(crate::imports_exports::process_trade),
+            update_landfill_gas
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

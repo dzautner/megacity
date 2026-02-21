@@ -583,7 +583,8 @@ impl Plugin for TrafficAccidentsPlugin {
             FixedUpdate,
             (spawn_accidents, process_accidents)
                 .chain()
-                .after(crate::traffic::update_traffic_density),
+                .after(crate::traffic::update_traffic_density)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }
