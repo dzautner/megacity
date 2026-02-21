@@ -44,7 +44,7 @@ use input::{
     ActiveTool, CursorGridPos, GridSnap, IntersectionSnap, RoadDrawState, SelectedBuilding,
     StatusMessage,
 };
-use overlay::OverlayState;
+use overlay::{DualOverlayState, OverlayState};
 use props::PropsSpawned;
 
 pub struct RenderingPlugin;
@@ -57,6 +57,7 @@ impl Plugin for RenderingPlugin {
             .init_resource::<CursorGridPos>()
             .init_resource::<ActiveTool>()
             .init_resource::<OverlayState>()
+            .init_resource::<DualOverlayState>()
             .init_resource::<StatusMessage>()
             .init_resource::<SelectedBuilding>()
             .init_resource::<PropsSpawned>()

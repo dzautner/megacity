@@ -21,7 +21,7 @@ use simulation::network_viz::NetworkVizData;
 
 use crate::color_ramps::{self, CIVIDIS, GROUNDWATER_LEVEL, GROUNDWATER_QUALITY, INFERNO, VIRIDIS};
 use crate::colorblind_palette;
-use crate::overlay::OverlayMode;
+use crate::overlay::{DualOverlayMode, OverlayMode};
 
 pub struct OverlayGrids<'a> {
     pub pollution: Option<&'a PollutionGrid>,
@@ -53,6 +53,32 @@ impl<'a> OverlayGrids<'a> {
     }
 }
 
+/// Parameters for dual-overlay blending/split passed into mesh building.
+pub struct DualOverlayInfo {
+    /// The secondary overlay mode (None = single overlay).
+    pub secondary: OverlayMode,
+    /// Blend or Split mode.
+    pub mode: DualOverlayMode,
+    /// Blend factor: 0.0 = only primary, 1.0 = only secondary.
+    pub blend_factor: f32,
+}
+
+impl Default for DualOverlayInfo {
+    fn default() -> Self {
+        Self {
+            secondary: OverlayMode::None,
+            mode: DualOverlayMode::Blend,
+            blend_factor: 0.5,
+        }
+    }
+}
+
+impl DualOverlayInfo {
+    /// Whether dual overlay is active (both primary and secondary are non-None).
+    pub fn is_active(&self, primary: &OverlayMode) -> bool {
+        *primary != OverlayMode::None && self.secondary != OverlayMode::None
+    }
+}
 #[derive(Component)]
 pub struct TerrainChunk {
     pub chunk_x: usize,
@@ -90,6 +116,7 @@ pub fn spawn_terrain_chunks(
                 weather.season,
                 ColorblindMode::Normal,
                 &network_viz,
+                &DualOverlayInfo::default(),
             );
             let (wx, wz) = chunk_world_pos(cx, cy);
 
@@ -112,7 +139,10 @@ pub fn spawn_terrain_chunks(
 
 #[allow(clippy::too_many_arguments)]
 pub fn dirty_chunks_on_overlay_change(
-    overlay: Res<crate::overlay::OverlayState>,
+    overlay_params: (
+        Res<crate::overlay::OverlayState>,
+        Res<crate::overlay::DualOverlayState>,
+    ),
     pollution_grid: Res<PollutionGrid>,
     land_value_grid: Res<LandValueGrid>,
     education_grid: Res<EducationGrid>,
@@ -120,8 +150,7 @@ pub fn dirty_chunks_on_overlay_change(
     traffic_grid: Res<TrafficGrid>,
     noise_grid: Res<NoisePollutionGrid>,
     water_pollution_grid: Res<WaterPollutionGrid>,
-    groundwater_grid: Res<GroundwaterGrid>,
-    water_quality_grid: Res<WaterQualityGrid>,
+    groundwater_grids: (Res<GroundwaterGrid>, Res<WaterQualityGrid>),
     weather: Res<Weather>,
     snow_grid: Res<SnowGrid>,
     network_viz: Res<NetworkVizData>,
@@ -131,7 +160,11 @@ pub fn dirty_chunks_on_overlay_change(
 ) {
     use crate::overlay::OverlayMode;
 
+    let (overlay, dual_overlay) = overlay_params;
+    let (groundwater_grid, water_quality_grid) = groundwater_grids;
+
     if overlay.is_changed()
+        || dual_overlay.is_changed()
         || weather.is_changed()
         || snow_grid.is_changed()
         || cb_settings.is_changed()
@@ -158,6 +191,28 @@ pub fn dirty_chunks_on_overlay_change(
 
     if data_changed {
         mark_all_chunks_dirty(&chunks, &mut commands);
+        return;
+    }
+
+    // When dual overlay is active, also dirty chunks if the secondary overlay's data changed
+    if dual_overlay.secondary != OverlayMode::None && overlay.mode != OverlayMode::None {
+        let secondary_changed = match dual_overlay.secondary {
+            OverlayMode::None => false,
+            OverlayMode::Power | OverlayMode::Water => network_viz.is_changed(),
+            OverlayMode::Pollution => pollution_grid.is_changed(),
+            OverlayMode::LandValue => land_value_grid.is_changed(),
+            OverlayMode::Education => education_grid.is_changed(),
+            OverlayMode::Garbage => garbage_grid.is_changed(),
+            OverlayMode::Traffic => traffic_grid.is_changed(),
+            OverlayMode::Noise => noise_grid.is_changed(),
+            OverlayMode::WaterPollution => water_pollution_grid.is_changed(),
+            OverlayMode::GroundwaterLevel => groundwater_grid.is_changed(),
+            OverlayMode::GroundwaterQuality => water_quality_grid.is_changed(),
+            OverlayMode::Wind => false,
+        };
+        if secondary_changed {
+            mark_all_chunks_dirty(&chunks, &mut commands);
+        }
     }
 }
 
@@ -167,7 +222,11 @@ pub fn rebuild_dirty_chunks(
     grid: Res<WorldGrid>,
     roads: Res<RoadNetwork>,
     segments: Res<RoadSegmentStore>,
-    overlay_params: (Res<crate::overlay::OverlayState>, Res<NetworkVizData>),
+    overlay_params: (
+        Res<crate::overlay::OverlayState>,
+        Res<NetworkVizData>,
+        Res<crate::overlay::DualOverlayState>,
+    ),
     pollution_grid: Res<PollutionGrid>,
     land_value_grid: Res<LandValueGrid>,
     education_grid: Res<EducationGrid>,
@@ -183,7 +242,7 @@ pub fn rebuild_dirty_chunks(
         ResMut<Assets<Mesh>>,
     ),
 ) {
-    let (overlay, network_viz) = overlay_params;
+    let (overlay, network_viz, dual_overlay) = overlay_params;
     let (groundwater_grid, water_quality_grid) = groundwater_grids;
     let (snow_grid, weather) = snow_params;
     let (query, mut meshes) = query;
@@ -201,6 +260,11 @@ pub fn rebuild_dirty_chunks(
         snow: Some(&snow_grid),
     };
     for (entity, chunk, mesh_handle) in &query {
+        let dual_info = DualOverlayInfo {
+            secondary: dual_overlay.secondary,
+            mode: dual_overlay.mode,
+            blend_factor: dual_overlay.blend_factor,
+        };
         let new_mesh = build_chunk_mesh(
             &grid,
             &roads,
@@ -212,6 +276,7 @@ pub fn rebuild_dirty_chunks(
             weather.season,
             cb_mode,
             &network_viz,
+            &dual_info,
         );
         meshes.insert(&mesh_handle.0, new_mesh);
         commands.entity(entity).remove::<ChunkDirty>();
@@ -236,6 +301,7 @@ pub fn build_chunk_mesh(
     season: Season,
     cb_mode: ColorblindMode,
     network_viz: &NetworkVizData,
+    dual: &DualOverlayInfo,
 ) -> Mesh {
     let cells_in_chunk = CHUNK_SIZE * CHUNK_SIZE;
     let mut positions: Vec<[f32; 3]> = Vec::with_capacity(cells_in_chunk * 4);
@@ -258,17 +324,49 @@ pub fn build_chunk_mesh(
             let cell = grid.get(gx, gy);
             let snow_depth = overlay_grids.snow.map(|sg| sg.get(gx, gy)).unwrap_or(0.0);
             let base_color = terrain_color(cell, gx, gy, season, snow_depth, cb_mode);
-            let color = apply_overlay(
-                base_color,
-                cell,
-                gx,
-                gy,
-                grid,
-                overlay,
-                overlay_grids,
-                cb_mode,
-                network_viz,
-            );
+            let color = if dual.is_active(overlay) {
+                let primary_color = apply_overlay(
+                    base_color,
+                    cell,
+                    gx,
+                    gy,
+                    grid,
+                    overlay,
+                    overlay_grids,
+                    cb_mode,
+                    network_viz,
+                );
+                let secondary_color = apply_overlay(
+                    base_color,
+                    cell,
+                    gx,
+                    gy,
+                    grid,
+                    &dual.secondary,
+                    overlay_grids,
+                    cb_mode,
+                    network_viz,
+                );
+                blend_dual_overlays(
+                    primary_color,
+                    secondary_color,
+                    gx,
+                    &dual.mode,
+                    dual.blend_factor,
+                )
+            } else {
+                apply_overlay(
+                    base_color,
+                    cell,
+                    gx,
+                    gy,
+                    grid,
+                    overlay,
+                    overlay_grids,
+                    cb_mode,
+                    network_viz,
+                )
+            };
 
             let x0 = lx as f32 * CELL_SIZE;
             let z0 = ly as f32 * CELL_SIZE;
@@ -416,6 +514,38 @@ fn terrain_color(
         Color::srgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0))
     } else {
         base_color
+    }
+}
+
+/// Blend two overlay colors for dual-overlay mode.
+/// In Blend mode: linear interpolation based on blend_factor.
+/// In Split mode: left half of grid uses primary, right half uses secondary.
+fn blend_dual_overlays(
+    primary: Color,
+    secondary: Color,
+    gx: usize,
+    mode: &DualOverlayMode,
+    blend_factor: f32,
+) -> Color {
+    match mode {
+        DualOverlayMode::Blend => {
+            let a = primary.to_srgba().to_f32_array();
+            let b = secondary.to_srgba().to_f32_array();
+            let t = blend_factor.clamp(0.0, 1.0);
+            Color::srgb(
+                a[0] * (1.0 - t) + b[0] * t,
+                a[1] * (1.0 - t) + b[1] * t,
+                a[2] * (1.0 - t) + b[2] * t,
+            )
+        }
+        DualOverlayMode::Split => {
+            let mid = GRID_WIDTH / 2;
+            if gx < mid {
+                primary
+            } else {
+                secondary
+            }
+        }
     }
 }
 

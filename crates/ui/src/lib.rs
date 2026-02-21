@@ -9,6 +9,7 @@ pub mod citizen_info;
 pub mod context_menu;
 pub mod day_night_panel;
 pub mod district_inspect;
+pub mod dual_overlay;
 pub mod graphs;
 pub mod info_panel;
 pub mod keybindings_panel;
@@ -55,6 +56,7 @@ impl Plugin for UiPlugin {
             .add_plugins(keybindings_panel::KeybindingsPanelPlugin)
             .add_plugins(search::SearchPlugin)
             .add_plugins(overlay_legend::OverlayLegendPlugin)
+            .add_plugins(dual_overlay::DualOverlayPlugin)
             .add_plugins(two_key_shortcuts::TwoKeyShortcutPlugin)
             .add_plugins(minimap::MinimapPlugin)
             .add_plugins(notification_ticker::NotificationTickerPlugin)
