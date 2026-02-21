@@ -190,6 +190,7 @@ fn handle_save(
     buildings: Query<(&Building, Option<&MixedUseBuilding>)>,
     citizens: Query<
         (
+            Entity,
             &CitizenDetails,
             &CitizenStateComp,
             &HomeLocation,
@@ -200,6 +201,7 @@ fn handle_save(
             &Personality,
             &Needs,
             &ActivityTimer,
+            &Family,
         ),
         With<Citizen>,
     >,
@@ -219,19 +221,23 @@ fn handle_save(
         let citizen_data: Vec<CitizenSaveInput> = citizens
             .iter()
             .map(
-                |(d, state, home, work, path, vel, pos, pers, needs, timer)| CitizenSaveInput {
-                    details: d.clone(),
-                    state: state.0,
-                    home_x: home.grid_x,
-                    home_y: home.grid_y,
-                    work_x: work.grid_x,
-                    work_y: work.grid_y,
-                    path: path.clone(),
-                    velocity: vel.clone(),
-                    position: pos.clone(),
-                    personality: pers.clone(),
-                    needs: needs.clone(),
-                    activity_timer: timer.0,
+                |(entity, d, state, home, work, path, vel, pos, pers, needs, timer, family)| {
+                    CitizenSaveInput {
+                        entity,
+                        details: d.clone(),
+                        state: state.0,
+                        home_x: home.grid_x,
+                        home_y: home.grid_y,
+                        work_x: work.grid_x,
+                        work_y: work.grid_y,
+                        path: path.clone(),
+                        velocity: vel.clone(),
+                        position: pos.clone(),
+                        personality: pers.clone(),
+                        needs: needs.clone(),
+                        activity_timer: timer.0,
+                        family: family.clone(),
+                    }
                 },
             )
             .collect();
@@ -524,6 +530,7 @@ fn handle_load(
         }
 
         // Restore citizens
+        let mut citizen_entities: Vec<Entity> = Vec::with_capacity(save.citizens.len());
         for sc in &save.citizens {
             let state = match sc.state {
                 1 => CitizenState::CommutingToWork,
@@ -613,48 +620,76 @@ fn handle_load(
                 salary * 2.0
             };
 
-            commands.spawn((
-                Citizen,
-                CitizenDetails {
-                    age: sc.age,
-                    gender,
-                    happiness: sc.happiness,
-                    health: sc.health,
-                    education: sc.education,
-                    salary,
-                    savings,
-                },
-                CitizenStateComp(restored_state),
-                HomeLocation {
-                    grid_x: sc.home_x,
-                    grid_y: sc.home_y,
-                    building: home_building,
-                },
-                WorkLocation {
-                    grid_x: sc.work_x,
-                    grid_y: sc.work_y,
-                    building: work_building,
-                },
-                Position { x: pos_x, y: pos_y },
-                velocity,
-                path_cache,
-                Personality {
-                    ambition: sc.ambition,
-                    sociability: sc.sociability,
-                    materialism: sc.materialism,
-                    resilience: sc.resilience,
-                },
-                Needs {
-                    hunger: sc.need_hunger,
-                    energy: sc.need_energy,
-                    social: sc.need_social,
-                    fun: sc.need_fun,
-                    comfort: sc.need_comfort,
-                },
-                Family::default(),
-                ActivityTimer(sc.activity_timer),
-                LodTier::default(),
-            ));
+            let cit_entity = commands
+                .spawn((
+                    Citizen,
+                    CitizenDetails {
+                        age: sc.age,
+                        gender,
+                        happiness: sc.happiness,
+                        health: sc.health,
+                        education: sc.education,
+                        salary,
+                        savings,
+                    },
+                    CitizenStateComp(restored_state),
+                    HomeLocation {
+                        grid_x: sc.home_x,
+                        grid_y: sc.home_y,
+                        building: home_building,
+                    },
+                    WorkLocation {
+                        grid_x: sc.work_x,
+                        grid_y: sc.work_y,
+                        building: work_building,
+                    },
+                    Position { x: pos_x, y: pos_y },
+                    velocity,
+                    path_cache,
+                    Personality {
+                        ambition: sc.ambition,
+                        sociability: sc.sociability,
+                        materialism: sc.materialism,
+                        resilience: sc.resilience,
+                    },
+                    Needs {
+                        hunger: sc.need_hunger,
+                        energy: sc.need_energy,
+                        social: sc.need_social,
+                        fun: sc.need_fun,
+                        comfort: sc.need_comfort,
+                    },
+                    Family::default(),
+                    ActivityTimer(sc.activity_timer),
+                    LodTier::default(),
+                ))
+                .id();
+            citizen_entities.push(cit_entity);
+        }
+
+        // Second pass: restore family relationships using saved citizen indices.
+        // Each SaveCitizen stores partner/children/parent as indices into the
+        // citizen array. Convert those indices to the new Entity IDs.
+        let num_citizens = citizen_entities.len();
+        for (i, sc) in save.citizens.iter().enumerate() {
+            let mut family = Family::default();
+            if (sc.family_partner as usize) < num_citizens {
+                family.partner = Some(citizen_entities[sc.family_partner as usize]);
+            }
+            for &child_idx in &sc.family_children {
+                if (child_idx as usize) < num_citizens {
+                    family.children.push(citizen_entities[child_idx as usize]);
+                }
+            }
+            if (sc.family_parent as usize) < num_citizens {
+                family.parent = Some(citizen_entities[sc.family_parent as usize]);
+            }
+            // Only update if there are actual relationships to restore
+            if family.partner.is_some() || !family.children.is_empty() || family.parent.is_some() {
+                if let Some(mut ec) = commands.get_entity(citizen_entities[i]) {
+                    ec.insert(family);
+                }
+            }
         }
 
         // Restore V2 fields (policies, weather, unlocks, extended budget, loans)

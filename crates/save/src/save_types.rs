@@ -7,8 +7,9 @@ use std::collections::BTreeMap;
 use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use bevy::prelude::Entity;
 use simulation::citizen::{
-    CitizenDetails, CitizenState, Needs, PathCache, Personality, Position, Velocity,
+    CitizenDetails, CitizenState, Family, Needs, PathCache, Personality, Position, Velocity,
 };
 
 // ---------------------------------------------------------------------------
@@ -47,7 +48,9 @@ use simulation::citizen::{
 /// v29 = urban_growth_boundary (UrbanGrowthBoundary serialization for UGB polygon)
 /// v30 = snow_state (SnowGrid + SnowPlowingState serialization for snow accumulation and plowing)
 /// v31 = agriculture_state (AgricultureState serialization for growing season and crop yield)
-pub const CURRENT_SAVE_VERSION: u32 = 31; // v31: Agriculture growing season
+/// v32 = family graph (partner/children/parent Entity refs serialized as citizen indices)
+// v32 = family graph (partner/children/parent relationships across save/load)
+pub const CURRENT_SAVE_VERSION: u32 = 32; // v32: Family graph serialization
 
 // ---------------------------------------------------------------------------
 // Save structs
@@ -303,6 +306,16 @@ pub struct SaveCitizen {
     // Activity timer
     #[serde(default)]
     pub activity_timer: u32,
+    // V32 fields: Family graph (backward-compatible via serde defaults)
+    /// Index into the citizen array for partner, or u32::MAX for none.
+    #[serde(default = "default_no_family_ref")]
+    pub family_partner: u32,
+    /// Indices into the citizen array for children.
+    #[serde(default)]
+    pub family_children: Vec<u32>,
+    /// Index into the citizen array for parent, or u32::MAX for none.
+    #[serde(default = "default_no_family_ref")]
+    pub family_parent: u32,
 }
 
 fn default_citizen_health() -> f32 {
@@ -331,6 +344,10 @@ fn default_need_fun() -> f32 {
 
 fn default_need_comfort() -> f32 {
     60.0
+}
+
+fn default_no_family_ref() -> u32 {
+    u32::MAX
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
@@ -849,9 +866,9 @@ impl SaveData {
         bitcode::decode(bytes)
     }
 }
-
 /// Input data for serializing a single citizen, collected from ECS queries.
 pub struct CitizenSaveInput {
+    pub entity: Entity,
     pub details: CitizenDetails,
     pub state: CitizenState,
     pub home_x: usize,
@@ -864,4 +881,5 @@ pub struct CitizenSaveInput {
     pub personality: Personality,
     pub needs: Needs,
     pub activity_timer: u32,
+    pub family: Family,
 }
