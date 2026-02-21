@@ -47,6 +47,7 @@ pub mod fog;
 pub mod forest_fire;
 pub mod form_transect;
 pub mod freehand_road;
+pub mod game_params;
 pub mod garbage;
 pub mod grid;
 pub mod groundwater;
@@ -307,6 +308,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "far_transfer",
     "flood_protection",
     "form_transect",
+    "game_params",
     "heat_mitigation",
     "historic_preservation",
     "inclusionary_zoning",
@@ -452,6 +454,7 @@ impl Plugin for SimulationPlugin {
 
         // Core simulation chain
         app.add_plugins((
+            game_params::GameParamsPlugin,
             time_of_day::TimeOfDayPlugin,
             zones::ZonesPlugin,
             buildings::BuildingsPlugin,

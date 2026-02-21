@@ -2,28 +2,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::buildings::{Building, MixedUseBuilding};
+use crate::game_params::{GameParams, ZoneDemandParams};
 use crate::grid::{CellType, WorldGrid, ZoneType};
-
-// ---------------------------------------------------------------------------
-// Natural vacancy rates: when vacancy is below these thresholds, demand rises;
-// when above, demand falls. The midpoint of each range is the equilibrium.
-// ---------------------------------------------------------------------------
-
-/// Natural vacancy rate range for residential zones (5-7%, midpoint 6%).
-const NATURAL_VACANCY_RES: (f32, f32) = (0.05, 0.07);
-/// Natural vacancy rate range for commercial zones (5-8%, midpoint 6.5%).
-const NATURAL_VACANCY_COM: (f32, f32) = (0.05, 0.08);
-/// Natural vacancy rate range for industrial zones (5-8%, midpoint 6.5%).
-const NATURAL_VACANCY_IND: (f32, f32) = (0.05, 0.08);
-/// Natural vacancy rate range for office zones (8-12%, midpoint 10%).
-const NATURAL_VACANCY_OFF: (f32, f32) = (0.08, 0.12);
-
-/// Damping factor applied to demand changes each tick to smooth oscillation.
-/// A value of 0.15 means demand moves at most 15% of the way toward the target.
-const DAMPING: f32 = 0.15;
-
-/// Bootstrap demand for the initial state when no buildings exist yet.
-const BOOTSTRAP_DEMAND: f32 = 0.5;
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct ZoneDemand {
@@ -269,7 +249,20 @@ fn office_workforce_factor(zs: &ZoneStats) -> f32 {
 
 /// Compute raw (un-damped) demand targets given zone stats.
 /// Returns (residential, commercial, industrial, office) demands in [0, 1].
+/// Convenience wrapper that uses default `ZoneDemandParams` (matching the
+/// original hardcoded constants). Used by unit tests and callers without
+/// access to the ECS.
 pub fn compute_market_demand(zs: &ZoneStats) -> (f32, f32, f32, f32) {
+    compute_market_demand_with_params(zs, &ZoneDemandParams::default())
+}
+
+/// Compute raw (un-damped) demand targets given zone stats and configurable
+/// zone demand parameters from [`GameParams`].
+/// Returns (residential, commercial, industrial, office) demands in [0, 1].
+pub fn compute_market_demand_with_params(
+    zs: &ZoneStats,
+    params: &ZoneDemandParams,
+) -> (f32, f32, f32, f32) {
     // --- Bootstrap: no buildings at all ---
     if !zs.has_roads {
         return (0.0, 0.0, 0.0, 0.0);
@@ -283,10 +276,10 @@ pub fn compute_market_demand(zs: &ZoneStats) -> (f32, f32, f32, f32) {
     if total_capacity == 0 {
         // Roads exist but no buildings: initial bootstrap demand.
         return (
-            BOOTSTRAP_DEMAND,
-            BOOTSTRAP_DEMAND * 0.4,
-            BOOTSTRAP_DEMAND * 0.6,
-            BOOTSTRAP_DEMAND * 0.2,
+            params.bootstrap_demand,
+            params.bootstrap_demand * 0.4,
+            params.bootstrap_demand * 0.6,
+            params.bootstrap_demand * 0.2,
         );
     }
 
@@ -297,10 +290,10 @@ pub fn compute_market_demand(zs: &ZoneStats) -> (f32, f32, f32, f32) {
     let vo = vacancy_rate(zs.office_capacity, zs.office_occupants);
 
     // --- Vacancy signals: positive = need more, negative = oversupplied ---
-    let r_vacancy_sig = vacancy_demand_signal(vr, NATURAL_VACANCY_RES);
-    let c_vacancy_sig = vacancy_demand_signal(vc, NATURAL_VACANCY_COM);
-    let i_vacancy_sig = vacancy_demand_signal(vi, NATURAL_VACANCY_IND);
-    let o_vacancy_sig = vacancy_demand_signal(vo, NATURAL_VACANCY_OFF);
+    let r_vacancy_sig = vacancy_demand_signal(vr, params.natural_vacancy_residential);
+    let c_vacancy_sig = vacancy_demand_signal(vc, params.natural_vacancy_commercial);
+    let i_vacancy_sig = vacancy_demand_signal(vi, params.natural_vacancy_industrial);
+    let o_vacancy_sig = vacancy_demand_signal(vo, params.natural_vacancy_office);
 
     // --- Market factor signals ---
     let emp_avail = employment_availability(zs);
@@ -343,6 +336,7 @@ pub fn update_zone_demand(
     buildings: Query<&Building>,
     mixed_use_buildings: Query<&MixedUseBuilding>,
     mut demand: ResMut<ZoneDemand>,
+    game_params: Res<GameParams>,
 ) {
     if !slow_tick.should_run() {
         return;
@@ -356,14 +350,16 @@ pub fn update_zone_demand(
     demand.vacancy_industrial = vacancy_rate(zs.industrial_capacity, zs.industrial_occupants);
     demand.vacancy_office = vacancy_rate(zs.office_capacity, zs.office_occupants);
 
-    // Compute raw target demand values.
-    let (r_target, c_target, i_target, o_target) = compute_market_demand(&zs);
+    // Compute raw target demand values using configurable parameters.
+    let zdp = &game_params.zone_demand;
+    let (r_target, c_target, i_target, o_target) = compute_market_demand_with_params(&zs, zdp);
 
     // Apply damping: smoothly interpolate toward target to avoid oscillation.
-    demand.residential += (r_target - demand.residential) * DAMPING;
-    demand.commercial += (c_target - demand.commercial) * DAMPING;
-    demand.industrial += (i_target - demand.industrial) * DAMPING;
-    demand.office += (o_target - demand.office) * DAMPING;
+    let damping = zdp.damping;
+    demand.residential += (r_target - demand.residential) * damping;
+    demand.commercial += (c_target - demand.commercial) * damping;
+    demand.industrial += (i_target - demand.industrial) * damping;
+    demand.office += (o_target - demand.office) * damping;
 
     // Ensure final values stay clamped.
     demand.residential = demand.residential.clamp(0.0, 1.0);
@@ -536,8 +532,9 @@ mod tests {
     #[test]
     fn test_vacancy_signal_at_midpoint_is_near_zero() {
         // At midpoint of natural vacancy range, signal should be ~0.
-        let mid = (NATURAL_VACANCY_RES.0 + NATURAL_VACANCY_RES.1) * 0.5;
-        let sig = vacancy_demand_signal(mid, NATURAL_VACANCY_RES);
+        let zdp = ZoneDemandParams::default();
+        let mid = (zdp.natural_vacancy_residential.0 + zdp.natural_vacancy_residential.1) * 0.5;
+        let sig = vacancy_demand_signal(mid, zdp.natural_vacancy_residential);
         assert!(
             sig.abs() < 0.05,
             "Signal at midpoint should be near zero, got {}",
@@ -548,14 +545,16 @@ mod tests {
     #[test]
     fn test_vacancy_signal_zero_vacancy_is_positive() {
         // 0% vacancy = extremely tight market = high positive demand signal.
-        let sig = vacancy_demand_signal(0.0, NATURAL_VACANCY_RES);
+        let zdp = ZoneDemandParams::default();
+        let sig = vacancy_demand_signal(0.0, zdp.natural_vacancy_residential);
         assert!(sig > 0.0, "Zero vacancy should give positive signal");
     }
 
     #[test]
     fn test_vacancy_signal_high_vacancy_is_negative() {
         // 50% vacancy = hugely oversupplied = negative demand signal.
-        let sig = vacancy_demand_signal(0.50, NATURAL_VACANCY_RES);
+        let zdp = ZoneDemandParams::default();
+        let sig = vacancy_demand_signal(0.50, zdp.natural_vacancy_residential);
         assert!(sig < 0.0, "High vacancy should give negative signal");
     }
 
@@ -735,10 +734,11 @@ mod tests {
         let (r_target, c_target, i_target, o_target) = compute_market_demand(&zs);
 
         // Apply damping once.
-        demand.residential += (r_target - demand.residential) * DAMPING;
-        demand.commercial += (c_target - demand.commercial) * DAMPING;
-        demand.industrial += (i_target - demand.industrial) * DAMPING;
-        demand.office += (o_target - demand.office) * DAMPING;
+        let zdp = ZoneDemandParams::default();
+        demand.residential += (r_target - demand.residential) * zdp.damping;
+        demand.commercial += (c_target - demand.commercial) * zdp.damping;
+        demand.industrial += (i_target - demand.industrial) * zdp.damping;
+        demand.office += (o_target - demand.office) * zdp.damping;
 
         // After one step, demand should be between 0 and target (not at target yet).
         assert!(

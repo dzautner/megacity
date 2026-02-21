@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::cumulative_zoning::{select_effective_zone, CumulativeZoningState};
+use crate::game_params::GameParams;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::weather::ConstructionModifiers;
 use crate::zones::{is_adjacent_to_road, ZoneDemand};
@@ -131,9 +132,6 @@ pub fn max_level_for_far(zone: ZoneType) -> u32 {
     best
 }
 
-/// Tick interval for building spawner (in sim ticks)
-const SPAWN_INTERVAL: u32 = 2;
-
 #[derive(Resource, Default)]
 pub struct BuildingSpawnTimer(pub u32);
 
@@ -193,9 +191,10 @@ pub fn building_spawner(
     mut timer: ResMut<BuildingSpawnTimer>,
     eligible: Res<EligibleCells>,
     cumulative_zoning: Res<CumulativeZoningState>,
+    game_params: Res<GameParams>,
 ) {
     timer.0 += 1;
-    if timer.0 < SPAWN_INTERVAL {
+    if timer.0 < game_params.building.spawn_interval_ticks {
         return;
     }
     timer.0 = 0;
@@ -208,7 +207,7 @@ pub fn building_spawner(
         }
 
         let spawn_chance = demand.demand_for(*zone);
-        let max_per_tick = 50;
+        let max_per_tick = game_params.building.max_buildings_per_zone_per_tick as usize;
 
         // Sample up to max_per_tick cells randomly from eligible list
         let selected: Vec<(usize, usize)> = cells
@@ -241,7 +240,7 @@ pub fn building_spawner(
             let far_cap = max_level_for_far(effective_zone) as u8;
             let initial_level = 1u8.min(far_cap);
             let capacity = Building::capacity_for_level(effective_zone, initial_level);
-            let construction_ticks = 100; // ~10 seconds at 10Hz
+            let construction_ticks = game_params.building.construction_ticks;
             let entity = if effective_zone == ZoneType::MixedUse {
                 let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(initial_level);
                 commands

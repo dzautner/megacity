@@ -10,6 +10,7 @@ use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, HomeLocation, Needs, PathCache,
     PathRequest, Position, Velocity, WorkLocation,
 };
+use crate::game_params::GameParams;
 use crate::grid::{RoadType, WorldGrid};
 use crate::lod::LodTier;
 use crate::pathfinding_sys::nearest_road_grid;
@@ -31,14 +32,6 @@ const MAX_PATHS_PER_TICK_WASM: usize = 256;
 
 /// Time budget for synchronous pathfinding per tick (WASM fallback).
 const PATH_BUDGET_WASM: Duration = Duration::from_millis(2);
-
-const CITIZEN_SPEED: f32 = 48.0; // pixels per second (at 10Hz that's ~4.8 px/tick)
-
-// Duration limits (in ticks) for activities
-const SHOPPING_DURATION: u32 = 30; // ~3 game minutes
-const LEISURE_DURATION: u32 = 60; // ~6 game minutes
-const SCHOOL_HOURS_START: u32 = 8;
-const SCHOOL_HOURS_END: u32 = 15;
 
 /// Per-citizen tick counter for activity durations
 #[derive(Component, Debug, Clone, Default)]
@@ -159,6 +152,7 @@ pub fn invalidate_paths_on_road_removal(
 pub fn citizen_state_machine(
     clock: Res<GameClock>,
     dest_cache: Res<DestinationCache>,
+    game_params: Res<GameParams>,
     mut commands: Commands,
     mut query: Query<
         (
@@ -212,7 +206,9 @@ pub fn citizen_state_machine(
 
                 // Children: go to school during school hours (with jitter)
                 if life_stage.should_attend_school()
-                    && (SCHOOL_HOURS_START..SCHOOL_HOURS_END).contains(&hour)
+                    && (game_params.citizen.school_hours_start
+                        ..game_params.citizen.school_hours_end)
+                        .contains(&hour)
                     && (minute % 60 == jitter % 60)
                 {
                     if let Some(dest) = find_nearest(school_spots, home.grid_x, home.grid_y, 30) {
@@ -355,7 +351,7 @@ pub fn citizen_state_machine(
             // ---- SHOPPING ----
             CitizenState::Shopping => {
                 timer.0 += 1;
-                if timer.0 >= SHOPPING_DURATION {
+                if timer.0 >= game_params.citizen.shopping_duration_ticks {
                     let (gx, gy) = WorldGrid::world_to_grid(pos.x, pos.y);
                     commands.entity(entity).insert(PathRequest {
                         from_gx: gx.max(0) as usize,
@@ -378,7 +374,7 @@ pub fn citizen_state_machine(
             // ---- AT LEISURE ----
             CitizenState::AtLeisure => {
                 timer.0 += 1;
-                if timer.0 >= LEISURE_DURATION || hour >= 21 {
+                if timer.0 >= game_params.citizen.leisure_duration_ticks || hour >= 21 {
                     let (gx, gy) = WorldGrid::world_to_grid(pos.x, pos.y);
                     commands.entity(entity).insert(PathRequest {
                         from_gx: gx.max(0) as usize,
@@ -399,7 +395,7 @@ pub fn citizen_state_machine(
 
             // ---- AT SCHOOL ----
             CitizenState::AtSchool => {
-                if hour >= SCHOOL_HOURS_END {
+                if hour >= game_params.citizen.school_hours_end {
                     let (gx, gy) = WorldGrid::world_to_grid(pos.x, pos.y);
                     commands.entity(entity).insert(PathRequest {
                         from_gx: gx.max(0) as usize,
@@ -555,6 +551,7 @@ pub fn collect_path_results(
 #[allow(clippy::type_complexity)]
 pub fn move_citizens(
     clock: Res<GameClock>,
+    game_params: Res<GameParams>,
     weather: Res<crate::weather::Weather>,
     fog: Res<crate::fog::FogState>,
     snow_stats: Res<crate::snow::SnowStats>,
@@ -578,7 +575,7 @@ pub fn move_citizens(
     // Combine weather-based speed reduction with snow-based and fog-based speed reduction.
     // Snow and fog speed multipliers stack multiplicatively with weather speed multiplier.
     let snow_mult = snow_stats.road_speed_multiplier.max(0.2);
-    let speed_per_tick = (CITIZEN_SPEED / 10.0)
+    let speed_per_tick = (game_params.citizen.speed / 10.0)
         * weather.travel_speed_multiplier_with_fog(fog.traffic_speed_modifier)
         * snow_mult;
 
