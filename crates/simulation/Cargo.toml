@@ -22,3 +22,7 @@ criterion = { version = "0.5", features = ["html_reports"] }
 name = "city_perf"
 harness = false
 required-features = ["bench"]
+
+# Desktop-only: winit needs a native windowing backend for benchmarks (TestCity uses a Bevy App)
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { workspace = true, features = ["x11"] }
