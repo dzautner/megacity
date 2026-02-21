@@ -4550,16 +4550,17 @@ fn test_curved_road_different_types() {
 
 #[test]
 fn test_quadratic_to_cubic_conversion_preserves_midpoint() {
-    use simulation::curve_road_drawing::quadratic_to_cubic;
+    use crate::curve_road_drawing::quadratic_to_cubic;
+    use bevy::math::Vec2;
 
-    let p0 = bevy::math::Vec2::new(0.0, 0.0);
-    let control = bevy::math::Vec2::new(150.0, 200.0);
-    let p3 = bevy::math::Vec2::new(300.0, 0.0);
+    let p0 = Vec2::new(0.0, 0.0);
+    let control = Vec2::new(150.0, 200.0);
+    let p3 = Vec2::new(300.0, 0.0);
 
     let (p1, p2) = quadratic_to_cubic(p0, control, p3);
 
-    let quad_mid = 0.25 * p0 + 0.5 * control + 0.25 * p3;
-    let cubic_mid = 0.125 * p0 + 0.375 * p1 + 0.375 * p2 + 0.125 * p3;
+    let quad_mid: Vec2 = 0.25 * p0 + 0.5 * control + 0.25 * p3;
+    let cubic_mid: Vec2 = 0.125 * p0 + 0.375 * p1 + 0.375 * p2 + 0.125 * p3;
 
     assert!(
         (quad_mid - cubic_mid).length() < 0.1,
