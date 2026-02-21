@@ -17,6 +17,7 @@ fn main() {
     // the CSS layout size, preventing the coordinate mismatch that made every
     // click land in the wrong place and the UI appear unresponsive.
     let primary_window = {
+        #[allow(unused_mut)]
         let mut win = Window {
             title: "MegaCity".to_string(),
             resolution: (1280.0, 720.0).into(),
