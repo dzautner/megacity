@@ -11,5 +11,26 @@ simulation = { path = "../simulation" }
 rendering = { path = "../rendering" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features = ["Window", "Storage"] }
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Storage",
+    "Event",
+    "EventTarget",
+    "IdbFactory",
+    "IdbDatabase",
+    "IdbObjectStore",
+    "IdbObjectStoreParameters",
+    "IdbOpenDbRequest",
+    "IdbRequest",
+    "IdbTransaction",
+    "IdbTransactionMode",
+    "IdbVersionChangeEvent",
+    "DomStringList",
+    "DomException",
+    "console",
+] }
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+futures-channel = "0.3"
 flate2 = "1.1"
