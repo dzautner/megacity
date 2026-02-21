@@ -11766,3 +11766,457 @@ fn test_save_data_deterministic_across_cycles() {
         );
     }
 }
+
+// ====================================================================
+// TEST-055: Utility Loss -> Abandonment Chain
+// ====================================================================
+
+/// Verify that a building with both power and water initially has coverage,
+/// and that removing utility sources causes the building to lose coverage
+/// after propagation re-runs.
+#[test]
+fn test_utility_loss_building_loses_power_and_water() {
+    // Place a road from (50,50) to (60,50) with utility sources at one end
+    // and a building adjacent to the road.
+    let mut city = TestCity::new()
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_utility(50, 50, UtilityType::PowerPlant)
+        .with_utility(50, 51, UtilityType::WaterTower)
+        .with_building(55, 49, ZoneType::ResidentialLow, 1);
+
+    // Tick so utility propagation runs and coverage spreads
+    city.tick(5);
+
+    // The building cell should have both power and water
+    let cell = city.cell(55, 49);
+    assert!(
+        cell.has_power,
+        "building cell should have power before removal"
+    );
+    assert!(
+        cell.has_water,
+        "building cell should have water before removal"
+    );
+
+    // Find and despawn both utility source entities
+    let utility_entities: Vec<bevy::prelude::Entity> = {
+        let world = city.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &UtilitySource)>()
+            .iter(world)
+            .map(|(e, _)| e)
+            .collect()
+    };
+    for entity in utility_entities {
+        city.world_mut().despawn(entity);
+    }
+
+    // Force weather change to trigger re-propagation of utilities
+    {
+        let world = city.world_mut();
+        let mut weather = world.resource_mut::<Weather>();
+        weather.temperature += 0.1;
+    }
+
+    // Tick again so propagation runs with no sources
+    city.tick(5);
+
+    // Building cell should now lack both utilities
+    let cell = city.cell(55, 49);
+    assert!(
+        !cell.has_power,
+        "building cell should lose power after source removal"
+    );
+    assert!(
+        !cell.has_water,
+        "building cell should lose water after source removal"
+    );
+}
+
+/// Core abandonment flow: a building that loses both power and water
+/// should become abandoned within CHECK_INTERVAL (50) ticks.
+#[test]
+fn test_utility_loss_triggers_abandonment() {
+    use crate::abandonment::Abandoned;
+
+    let mut city = TestCity::new()
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_utility(50, 50, UtilityType::PowerPlant)
+        .with_utility(50, 51, UtilityType::WaterTower)
+        .with_building(55, 49, ZoneType::ResidentialLow, 1);
+
+    // Run a few ticks so utilities propagate and building has coverage
+    city.tick(5);
+
+    // Give the building some occupants
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<&mut Building>();
+        for mut building in query.iter_mut(world) {
+            if building.grid_x == 55 && building.grid_y == 49 {
+                building.occupants = 5;
+            }
+        }
+    }
+
+    // Verify building is NOT abandoned before utility removal
+    {
+        let world = city.world_mut();
+        let abandoned_count = world.query::<&Abandoned>().iter(world).count();
+        assert_eq!(
+            abandoned_count, 0,
+            "no buildings should be abandoned initially"
+        );
+    }
+
+    // Remove utility sources
+    let utility_entities: Vec<bevy::prelude::Entity> = {
+        let world = city.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &UtilitySource)>()
+            .iter(world)
+            .map(|(e, _)| e)
+            .collect()
+    };
+    for entity in utility_entities {
+        city.world_mut().despawn(entity);
+    }
+
+    // Force weather change to trigger utility re-propagation
+    {
+        let world = city.world_mut();
+        let mut weather = world.resource_mut::<Weather>();
+        weather.temperature += 0.1;
+    }
+
+    // Tick enough for utility propagation + abandonment check (CHECK_INTERVAL = 50)
+    city.tick(55);
+
+    // Building should now be marked as Abandoned
+    let abandoned_count = {
+        let world = city.world_mut();
+        world.query::<&Abandoned>().iter(world).count()
+    };
+    assert!(
+        abandoned_count > 0,
+        "building should be marked abandoned after losing both utilities"
+    );
+}
+
+/// Verify that an abandoned building has its occupants forced to 0.
+#[test]
+fn test_abandoned_building_evicts_occupants() {
+    use crate::abandonment::Abandoned;
+
+    let mut city = TestCity::new()
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_utility(50, 50, UtilityType::PowerPlant)
+        .with_utility(50, 51, UtilityType::WaterTower)
+        .with_building(55, 49, ZoneType::ResidentialLow, 1);
+
+    // Let utilities propagate
+    city.tick(5);
+
+    // Give the building occupants
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<&mut Building>();
+        for mut building in query.iter_mut(world) {
+            if building.grid_x == 55 && building.grid_y == 49 {
+                building.occupants = 8;
+            }
+        }
+    }
+
+    // Remove utility sources
+    let utility_entities: Vec<bevy::prelude::Entity> = {
+        let world = city.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &UtilitySource)>()
+            .iter(world)
+            .map(|(e, _)| e)
+            .collect()
+    };
+    for entity in utility_entities {
+        city.world_mut().despawn(entity);
+    }
+
+    // Trigger re-propagation
+    {
+        let world = city.world_mut();
+        let mut weather = world.resource_mut::<Weather>();
+        weather.temperature += 0.1;
+    }
+
+    // Tick past the abandonment check interval
+    city.tick(55);
+
+    // Verify building occupants are forced to 0
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<(&Building, &Abandoned)>();
+        let mut found_abandoned = false;
+        for (building, _abandoned) in query.iter(world) {
+            if building.grid_x == 55 && building.grid_y == 49 {
+                assert_eq!(
+                    building.occupants, 0,
+                    "abandoned building should have 0 occupants"
+                );
+                found_abandoned = true;
+            }
+        }
+        assert!(found_abandoned, "building at (55, 49) should be abandoned");
+    }
+}
+
+/// Verify that an abandoned building recovers when both utilities are restored.
+#[test]
+fn test_abandoned_building_recovers_when_utilities_restored() {
+    use crate::abandonment::Abandoned;
+
+    let mut city = TestCity::new()
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_utility(50, 50, UtilityType::PowerPlant)
+        .with_utility(50, 51, UtilityType::WaterTower)
+        .with_building(55, 49, ZoneType::ResidentialLow, 1);
+
+    // Let utilities propagate
+    city.tick(5);
+
+    // Directly set building cell to have no utilities (simulating loss)
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        grid.get_mut(55, 49).has_power = false;
+        grid.get_mut(55, 49).has_water = false;
+    }
+
+    // Tick past the abandonment check
+    city.tick(55);
+
+    // Building should be abandoned now
+    {
+        let world = city.world_mut();
+        let abandoned_count = world.query::<&Abandoned>().iter(world).count();
+        assert!(
+            abandoned_count > 0,
+            "building should be abandoned after losing utilities"
+        );
+    }
+
+    // Utilities are still present (we only modified grid flags), so on next propagation
+    // the cell will regain power+water. Trigger re-propagation via weather change.
+    {
+        let world = city.world_mut();
+        let mut weather = world.resource_mut::<Weather>();
+        weather.temperature += 0.1;
+    }
+
+    // Tick enough for propagation + recovery check
+    city.tick(5);
+
+    // Building should recover (Abandoned component removed)
+    {
+        let world = city.world_mut();
+        let abandoned_count = world.query::<&Abandoned>().iter(world).count();
+        assert_eq!(
+            abandoned_count, 0,
+            "building should recover after utilities are restored"
+        );
+    }
+}
+
+/// Verify that an abandoned building is demolished after DEMOLISH_THRESHOLD ticks.
+#[test]
+fn test_abandoned_building_demolished_after_threshold() {
+    use crate::abandonment::Abandoned;
+
+    let mut city = TestCity::new().with_building(55, 55, ZoneType::ResidentialLow, 1);
+
+    // Directly mark the building cell as having no utilities
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        grid.get_mut(55, 55).has_power = false;
+        grid.get_mut(55, 55).has_water = false;
+    }
+
+    // Tick past the abandonment check so it becomes abandoned
+    city.tick(55);
+
+    // Confirm it is abandoned
+    {
+        let world = city.world_mut();
+        let abandoned_count = world.query::<&Abandoned>().iter(world).count();
+        assert!(abandoned_count > 0, "building should be abandoned");
+    }
+
+    // Keep cells without utilities by overriding every tick
+    // We need to run 500+ more ticks for demolition
+    // The process_abandoned_buildings system increments ticks_abandoned each tick
+    // and demolishes when > 500.
+    // Since propagation resets cells, we need to keep the utility sources gone.
+    // The building has no road connection and no utility sources, so propagation
+    // won't give it coverage.
+
+    // Tick past DEMOLISH_THRESHOLD (500 ticks)
+    city.tick(510);
+
+    // Building should be demolished (entity despawned)
+    let building_count = city.building_count();
+    assert_eq!(
+        building_count, 0,
+        "building should be demolished after abandonment threshold"
+    );
+
+    // Grid cell should be cleared
+    let cell = city.cell(55, 55);
+    assert!(
+        cell.building_id.is_none(),
+        "grid cell building_id should be cleared after demolition"
+    );
+    assert_eq!(
+        cell.zone,
+        ZoneType::None,
+        "grid cell zone should be cleared after demolition"
+    );
+}
+
+/// Full chain test with citizens: building with citizens loses utilities,
+/// becomes abandoned, citizens are evicted (occupants = 0).
+#[test]
+fn test_utility_loss_abandonment_chain_with_citizens() {
+    use crate::abandonment::Abandoned;
+
+    // Set up a city with road, utilities, residential building, work building, and citizens
+    let mut city = TestCity::new()
+        .with_road(50, 50, 65, 50, RoadType::Local)
+        .with_utility(50, 50, UtilityType::PowerPlant)
+        .with_utility(50, 51, UtilityType::WaterTower)
+        .with_building(55, 49, ZoneType::ResidentialLow, 1)
+        .with_building(60, 49, ZoneType::CommercialLow, 1)
+        .with_citizen((55, 49), (60, 49))
+        .with_citizen((55, 49), (60, 49))
+        .with_citizen((55, 49), (60, 49));
+
+    // Let utilities propagate
+    city.tick(5);
+
+    // Verify building has power and water and occupants
+    assert!(
+        city.cell(55, 49).has_power,
+        "home building should have power"
+    );
+    assert!(
+        city.cell(55, 49).has_water,
+        "home building should have water"
+    );
+
+    // Set occupants on the home building
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<&mut Building>();
+        for mut building in query.iter_mut(world) {
+            if building.grid_x == 55 && building.grid_y == 49 {
+                building.occupants = 3;
+            }
+        }
+    }
+
+    // Remove all utility sources
+    let utility_entities: Vec<bevy::prelude::Entity> = {
+        let world = city.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &UtilitySource)>()
+            .iter(world)
+            .map(|(e, _)| e)
+            .collect()
+    };
+    for entity in utility_entities {
+        city.world_mut().despawn(entity);
+    }
+
+    // Force re-propagation
+    {
+        let world = city.world_mut();
+        let mut weather = world.resource_mut::<Weather>();
+        weather.temperature += 0.1;
+    }
+
+    // Tick past abandonment check interval
+    city.tick(55);
+
+    // Verify the home building is abandoned and occupants = 0
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<(&Building, &Abandoned)>();
+        let mut found_home_abandoned = false;
+        for (building, _) in query.iter(world) {
+            if building.grid_x == 55 && building.grid_y == 49 {
+                assert_eq!(
+                    building.occupants, 0,
+                    "abandoned home building should have 0 occupants (citizens evicted)"
+                );
+                found_home_abandoned = true;
+            }
+        }
+        assert!(
+            found_home_abandoned,
+            "home building should be marked abandoned after utility loss"
+        );
+    }
+}
+
+/// Verify that losing only power (but retaining water) does NOT trigger
+/// abandonment, since the condition requires BOTH to be missing.
+#[test]
+fn test_partial_utility_loss_no_abandonment() {
+    use crate::abandonment::Abandoned;
+
+    let mut city = TestCity::new()
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_utility(50, 50, UtilityType::PowerPlant)
+        .with_utility(50, 51, UtilityType::WaterTower)
+        .with_building(55, 49, ZoneType::ResidentialLow, 1);
+
+    // Let utilities propagate
+    city.tick(5);
+
+    // Remove only the power plant (keep water tower)
+    let power_entity: Option<bevy::prelude::Entity> = {
+        let world = city.world_mut();
+        world
+            .query::<(bevy::prelude::Entity, &UtilitySource)>()
+            .iter(world)
+            .find(|(_, s)| s.utility_type == UtilityType::PowerPlant)
+            .map(|(e, _)| e)
+    };
+    if let Some(entity) = power_entity {
+        city.world_mut().despawn(entity);
+    }
+
+    // Force re-propagation
+    {
+        let world = city.world_mut();
+        let mut weather = world.resource_mut::<Weather>();
+        weather.temperature += 0.1;
+    }
+
+    // Tick past abandonment check interval
+    city.tick(55);
+
+    // Cell should still have water but not power
+    let cell = city.cell(55, 49);
+    assert!(!cell.has_power, "building cell should have lost power");
+    assert!(cell.has_water, "building cell should still have water");
+
+    // Building should NOT be abandoned (only one utility missing)
+    let abandoned_count = {
+        let world = city.world_mut();
+        world.query::<&Abandoned>().iter(world).count()
+    };
+    assert_eq!(
+        abandoned_count, 0,
+        "building should NOT be abandoned when only one utility is missing"
+    );
+}
