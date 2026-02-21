@@ -238,8 +238,10 @@ pub fn job_seeking(
 
     let mut rng = rand::thread_rng();
 
-    // Collect available workplaces
-    let available_jobs: Vec<(Entity, usize, usize, ZoneType, u32)> = buildings
+    // Collect available workplaces with mutable remaining slot counts.
+    // The remaining_slots field is decremented as citizens are assigned
+    // within this tick to prevent overfilling beyond capacity.
+    let mut available_jobs: Vec<(Entity, usize, usize, ZoneType, u32)> = buildings
         .iter()
         .filter(|(_, b)| b.zone_type.is_job_zone() && b.occupants < b.capacity)
         .map(|(e, b)| (e, b.grid_x, b.grid_y, b.zone_type, b.capacity - b.occupants))
@@ -277,6 +279,19 @@ pub fn job_seeking(
                 building.occupants += 1;
             }
 
+            // Decrement remaining slots in the snapshot to prevent
+            // assigning more citizens than capacity in a single tick.
+            if let Some(job) = available_jobs
+                .iter_mut()
+                .find(|(e, _, _, _, _)| *e == job_entity)
+            {
+                job.4 = job.4.saturating_sub(1);
+                // Remove fully-filled jobs so they are not considered again
+                if job.4 == 0 {
+                    available_jobs.retain(|(e, _, _, _, _)| *e != job_entity);
+                }
+            }
+
             // Set salary based on education and job match
             commands.entity(citizen_entity).insert(CitizenDetails {
                 salary: calculate_salary(details.education, details.age),
@@ -307,15 +322,18 @@ fn find_matching_job(
         _ => &[ZoneType::Office, ZoneType::CommercialHigh],
     };
 
-    // First try preferred zones, sorted by distance
+    // First try preferred zones, sorted by distance (only those with remaining slots)
     let mut candidates: Vec<_> = jobs
         .iter()
-        .filter(|(_, _, _, zt, _)| preferred.contains(zt))
+        .filter(|(_, _, _, zt, remaining)| *remaining > 0 && preferred.contains(zt))
         .collect();
 
     if candidates.is_empty() {
-        // Fall back to any available job
-        candidates = jobs.iter().collect();
+        // Fall back to any available job with remaining slots
+        candidates = jobs
+            .iter()
+            .filter(|(_, _, _, _, remaining)| *remaining > 0)
+            .collect();
     }
 
     if candidates.is_empty() {
