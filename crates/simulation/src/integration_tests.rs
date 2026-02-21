@@ -2359,15 +2359,16 @@ fn test_job_seeking_does_not_overfill_capacity() {
 /// Bevy would panic with an ambiguity error or the systems would not run.
 #[test]
 fn test_simulation_set_phases_configured() {
+    use crate::grid::{RoadType, ZoneType};
     use crate::test_harness::TestCity;
 
     // Build a minimal city and run a few ticks.  If the phase ordering is
     // misconfigured (e.g. circular dependency, missing configure_sets) this
     // will panic.
     let mut city = TestCity::new()
-        .with_road(128, 128, 128, 131)
-        .with_zone(129, 128, crate::grid::ZoneType::Residential)
-        .with_zone(129, 130, crate::grid::ZoneType::Commercial);
+        .with_road(128, 128, 128, 131, RoadType::Local)
+        .with_zone(129, 128, ZoneType::ResidentialLow)
+        .with_zone(129, 130, ZoneType::CommercialLow);
     city.tick(5);
 
     // Sanity: game clock should have advanced (PreSim systems ran)
