@@ -3708,3 +3708,230 @@ fn test_tel_aviv_behavioral_invariants_after_simulation() {
         }
     }
 }
+
+// ====================================================================
+// Blueprint system integration tests
+// ====================================================================
+
+#[test]
+fn test_blueprint_capture_empty_area_produces_empty_blueprint() {
+    let city = TestCity::new();
+    let grid = city.grid();
+    let segments = city.road_segments();
+
+    let bp =
+        crate::blueprints::Blueprint::capture(grid, segments, 50, 50, 10, 10, "Empty".to_string());
+    assert_eq!(bp.name, "Empty");
+    assert_eq!(bp.width, 10);
+    assert_eq!(bp.height, 10);
+    assert!(bp.segments.is_empty(), "empty area should have no segments");
+    assert!(
+        bp.zone_cells.is_empty(),
+        "empty area should have no zone cells"
+    );
+}
+
+#[test]
+fn test_blueprint_capture_and_place_zones() {
+    let city = TestCity::new().with_zone_rect(20, 20, 24, 24, ZoneType::ResidentialLow);
+
+    let grid = city.grid();
+    let segments = city.road_segments();
+
+    // Capture the zoned region
+    let bp =
+        crate::blueprints::Blueprint::capture(grid, segments, 20, 20, 5, 5, "ResBlock".to_string());
+    assert_eq!(
+        bp.zone_cells.len(),
+        25,
+        "5x5 region should capture 25 zone cells"
+    );
+
+    // Place it at a different location
+    let mut city = city;
+    let world = city.world_mut();
+    world.resource_scope(|world, mut grid: bevy::prelude::Mut<WorldGrid>| {
+        world.resource_scope(|world, mut segs: bevy::prelude::Mut<RoadSegmentStore>| {
+            world.resource_scope(|_world, mut roads: bevy::prelude::Mut<RoadNetwork>| {
+                let result = bp.place(&mut grid, &mut segs, &mut roads, 100, 100);
+                assert_eq!(result.zones_placed, 25, "should place 25 zone cells");
+            });
+        });
+    });
+
+    // Verify zones were placed at the new location
+    let grid = city.grid();
+    for y in 100..105 {
+        for x in 100..105 {
+            assert_eq!(
+                grid.get(x, y).zone,
+                ZoneType::ResidentialLow,
+                "cell ({},{}) should be ResidentialLow",
+                x,
+                y
+            );
+        }
+    }
+    // Verify original zone is still there
+    assert_eq!(grid.get(20, 20).zone, ZoneType::ResidentialLow);
+}
+
+#[test]
+fn test_blueprint_capture_and_place_road_segments() {
+    let city = TestCity::new().with_road(30, 30, 30, 40, RoadType::Avenue);
+
+    let initial_seg_count = city.road_segments().segments.len();
+    assert!(initial_seg_count > 0, "should have at least one segment");
+
+    let grid = city.grid();
+    let segments = city.road_segments();
+
+    // Capture region containing the road
+    let bp =
+        crate::blueprints::Blueprint::capture(grid, segments, 25, 25, 20, 20, "Road".to_string());
+    assert!(!bp.segments.is_empty(), "should capture road segments");
+    assert_eq!(
+        bp.segments[0].road_type,
+        crate::blueprints::BlueprintRoadType::Avenue,
+        "captured segment should be Avenue type"
+    );
+
+    // Place at a new location
+    let mut city = city;
+    let world = city.world_mut();
+    world.resource_scope(|world, mut grid: bevy::prelude::Mut<WorldGrid>| {
+        world.resource_scope(|world, mut segs: bevy::prelude::Mut<RoadSegmentStore>| {
+            world.resource_scope(|_world, mut roads: bevy::prelude::Mut<RoadNetwork>| {
+                let result = bp.place(&mut grid, &mut segs, &mut roads, 100, 100);
+                assert!(
+                    result.segments_placed > 0,
+                    "should place at least one segment"
+                );
+            });
+        });
+    });
+
+    // Verify new segments were added
+    let final_seg_count = city.road_segments().segments.len();
+    assert!(
+        final_seg_count > initial_seg_count,
+        "segment count should increase after placing blueprint"
+    );
+}
+
+#[test]
+fn test_blueprint_place_skips_water_cells() {
+    let mut city = TestCity::new();
+
+    // Set some cells to water
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        grid.get_mut(80, 80).cell_type = CellType::Water;
+        grid.get_mut(81, 80).cell_type = CellType::Water;
+    }
+
+    let bp = crate::blueprints::Blueprint {
+        name: "Test".to_string(),
+        width: 3,
+        height: 1,
+        segments: vec![],
+        zone_cells: vec![
+            crate::blueprints::BlueprintZoneCell {
+                dx: 0,
+                dy: 0,
+                zone_type: crate::blueprints::BlueprintZoneType::ResidentialLow,
+            },
+            crate::blueprints::BlueprintZoneCell {
+                dx: 1,
+                dy: 0,
+                zone_type: crate::blueprints::BlueprintZoneType::ResidentialLow,
+            },
+            crate::blueprints::BlueprintZoneCell {
+                dx: 2,
+                dy: 0,
+                zone_type: crate::blueprints::BlueprintZoneType::ResidentialLow,
+            },
+        ],
+    };
+
+    let world = city.world_mut();
+    world.resource_scope(|world, mut grid: bevy::prelude::Mut<WorldGrid>| {
+        world.resource_scope(|world, mut segs: bevy::prelude::Mut<RoadSegmentStore>| {
+            world.resource_scope(|_world, mut roads: bevy::prelude::Mut<RoadNetwork>| {
+                let result = bp.place(&mut grid, &mut segs, &mut roads, 80, 80);
+                // Two cells are water, only one should be placed
+                assert_eq!(result.zones_placed, 1, "should skip water cells");
+            });
+        });
+    });
+}
+
+#[test]
+fn test_blueprint_library_saveable_persistence() {
+    let mut lib = crate::blueprints::BlueprintLibrary::default();
+    lib.add(crate::blueprints::Blueprint {
+        name: "Saved Layout".to_string(),
+        width: 15,
+        height: 15,
+        segments: vec![crate::blueprints::BlueprintSegment {
+            p0: [0.0, 0.0],
+            p1: [80.0, 0.0],
+            p2: [160.0, 0.0],
+            p3: [240.0, 0.0],
+            road_type: crate::blueprints::BlueprintRoadType::Boulevard,
+        }],
+        zone_cells: vec![crate::blueprints::BlueprintZoneCell {
+            dx: 1,
+            dy: 0,
+            zone_type: crate::blueprints::BlueprintZoneType::CommercialHigh,
+        }],
+    });
+
+    // Save to bytes and restore
+    use crate::Saveable;
+    let bytes = lib.save_to_bytes().expect("non-empty library should save");
+    let restored = crate::blueprints::BlueprintLibrary::load_from_bytes(&bytes);
+
+    assert_eq!(restored.count(), 1);
+    let bp = restored.get(0).unwrap();
+    assert_eq!(bp.name, "Saved Layout");
+    assert_eq!(bp.segments.len(), 1);
+    assert_eq!(bp.zone_cells.len(), 1);
+}
+
+#[test]
+fn test_blueprint_multiple_placements_are_independent() {
+    let city = TestCity::new().with_zone_rect(10, 10, 12, 12, ZoneType::Industrial);
+
+    let grid = city.grid();
+    let segments = city.road_segments();
+    let bp =
+        crate::blueprints::Blueprint::capture(grid, segments, 10, 10, 3, 3, "Factory".to_string());
+    assert_eq!(bp.zone_cells.len(), 9);
+
+    let mut city = city;
+
+    // Place at two different locations
+    let world = city.world_mut();
+    world.resource_scope(|world, mut grid: bevy::prelude::Mut<WorldGrid>| {
+        world.resource_scope(|world, mut segs: bevy::prelude::Mut<RoadSegmentStore>| {
+            world.resource_scope(|_world, mut roads: bevy::prelude::Mut<RoadNetwork>| {
+                let r1 = bp.place(&mut grid, &mut segs, &mut roads, 60, 60);
+                assert_eq!(r1.zones_placed, 9);
+
+                let r2 = bp.place(&mut grid, &mut segs, &mut roads, 80, 80);
+                assert_eq!(r2.zones_placed, 9);
+            });
+        });
+    });
+
+    // Verify both placements exist independently
+    let grid = city.grid();
+    assert_eq!(grid.get(60, 60).zone, ZoneType::Industrial);
+    assert_eq!(grid.get(62, 62).zone, ZoneType::Industrial);
+    assert_eq!(grid.get(80, 80).zone, ZoneType::Industrial);
+    assert_eq!(grid.get(82, 82).zone, ZoneType::Industrial);
+    // Area between them should be unzoned
+    assert_eq!(grid.get(70, 70).zone, ZoneType::None);
+}
