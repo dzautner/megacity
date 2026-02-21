@@ -48,6 +48,7 @@ pub mod fog;
 pub mod forest_fire;
 pub mod form_transect;
 pub mod freehand_road;
+pub mod freight_traffic;
 pub mod game_params;
 pub mod garbage;
 pub mod grid;
@@ -311,6 +312,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "district_policies",
     "far_transfer",
     "flood_protection",
+    "freight_traffic",
     "form_transect",
     "game_params",
     "heat_mitigation",
@@ -594,6 +596,7 @@ impl Plugin for SimulationPlugin {
             specialization::SpecializationPlugin,
             advisors::AdvisorsPlugin,
             achievements::AchievementsPlugin,
+            freight_traffic::FreightTrafficPlugin,
         ));
 
         // Building lifecycle and disasters
