@@ -235,8 +235,8 @@ fn darken(c: [f32; 4], factor: f32) -> [f32; 4] {
 // Per-zone preview mesh generators
 // ---------------------------------------------------------------------------
 
-/// All preview meshes are built in a 1x1 cell-size coordinate system centered
-/// at the origin. The cursor_preview system applies translation and scaling.
+// All preview meshes are built in a 1x1 cell-size coordinate system centered
+// at the origin. The cursor_preview system applies translation and scaling.
 
 /// Residential Low: a small suburban house with a pitched roof.
 fn generate_residential_low() -> Mesh {

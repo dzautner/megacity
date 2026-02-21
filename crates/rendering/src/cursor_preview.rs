@@ -41,7 +41,7 @@ pub fn spawn_cursor_preview(
     ));
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn update_cursor_preview(
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
