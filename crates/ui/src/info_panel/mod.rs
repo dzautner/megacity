@@ -100,7 +100,7 @@ pub fn update_coverage_cache(
     grid: Res<WorldGrid>,
     services: Query<&ServiceBuilding>,
 ) {
-    cache.timer -= time.delta_seconds();
+    cache.timer -= time.delta_secs();
     if cache.timer > 0.0 {
         return;
     }
