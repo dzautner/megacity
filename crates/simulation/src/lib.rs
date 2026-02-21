@@ -606,7 +606,6 @@ impl Plugin for SimulationPlugin {
             virtual_population::VirtualPopulationPlugin,
             urban_growth_boundary::UrbanGrowthBoundaryPlugin,
             nimby::NimbyPlugin,
-            mode_choice::ModeChoicePlugin,
             walkability::WalkabilityPlugin,
             form_transect::FormTransectPlugin,
             cumulative_zoning::CumulativeZoningPlugin,
@@ -618,6 +617,9 @@ impl Plugin for SimulationPlugin {
             blueprints::BlueprintPlugin,
             simulation_invariants::SimulationInvariantsPlugin,
         ));
+
+        // Mode choice (TRAF-007)
+        app.add_plugins(mode_choice::ModeChoicePlugin);
 
         // Localization infrastructure
         app.add_plugins(localization::LocalizationPlugin);
