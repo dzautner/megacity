@@ -33,7 +33,7 @@ use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::citizen::{Citizen, CitizenState, CitizenStateComp, HomeLocation, PathRequest};
+use crate::citizen::{Citizen, CitizenStateComp, PathRequest};
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, RoadType, WorldGrid};
 use crate::services::{ServiceBuilding, ServiceType};
@@ -258,12 +258,9 @@ pub fn refresh_infrastructure_cache(
 pub fn assign_transport_mode(
     infra: Res<ModeInfrastructureCache>,
     grid: Res<WorldGrid>,
-    mut query: Query<
-        (&PathRequest, &HomeLocation, &mut ChosenTransportMode),
-        (With<Citizen>, Added<PathRequest>),
-    >,
+    mut query: Query<(&PathRequest, &mut ChosenTransportMode), (With<Citizen>, Added<PathRequest>)>,
 ) {
-    for (request, home, mut mode) in &mut query {
+    for (request, mut mode) in &mut query {
         let from = (request.from_gx, request.from_gy);
         let to = (request.to_gx, request.to_gy);
 
