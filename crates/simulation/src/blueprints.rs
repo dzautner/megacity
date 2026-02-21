@@ -425,7 +425,7 @@ fn handle_capture_blueprint(
             "Blueprint '{}' captured (index {}) from ({},{}) size {}x{}",
             ev.name, index, ev.origin_x, ev.origin_y, ev.width, ev.height
         );
-        captured_events.write(BlueprintCaptured {
+        captured_events.send(BlueprintCaptured {
             name: ev.name.clone(),
             index,
         });
@@ -462,7 +462,7 @@ fn handle_place_blueprint(
             "Blueprint '{}' placed at ({},{}) — {} segments, {} zones",
             name, ev.target_x, ev.target_y, result.segments_placed, result.zones_placed
         );
-        placed_events.write(BlueprintPlaced {
+        placed_events.send(BlueprintPlaced {
             name,
             segments_placed: result.segments_placed,
             zones_placed: result.zones_placed,
