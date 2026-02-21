@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
 pub mod advisor_tips;
+pub mod auto_grid_ui;
 pub mod box_selection;
 pub mod cell_info_panel;
 pub mod cell_tooltip;
@@ -53,6 +54,7 @@ impl Plugin for UiPlugin {
             .add_plugins(oneway_ui::OneWayUiPlugin)
             .add_plugins(settings_panel::SettingsPanelPlugin)
             .add_plugins(advisor_tips::AdvisorTipsPlugin)
+            .add_plugins(auto_grid_ui::AutoGridUiPlugin)
             .add_plugins(keybindings_panel::KeybindingsPanelPlugin)
             .add_plugins(search::SearchPlugin)
             .add_plugins(overlay_legend::OverlayLegendPlugin)

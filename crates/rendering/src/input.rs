@@ -96,6 +96,8 @@ pub enum ActiveTool {
     TreeRemove,
     // Road upgrade tool
     RoadUpgrade,
+    // Auto-grid road placement tool
+    AutoGrid,
 }
 
 impl ActiveTool {
@@ -117,7 +119,8 @@ impl ActiveTool {
             | ActiveTool::DistrictPaint(_)
             | ActiveTool::DistrictErase
             | ActiveTool::TreeRemove
-            | ActiveTool::RoadUpgrade => None,
+            | ActiveTool::RoadUpgrade
+            | ActiveTool::AutoGrid => None,
             ActiveTool::TreePlant => Some(simulation::trees::TREE_PLANT_COST),
             ActiveTool::ZoneResidentialLow
             | ActiveTool::ZoneResidentialMedium
@@ -273,6 +276,7 @@ impl ActiveTool {
             ActiveTool::TreePlant => "Plant Tree",
             ActiveTool::TreeRemove => "Remove Tree",
             ActiveTool::RoadUpgrade => "Upgrade Road",
+            ActiveTool::AutoGrid => "Auto-Grid",
         }
     }
 
@@ -1029,7 +1033,10 @@ pub fn handle_tool_input(
         }
 
         // --- Trees (handled by separate system to stay within param limit) ---
-        ActiveTool::TreePlant | ActiveTool::TreeRemove | ActiveTool::RoadUpgrade => false,
+        ActiveTool::TreePlant
+        | ActiveTool::TreeRemove
+        | ActiveTool::RoadUpgrade
+        | ActiveTool::AutoGrid => false,
 
         // --- Districts ---
         ActiveTool::DistrictPaint(di) => {
@@ -1573,6 +1580,7 @@ pub fn handle_road_upgrade_tool(
 /// 3. Reset the active tool back to `Inspect`
 ///
 /// Each press handles exactly one level.
+#[allow(clippy::too_many_arguments)]
 pub fn handle_escape_key(
     keys: Res<ButtonInput<KeyCode>>,
     bindings: Res<simulation::keybindings::KeyBindings>,
@@ -1581,6 +1589,7 @@ pub fn handle_escape_key(
     mut tool: ResMut<ActiveTool>,
     mut selection_kind: ResMut<crate::enhanced_select::SelectionKind>,
     mut freehand: ResMut<simulation::freehand_road::FreehandDrawState>,
+    mut auto_grid_state: ResMut<simulation::auto_grid_road::AutoGridState>,
 ) {
     if !bindings.escape.just_pressed(&keys) {
         return;
@@ -1592,6 +1601,11 @@ pub fn handle_escape_key(
         return;
     }
 
+    // Level 0b: Cancel active auto-grid placement
+    if auto_grid_state.phase != simulation::auto_grid_road::AutoGridPhase::Idle {
+        auto_grid_state.phase = simulation::auto_grid_road::AutoGridPhase::Idle;
+        return;
+    }
     // Level 1: Cancel active road drawing
     if draw_state.phase != DrawPhase::Idle {
         draw_state.phase = DrawPhase::Idle;
