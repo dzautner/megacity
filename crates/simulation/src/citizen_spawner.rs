@@ -7,6 +7,7 @@ use crate::citizen::{
     PathCache, Personality, Position, Velocity, WorkLocation,
 };
 use crate::grid::WorldGrid;
+use crate::lod::LodTier;
 use crate::movement::ActivityTimer;
 use crate::virtual_population::VirtualPopulation;
 
@@ -173,6 +174,7 @@ pub fn spawn_citizens(
             Needs::default(),
             Family::default(),
             ActivityTimer::default(),
+            LodTier::default(),
         ));
 
         if let Ok((_, mut home_b, home_mu)) = buildings.get_mut(home_entity) {

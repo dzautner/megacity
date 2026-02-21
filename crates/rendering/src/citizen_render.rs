@@ -98,7 +98,6 @@ pub fn spawn_citizen_sprites(
             CitizenSprite,
             kind,
             fade,
-            LodTier::default(),
             SceneRoot(scene_handle),
             Transform::from_scale(Vec3::splat(scale)),
             Visibility::default(),

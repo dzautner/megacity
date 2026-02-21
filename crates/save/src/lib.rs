@@ -53,6 +53,7 @@ use simulation::landfill_warning::LandfillCapacityState;
 use simulation::life_simulation::LifeSimTimer;
 use simulation::lifecycle::LifecycleTimer;
 use simulation::loans::LoanBook;
+use simulation::lod::LodTier;
 use simulation::movement::ActivityTimer;
 use simulation::policies::Policies;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
@@ -652,6 +653,7 @@ fn handle_load(
                 },
                 Family::default(),
                 ActivityTimer(sc.activity_timer),
+                LodTier::default(),
             ));
         }
 
