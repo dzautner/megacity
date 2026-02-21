@@ -493,9 +493,8 @@ pub fn process_path_requests(
     let data = Arc::clone(&snapshot.data);
 
     let pool = AsyncComputeTaskPool::get();
-    let mut spawned = 0;
 
-    for (entity, request, _path, _state) in query.iter_mut() {
+    for (spawned, (entity, request, _path, _state)) in query.iter_mut().enumerate() {
         if spawned >= MAX_SPAWN_PER_TICK {
             break;
         }
@@ -522,8 +521,6 @@ pub fn process_path_requests(
                 // No valid road nodes found; skip pathfinding (citizen stays in current state)
             }
         }
-
-        spawned += 1;
     }
 }
 

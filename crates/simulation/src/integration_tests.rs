@@ -2411,6 +2411,7 @@ fn test_async_pathfinding_no_road_no_crash() {
 fn test_async_pathfinding_computing_path_prevents_requeue() {
     use crate::citizen::PathRequest;
     use crate::movement::ComputingPath;
+    use bevy::prelude::Entity;
 
     let mut city = TestCity::new()
         .with_road(5, 10, 25, 10, RoadType::Local)
