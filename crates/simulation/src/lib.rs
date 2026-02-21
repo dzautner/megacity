@@ -121,6 +121,7 @@ pub mod traffic;
 pub mod traffic_accidents;
 pub mod traffic_congestion;
 pub mod traffic_los;
+pub mod train_transit;
 pub mod transit_hub;
 pub mod trees;
 pub mod tutorial;
@@ -334,6 +335,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "seasonal_rendering",
     "superblock_state",
     "traffic_los",
+    "train_transit",
     "transit_hub_stats",
     "transit_hubs",
     "tutorial",
@@ -586,6 +588,7 @@ impl Plugin for SimulationPlugin {
             trees::TreesPlugin,
             airport::AirportPlugin,
             metro_transit::MetroTransitPlugin,
+            train_transit::TrainTransitPlugin,
             outside_connections::OutsideConnectionsPlugin,
             snow::SnowPlugin,
         ));
