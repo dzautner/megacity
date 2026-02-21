@@ -221,3 +221,4 @@ mod tests {
         assert_eq!(v.employment_drift, 0);
     }
 }
+
