@@ -12,7 +12,7 @@ use simulation::weather::Weather;
 use simulation::zones::ZoneDemand;
 
 use rendering::input::{ActiveTool, GridSnap, StatusMessage};
-use rendering::overlay::{OverlayMode, OverlayState};
+use rendering::overlay::{DualOverlayMode, DualOverlayState, OverlayMode, OverlayState};
 use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
 
 // ---------------------------------------------------------------------------
@@ -1306,7 +1306,7 @@ pub fn toolbar_ui(
     stats: Res<CityStats>,
     budget: Res<CityBudget>,
     demand: Res<ZoneDemand>,
-    mut overlay: ResMut<OverlayState>,
+    overlay_params: (ResMut<OverlayState>, Res<DualOverlayState>),
     status: Res<StatusMessage>,
     mut save_events: EventWriter<SaveGameEvent>,
     mut load_events: EventWriter<LoadGameEvent>,
@@ -1317,6 +1317,7 @@ pub fn toolbar_ui(
     extended_budget: Res<ExtendedBudget>,
     catalog: Res<ToolCatalog>,
 ) {
+    let (mut overlay, dual_overlay) = overlay_params;
     let categories = &catalog.categories;
 
     // Set tooltip delay to 300ms for tool tooltips
@@ -1457,10 +1458,34 @@ pub fn toolbar_ui(
                 // Current overlay
                 if overlay.mode != OverlayMode::None {
                     ui.separator();
-                    ui.label(
-                        egui::RichText::new(format!("Overlay: {}", overlay.mode.label()))
-                            .color(egui::Color32::from_rgb(140, 220, 255)),
-                    );
+                    if dual_overlay.secondary != OverlayMode::None {
+                        let mode_label = match dual_overlay.mode {
+                            DualOverlayMode::Blend => {
+                                format!(
+                                    "{} + {} (Blend {:.0}%)",
+                                    overlay.mode.label(),
+                                    dual_overlay.secondary.label(),
+                                    dual_overlay.blend_factor * 100.0
+                                )
+                            }
+                            DualOverlayMode::Split => {
+                                format!(
+                                    "{} | {} (Split)",
+                                    overlay.mode.label(),
+                                    dual_overlay.secondary.label()
+                                )
+                            }
+                        };
+                        ui.label(
+                            egui::RichText::new(format!("Overlay: {}", mode_label))
+                                .color(egui::Color32::from_rgb(140, 220, 255)),
+                        );
+                    } else {
+                        ui.label(
+                            egui::RichText::new(format!("Overlay: {}", overlay.mode.label()))
+                                .color(egui::Color32::from_rgb(140, 220, 255)),
+                        );
+                    }
                 }
 
                 // Active tool + cost

@@ -583,7 +583,6 @@ dependencies = [
  "bevy_reflect",
  "bevy_transform",
  "bevy_utils",
- "cpal",
  "rodio",
 ]
 
@@ -1049,14 +1048,12 @@ dependencies = [
  "bevy_hierarchy",
  "bevy_input",
  "bevy_math",
- "bevy_mesh",
  "bevy_reflect",
  "bevy_render",
  "bevy_time",
  "bevy_transform",
  "bevy_utils",
  "bevy_window",
- "crossbeam-channel",
  "uuid",
 ]
 
