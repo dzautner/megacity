@@ -15,8 +15,6 @@ use rendering::input::{ActiveTool, GridSnap, StatusMessage};
 use rendering::overlay::{OverlayMode, OverlayState};
 use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
 
-use crate::milestones::Milestones;
-
 // ---------------------------------------------------------------------------
 // Simulation speed keybinds (Space / 1 / 2 / 3)
 // ---------------------------------------------------------------------------
@@ -59,6 +57,20 @@ pub fn speed_keybinds(
 
 #[derive(Resource, Default)]
 pub struct OpenCategory(pub Option<usize>);
+
+/// Cached toolbar catalog built once at startup — avoids per-frame allocation.
+#[derive(Resource)]
+pub struct ToolCatalog {
+    categories: Vec<ToolCategory>,
+}
+
+impl Default for ToolCatalog {
+    fn default() -> Self {
+        Self {
+            categories: build_categories(),
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Data-driven category / item definitions
@@ -1291,12 +1303,12 @@ pub fn toolbar_ui(
     mut load_events: EventWriter<LoadGameEvent>,
     mut new_game_events: EventWriter<NewGameEvent>,
     mut open_cat: ResMut<OpenCategory>,
-    _milestones: Res<Milestones>,
     weather: Res<Weather>,
     grid_snap: Res<GridSnap>,
     extended_budget: Res<ExtendedBudget>,
+    catalog: Res<ToolCatalog>,
 ) {
-    let categories = build_categories();
+    let categories = &catalog.categories;
 
     // Set tooltip delay to 300ms for tool tooltips
     contexts

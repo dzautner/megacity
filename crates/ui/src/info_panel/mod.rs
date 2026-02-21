@@ -63,6 +63,59 @@ pub struct MinimapCache {
     pub dirty_timer: f32,
 }
 
+/// Cached coverage metrics, updated once per second instead of every frame.
+#[derive(Resource)]
+pub struct CoverageCache {
+    pub power: f32,
+    pub water: f32,
+    pub education: f32,
+    pub fire: f32,
+    pub police: f32,
+    pub health: f32,
+    pub telecom: f32,
+    /// Seconds remaining until next refresh.
+    timer: f32,
+}
+
+impl Default for CoverageCache {
+    fn default() -> Self {
+        Self {
+            power: 0.0,
+            water: 0.0,
+            education: 0.0,
+            fire: 0.0,
+            police: 0.0,
+            health: 0.0,
+            telecom: 0.0,
+            timer: 0.0, // refresh immediately on first frame
+        }
+    }
+}
+
+const COVERAGE_REFRESH_INTERVAL: f32 = 1.0;
+
+pub fn update_coverage_cache(
+    mut cache: ResMut<CoverageCache>,
+    time: Res<Time>,
+    grid: Res<WorldGrid>,
+    services: Query<&ServiceBuilding>,
+) {
+    cache.timer -= time.delta_seconds();
+    if cache.timer > 0.0 {
+        return;
+    }
+    cache.timer = COVERAGE_REFRESH_INTERVAL;
+
+    let (power, water) = compute_utility_coverage(&grid);
+    cache.power = power;
+    cache.water = water;
+    cache.education = compute_service_coverage(&services, &grid, "edu");
+    cache.fire = compute_service_coverage(&services, &grid, "fire");
+    cache.police = compute_service_coverage(&services, &grid, "police");
+    cache.health = compute_service_coverage(&services, &grid, "health");
+    cache.telecom = compute_service_coverage(&services, &grid, "telecom");
+}
+
 /// Resource controlling whether the event journal window is visible.
 /// Toggle with 'J' key.
 #[derive(Resource, Default)]
@@ -232,7 +285,7 @@ pub fn info_panel_ui(
     overlay: Res<OverlayState>,
     mut minimap_cache: Local<MinimapCache>,
     time: Res<Time>,
-    services: Query<&ServiceBuilding>,
+    coverage: Res<CoverageCache>,
     mut ext_budget: ResMut<simulation::budget::ExtendedBudget>,
     mut loan_book: ResMut<LoanBook>,
     mut extras: InfoPanelExtras,
@@ -772,49 +825,47 @@ pub fn info_panel_ui(
 
             ui.separator();
             ui.heading("Service Coverage");
-            // Coverage bars (placeholder values derived from grid)
-            let (power_cov, water_cov) = compute_utility_coverage(&grid);
+            // Use cached coverage metrics (updated once per second)
             coverage_bar(
                 ui,
                 "Power",
-                power_cov,
+                coverage.power,
                 egui::Color32::from_rgb(220, 200, 50),
             );
             coverage_bar(
                 ui,
                 "Water",
-                water_cov,
+                coverage.water,
                 egui::Color32::from_rgb(50, 130, 220),
             );
-            // Education / fire / police / health computed from ServiceBuilding entities
             coverage_bar(
                 ui,
                 "Education",
-                compute_service_coverage(&services, &grid, "edu"),
+                coverage.education,
                 egui::Color32::from_rgb(100, 180, 220),
             );
             coverage_bar(
                 ui,
                 "Fire",
-                compute_service_coverage(&services, &grid, "fire"),
+                coverage.fire,
                 egui::Color32::from_rgb(220, 80, 50),
             );
             coverage_bar(
                 ui,
                 "Police",
-                compute_service_coverage(&services, &grid, "police"),
+                coverage.police,
                 egui::Color32::from_rgb(50, 80, 200),
             );
             coverage_bar(
                 ui,
                 "Health",
-                compute_service_coverage(&services, &grid, "health"),
+                coverage.health,
                 egui::Color32::from_rgb(220, 50, 120),
             );
             coverage_bar(
                 ui,
                 "Telecom",
-                compute_service_coverage(&services, &grid, "telecom"),
+                coverage.telecom,
                 egui::Color32::from_rgb(150, 200, 80),
             );
             coverage_bar(
