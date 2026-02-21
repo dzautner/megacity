@@ -1531,7 +1531,7 @@ pub fn toolbar_ui(
                 .pivot(egui::Align2::LEFT_BOTTOM)
                 .show(contexts.ctx_mut(), |ui| {
                     egui::Frame::popup(ui.style())
-                        .inner_margin(egui::Margin::symmetric(8.0, 4.0))
+                        .inner_margin(egui::Margin::symmetric(8, 4))
                         .show(ui, |ui| {
                             ui.set_min_width(screen_width - 16.0);
                             ui.horizontal(|ui| {
