@@ -330,6 +330,52 @@ impl TestCity {
         self
     }
 
+    /// Spawn an unemployed citizen (no `WorkLocation`) at the given home.
+    /// The home building must already exist (use `with_building` first).
+    pub fn with_unemployed_citizen(mut self, home: (usize, usize)) -> Self {
+        let world = self.app.world_mut();
+        let home_entity = {
+            let grid = world.resource::<WorldGrid>();
+            grid.get(home.0, home.1)
+                .building_id
+                .unwrap_or(Entity::PLACEHOLDER)
+        };
+
+        let (hx, hy) = WorldGrid::grid_to_world(home.0, home.1);
+
+        world.spawn((
+            Citizen,
+            Position { x: hx, y: hy },
+            Velocity { x: 0.0, y: 0.0 },
+            HomeLocation {
+                grid_x: home.0,
+                grid_y: home.1,
+                building: home_entity,
+            },
+            CitizenStateComp(CitizenState::AtHome),
+            PathCache::new(Vec::new()),
+            CitizenDetails {
+                age: 30,
+                gender: Gender::Male,
+                education: 0,
+                happiness: 60.0,
+                health: 90.0,
+                salary: 0.0,
+                savings: 1000.0,
+            },
+            Personality {
+                ambition: 0.5,
+                sociability: 0.5,
+                materialism: 0.5,
+                resilience: 0.5,
+            },
+            Needs::default(),
+            Family::default(),
+            ActivityTimer::default(),
+        ));
+        self
+    }
+
     /// Spawn a service building at the given cell.
     pub fn with_service(mut self, x: usize, y: usize, service_type: ServiceType) -> Self {
         let entity = self
