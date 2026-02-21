@@ -267,6 +267,97 @@ impl SaveableRegistry {
 }
 
 // ---------------------------------------------------------------------------
+// Saveable registration validation
+// ---------------------------------------------------------------------------
+
+/// Exhaustive list of every `SAVE_KEY` that types implementing `Saveable` declare
+/// across the codebase. The `validate_saveable_registry` startup system asserts
+/// that each of these keys is present in the `SaveableRegistry`, catching the
+/// class of bugs where a type implements `Saveable` but its plugin forgets to
+/// call `register_saveable`.
+///
+/// When you add a new `Saveable` type, add its key here. The startup assertion
+/// will remind you if you forget to register it.
+pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
+    "chart_history",
+    "climate_change",
+    "colorblind_settings",
+    "cumulative_zoning",
+    "day_night_controls",
+    "dismissed_advisor_tips",
+    "district_policies",
+    "far_transfer",
+    "flood_protection",
+    "form_transect",
+    "heat_mitigation",
+    "historic_preservation",
+    "inclusionary_zoning",
+    "keybindings",
+    "landfill_state",
+    "localization",
+    "multi_select",
+    "neighborhood_quality",
+    "nimby_state",
+    "oneway_direction_map",
+    "parking_policy",
+    "seasonal_effects_config",
+    "seasonal_rendering",
+    "traffic_los",
+    "tutorial",
+    "uhi_mitigation",
+    "walkability",
+    "waste_policies",
+    "water_pressure",
+];
+
+/// Startup system that validates the `SaveableRegistry` against the expected key
+/// list. Panics if any expected key is missing (indicating a `Saveable` type whose
+/// plugin forgot to register it) or if duplicate keys are detected.
+///
+/// Runs in `PostStartup` so all plugins have had a chance to register their types.
+pub fn validate_saveable_registry(registry: Res<SaveableRegistry>) {
+    let registered: std::collections::HashSet<&str> =
+        registry.entries.iter().map(|e| e.key.as_str()).collect();
+
+    // Check for duplicate keys.
+    if registered.len() != registry.entries.len() {
+        let mut seen = std::collections::HashSet::new();
+        for entry in &registry.entries {
+            if !seen.insert(entry.key.as_str()) {
+                panic!(
+                    "SaveableRegistry: duplicate key '{}' detected — two types share the same SAVE_KEY",
+                    entry.key
+                );
+            }
+        }
+    }
+
+    // Check for missing registrations.
+    let mut missing = Vec::new();
+    for &expected in EXPECTED_SAVEABLE_KEYS {
+        if !registered.contains(expected) {
+            missing.push(expected);
+        }
+    }
+
+    if !missing.is_empty() {
+        panic!(
+            "SaveableRegistry drift detected: {} expected key(s) not registered: {:?}. \
+             Each type implementing `Saveable` must be registered via `register_saveable` \
+             in its plugin's `build()` method.",
+            missing.len(),
+            missing,
+        );
+    }
+
+    info!(
+        "SaveableRegistry validated: {} keys registered, all {} expected keys present",
+        registry.entries.len(),
+        EXPECTED_SAVEABLE_KEYS.len(),
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Core resources
 // ---------------------------------------------------------------------------
 
@@ -307,6 +398,7 @@ impl Plugin for SimulationPlugin {
             .init_resource::<budget::ExtendedBudget>()
             .init_resource::<LodFrameCounter>()
             .add_systems(Startup, world_init::init_world)
+            .add_systems(PostStartup, validate_saveable_registry)
             .add_systems(FixedUpdate, tick_slow_timer)
             .add_systems(Update, tick_lod_frame_counter);
 

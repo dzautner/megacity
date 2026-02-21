@@ -230,6 +230,8 @@ pub struct AdvisorTipsPlugin;
 
 impl Plugin for AdvisorTipsPlugin {
     fn build(&self, app: &mut App) {
+        // NOTE: DismissedAdvisorTips is registered with SaveableRegistry in
+        // AdvisorsPlugin (simulation crate), not here.
         app.init_resource::<AdvisorTipsPanelOpen>()
             .add_systems(Update, (advisor_tips_ui, handle_advisor_jump));
     }

@@ -1061,6 +1061,7 @@ impl Plugin for AdvisorsPlugin {
                 FixedUpdate,
                 update_advisors.after(crate::stats::update_stats),
             );
+
         app.world_mut()
             .resource_mut::<crate::SaveableRegistry>()
             .register::<DismissedAdvisorTips>();

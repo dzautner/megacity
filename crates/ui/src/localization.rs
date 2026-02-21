@@ -85,6 +85,8 @@ pub struct LocalizationUiPlugin;
 
 impl Plugin for LocalizationUiPlugin {
     fn build(&self, app: &mut App) {
+        // NOTE: LocalizationState is registered with SaveableRegistry in
+        // LocalizationPlugin (simulation crate), not here.
         app.init_resource::<LanguageSelectorVisible>()
             .add_systems(Update, (language_selector_keybind, language_selector_ui));
     }
