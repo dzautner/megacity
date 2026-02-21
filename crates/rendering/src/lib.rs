@@ -34,6 +34,7 @@ pub mod wind_streamlines;
 
 pub mod enhanced_select;
 pub mod grid_align;
+pub mod intersection_preview;
 pub mod parallel_snap;
 pub mod screenshot;
 pub mod zone_brush_preview;
@@ -215,6 +216,9 @@ impl Plugin for RenderingPlugin {
 
         // Enhanced click-to-select with priority ordering (UX-009)
         app.add_plugins(enhanced_select::EnhancedSelectPlugin);
+
+        // Intersection auto-detection preview (UX-023)
+        app.add_plugins(intersection_preview::IntersectionPreviewPlugin);
     }
 }
 
