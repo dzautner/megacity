@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use std::collections::BTreeMap;
 
+pub use save_load_state::SaveLoadState;
 pub use simulation_sets::{SimulationSet, SimulationUpdateSet};
 
 pub mod abandonment;
@@ -90,6 +91,7 @@ pub mod road_maintenance;
 pub mod road_segments;
 pub mod road_upgrade;
 pub mod roads;
+pub mod save_load_state;
 pub mod seasonal_rendering;
 pub mod services;
 pub mod simulation_sets;
@@ -394,23 +396,31 @@ impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
         // -- Deterministic phase ordering ----------------------------------------
         // FixedUpdate: PreSim → Simulation → PostSim
+        // Gate simulation sets on SaveLoadState::Idle so that gameplay systems
+        // are automatically suspended during save/load/new-game operations.
+        let idle = in_state(SaveLoadState::Idle);
         app.configure_sets(
             FixedUpdate,
             (
-                SimulationSet::PreSim,
-                SimulationSet::Simulation,
-                SimulationSet::PostSim,
+                SimulationSet::PreSim.run_if(idle.clone()),
+                SimulationSet::Simulation.run_if(idle.clone()),
+                SimulationSet::PostSim.run_if(idle.clone()),
             )
                 .chain(),
         );
         // Update: Input → Visual
         app.configure_sets(
             Update,
-            (SimulationUpdateSet::Input, SimulationUpdateSet::Visual).chain(),
+            (
+                SimulationUpdateSet::Input.run_if(idle.clone()),
+                SimulationUpdateSet::Visual.run_if(idle),
+            )
+                .chain(),
         );
 
         // Core resources and systems that don't belong to any feature
-        app.init_resource::<TickCounter>()
+        app.init_state::<SaveLoadState>()
+            .init_resource::<TickCounter>()
             .init_resource::<SlowTickTimer>()
             .init_resource::<CsrGraph>()
             .init_resource::<RoadSegmentStore>()

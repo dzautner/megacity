@@ -5,6 +5,7 @@
 
 use bevy::app::App;
 use bevy::prelude::*;
+use bevy::state::app::StatesPlugin;
 
 use crate::buildings::Building;
 use crate::bulldoze_refund;
@@ -47,6 +48,7 @@ impl TestCity {
     pub fn new() -> Self {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
+        app.add_plugins(StatesPlugin);
 
         // Insert the marker BEFORE SimulationPlugin so init_world skips.
         app.insert_resource(SkipWorldInit);
@@ -93,6 +95,7 @@ impl TestCity {
     pub fn with_tel_aviv() -> Self {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
+        app.add_plugins(StatesPlugin);
         // Skip the tutorial so it doesn't pause the GameClock on first update.
         app.insert_resource(TutorialState {
             completed: true,
