@@ -89,6 +89,7 @@ pub mod production;
 pub mod recycling;
 pub mod reservoir;
 pub mod road_graph_csr;
+pub mod road_hierarchy;
 pub mod road_maintenance;
 pub mod road_segments;
 pub mod road_upgrade;
@@ -310,6 +311,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "nimby_state",
     "oneway_direction_map",
     "parking_policy",
+    "road_hierarchy",
     "seasonal_effects_config",
     "seasonal_rendering",
     "traffic_los",
@@ -489,6 +491,7 @@ impl Plugin for SimulationPlugin {
             traffic_accidents::TrafficAccidentsPlugin,
             traffic_congestion::TrafficCongestionPlugin,
             traffic_los::TrafficLosPlugin,
+            road_hierarchy::RoadHierarchyPlugin,
             loans::LoansPlugin,
             bulldoze_refund::BulldozeRefundPlugin,
         ));

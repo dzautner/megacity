@@ -126,6 +126,7 @@ pub enum TipId {
 
     // Traffic
     TrafficCongestion,
+    RoadHierarchyViolation,
 
     // Zone demand
     ZoneDemandResidential,
@@ -172,6 +173,7 @@ impl TipId {
             TipId::HighUnemployment => "High Unemployment",
             TipId::EmptyResidential => "Empty Residential",
             TipId::TrafficCongestion => "Traffic Congestion",
+            TipId::RoadHierarchyViolation => "Road Hierarchy Violation",
             TipId::ZoneDemandResidential => "Residential Demand",
             TipId::ZoneDemandCommercial => "Commercial Demand",
             TipId::ZoneDemandIndustrial => "Industrial Demand",
