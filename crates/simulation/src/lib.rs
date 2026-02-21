@@ -595,8 +595,10 @@ impl Plugin for SimulationPlugin {
             parking::ParkingPlugin,
             tutorial::TutorialPlugin,
             multi_select::MultiSelectPlugin,
-            simulation_invariants::SimulationInvariantsPlugin,
+        ));
+        app.add_plugins((
             blueprints::BlueprintPlugin,
+            simulation_invariants::SimulationInvariantsPlugin,
         ));
 
         // Localization infrastructure
