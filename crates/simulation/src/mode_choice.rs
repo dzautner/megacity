@@ -43,10 +43,6 @@ use crate::SlowTickTimer;
 // Constants
 // =============================================================================
 
-/// Maximum walking distance in cells (~400m at 16m/cell = 25 cells).
-/// Beyond this, walking becomes impractical and other modes are preferred.
-const MAX_PRACTICAL_WALK_DISTANCE: f32 = 25.0;
-
 /// Maximum biking distance in cells (~5km at 16m/cell ≈ 312 cells).
 /// We use a practical limit of ~80 cells for gameplay.
 const MAX_PRACTICAL_BIKE_DISTANCE: f32 = 80.0;
@@ -254,7 +250,7 @@ pub fn refresh_infrastructure_cache(
 /// `PathRequest` (i.e., are about to start a trip). It evaluates available
 /// modes based on distance and infrastructure, then picks the one with the
 /// lowest perceived travel time.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn assign_transport_mode(
     infra: Res<ModeInfrastructureCache>,
     grid: Res<WorldGrid>,
