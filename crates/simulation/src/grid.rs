@@ -131,6 +131,20 @@ impl RoadType {
             RoadType::Highway => 2.0,
         }
     }
+
+    /// Returns the vehicle capacity per time unit for this road type.
+    /// Based on lane count and speed characteristics.
+    /// Used by BPR travel time function to model congestion.
+    pub fn capacity(self) -> u32 {
+        match self {
+            RoadType::Local => 20,
+            RoadType::Avenue => 40,
+            RoadType::Boulevard => 60,
+            RoadType::Highway => 80,
+            RoadType::OneWay => 25,
+            RoadType::Path => 5,
+        }
+    }
 }
 
 impl ZoneType {

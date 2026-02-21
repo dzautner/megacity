@@ -11,10 +11,11 @@ use crate::citizen::{
 use crate::grid::WorldGrid;
 use crate::lod::LodTier;
 use crate::pathfinding_sys::nearest_road_grid;
-use crate::road_graph_csr::{csr_find_path, CsrGraph};
+use crate::road_graph_csr::{csr_find_path_with_traffic, CsrGraph};
 use crate::roads::{RoadNetwork, RoadNode};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
+use crate::traffic::TrafficGrid;
 
 /// Time budget for pathfinding per tick (native). Processes as many paths as
 /// fit within this duration, naturally handling commute bursts by doing more
@@ -385,6 +386,7 @@ pub fn process_path_requests(
     mut commands: Commands,
     grid: Res<WorldGrid>,
     csr: Res<CsrGraph>,
+    traffic: Res<TrafficGrid>,
     mut query: Query<(Entity, &PathRequest, &mut PathCache, &mut CitizenStateComp), With<Citizen>>,
 ) {
     let start = Instant::now();
@@ -400,6 +402,7 @@ pub fn process_path_requests(
         if let Some(route) = compute_route_csr(
             &grid,
             &csr,
+            &traffic,
             request.from_gx,
             request.from_gy,
             request.to_gx,
@@ -551,6 +554,7 @@ fn smoothed_waypoint_target(
 fn compute_route_csr(
     grid: &WorldGrid,
     csr: &CsrGraph,
+    traffic: &TrafficGrid,
     from_gx: usize,
     from_gy: usize,
     to_gx: usize,
@@ -558,7 +562,7 @@ fn compute_route_csr(
 ) -> Option<Vec<RoadNode>> {
     let start = nearest_road_grid(grid, from_gx, from_gy)?;
     let goal = nearest_road_grid(grid, to_gx, to_gy)?;
-    csr_find_path(csr, start, goal)
+    csr_find_path_with_traffic(csr, start, goal, grid, traffic)
 }
 
 /// Find the nearest destination within `max_dist` grid cells.
