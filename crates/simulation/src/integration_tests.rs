@@ -2349,3 +2349,145 @@ fn test_job_seeking_does_not_overfill_capacity() {
     // WorkLocations without going through the occupants counter -- that
     // is tracked as a separate concern.
 }
+
+// ===========================================================================
+// Async pathfinding tests
+// ===========================================================================
+
+#[test]
+fn test_async_pathfinding_snapshot_initialized() {
+    let city = TestCity::new().with_road(10, 10, 20, 10, RoadType::Local);
+    city.assert_resource_exists::<crate::movement::PathfindingSnapshot>();
+}
+
+#[test]
+fn test_async_pathfinding_citizen_gets_path() {
+    let mut city = TestCity::new()
+        .with_road(5, 10, 25, 10, RoadType::Local)
+        .with_building(5, 9, ZoneType::ResidentialLow, 1)
+        .with_building(25, 9, ZoneType::CommercialLow, 1)
+        .with_citizen((5, 9), (25, 9))
+        .with_time(7.5); // morning commute
+
+    // Tick several times to allow: state machine -> path request -> async dispatch -> collect
+    city.tick(10);
+
+    let world = city.world_mut();
+    let commuting = world
+        .query::<&crate::citizen::CitizenStateComp>()
+        .iter(world)
+        .filter(|s| s.0 == CitizenState::CommutingToWork)
+        .count();
+    let at_home = world
+        .query::<&crate::citizen::CitizenStateComp>()
+        .iter(world)
+        .filter(|s| s.0 == CitizenState::AtHome)
+        .count();
+
+    // Citizen should have transitioned out of AtHome (either commuting or already arrived)
+    assert!(
+        commuting > 0 || at_home == 0,
+        "citizen should have started commuting after async pathfinding completes"
+    );
+}
+
+#[test]
+fn test_async_pathfinding_no_road_no_crash() {
+    // Citizens with no road connectivity should not crash the async system
+    let mut city = TestCity::new()
+        .with_building(5, 5, ZoneType::ResidentialLow, 1)
+        .with_building(50, 50, ZoneType::CommercialLow, 1)
+        .with_citizen((5, 5), (50, 50))
+        .with_time(7.5);
+
+    // Should not panic even with no roads
+    city.tick(10);
+
+    // Citizen should still exist
+    assert_eq!(city.citizen_count(), 1);
+}
+
+#[test]
+fn test_async_pathfinding_computing_path_prevents_requeue() {
+    use crate::citizen::PathRequest;
+    use crate::movement::ComputingPath;
+
+    let mut city = TestCity::new()
+        .with_road(5, 10, 25, 10, RoadType::Local)
+        .with_building(5, 9, ZoneType::ResidentialLow, 1)
+        .with_building(25, 9, ZoneType::CommercialLow, 1)
+        .with_citizen((5, 9), (25, 9))
+        .with_time(7.5);
+
+    // Run just enough ticks for the state machine to fire and pathfinding to dispatch
+    city.tick(5);
+
+    let world = city.world_mut();
+    let path_requests = world
+        .query_filtered::<Entity, bevy::prelude::With<PathRequest>>()
+        .iter(world)
+        .count();
+    let computing = world
+        .query_filtered::<Entity, bevy::prelude::With<ComputingPath>>()
+        .iter(world)
+        .count();
+
+    // At most one citizen should have either a PathRequest or ComputingPath, not both
+    assert!(
+        path_requests + computing <= 1,
+        "citizen should not be double-queued: {} PathRequests + {} ComputingPath",
+        path_requests,
+        computing
+    );
+}
+
+#[test]
+fn test_async_pathfinding_multiple_citizens() {
+    let mut city = TestCity::new()
+        .with_road(5, 10, 30, 10, RoadType::Local)
+        .with_building(5, 9, ZoneType::ResidentialLow, 1)
+        .with_building(30, 9, ZoneType::CommercialLow, 1)
+        .with_citizen((5, 9), (30, 9))
+        .with_citizen((5, 9), (30, 9))
+        .with_citizen((5, 9), (30, 9))
+        .with_time(7.5);
+
+    // Let the system process all citizens
+    city.tick(15);
+
+    let world = city.world_mut();
+    let commuting = world
+        .query::<&crate::citizen::CitizenStateComp>()
+        .iter(world)
+        .filter(|s| s.0.is_commuting())
+        .count();
+
+    // At least some citizens should be commuting
+    assert!(
+        commuting > 0,
+        "some citizens should be commuting after async pathfinding"
+    );
+}
+
+#[test]
+fn test_async_pathfinding_snapshot_updates_on_road_change() {
+    let mut city = TestCity::new().with_road(5, 10, 15, 10, RoadType::Local);
+
+    let v1 = city
+        .resource::<crate::movement::PathfindingSnapshot>()
+        .version;
+
+    // Add more road and tick to trigger CSR rebuild + snapshot update
+    city = city.with_road(15, 10, 25, 10, RoadType::Local);
+    city.tick(2);
+
+    let v2 = city
+        .resource::<crate::movement::PathfindingSnapshot>()
+        .version;
+    assert!(
+        v2 > v1,
+        "snapshot version should increase after road network change (v1={}, v2={})",
+        v1,
+        v2
+    );
+}
