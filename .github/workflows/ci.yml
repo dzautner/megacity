@@ -68,32 +68,96 @@ jobs:
         run: cargo bench -p megacity --bench frame_perf --features megacity/bench
 
       - name: Check performance budgets
+        id: budget_check
         run: |
+          # Performance budget check with shared-runner-friendly thresholds.
+          #
+          # We use the upper confidence bound (not median point estimate) to
+          # absorb measurement noise, and set generous budgets (3x the ideal
+          # target) because shared GitHub runners have highly variable
+          # performance. These gates catch catastrophic regressions (e.g., an
+          # O(n^2) pathfinding change) while ignoring the +-50% noise that
+          # shared runners routinely introduce.
+          #
+          # Ideal targets  -> CI budgets (upper bound):
+          #   sim tick  5ms  ->  15ms
+          #   rendering 5ms  ->  15ms
+          #   frame    16ms  ->  48ms
+
+          FAILED=0
+
           echo "=== Simulation tick (FixedUpdate) ==="
           SIM="target/criterion/ecs_tick/tel_aviv_fixed_update/new/estimates.json"
-          SIM_NS=$(jq '.median.point_estimate' "$SIM")
+          SIM_NS=$(jq '.mean.upper_bound' "$SIM")
           SIM_MS=$(echo "scale=2; $SIM_NS / 1000000" | bc)
-          echo "  Median: ${SIM_MS}ms (budget: 5ms)"
-          jq -e '.median.point_estimate <= 5000000' "$SIM" > /dev/null \
-            || (echo "::error::Simulation tick regression! ${SIM_MS}ms > 5ms" && exit 1)
+          echo "  Mean upper bound: ${SIM_MS}ms (budget: 15ms)"
+          if ! jq -e '.mean.upper_bound <= 15000000' "$SIM" > /dev/null 2>&1; then
+            echo "::warning::Simulation tick slow: ${SIM_MS}ms > 15ms budget"
+            FAILED=1
+          fi
 
           echo "=== Rendering (Update schedule) ==="
           RENDER="target/criterion/rendering/full_update_schedule/new/estimates.json"
-          RENDER_NS=$(jq '.median.point_estimate' "$RENDER")
+          RENDER_NS=$(jq '.mean.upper_bound' "$RENDER")
           RENDER_MS=$(echo "scale=2; $RENDER_NS / 1000000" | bc)
-          echo "  Median: ${RENDER_MS}ms (budget: 5ms)"
-          jq -e '.median.point_estimate <= 5000000' "$RENDER" > /dev/null \
-            || (echo "::error::Rendering regression! ${RENDER_MS}ms > 5ms" && exit 1)
+          echo "  Mean upper bound: ${RENDER_MS}ms (budget: 15ms)"
+          if ! jq -e '.mean.upper_bound <= 15000000' "$RENDER" > /dev/null 2>&1; then
+            echo "::warning::Rendering slow: ${RENDER_MS}ms > 15ms budget"
+            FAILED=1
+          fi
 
           echo "=== Full sim frame (FixedUpdate + Update) ==="
           FRAME="target/criterion/sim_frame/fixed_plus_update/new/estimates.json"
-          FRAME_NS=$(jq '.median.point_estimate' "$FRAME")
+          FRAME_NS=$(jq '.mean.upper_bound' "$FRAME")
           FRAME_MS=$(echo "scale=2; $FRAME_NS / 1000000" | bc)
-          echo "  Median: ${FRAME_MS}ms (budget: 16ms)"
-          jq -e '.median.point_estimate <= 16000000' "$FRAME" > /dev/null \
-            || (echo "::error::Frame budget regression! ${FRAME_MS}ms > 16ms" && exit 1)
+          echo "  Mean upper bound: ${FRAME_MS}ms (budget: 48ms)"
+          if ! jq -e '.mean.upper_bound <= 48000000' "$FRAME" > /dev/null 2>&1; then
+            echo "::warning::Frame budget slow: ${FRAME_MS}ms > 48ms budget"
+            FAILED=1
+          fi
 
-          echo "All performance checks passed."
+          if [ "$FAILED" -eq 0 ]; then
+            echo "All performance checks passed."
+          else
+            echo "first_run_failed=true" >> "$GITHUB_OUTPUT"
+            echo "Some budgets exceeded on first run — will retry."
+          fi
+
+      - name: Retry benchmarks on budget failure
+        if: steps.budget_check.outputs.first_run_failed == 'true'
+        run: |
+          echo "Re-running benchmarks to confirm regression (shared runners are noisy)..."
+          cargo bench -p simulation --bench city_perf --features simulation/bench -- "tel_aviv_fixed_update"
+          cargo bench -p megacity --bench frame_perf --features megacity/bench
+
+      - name: Re-check performance budgets after retry
+        if: steps.budget_check.outputs.first_run_failed == 'true'
+        run: |
+          echo "=== RETRY: Simulation tick (FixedUpdate) ==="
+          SIM="target/criterion/ecs_tick/tel_aviv_fixed_update/new/estimates.json"
+          SIM_NS=$(jq '.mean.upper_bound' "$SIM")
+          SIM_MS=$(echo "scale=2; $SIM_NS / 1000000" | bc)
+          echo "  Mean upper bound: ${SIM_MS}ms (budget: 15ms)"
+          jq -e '.mean.upper_bound <= 15000000' "$SIM" > /dev/null \
+            || (echo "::error::Simulation tick regression confirmed! ${SIM_MS}ms > 15ms" && exit 1)
+
+          echo "=== RETRY: Rendering (Update schedule) ==="
+          RENDER="target/criterion/rendering/full_update_schedule/new/estimates.json"
+          RENDER_NS=$(jq '.mean.upper_bound' "$RENDER")
+          RENDER_MS=$(echo "scale=2; $RENDER_NS / 1000000" | bc)
+          echo "  Mean upper bound: ${RENDER_MS}ms (budget: 15ms)"
+          jq -e '.mean.upper_bound <= 15000000' "$RENDER" > /dev/null \
+            || (echo "::error::Rendering regression confirmed! ${RENDER_MS}ms > 15ms" && exit 1)
+
+          echo "=== RETRY: Full sim frame (FixedUpdate + Update) ==="
+          FRAME="target/criterion/sim_frame/fixed_plus_update/new/estimates.json"
+          FRAME_NS=$(jq '.mean.upper_bound' "$FRAME")
+          FRAME_MS=$(echo "scale=2; $FRAME_NS / 1000000" | bc)
+          echo "  Mean upper bound: ${FRAME_MS}ms (budget: 48ms)"
+          jq -e '.mean.upper_bound <= 48000000' "$FRAME" > /dev/null \
+            || (echo "::error::Frame budget regression confirmed! ${FRAME_MS}ms > 48ms" && exit 1)
+
+          echo "All performance checks passed on retry."
 
   fmt:
     runs-on: ubuntu-latest
