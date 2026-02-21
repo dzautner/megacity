@@ -2375,7 +2375,7 @@ fn test_simulation_set_phases_configured() {
 
 #[test]
 fn test_traffic_los_resource_initialized() {
-    use crate::traffic_los::{LosGrade, TrafficLosGrid};
+    use crate::traffic_los::LosGrade;
 
     let city = TestCity::new();
 
@@ -2390,7 +2390,7 @@ fn test_traffic_los_resource_initialized() {
 
 #[test]
 fn test_traffic_los_empty_roads_grade_a() {
-    use crate::traffic_los::{LosGrade, TrafficLosGrid};
+    use crate::traffic_los::LosGrade;
 
     let mut city = TestCity::new().with_road(10, 10, 20, 10, RoadType::Local);
 
@@ -2409,8 +2409,7 @@ fn test_traffic_los_empty_roads_grade_a() {
 #[test]
 fn test_traffic_los_grading_uses_road_type_capacity() {
     use crate::grid::WorldGrid;
-    use crate::traffic::TrafficGrid;
-    use crate::traffic_los::{LosGrade, TrafficLosGrid};
+    use crate::traffic_los::LosGrade;
 
     let city = TestCity::new()
         .with_road(10, 10, 20, 10, RoadType::Local)
