@@ -186,7 +186,7 @@ fn road_half_width(road_type: RoadType) -> f32 {
 }
 
 /// Evaluate cubic Bezier at parameter t given four control points (in 2D).
-fn bezier_eval(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
+pub fn bezier_eval(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
     let u = 1.0 - t;
     let uu = u * u;
     let tt = t * t;
@@ -194,13 +194,13 @@ fn bezier_eval(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
 }
 
 /// Tangent (first derivative) of cubic Bezier at parameter t.
-fn bezier_tangent(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
+pub fn bezier_tangent(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
     let u = 1.0 - t;
     3.0 * u * u * (p1 - p0) + 6.0 * u * t * (p2 - p1) + 3.0 * t * t * (p3 - p2)
 }
 
 /// Normal vector (perpendicular to tangent, pointing left) in 2D.
-fn bezier_normal(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
+pub fn bezier_normal(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
     let tan = bezier_tangent(p0, p1, p2, p3, t);
     let len = tan.length();
     if len < 1e-6 {
