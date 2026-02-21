@@ -2599,7 +2599,7 @@ fn test_road_upgrade_highway_at_max() {
     assert_eq!(result.unwrap_err(), "Already at maximum road tier");
 }
 
-// ====================================================================
+// =============================================================
 // Traffic congestion tests
 // ====================================================================
 
@@ -2854,5 +2854,302 @@ fn test_higher_capacity_roads_congest_less() {
         highway_mult > 0.9,
         "Highway at ~19% capacity should have multiplier > 0.9, got {}",
         highway_mult
+    );
+}
+
+// ====================================================================
+// Simulation invariant validation tests
+// ====================================================================
+
+#[test]
+fn test_invariant_no_job_overcapacity_after_ticks() {
+    use crate::buildings::Building;
+    use crate::grid::{RoadType, ZoneType};
+    use crate::simulation_invariants::InvariantViolations;
+    use crate::test_harness::TestCity;
+
+    // Build a small city with jobs and residential
+    let mut city = TestCity::new()
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_zone_rect(11, 10, 13, 15, ZoneType::ResidentialLow)
+        .with_zone_rect(11, 16, 13, 20, ZoneType::Industrial)
+        .with_building(11, 12, ZoneType::ResidentialLow, 1)
+        .with_building(11, 18, ZoneType::Industrial, 1);
+
+    // Run a slow cycle so validation fires
+    city.tick_slow_cycle();
+
+    // Check no overcapacity violations
+    let violations = city.resource::<InvariantViolations>();
+    assert_eq!(
+        violations.job_overcapacity, 0,
+        "No job overcapacity violations expected after normal simulation"
+    );
+
+    // Also verify directly: no building has occupants > capacity
+    let world = city.world_mut();
+    let mut query = world.query::<&Building>();
+    for building in query.iter(world) {
+        assert!(
+            building.occupants <= building.capacity,
+            "Building at ({},{}) has {} occupants but capacity {}",
+            building.grid_x,
+            building.grid_y,
+            building.occupants,
+            building.capacity
+        );
+    }
+}
+
+#[test]
+fn test_invariant_marriage_reciprocity_after_ticks() {
+    use crate::citizen::{Citizen, Family};
+    use crate::simulation_invariants::InvariantViolations;
+    use crate::test_harness::TestCity;
+    use bevy::prelude::{Entity, With};
+
+    // Use Tel Aviv map which has citizens that can form marriages
+    let mut city = TestCity::with_tel_aviv();
+
+    // Run several slow cycles to allow life events (marriages) to occur
+    city.tick_slow_cycles(3);
+
+    // Check no reciprocity violations
+    let violations = city.resource::<InvariantViolations>();
+    assert_eq!(
+        violations.marriage_non_reciprocal, 0,
+        "No marriage reciprocity violations expected"
+    );
+
+    // Verify directly: every citizen with a partner has reciprocal link
+    let world = city.world_mut();
+    let mut partner_map: std::collections::HashMap<Entity, Option<Entity>> =
+        std::collections::HashMap::new();
+    let mut query = world.query_filtered::<(Entity, &Family), With<Citizen>>();
+    for (entity, family) in query.iter(world) {
+        partner_map.insert(entity, family.partner);
+    }
+
+    for (&entity, &partner_opt) in &partner_map {
+        if let Some(partner) = partner_opt {
+            match partner_map.get(&partner) {
+                Some(Some(back)) if *back == entity => {} // OK
+                _ => panic!(
+                    "Citizen {:?} has partner {:?} but the link is not reciprocal",
+                    entity, partner
+                ),
+            }
+        }
+    }
+}
+
+#[test]
+fn test_invariant_employment_consistency_after_ticks() {
+    use crate::buildings::Building;
+    use crate::citizen::{Citizen, WorkLocation};
+    use crate::simulation_invariants::InvariantViolations;
+    use crate::test_harness::TestCity;
+    use bevy::prelude::{Entity, With};
+    use std::collections::HashMap;
+
+    let mut city = TestCity::with_tel_aviv();
+
+    // Run a slow cycle so validation fires
+    city.tick_slow_cycle();
+
+    // Check no drift violations
+    let violations = city.resource::<InvariantViolations>();
+    assert_eq!(
+        violations.employment_drift, 0,
+        "No employment drift violations expected after initial ticks"
+    );
+
+    // Verify directly: count workers per building from WorkLocation components
+    let world = city.world_mut();
+    let mut worker_counts: HashMap<Entity, u32> = HashMap::new();
+    let mut work_query = world.query_filtered::<&WorkLocation, With<Citizen>>();
+    for work in work_query.iter(world) {
+        *worker_counts.entry(work.building).or_insert(0) += 1;
+    }
+
+    let mut building_query = world.query::<(Entity, &Building)>();
+    for (entity, building) in building_query.iter(world) {
+        if building.zone_type.is_job_zone() {
+            let actual_workers = worker_counts.get(&entity).copied().unwrap_or(0);
+            // actual_workers should not exceed occupants (virtual pop can cause
+            // occupants > actual workers, which is expected)
+            assert!(
+                actual_workers <= building.occupants,
+                "Building {:?} at ({},{}) has {} actual workers but only {} occupants tracked",
+                entity,
+                building.grid_x,
+                building.grid_y,
+                actual_workers,
+                building.occupants
+            );
+        }
+    }
+}
+
+#[test]
+fn test_invariant_overcapacity_detected_and_corrected() {
+    use crate::buildings::Building;
+    use crate::grid::ZoneType;
+    use crate::simulation_invariants::InvariantViolations;
+    use crate::test_harness::TestCity;
+
+    let mut city = TestCity::new().with_building(50, 50, ZoneType::Industrial, 1);
+
+    // Manually set occupants above capacity to simulate a bug
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<&mut Building>();
+        for mut building in query.iter_mut(world) {
+            if building.grid_x == 50 && building.grid_y == 50 {
+                // Capacity for Industrial L1 is 20; set to 25
+                building.occupants = 25;
+            }
+        }
+    }
+
+    // Run a slow cycle so validation fires
+    city.tick_slow_cycle();
+
+    // Check that the violation was detected
+    let violations = city.resource::<InvariantViolations>();
+    assert!(
+        violations.job_overcapacity > 0,
+        "Overcapacity violation should have been detected"
+    );
+
+    // Check that the occupants were corrected
+    let world = city.world_mut();
+    let mut query = world.query::<&Building>();
+    for building in query.iter(world) {
+        if building.grid_x == 50 && building.grid_y == 50 {
+            assert!(
+                building.occupants <= building.capacity,
+                "Occupants should have been clamped to capacity"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_invariant_nonreciprocal_marriage_detected_and_cleared() {
+    use crate::citizen::{
+        Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation,
+        Needs, PathCache, Personality, Position, Velocity,
+    };
+    use crate::grid::{RoadType, WorldGrid, ZoneType};
+    use crate::movement::ActivityTimer;
+    use crate::simulation_invariants::InvariantViolations;
+    use crate::test_harness::TestCity;
+
+    let mut city = TestCity::new()
+        .with_road(10, 10, 10, 15, RoadType::Local)
+        .with_building(11, 12, ZoneType::ResidentialLow, 1);
+
+    // Spawn two citizens manually with a non-reciprocal partner link
+    let (citizen_a, citizen_b) = {
+        let world = city.world_mut();
+        let grid = world.resource::<WorldGrid>();
+        let home_entity = grid.get(11, 12).building_id.unwrap();
+        let (hx, hy) = WorldGrid::grid_to_world(11, 12);
+
+        let a = world
+            .spawn((
+                Citizen,
+                Position { x: hx, y: hy },
+                Velocity { x: 0.0, y: 0.0 },
+                HomeLocation {
+                    grid_x: 11,
+                    grid_y: 12,
+                    building: home_entity,
+                },
+                CitizenStateComp(CitizenState::AtHome),
+                PathCache::new(Vec::new()),
+                CitizenDetails {
+                    age: 30,
+                    gender: Gender::Male,
+                    education: 0,
+                    happiness: 60.0,
+                    health: 90.0,
+                    salary: 0.0,
+                    savings: 1000.0,
+                },
+                Personality {
+                    ambition: 0.5,
+                    sociability: 0.5,
+                    materialism: 0.5,
+                    resilience: 0.5,
+                },
+                Needs::default(),
+                Family::default(),
+                ActivityTimer::default(),
+            ))
+            .id();
+
+        let b = world
+            .spawn((
+                Citizen,
+                Position { x: hx, y: hy },
+                Velocity { x: 0.0, y: 0.0 },
+                HomeLocation {
+                    grid_x: 11,
+                    grid_y: 12,
+                    building: home_entity,
+                },
+                CitizenStateComp(CitizenState::AtHome),
+                PathCache::new(Vec::new()),
+                CitizenDetails {
+                    age: 28,
+                    gender: Gender::Female,
+                    education: 0,
+                    happiness: 60.0,
+                    health: 90.0,
+                    salary: 0.0,
+                    savings: 1000.0,
+                },
+                Personality {
+                    ambition: 0.5,
+                    sociability: 0.5,
+                    materialism: 0.5,
+                    resilience: 0.5,
+                },
+                Needs::default(),
+                Family::default(),
+                ActivityTimer::default(),
+            ))
+            .id();
+
+        (a, b)
+    };
+
+    // Set up non-reciprocal link: A says partner is B, but B has no partner
+    {
+        let world = city.world_mut();
+        if let Some(mut family) = world.get_mut::<Family>(citizen_a) {
+            family.partner = Some(citizen_b);
+        }
+        // citizen_b's family.partner remains None -- non-reciprocal!
+    }
+
+    // Run a slow cycle so validation fires
+    city.tick_slow_cycle();
+
+    // Check that the violation was detected
+    let violations = city.resource::<InvariantViolations>();
+    assert!(
+        violations.marriage_non_reciprocal > 0,
+        "Non-reciprocal marriage should have been detected"
+    );
+
+    // Check that the broken link was cleared
+    let world = city.world_mut();
+    let family_a = world.get::<Family>(citizen_a).unwrap();
+    assert!(
+        family_a.partner.is_none(),
+        "Citizen A's non-reciprocal partner link should have been cleared"
     );
 }
