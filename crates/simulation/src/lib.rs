@@ -99,6 +99,7 @@ pub mod roads;
 pub mod save_load_state;
 pub mod seasonal_rendering;
 pub mod services;
+pub mod simulation_invariants;
 pub mod simulation_sets;
 pub mod snow;
 pub mod spatial_grid;
@@ -603,7 +604,10 @@ impl Plugin for SimulationPlugin {
             parking::ParkingPlugin,
             tutorial::TutorialPlugin,
             multi_select::MultiSelectPlugin,
+        ));
+        app.add_plugins((
             blueprints::BlueprintPlugin,
+            simulation_invariants::SimulationInvariantsPlugin,
         ));
 
         // Localization infrastructure
