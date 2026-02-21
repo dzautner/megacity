@@ -33,6 +33,9 @@ pub enum Policy {
     IndustrialZoningRestriction,
     EminentDomain,
     CumulativeZoning,
+
+    // Transport
+    EncourageBiking,
 }
 
 impl Policy {
@@ -56,6 +59,7 @@ impl Policy {
             Policy::IndustrialZoningRestriction => 0.0,
             Policy::EminentDomain => 20.0,
             Policy::CumulativeZoning => 0.0,
+            Policy::EncourageBiking => 15.0,
         }
     }
 
@@ -78,6 +82,7 @@ impl Policy {
             Policy::IndustrialZoningRestriction => "Industrial Zoning Restriction",
             Policy::EminentDomain => "Eminent Domain",
             Policy::CumulativeZoning => "Cumulative Zoning",
+            Policy::EncourageBiking => "Encourage Biking",
         }
     }
 
@@ -106,6 +111,9 @@ impl Policy {
             Policy::CumulativeZoning => {
                 "Higher-intensity zones allow lower-intensity uses (Euclidean hierarchy)"
             }
+            Policy::EncourageBiking => {
+                "+15% cycling rate when bike infrastructure exists, reduces car traffic"
+            }
         }
     }
 
@@ -129,6 +137,7 @@ impl Policy {
             Policy::IndustrialZoningRestriction,
             Policy::EminentDomain,
             Policy::CumulativeZoning,
+            Policy::EncourageBiking,
         ]
     }
 }

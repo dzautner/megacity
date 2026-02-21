@@ -223,6 +223,7 @@ pub fn policy_to_u8(p: Policy) -> u8 {
         Policy::IndustrialZoningRestriction => 14,
         Policy::EminentDomain => 15,
         Policy::CumulativeZoning => 16,
+        Policy::EncourageBiking => 17,
     }
 }
 
@@ -245,6 +246,7 @@ pub fn u8_to_policy(v: u8) -> Option<Policy> {
         14 => Some(Policy::IndustrialZoningRestriction),
         15 => Some(Policy::EminentDomain),
         16 => Some(Policy::CumulativeZoning),
+        17 => Some(Policy::EncourageBiking),
         _ => None,
     }
 }
