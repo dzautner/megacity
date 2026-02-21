@@ -9,6 +9,7 @@ pub mod achievements;
 pub mod advisors;
 pub mod agriculture;
 pub mod airport;
+pub mod blueprints;
 pub mod budget;
 pub mod building_upgrade;
 pub mod buildings;
@@ -286,6 +287,7 @@ impl SaveableRegistry {
 /// When you add a new `Saveable` type, add its key here. The startup assertion
 /// will remind you if you forget to register it.
 pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
+    "blueprint_library",
     "chart_history",
     "climate_change",
     "colorblind_settings",
@@ -592,6 +594,7 @@ impl Plugin for SimulationPlugin {
             parking::ParkingPlugin,
             tutorial::TutorialPlugin,
             multi_select::MultiSelectPlugin,
+            blueprints::BlueprintPlugin,
         ));
 
         // Localization infrastructure
