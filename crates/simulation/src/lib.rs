@@ -88,6 +88,7 @@ pub mod reservoir;
 pub mod road_graph_csr;
 pub mod road_maintenance;
 pub mod road_segments;
+pub mod road_upgrade;
 pub mod roads;
 pub mod seasonal_rendering;
 pub mod services;
@@ -469,6 +470,7 @@ impl Plugin for SimulationPlugin {
             waste_effects::WasteEffectsPlugin,
             recycling::RecyclingPlugin,
             road_maintenance::RoadMaintenancePlugin,
+            road_upgrade::RoadUpgradePlugin,
             oneway::OneWayPlugin,
             traffic_accidents::TrafficAccidentsPlugin,
             traffic_los::TrafficLosPlugin,

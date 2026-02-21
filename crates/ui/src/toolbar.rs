@@ -107,6 +107,7 @@ fn tool_description(item: &ToolItem) -> Option<&'static str> {
         ActiveTool::RoadHighway => "High-speed limited-access highway",
         ActiveTool::RoadOneWay => "One-way road for directional traffic flow",
         ActiveTool::RoadPath => "Pedestrian and bicycle path",
+        ActiveTool::RoadUpgrade => "Upgrade existing road to next tier",
         // Zones
         ActiveTool::ZoneResidentialLow => "Low-density houses and small apartments",
         ActiveTool::ZoneResidentialMedium => "Townhouses, duplexes, and small apartments",
@@ -369,6 +370,13 @@ fn build_categories() -> Vec<ToolCategory> {
                     icon: "..",
                     name: "Path",
                     cost: Some(5.0),
+                    overlay: None,
+                },
+                ToolItem {
+                    tool: Some(ActiveTool::RoadUpgrade),
+                    icon: "Up",
+                    name: "Upgrade",
+                    cost: None,
                     overlay: None,
                 },
             ],

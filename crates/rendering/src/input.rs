@@ -93,6 +93,8 @@ pub enum ActiveTool {
     // Environment tools
     TreePlant,
     TreeRemove,
+    // Road upgrade tool
+    RoadUpgrade,
 }
 
 impl ActiveTool {
@@ -113,7 +115,8 @@ impl ActiveTool {
             | ActiveTool::TerrainWater
             | ActiveTool::DistrictPaint(_)
             | ActiveTool::DistrictErase
-            | ActiveTool::TreeRemove => None,
+            | ActiveTool::TreeRemove
+            | ActiveTool::RoadUpgrade => None,
             ActiveTool::TreePlant => Some(simulation::trees::TREE_PLANT_COST),
             ActiveTool::ZoneResidentialLow
             | ActiveTool::ZoneResidentialMedium
@@ -268,6 +271,7 @@ impl ActiveTool {
             ActiveTool::DistrictErase => "Erase District",
             ActiveTool::TreePlant => "Plant Tree",
             ActiveTool::TreeRemove => "Remove Tree",
+            ActiveTool::RoadUpgrade => "Upgrade Road",
         }
     }
 
@@ -935,7 +939,7 @@ pub fn handle_tool_input(
         }
 
         // --- Trees (handled by separate system to stay within param limit) ---
-        ActiveTool::TreePlant | ActiveTool::TreeRemove => false,
+        ActiveTool::TreePlant | ActiveTool::TreeRemove | ActiveTool::RoadUpgrade => false,
 
         // --- Districts ---
         ActiveTool::DistrictPaint(di) => {
@@ -1367,6 +1371,83 @@ pub fn handle_tree_tool(
 
     if changed {
         mark_chunk_dirty_at(gx, gy, &chunks, &mut commands);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Road upgrade tool system (separate from handle_tool_input for param limit)
+// ---------------------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+pub fn handle_road_upgrade_tool(
+    buttons: Res<ButtonInput<MouseButton>>,
+    cursor: Res<CursorGridPos>,
+    tool: Res<ActiveTool>,
+    mut grid: ResMut<WorldGrid>,
+    mut roads: ResMut<RoadNetwork>,
+    mut segments: ResMut<RoadSegmentStore>,
+    mut budget: ResMut<CityBudget>,
+    mut status: ResMut<StatusMessage>,
+    left_drag: Res<crate::camera::LeftClickDrag>,
+    chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
+    mut commands: Commands,
+) {
+    if left_drag.is_dragging {
+        return;
+    }
+
+    if *tool != ActiveTool::RoadUpgrade {
+        return;
+    }
+
+    if !buttons.just_pressed(MouseButton::Left) || !cursor.valid {
+        return;
+    }
+
+    // Find the closest segment to the cursor position
+    let seg_id = match simulation::road_upgrade::find_segment_near(
+        cursor.world_pos,
+        &segments,
+        CELL_SIZE * 2.0,
+    ) {
+        Some(id) => id,
+        None => {
+            status.set("No road segment here", true);
+            return;
+        }
+    };
+
+    // Get current type for status message
+    let current_type = match segments.get_segment(seg_id) {
+        Some(seg) => seg.road_type,
+        None => {
+            status.set("Segment not found", true);
+            return;
+        }
+    };
+
+    match simulation::road_upgrade::upgrade_segment(
+        seg_id,
+        &mut segments,
+        &mut grid,
+        &mut roads,
+        &mut budget,
+    ) {
+        Ok(new_type) => {
+            // Mark all affected chunks dirty for re-rendering
+            if let Some(seg) = segments.get_segment(seg_id) {
+                for &(gx, gy) in &seg.rasterized_cells {
+                    mark_chunk_dirty_at(gx, gy, &chunks, &mut commands);
+                }
+            }
+            status.set(
+                format!("Upgraded {:?} to {:?}", current_type, new_type),
+                false,
+            );
+        }
+        Err(reason) => {
+            status.set(reason, true);
+        }
     }
 }
 

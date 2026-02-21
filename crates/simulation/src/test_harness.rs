@@ -184,6 +184,49 @@ impl TestCity {
         });
     }
 
+    /// Upgrade a road segment by its index in the segment store.
+    /// Returns `Ok(new_road_type)` on success or `Err(reason)` on failure.
+    pub fn upgrade_segment_by_index(
+        &mut self,
+        segment_index: usize,
+    ) -> Result<RoadType, &'static str> {
+        let world = self.app.world_mut();
+        let seg_id = {
+            let segments = world.resource::<RoadSegmentStore>();
+            if segment_index >= segments.segments.len() {
+                return Err("Segment index out of bounds");
+            }
+            segments.segments[segment_index].id
+        };
+        world.resource_scope(|world, mut segments: Mut<RoadSegmentStore>| {
+            world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
+                world.resource_scope(|world, mut roads: Mut<RoadNetwork>| {
+                    world.resource_scope(|_world, mut budget: Mut<CityBudget>| {
+                        crate::road_upgrade::upgrade_segment(
+                            seg_id,
+                            &mut segments,
+                            &mut grid,
+                            &mut roads,
+                            &mut budget,
+                        )
+                    })
+                })
+            })
+        })
+    }
+
+    /// Get the road type of a segment by its index in the segment store.
+    pub fn segment_road_type(&self, segment_index: usize) -> Option<RoadType> {
+        let segments = self.app.world().resource::<RoadSegmentStore>();
+        segments.segments.get(segment_index).map(|s| s.road_type)
+    }
+
+    /// Get the number of road segments in the store.
+    pub fn segment_count(&self) -> usize {
+        let segments = self.app.world().resource::<RoadSegmentStore>();
+        segments.segments.len()
+    }
+
     /// Bulldoze a service building at (x, y) and credit the refund to the
     /// treasury. The entity is despawned and grid cells are cleared.
     pub fn bulldoze_service_at(&mut self, x: usize, y: usize) {
