@@ -310,6 +310,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "nimby_state",
     "oneway_direction_map",
     "parking_policy",
+    "road_hierarchy",
     "seasonal_effects_config",
     "seasonal_rendering",
     "traffic_los",
