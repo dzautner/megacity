@@ -8,7 +8,8 @@ use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
-    IdbDatabase, IdbObjectStore, IdbOpenDbRequest, IdbRequest, IdbTransactionMode, Window,
+    DomException, IdbDatabase, IdbObjectStore, IdbOpenDbRequest, IdbRequest, IdbTransactionMode,
+    Window,
 };
 
 const DB_NAME: &str = "megacity_saves";
@@ -19,21 +20,57 @@ const SAVE_KEY: &str = "megacity_save";
 /// Legacy localStorage key (for migration).
 const LEGACY_KEY: &str = "megacity_save";
 
-fn window() -> Result<Window, String> {
-    web_sys::window().ok_or_else(|| "no window".to_string())
+/// Error type for WASM save/load operations.
+#[derive(Debug, Clone)]
+pub enum WasmStorageError {
+    /// The browser storage quota has been exceeded.
+    QuotaExceeded,
+    /// A general storage error with a descriptive message.
+    Other(String),
+}
+
+impl std::fmt::Display for WasmStorageError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WasmStorageError::QuotaExceeded => {
+                write!(
+                    f,
+                    "Save failed: storage full. Try deleting old saves or clearing browser data."
+                )
+            }
+            WasmStorageError::Other(msg) => write!(f, "Save failed: {}", msg),
+        }
+    }
+}
+
+/// Check whether a JsValue represents a QuotaExceededError from IndexedDB.
+fn is_quota_exceeded_error(err: &JsValue) -> bool {
+    // Check if it's a DOMException with name "QuotaExceededError"
+    if let Ok(dom_exception) = err.clone().dyn_into::<DomException>() {
+        return dom_exception.name() == "QuotaExceededError";
+    }
+    // Also check the string representation as a fallback
+    let s = format!("{:?}", err);
+    s.contains("QuotaExceededError") || s.contains("quota")
+}
+
+fn window() -> Result<Window, WasmStorageError> {
+    web_sys::window().ok_or_else(|| WasmStorageError::Other("no window".to_string()))
 }
 
 /// Open (or create) the IndexedDB database.
-async fn open_db() -> Result<IdbDatabase, String> {
+async fn open_db() -> Result<IdbDatabase, WasmStorageError> {
     let window = window()?;
     let idb_factory = window
         .indexed_db()
-        .map_err(|e| format!("indexedDB error: {:?}", e))?
-        .ok_or("indexedDB not available")?;
+        .map_err(|e| WasmStorageError::Other(format!("indexedDB error: {:?}", e)))?
+        .ok_or(WasmStorageError::Other(
+            "indexedDB not available".to_string(),
+        ))?;
 
     let open_request: IdbOpenDbRequest = idb_factory
         .open_with_u32(DB_NAME, DB_VERSION)
-        .map_err(|e| format!("failed to open db: {:?}", e))?;
+        .map_err(|e| WasmStorageError::Other(format!("failed to open db: {:?}", e)))?;
 
     // Handle upgrade (create object store on first use).
     let on_upgrade = Closure::once(move |event: web_sys::IdbVersionChangeEvent| {
@@ -57,8 +94,9 @@ async fn open_db() -> Result<IdbDatabase, String> {
 }
 
 /// Convert an IdbRequest into a Future that resolves when the request completes.
-async fn idb_request_to_future(request: &IdbRequest) -> Result<JsValue, String> {
-    let (sender, receiver) = futures_channel::oneshot::channel::<Result<JsValue, String>>();
+async fn idb_request_to_future(request: &IdbRequest) -> Result<JsValue, WasmStorageError> {
+    let (sender, receiver) =
+        futures_channel::oneshot::channel::<Result<JsValue, WasmStorageError>>();
     let sender = std::rc::Rc::new(std::cell::RefCell::new(Some(sender)));
 
     let sender_ok = sender.clone();
@@ -74,13 +112,18 @@ async fn idb_request_to_future(request: &IdbRequest) -> Result<JsValue, String> 
     let request_clone2 = request.clone();
     let on_error = Closure::once(move |_event: web_sys::Event| {
         if let Some(tx) = sender_err.borrow_mut().take() {
-            let err = request_clone2
-                .error()
-                .ok()
-                .flatten()
-                .map(|e| format!("{:?}", e.message()))
-                .unwrap_or_else(|| "unknown IDB error".to_string());
-            let _ = tx.send(Err(err));
+            let err_val = request_clone2.error().ok().flatten();
+            let error = if let Some(ref dom_exc) = err_val {
+                let js: &JsValue = dom_exc.as_ref();
+                if is_quota_exceeded_error(js) {
+                    WasmStorageError::QuotaExceeded
+                } else {
+                    WasmStorageError::Other(format!("{:?}", dom_exc.message()))
+                }
+            } else {
+                WasmStorageError::Other("unknown IDB error".to_string())
+            };
+            let _ = tx.send(Err(error));
         }
     });
 
@@ -89,7 +132,7 @@ async fn idb_request_to_future(request: &IdbRequest) -> Result<JsValue, String> 
 
     let result = receiver
         .await
-        .map_err(|_| "IDB request channel dropped".to_string())?;
+        .map_err(|_| WasmStorageError::Other("IDB request channel dropped".to_string()))?;
 
     // Clean up event handlers
     request.set_onsuccess(None);
@@ -99,7 +142,7 @@ async fn idb_request_to_future(request: &IdbRequest) -> Result<JsValue, String> 
 }
 
 /// Save compressed binary data to IndexedDB.
-pub async fn idb_save(bytes: Vec<u8>) -> Result<(), String> {
+pub async fn idb_save(bytes: Vec<u8>) -> Result<(), WasmStorageError> {
     use flate2::write::DeflateEncoder;
     use flate2::Compression;
     use std::io::Write;
@@ -108,25 +151,33 @@ pub async fn idb_save(bytes: Vec<u8>) -> Result<(), String> {
     let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
     encoder
         .write_all(&bytes)
-        .map_err(|e| format!("compression write error: {}", e))?;
+        .map_err(|e| WasmStorageError::Other(format!("compression write error: {}", e)))?;
     let compressed = encoder
         .finish()
-        .map_err(|e| format!("compression finish error: {}", e))?;
+        .map_err(|e| WasmStorageError::Other(format!("compression finish error: {}", e)))?;
 
     let db = open_db().await?;
 
     let transaction = db
         .transaction_with_str_and_mode(STORE_NAME, IdbTransactionMode::Readwrite)
-        .map_err(|e| format!("transaction error: {:?}", e))?;
+        .map_err(|e| WasmStorageError::Other(format!("transaction error: {:?}", e)))?;
     let store: IdbObjectStore = transaction
         .object_store(STORE_NAME)
-        .map_err(|e| format!("object store error: {:?}", e))?;
+        .map_err(|e| WasmStorageError::Other(format!("object store error: {:?}", e)))?;
 
     // Store as Uint8Array (binary, no base64 overhead).
     let js_array = Uint8Array::from(&compressed[..]);
-    let request = store
-        .put_with_key(&js_array, &JsValue::from_str(SAVE_KEY))
-        .map_err(|e| format!("put error: {:?}", e))?;
+    let put_result = store.put_with_key(&js_array, &JsValue::from_str(SAVE_KEY));
+
+    let request = match put_result {
+        Ok(req) => req,
+        Err(e) => {
+            if is_quota_exceeded_error(&e) {
+                return Err(WasmStorageError::QuotaExceeded);
+            }
+            return Err(WasmStorageError::Other(format!("put error: {:?}", e)));
+        }
+    };
 
     idb_request_to_future(&request).await?;
 
@@ -193,7 +244,7 @@ async fn idb_load_from_db() -> Result<Option<Vec<u8>>, String> {
     use flate2::read::DeflateDecoder;
     use std::io::Read;
 
-    let db = open_db().await?;
+    let db = open_db().await.map_err(|e| e.to_string())?;
 
     let transaction = db
         .transaction_with_str_and_mode(STORE_NAME, IdbTransactionMode::Readonly)
@@ -206,7 +257,9 @@ async fn idb_load_from_db() -> Result<Option<Vec<u8>>, String> {
         .get(&JsValue::from_str(SAVE_KEY))
         .map_err(|e| format!("get error: {:?}", e))?;
 
-    let result = idb_request_to_future(&request).await?;
+    let result = idb_request_to_future(&request)
+        .await
+        .map_err(|e| e.to_string())?;
 
     if result.is_undefined() || result.is_null() {
         return Ok(None);
@@ -229,7 +282,7 @@ fn load_from_local_storage() -> Result<Vec<u8>, String> {
     use flate2::read::DeflateDecoder;
     use std::io::Read;
 
-    let window = window()?;
+    let window = window().map_err(|e| e.to_string())?;
     let storage = window
         .local_storage()
         .map_err(|_| "localStorage error")?
@@ -251,7 +304,7 @@ fn load_from_local_storage() -> Result<Vec<u8>, String> {
 
 /// Remove legacy localStorage entry after migration.
 fn remove_legacy_local_storage() -> Result<(), String> {
-    let window = window()?;
+    let window = window().map_err(|e| e.to_string())?;
     let storage = window
         .local_storage()
         .map_err(|_| "localStorage error")?

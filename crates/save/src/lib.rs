@@ -104,6 +104,13 @@ struct PendingLoadBytes(Option<Vec<u8>>);
 #[derive(Resource, Default)]
 struct WasmLoadBuffer(std::rc::Rc<std::cell::RefCell<Option<Result<Vec<u8>, String>>>>);
 
+/// On WASM, holds save error messages from async IndexedDB writes.
+/// The `poll_wasm_save_error` system checks this each frame and, when an error
+/// is present, emits a user-facing notification.
+#[cfg(target_arch = "wasm32")]
+#[derive(Resource, Default)]
+struct WasmSaveErrorBuffer(std::rc::Rc<std::cell::RefCell<Option<String>>>);
+
 pub struct SavePlugin;
 
 impl Plugin for SavePlugin {
@@ -117,6 +124,8 @@ impl Plugin for SavePlugin {
         // On WASM, register IndexedDB async load infrastructure.
         #[cfg(target_arch = "wasm32")]
         app.init_resource::<WasmLoadBuffer>();
+        #[cfg(target_arch = "wasm32")]
+        app.init_resource::<WasmSaveErrorBuffer>();
 
         // Event detection: runs every frame, reads events and triggers state
         // transitions.  These are lightweight systems that only read events.
@@ -133,7 +142,11 @@ impl Plugin for SavePlugin {
         #[cfg(target_arch = "wasm32")]
         app.add_systems(
             Update,
-            (start_wasm_load, poll_wasm_load.after(start_wasm_load)),
+            (
+                start_wasm_load,
+                poll_wasm_load.after(start_wasm_load),
+                poll_wasm_save_error,
+            ),
         );
 
         // Exclusive systems for each state: these run on state entry,
@@ -235,6 +248,24 @@ fn poll_wasm_load(
                 web_sys::console::error_1(&format!("Failed to load from IndexedDB: {}", e).into());
             }
         }
+    }
+}
+
+/// Polls the WASM save error buffer each frame and, when an error is present,
+/// emits a user-facing notification so the player knows the save failed.
+#[cfg(target_arch = "wasm32")]
+fn poll_wasm_save_error(
+    buffer: Res<WasmSaveErrorBuffer>,
+    mut notifications: EventWriter<simulation::notifications::NotificationEvent>,
+) {
+    let mut slot = buffer.0.borrow_mut();
+    if let Some(error_msg) = slot.take() {
+        web_sys::console::error_1(&format!("Save error surfaced to UI: {}", error_msg).into());
+        notifications.send(simulation::notifications::NotificationEvent {
+            text: error_msg,
+            priority: simulation::notifications::NotificationPriority::Warning,
+            location: None,
+        });
     }
 }
 
@@ -462,15 +493,16 @@ fn exclusive_save(world: &mut World) {
     #[cfg(target_arch = "wasm32")]
     {
         let len = bytes.len();
+        let error_slot = world.resource::<WasmSaveErrorBuffer>().0.clone();
         wasm_bindgen_futures::spawn_local(async move {
             match wasm_idb::idb_save(bytes).await {
                 Ok(()) => {
                     web_sys::console::log_1(&format!("Saved {} bytes to IndexedDB", len).into());
                 }
                 Err(e) => {
-                    web_sys::console::error_1(
-                        &format!("Failed to save to IndexedDB: {}", e).into(),
-                    );
+                    let msg = e.to_string();
+                    web_sys::console::error_1(&msg.clone().into());
+                    *error_slot.borrow_mut() = Some(msg);
                 }
             }
         });
