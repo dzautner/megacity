@@ -15,6 +15,7 @@ pub mod budget;
 pub mod building_upgrade;
 pub mod buildings;
 pub mod bulldoze_refund;
+pub mod bus_transit;
 pub mod chart_data;
 pub mod citizen;
 pub mod citizen_spawner;
@@ -295,6 +296,7 @@ impl SaveableRegistry {
 pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "blueprint_library",
     "bicycle_lanes",
+    "bus_transit",
     "chart_history",
     "climate_change",
     "colorblind_settings",
@@ -501,6 +503,7 @@ impl Plugin for SimulationPlugin {
             traffic_congestion::TrafficCongestionPlugin,
             traffic_los::TrafficLosPlugin,
             road_hierarchy::RoadHierarchyPlugin,
+            bus_transit::BusTransitPlugin,
             loans::LoansPlugin,
             bulldoze_refund::BulldozeRefundPlugin,
         ));

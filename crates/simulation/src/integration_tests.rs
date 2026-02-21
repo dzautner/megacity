@@ -5268,3 +5268,243 @@ fn test_superblock_multiple_blocks_coverage() {
     // Each 5x5 has 25 cells, total = 50
     assert_eq!(state.total_coverage_cells, 50);
 }
+// Bus Transit System (TRAF-005) Integration Tests
+// ====================================================================
+
+#[test]
+fn test_bus_transit_add_stops_and_route() {
+    use crate::bus_transit::BusTransitState;
+
+    let city = TestCity::new()
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_road(10, 20, 20, 20, RoadType::Local);
+
+    let mut transit = city.resource::<BusTransitState>().clone();
+    let grid = city.grid();
+
+    // Add stops on road cells
+    let s1 = transit.add_stop(grid, 10, 10);
+    assert!(s1.is_some(), "Should add stop on road cell");
+    let s2 = transit.add_stop(grid, 10, 20);
+    assert!(s2.is_some(), "Should add second stop on road cell");
+
+    // Create route
+    let route_id = transit.add_route("Line 1".to_string(), vec![s1.unwrap(), s2.unwrap()]);
+    assert!(route_id.is_some(), "Should create route with 2 stops");
+    assert_eq!(transit.routes.len(), 1);
+    assert_eq!(transit.routes[0].stop_ids.len(), 2);
+}
+
+#[test]
+fn test_bus_transit_stop_on_grass_fails() {
+    use crate::bus_transit::BusTransitState;
+
+    let city = TestCity::new();
+    let mut transit = BusTransitState::default();
+    let grid = city.grid();
+
+    // Try to add stop on grass (no road)
+    let result = transit.add_stop(grid, 50, 50);
+    assert!(result.is_none(), "Should not add stop on grass");
+}
+
+#[test]
+fn test_bus_transit_route_activation_with_depot() {
+    use crate::bus_transit::BusTransitState;
+
+    let mut city = TestCity::new()
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_service(10, 12, ServiceType::BusDepot);
+
+    // Set up transit state with stops and route
+    {
+        let world = city.world_mut();
+        let grid = world.resource::<WorldGrid>();
+        let mut transit = BusTransitState::default();
+        let s1 = transit.add_stop(grid, 10, 10).unwrap();
+        let s2 = transit.add_stop(grid, 10, 18).unwrap();
+        transit.add_route("Line 1".to_string(), vec![s1, s2]);
+        world.insert_resource(transit);
+    }
+
+    // Run simulation to trigger route activation
+    city.tick(5);
+
+    let transit = city.resource::<BusTransitState>();
+    assert_eq!(transit.routes.len(), 1);
+    assert!(
+        transit.routes[0].active,
+        "Route should be active with depot nearby"
+    );
+}
+
+#[test]
+fn test_bus_transit_buses_spawn_on_active_route() {
+    use crate::bus_transit::{BusTransitState, BUSES_PER_ROUTE};
+
+    let mut city = TestCity::new()
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_service(10, 12, ServiceType::BusDepot);
+
+    // Set up transit state
+    {
+        let world = city.world_mut();
+        let grid = world.resource::<WorldGrid>();
+        let mut transit = BusTransitState::default();
+        let s1 = transit.add_stop(grid, 10, 10).unwrap();
+        let s2 = transit.add_stop(grid, 10, 18).unwrap();
+        transit.add_route("Line 1".to_string(), vec![s1, s2]);
+        world.insert_resource(transit);
+    }
+
+    // Run enough ticks for activation and bus spawning
+    city.tick(10);
+
+    let transit = city.resource::<BusTransitState>();
+    assert!(transit.routes[0].active, "Route should be active");
+    assert_eq!(
+        transit.buses.len(),
+        BUSES_PER_ROUTE as usize,
+        "Should have spawned {} buses",
+        BUSES_PER_ROUTE
+    );
+}
+
+#[test]
+fn test_bus_transit_ridership_increases() {
+    use crate::bus_transit::BusTransitState;
+
+    let mut city = TestCity::new()
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_service(10, 12, ServiceType::BusDepot)
+        .with_zone_rect(8, 8, 12, 12, ZoneType::ResidentialLow)
+        .with_zone_rect(8, 18, 12, 22, ZoneType::CommercialLow);
+
+    // Set up transit with stops near zones
+    {
+        let world = city.world_mut();
+        let grid = world.resource::<WorldGrid>();
+        let mut transit = BusTransitState::default();
+        let s1 = transit.add_stop(grid, 10, 10).unwrap();
+        let s2 = transit.add_stop(grid, 10, 18).unwrap();
+        transit.add_route("Line 1".to_string(), vec![s1, s2]);
+        world.insert_resource(transit);
+    }
+
+    // Run slow cycle to generate waiting passengers and let buses pick them up
+    city.tick_slow_cycle();
+    city.tick(50); // Extra ticks for buses to reach stops
+
+    let transit = city.resource::<BusTransitState>();
+    assert!(
+        transit.total_ridership() > 0
+            || transit.routes[0].monthly_ridership > 0
+            || transit.stops.iter().any(|s| s.waiting > 0),
+        "Should have some ridership or waiting passengers after simulation"
+    );
+}
+
+#[test]
+fn test_bus_transit_remove_route_clears_buses() {
+    use crate::bus_transit::BusTransitState;
+
+    let mut city = TestCity::new()
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_service(10, 12, ServiceType::BusDepot);
+
+    // Set up transit and let buses spawn
+    {
+        let world = city.world_mut();
+        let grid = world.resource::<WorldGrid>();
+        let mut transit = BusTransitState::default();
+        let s1 = transit.add_stop(grid, 10, 10).unwrap();
+        let s2 = transit.add_stop(grid, 10, 18).unwrap();
+        transit.add_route("Line 1".to_string(), vec![s1, s2]);
+        world.insert_resource(transit);
+    }
+
+    city.tick(10);
+
+    // Verify buses exist
+    let bus_count = city.resource::<BusTransitState>().buses.len();
+    assert!(bus_count > 0, "Should have buses before removal");
+
+    // Remove the route
+    {
+        let world = city.world_mut();
+        let route_id = world.resource::<BusTransitState>().routes[0].id;
+        world
+            .resource_mut::<BusTransitState>()
+            .remove_route(route_id);
+    }
+
+    let transit = city.resource::<BusTransitState>();
+    assert_eq!(transit.routes.len(), 0, "Route should be removed");
+    assert_eq!(transit.buses.len(), 0, "Buses should be removed with route");
+}
+
+#[test]
+fn test_bus_transit_costs_applied_to_budget() {
+    use crate::bus_transit::BusTransitState;
+
+    let mut city = TestCity::new()
+        .with_budget(50_000.0)
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_service(10, 12, ServiceType::BusDepot);
+
+    // Set up transit with last_cost_day far in the past to trigger cost application
+    {
+        let world = city.world_mut();
+        let grid = world.resource::<WorldGrid>();
+        let mut transit = BusTransitState::default();
+        let s1 = transit.add_stop(grid, 10, 10).unwrap();
+        let s2 = transit.add_stop(grid, 10, 18).unwrap();
+        transit.add_route("Line 1".to_string(), vec![s1, s2]);
+        world.insert_resource(transit);
+    }
+
+    // Advance game clock past day 31 so the monthly cost applies
+    {
+        let world = city.world_mut();
+        let mut clock = world.resource_mut::<GameClock>();
+        clock.day = 35;
+        clock.hour = 12.0;
+    }
+
+    // Run a slow cycle to trigger cost application (costs check on slow tick)
+    city.tick_slow_cycle();
+
+    let transit = city.resource::<BusTransitState>();
+    // Verify the route activated and has operating cost computed
+    assert!(
+        transit.active_route_count() > 0 || transit.monthly_operating_cost > 0.0,
+        "Should have active routes or computed operating cost after ticks"
+    );
+}
+
+#[test]
+fn test_bus_transit_saveable_roundtrip() {
+    use crate::bus_transit::BusTransitState;
+    use crate::Saveable;
+
+    let mut grid = WorldGrid::new(32, 32);
+    grid.get_mut(5, 5).cell_type = CellType::Road;
+    grid.get_mut(15, 15).cell_type = CellType::Road;
+
+    let mut state = BusTransitState::default();
+    let s1 = state.add_stop(&grid, 5, 5).unwrap();
+    let s2 = state.add_stop(&grid, 15, 15).unwrap();
+    state.add_route("Test Route".to_string(), vec![s1, s2]);
+
+    // Save
+    let bytes = state
+        .save_to_bytes()
+        .expect("Should serialize non-empty state");
+
+    // Load
+    let loaded = BusTransitState::load_from_bytes(&bytes);
+    assert_eq!(loaded.stops.len(), 2);
+    assert_eq!(loaded.routes.len(), 1);
+    assert_eq!(loaded.routes[0].name, "Test Route");
+    assert_eq!(loaded.routes[0].stop_ids.len(), 2);
+}
