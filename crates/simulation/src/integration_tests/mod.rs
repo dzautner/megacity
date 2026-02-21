@@ -10,6 +10,7 @@ mod bulldoze_refund;
 mod citizens;
 mod colorblind;
 mod combined_scenarios;
+mod csr_graph;
 mod curve_road;
 mod destination_cache;
 mod district_stats;
