@@ -3015,3 +3015,690 @@ fn test_async_pathfinding_snapshot_updates_on_road_change() {
         v2
     );
 }
+
+// ===========================================================================
+// Behavioral integration tests (issue #1248)
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Save/load: sequential load A -> B -> A (extension map cross-save safety)
+// ---------------------------------------------------------------------------
+
+/// Test that loading save A (with extension data), then save B (without that
+/// extension key), correctly resets the extension resource to its default.
+/// Then loading save A again must restore the original value -- not retain
+/// save B's empty state.
+#[test]
+fn test_extension_map_sequential_load_a_b_a_restores_correctly() {
+    use crate::SaveableRegistry;
+    use std::collections::BTreeMap;
+
+    let mut app = bevy::app::App::new();
+    app.add_plugins(bevy::MinimalPlugins);
+    app.init_resource::<SaveableRegistry>();
+
+    #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+    struct FeatureAlpha {
+        level: u32,
+        name: String,
+    }
+
+    impl crate::Saveable for FeatureAlpha {
+        const SAVE_KEY: &'static str = "test_feature_alpha";
+
+        fn save_to_bytes(&self) -> Option<Vec<u8>> {
+            serde_json::to_vec(&(self.level, &self.name)).ok()
+        }
+
+        fn load_from_bytes(bytes: &[u8]) -> Self {
+            let (level, name): (u32, String) = serde_json::from_slice(bytes).unwrap_or_default();
+            Self { level, name }
+        }
+    }
+
+    #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+    struct FeatureBeta {
+        score: f64,
+    }
+
+    impl crate::Saveable for FeatureBeta {
+        const SAVE_KEY: &'static str = "test_feature_beta";
+
+        fn save_to_bytes(&self) -> Option<Vec<u8>> {
+            serde_json::to_vec(&self.score).ok()
+        }
+
+        fn load_from_bytes(bytes: &[u8]) -> Self {
+            let score: f64 = serde_json::from_slice(bytes).unwrap_or_default();
+            Self { score }
+        }
+    }
+
+    app.init_resource::<FeatureAlpha>();
+    app.init_resource::<FeatureBeta>();
+    {
+        let mut registry = app.world_mut().resource_mut::<SaveableRegistry>();
+        registry.register::<FeatureAlpha>();
+        registry.register::<FeatureBeta>();
+    }
+
+    // --- Build save A: both features have data ---
+    {
+        let mut alpha = app.world_mut().resource_mut::<FeatureAlpha>();
+        alpha.level = 7;
+        alpha.name = "save_a_alpha".to_string();
+    }
+    {
+        let mut beta = app.world_mut().resource_mut::<FeatureBeta>();
+        beta.score = 99.5;
+    }
+    let save_a = {
+        let registry = app.world().resource::<SaveableRegistry>();
+        registry.save_all(app.world())
+    };
+    assert_eq!(save_a.len(), 2, "save A should contain both extensions");
+
+    // --- Build save B: only FeatureBeta has data; FeatureAlpha key is absent ---
+    let mut save_b: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    save_b.insert(
+        "test_feature_beta".to_string(),
+        serde_json::to_vec(&42.0_f64).unwrap(),
+    );
+
+    // --- Load save A ---
+    {
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        registry.load_all(app.world_mut(), &save_a);
+        app.world_mut().insert_resource(registry);
+    }
+    assert_eq!(app.world().resource::<FeatureAlpha>().level, 7);
+    assert_eq!(app.world().resource::<FeatureAlpha>().name, "save_a_alpha");
+    assert!((app.world().resource::<FeatureBeta>().score - 99.5).abs() < f64::EPSILON);
+
+    // --- Load save B (missing FeatureAlpha) ---
+    {
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        registry.load_all(app.world_mut(), &save_b);
+        app.world_mut().insert_resource(registry);
+    }
+    assert_eq!(
+        app.world().resource::<FeatureAlpha>().level,
+        0,
+        "FeatureAlpha.level should reset to default after loading save B (key absent)"
+    );
+    assert!(
+        app.world().resource::<FeatureAlpha>().name.is_empty(),
+        "FeatureAlpha.name should reset to default after loading save B (key absent)"
+    );
+    assert!(
+        (app.world().resource::<FeatureBeta>().score - 42.0).abs() < f64::EPSILON,
+        "FeatureBeta.score should be 42.0 from save B"
+    );
+
+    // --- Load save A again ---
+    {
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        registry.load_all(app.world_mut(), &save_a);
+        app.world_mut().insert_resource(registry);
+    }
+    assert_eq!(
+        app.world().resource::<FeatureAlpha>().level,
+        7,
+        "FeatureAlpha.level should be restored from save A after A->B->A sequence"
+    );
+    assert_eq!(
+        app.world().resource::<FeatureAlpha>().name,
+        "save_a_alpha",
+        "FeatureAlpha.name should be restored from save A after A->B->A sequence"
+    );
+    assert!(
+        (app.world().resource::<FeatureBeta>().score - 99.5).abs() < f64::EPSILON,
+        "FeatureBeta.score should be restored from save A after A->B->A sequence"
+    );
+}
+
+/// Test that loading a save with completely empty extensions resets ALL
+/// registered saveable resources to defaults.
+#[test]
+fn test_extension_map_load_empty_save_resets_all_to_defaults() {
+    use crate::SaveableRegistry;
+    use std::collections::BTreeMap;
+
+    let mut app = bevy::app::App::new();
+    app.add_plugins(bevy::MinimalPlugins);
+    app.init_resource::<SaveableRegistry>();
+
+    #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+    struct CounterRes {
+        count: u64,
+    }
+
+    impl crate::Saveable for CounterRes {
+        const SAVE_KEY: &'static str = "test_counter_res";
+
+        fn save_to_bytes(&self) -> Option<Vec<u8>> {
+            serde_json::to_vec(&self.count).ok()
+        }
+
+        fn load_from_bytes(bytes: &[u8]) -> Self {
+            let count: u64 = serde_json::from_slice(bytes).unwrap_or_default();
+            Self { count }
+        }
+    }
+
+    app.init_resource::<CounterRes>();
+    {
+        let mut registry = app.world_mut().resource_mut::<SaveableRegistry>();
+        registry.register::<CounterRes>();
+    }
+
+    app.world_mut().resource_mut::<CounterRes>().count = 12345;
+
+    let empty_extensions: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    {
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        registry.load_all(app.world_mut(), &empty_extensions);
+        app.world_mut().insert_resource(registry);
+    }
+
+    assert_eq!(
+        app.world().resource::<CounterRes>().count,
+        0,
+        "CounterRes should reset to default when loading a save with no extension data"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Extension map binary roundtrip
+// ---------------------------------------------------------------------------
+
+/// Test that extension map data survives a serde_json encode->decode roundtrip.
+#[test]
+fn test_extension_map_bytes_survive_serde_roundtrip() {
+    use crate::SaveableRegistry;
+    use std::collections::BTreeMap;
+
+    let mut app = bevy::app::App::new();
+    app.add_plugins(bevy::MinimalPlugins);
+    app.init_resource::<SaveableRegistry>();
+
+    #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+    struct ComplexState {
+        values: Vec<u32>,
+        label: String,
+        active: bool,
+    }
+
+    impl crate::Saveable for ComplexState {
+        const SAVE_KEY: &'static str = "test_complex_state";
+
+        fn save_to_bytes(&self) -> Option<Vec<u8>> {
+            serde_json::to_vec(&(&self.values, &self.label, self.active)).ok()
+        }
+
+        fn load_from_bytes(bytes: &[u8]) -> Self {
+            let (values, label, active): (Vec<u32>, String, bool) =
+                serde_json::from_slice(bytes).unwrap_or_default();
+            Self {
+                values,
+                label,
+                active,
+            }
+        }
+    }
+
+    app.init_resource::<ComplexState>();
+    {
+        let mut registry = app.world_mut().resource_mut::<SaveableRegistry>();
+        registry.register::<ComplexState>();
+    }
+
+    {
+        let mut state = app.world_mut().resource_mut::<ComplexState>();
+        state.values = vec![10, 20, 30, 40, 50];
+        state.label = "roundtrip_binary_test".to_string();
+        state.active = true;
+    }
+
+    let extensions = {
+        let registry = app.world().resource::<SaveableRegistry>();
+        registry.save_all(app.world())
+    };
+    let saved_bytes = extensions.get("test_complex_state").unwrap().clone();
+
+    let mut restored_extensions: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    restored_extensions.insert("test_complex_state".to_string(), saved_bytes);
+
+    app.world_mut().insert_resource(ComplexState::default());
+    assert!(app.world().resource::<ComplexState>().values.is_empty());
+
+    {
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        registry.load_all(app.world_mut(), &restored_extensions);
+        app.world_mut().insert_resource(registry);
+    }
+
+    let state = app.world().resource::<ComplexState>();
+    assert_eq!(state.values, vec![10, 20, 30, 40, 50]);
+    assert_eq!(state.label, "roundtrip_binary_test");
+    assert!(state.active);
+}
+
+/// Test that loading extensions with corrupted bytes falls back to defaults.
+#[test]
+fn test_extension_map_corrupted_bytes_fall_back_to_default() {
+    use crate::SaveableRegistry;
+    use std::collections::BTreeMap;
+
+    let mut app = bevy::app::App::new();
+    app.add_plugins(bevy::MinimalPlugins);
+    app.init_resource::<SaveableRegistry>();
+
+    #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+    struct SimpleCounter {
+        count: u32,
+    }
+
+    impl crate::Saveable for SimpleCounter {
+        const SAVE_KEY: &'static str = "test_simple_counter";
+
+        fn save_to_bytes(&self) -> Option<Vec<u8>> {
+            serde_json::to_vec(&self.count).ok()
+        }
+
+        fn load_from_bytes(bytes: &[u8]) -> Self {
+            let count: u32 = serde_json::from_slice(bytes).unwrap_or_default();
+            Self { count }
+        }
+    }
+
+    app.init_resource::<SimpleCounter>();
+    {
+        let mut registry = app.world_mut().resource_mut::<SaveableRegistry>();
+        registry.register::<SimpleCounter>();
+    }
+
+    app.world_mut().resource_mut::<SimpleCounter>().count = 42;
+
+    let mut extensions: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    extensions.insert(
+        "test_simple_counter".to_string(),
+        vec![0xFF, 0xFE, 0xFD, 0xFC, 0xFB],
+    );
+
+    {
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        registry.load_all(app.world_mut(), &extensions);
+        app.world_mut().insert_resource(registry);
+    }
+
+    assert_eq!(
+        app.world().resource::<SimpleCounter>().count,
+        0,
+        "Corrupted bytes should cause fallback to default, not retain stale value"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Job capacity invariant
+// ---------------------------------------------------------------------------
+
+/// After simulation ticks with many unemployed citizens seeking jobs,
+/// verify no building ever has occupants > capacity.
+#[test]
+fn test_job_capacity_invariant_all_building_types_after_simulation() {
+    let home_pos = (10, 10);
+
+    let mut city = TestCity::new()
+        .with_road(10, 10, 30, 10, RoadType::Local)
+        .with_road(10, 20, 30, 20, RoadType::Local)
+        .with_road(10, 10, 10, 20, RoadType::Local)
+        .with_building(12, 11, ZoneType::ResidentialLow, 1)
+        .with_building(14, 11, ZoneType::ResidentialLow, 2)
+        .with_building(16, 11, ZoneType::ResidentialHigh, 3)
+        .with_building(20, 11, ZoneType::CommercialLow, 1)
+        .with_building(22, 11, ZoneType::CommercialHigh, 2)
+        .with_building(26, 11, ZoneType::Industrial, 1)
+        .with_building(28, 11, ZoneType::Industrial, 2);
+
+    for _ in 0..80 {
+        city = city.with_unemployed_citizen(home_pos);
+    }
+
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<&mut Building>();
+        for mut building in query.iter_mut(world) {
+            if building.zone_type.is_residential() {
+                building.occupants = building.capacity;
+            }
+        }
+    }
+
+    city.tick(900);
+
+    let world = city.world_mut();
+    let mut query = world.query::<&Building>();
+    for building in query.iter(world) {
+        assert!(
+            building.occupants <= building.capacity,
+            "Invariant violated: building at ({}, {}) zone {:?} level {} has {} occupants \
+             but capacity is {}",
+            building.grid_x,
+            building.grid_y,
+            building.zone_type,
+            building.level,
+            building.occupants,
+            building.capacity,
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Marriage reciprocity invariant
+// ---------------------------------------------------------------------------
+
+/// After life simulation, verify all partnerships are reciprocal.
+#[test]
+fn test_marriage_reciprocity_invariant_after_life_simulation() {
+    use crate::citizen::{
+        Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation,
+        Needs, PathCache, Personality, Position, Velocity,
+    };
+    use crate::movement::ActivityTimer;
+    use std::collections::HashMap;
+
+    let mut city = TestCity::new().with_building(50, 50, ZoneType::ResidentialLow, 3);
+
+    let building_entity = city.grid().get(50, 50).building_id.unwrap();
+    let (wx, wy) = WorldGrid::grid_to_world(50, 50);
+
+    let world = city.world_mut();
+    for i in 0..20 {
+        let gender = if i % 2 == 0 {
+            Gender::Male
+        } else {
+            Gender::Female
+        };
+        world.spawn((
+            Citizen,
+            Position { x: wx, y: wy },
+            Velocity { x: 0.0, y: 0.0 },
+            HomeLocation {
+                grid_x: 50,
+                grid_y: 50,
+                building: building_entity,
+            },
+            CitizenStateComp(CitizenState::AtHome),
+            PathCache::new(Vec::new()),
+            CitizenDetails {
+                age: 25 + (i % 10) as u8,
+                gender,
+                education: 2,
+                happiness: 80.0,
+                health: 90.0,
+                salary: 3500.0,
+                savings: 7000.0,
+            },
+            Personality {
+                ambition: 0.5,
+                sociability: 0.7,
+                materialism: 0.5,
+                resilience: 0.5,
+            },
+            Needs::default(),
+            Family::default(),
+            ActivityTimer::default(),
+        ));
+    }
+
+    city.tick(30_000);
+
+    let world = city.world_mut();
+    let mut query = world.query::<(bevy::prelude::Entity, &Family)>();
+    let pairs: Vec<_> = query.iter(world).map(|(e, f)| (e, f.partner)).collect();
+
+    let family_map: HashMap<_, _> = pairs.iter().map(|(e, p)| (*e, *p)).collect();
+
+    let mut partnered_count = 0;
+    for (entity, partner_opt) in &family_map {
+        if let Some(partner) = partner_opt {
+            partnered_count += 1;
+            let partner_partner = family_map.get(partner).and_then(|p| *p);
+            assert_eq!(
+                partner_partner,
+                Some(*entity),
+                "Reciprocity violated: {:?} -> {:?}, but {:?} -> {:?}",
+                entity,
+                partner,
+                partner,
+                partner_partner
+            );
+        }
+    }
+
+    assert_eq!(
+        partnered_count % 2,
+        0,
+        "Partnered citizen count should be even (pairs), got {}",
+        partnered_count
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Road segment store / grid cache consistency
+// ---------------------------------------------------------------------------
+
+/// After adding road segments, verify segment rasterized cells match grid.
+#[test]
+fn test_road_segment_grid_cache_consistency_after_placement() {
+    use std::collections::HashSet;
+
+    let city = TestCity::new()
+        .with_road(10, 10, 30, 10, RoadType::Local)
+        .with_road(30, 10, 30, 30, RoadType::Avenue)
+        .with_road(10, 30, 30, 30, RoadType::Highway);
+
+    let grid = city.grid();
+    let segments = city.road_segments();
+
+    let mut segment_cells: HashSet<(usize, usize)> = HashSet::new();
+    for seg in &segments.segments {
+        for &(cx, cy) in &seg.rasterized_cells {
+            segment_cells.insert((cx, cy));
+        }
+    }
+
+    for &(cx, cy) in &segment_cells {
+        if grid.in_bounds(cx, cy) {
+            assert_eq!(
+                grid.get(cx, cy).cell_type,
+                CellType::Road,
+                "Segment claims cell ({}, {}) is rasterized, but grid says {:?}",
+                cx,
+                cy,
+                grid.get(cx, cy).cell_type,
+            );
+        }
+    }
+
+    if !segment_cells.is_empty() {
+        let min_x = segment_cells.iter().map(|c| c.0).min().unwrap();
+        let max_x = segment_cells.iter().map(|c| c.0).max().unwrap();
+        let min_y = segment_cells.iter().map(|c| c.1).min().unwrap();
+        let max_y = segment_cells.iter().map(|c| c.1).max().unwrap();
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                if grid.in_bounds(x, y) && grid.get(x, y).cell_type == CellType::Road {
+                    assert!(
+                        segment_cells.contains(&(x, y)),
+                        "Grid has road at ({}, {}) but no segment claims it",
+                        x,
+                        y,
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// After adding road segments, verify road network has nodes for all road cells.
+#[test]
+fn test_road_network_nodes_match_grid_roads_after_segment_placement() {
+    let city = TestCity::new()
+        .with_road(10, 10, 20, 10, RoadType::Local)
+        .with_road(20, 10, 20, 20, RoadType::Local);
+
+    let grid = city.grid();
+    let network = city.road_network();
+
+    for y in 0..grid.height {
+        for x in 0..grid.width {
+            if grid.get(x, y).cell_type == CellType::Road {
+                let node = crate::roads::RoadNode(x, y);
+                assert!(
+                    network.edges.contains_key(&node),
+                    "Grid has road at ({}, {}) but RoadNetwork has no node for it",
+                    x,
+                    y,
+                );
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Economy balance invariant
+// ---------------------------------------------------------------------------
+
+/// After tax collection, verify income breakdown sums to monthly_income
+/// and expense breakdown sums to monthly_expenses.
+#[test]
+fn test_economy_breakdown_sums_match_totals_after_tax_collection() {
+    use crate::budget::ExtendedBudget;
+
+    let mut city = TestCity::new()
+        .with_road(10, 10, 40, 10, RoadType::Local)
+        .with_road(10, 10, 10, 40, RoadType::Avenue)
+        .with_building(12, 11, ZoneType::ResidentialLow, 2)
+        .with_building(14, 11, ZoneType::CommercialLow, 1)
+        .with_building(16, 11, ZoneType::Industrial, 1)
+        .with_service(20, 11, ServiceType::PoliceStation)
+        .with_budget(50_000.0);
+
+    city.tick_slow_cycles(50);
+
+    let budget = city.budget().clone();
+    let extended = city.resource::<ExtendedBudget>().clone();
+
+    let income_sum = extended.income_breakdown.residential_tax
+        + extended.income_breakdown.commercial_tax
+        + extended.income_breakdown.industrial_tax
+        + extended.income_breakdown.office_tax
+        + extended.income_breakdown.trade_income;
+
+    let expense_sum = extended.expense_breakdown.road_maintenance
+        + extended.expense_breakdown.service_costs
+        + extended.expense_breakdown.policy_costs;
+
+    assert!(
+        (budget.monthly_income - income_sum).abs() < 0.01,
+        "Income mismatch: monthly_income={} but breakdown sums to {}",
+        budget.monthly_income,
+        income_sum,
+    );
+
+    assert!(
+        (budget.monthly_expenses - expense_sum).abs() < 0.01,
+        "Expense mismatch: monthly_expenses={} but breakdown sums to {}",
+        budget.monthly_expenses,
+        expense_sum,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Tel Aviv smoke test: behavioral invariants on the full map
+// ---------------------------------------------------------------------------
+
+/// Run the Tel Aviv map and verify marriage reciprocity and road/grid
+/// consistency invariants hold.
+#[test]
+fn test_tel_aviv_behavioral_invariants_after_simulation() {
+    use crate::citizen::Family;
+    use std::collections::HashMap;
+
+    let mut city = TestCity::with_tel_aviv();
+    city.tick_slow_cycles(5);
+
+    // Invariant 1: Marriage reciprocity
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<(bevy::prelude::Entity, &Family)>();
+        let pairs: Vec<_> = query.iter(world).map(|(e, f)| (e, f.partner)).collect();
+        let family_map: HashMap<_, _> = pairs.iter().map(|(e, p)| (*e, *p)).collect();
+
+        for (entity, partner_opt) in &family_map {
+            if let Some(partner) = partner_opt {
+                let partner_partner = family_map.get(partner).and_then(|p| *p);
+                assert_eq!(
+                    partner_partner,
+                    Some(*entity),
+                    "Tel Aviv reciprocity violated: {:?} -> {:?}, but {:?} -> {:?}",
+                    entity,
+                    partner,
+                    partner,
+                    partner_partner
+                );
+            }
+        }
+    }
+
+    // Invariant 2: Road segment / grid consistency (soft check).
+    // On the Tel Aviv map, a few segment cells may overlap with water/terrain,
+    // so we check >95% consistency rather than strict equality.
+    {
+        let grid = city.grid();
+        let segments = city.road_segments();
+        let mut total_cells = 0usize;
+        let mut mismatch_cells = 0usize;
+        for seg in &segments.segments {
+            for &(cx, cy) in &seg.rasterized_cells {
+                if grid.in_bounds(cx, cy) {
+                    total_cells += 1;
+                    if grid.get(cx, cy).cell_type != CellType::Road {
+                        mismatch_cells += 1;
+                    }
+                }
+            }
+        }
+        if total_cells > 0 {
+            let match_rate = 1.0 - (mismatch_cells as f64 / total_cells as f64);
+            assert!(
+                match_rate > 0.95,
+                "Tel Aviv: only {:.1}% of segment cells match grid roads ({}/{} mismatched)",
+                match_rate * 100.0,
+                mismatch_cells,
+                total_cells,
+            );
+        }
+    }
+}
