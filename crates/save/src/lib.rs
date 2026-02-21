@@ -1,4 +1,3 @@
-use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -15,7 +14,7 @@ mod wasm_idb;
 
 pub use saveable_ext::SaveableAppExt;
 
-use save_helpers::{V2ResourcesRead, V2ResourcesWrite};
+use save_helpers::V2ResourcesRead;
 use serialization::{
     create_save_data, migrate_save, restore_agriculture, restore_climate_zone, restore_cold_snap,
     restore_composting, restore_construction_modifiers, restore_cso, restore_degree_days,
@@ -115,46 +114,43 @@ struct WasmLoadBuffer(std::rc::Rc<std::cell::RefCell<Option<Result<Vec<u8>, Stri
 #[cfg(target_arch = "wasm32")]
 #[derive(Event)]
 struct WasmLoadReady(Vec<u8>);
-/// Bundles entity queries for despawning existing game entities during load/new-game.
-#[derive(SystemParam)]
-struct ExistingEntities<'w, 's> {
-    buildings: Query<'w, 's, Entity, With<Building>>,
-    citizens: Query<'w, 's, Entity, With<Citizen>>,
-    utilities: Query<'w, 's, Entity, With<UtilitySource>>,
-    services: Query<'w, 's, Entity, With<ServiceBuilding>>,
-    water_sources: Query<'w, 's, Entity, With<WaterSource>>,
-    meshes: Query<'w, 's, Entity, With<BuildingMesh3d>>,
-    sprites: Query<'w, 's, Entity, With<CitizenSprite>>,
-}
-
-impl ExistingEntities<'_, '_> {
-    /// Collect all game entities into a deduplicated set so each entity is
-    /// despawned at most once (entities may match multiple queries).
-    fn all_entities(&self) -> HashSet<Entity> {
-        let mut set = HashSet::new();
-        for e in &self.buildings {
-            set.insert(e);
-        }
-        for e in &self.citizens {
-            set.insert(e);
-        }
-        for e in &self.utilities {
-            set.insert(e);
-        }
-        for e in &self.services {
-            set.insert(e);
-        }
-        for e in &self.water_sources {
-            set.insert(e);
-        }
-        for e in &self.meshes {
-            set.insert(e);
-        }
-        for e in &self.sprites {
-            set.insert(e);
-        }
-        set
+/// Collect all game entities into a deduplicated set for teardown.
+///
+/// This is the exclusive-system equivalent of the former `ExistingEntities`
+/// SystemParam.  It queries all entity types that are spawned during save/load
+/// and returns them in a `HashSet` so each entity is despawned at most once
+/// (entities may match multiple queries, e.g. Citizen + CitizenSprite).
+fn collect_game_entities(world: &mut World) -> HashSet<Entity> {
+    let mut set = HashSet::new();
+    let mut q = world.query_filtered::<Entity, With<Building>>();
+    for e in q.iter(world) {
+        set.insert(e);
     }
+    let mut q = world.query_filtered::<Entity, With<Citizen>>();
+    for e in q.iter(world) {
+        set.insert(e);
+    }
+    let mut q = world.query_filtered::<Entity, With<UtilitySource>>();
+    for e in q.iter(world) {
+        set.insert(e);
+    }
+    let mut q = world.query_filtered::<Entity, With<ServiceBuilding>>();
+    for e in q.iter(world) {
+        set.insert(e);
+    }
+    let mut q = world.query_filtered::<Entity, With<WaterSource>>();
+    for e in q.iter(world) {
+        set.insert(e);
+    }
+    let mut q = world.query_filtered::<Entity, With<BuildingMesh3d>>();
+    for e in q.iter(world) {
+        set.insert(e);
+    }
+    let mut q = world.query_filtered::<Entity, With<CitizenSprite>>();
+    for e in q.iter(world) {
+        set.insert(e);
+    }
+    set
 }
 
 pub struct SavePlugin;
@@ -350,68 +346,37 @@ fn handle_save(
     }
 }
 
+/// Handle "Load Game" (native) — exclusive system for immediate entity teardown.
 #[cfg(not(target_arch = "wasm32"))]
-#[allow(clippy::too_many_arguments)]
-fn handle_load(
-    mut events: EventReader<LoadGameEvent>,
-    mut commands: Commands,
-    mut grid: ResMut<WorldGrid>,
-    mut roads: ResMut<RoadNetwork>,
-    mut segments: ResMut<RoadSegmentStore>,
-    mut clock: ResMut<GameClock>,
-    mut budget: ResMut<CityBudget>,
-    mut demand: ResMut<ZoneDemand>,
-    existing: ExistingEntities,
-    mut v2: V2ResourcesWrite,
-    mut lifecycle_timer: ResMut<LifecycleTimer>,
-    mut pending_ext: ResMut<PendingLoadExtensions>,
-) {
-    for _ in events.read() {
-        let bytes = {
-            let path = save_file_path();
-            match std::fs::read(&path) {
-                Ok(b) => b,
-                Err(e) => {
-                    eprintln!("Failed to load: {}", e);
-                    continue;
-                }
-            }
-        };
-
-        restore_from_bytes(
-            &bytes,
-            &mut commands,
-            &mut grid,
-            &mut roads,
-            &mut segments,
-            &mut clock,
-            &mut budget,
-            &mut demand,
-            &existing,
-            &mut v2,
-            &mut lifecycle_timer,
-            &mut pending_ext,
-        );
-
-        println!("Loaded save from {}", save_file_path());
+fn handle_load(world: &mut World) {
+    let has_events = !world.resource::<Events<LoadGameEvent>>().is_empty();
+    if !has_events {
+        return;
     }
+    world.resource_mut::<Events<LoadGameEvent>>().clear();
+
+    let bytes = {
+        let path = save_file_path();
+        match std::fs::read(&path) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("Failed to load: {}", e);
+                return;
+            }
+        }
+    };
+
+    restore_from_bytes(world, &bytes);
+
+    println!("Loaded save from {}", save_file_path());
 }
 
-#[allow(clippy::too_many_arguments)]
-fn restore_from_bytes(
-    bytes: &[u8],
-    commands: &mut Commands,
-    grid: &mut ResMut<WorldGrid>,
-    roads: &mut ResMut<RoadNetwork>,
-    segments: &mut ResMut<RoadSegmentStore>,
-    clock: &mut ResMut<GameClock>,
-    budget: &mut ResMut<CityBudget>,
-    demand: &mut ResMut<ZoneDemand>,
-    existing: &ExistingEntities,
-    v2: &mut V2ResourcesWrite,
-    lifecycle_timer: &mut ResMut<LifecycleTimer>,
-    pending_ext: &mut ResMut<PendingLoadExtensions>,
-) {
+/// Core restore logic — uses exclusive `&mut World` for immediate entity ops.
+///
+/// Called by both native `handle_load` and WASM `handle_wasm_load_ready`.
+/// Entity despawns and spawns take effect immediately, eliminating the race
+/// where deferred Commands could overlap with same-frame gameplay systems.
+fn restore_from_bytes(world: &mut World, bytes: &[u8]) {
     let mut save = match SaveData::decode(bytes) {
         Ok(s) => s,
         Err(e) => {
@@ -435,85 +400,110 @@ fn restore_from_bytes(
         );
     }
 
-    // Clear existing entities -- deduplicate to avoid double-despawn when
-    // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
-    for entity in existing.all_entities() {
-        if let Some(mut ec) = commands.get_entity(entity) {
-            ec.despawn();
+    // Clear existing entities -- immediate despawn via World access.
+    {
+        let entities = collect_game_entities(world);
+        for entity in entities {
+            world.despawn(entity);
         }
     }
 
     // Restore grid
-    **grid = WorldGrid::new(save.grid.width, save.grid.height);
-    for (i, sc) in save.grid.cells.iter().enumerate() {
-        grid.cells[i].elevation = sc.elevation;
-        grid.cells[i].cell_type = match sc.cell_type {
-            1 => simulation::grid::CellType::Water,
-            2 => simulation::grid::CellType::Road,
-            _ => simulation::grid::CellType::Grass,
-        };
-        grid.cells[i].zone = u8_to_zone_type(sc.zone);
-        grid.cells[i].road_type = u8_to_road_type(sc.road_type);
-        grid.cells[i].has_power = sc.has_power;
-        grid.cells[i].has_water = sc.has_water;
+    {
+        let mut grid = world.resource_mut::<WorldGrid>();
+        *grid = WorldGrid::new(save.grid.width, save.grid.height);
+        for (i, sc) in save.grid.cells.iter().enumerate() {
+            grid.cells[i].elevation = sc.elevation;
+            grid.cells[i].cell_type = match sc.cell_type {
+                1 => simulation::grid::CellType::Water,
+                2 => simulation::grid::CellType::Road,
+                _ => simulation::grid::CellType::Grass,
+            };
+            grid.cells[i].zone = u8_to_zone_type(sc.zone);
+            grid.cells[i].road_type = u8_to_road_type(sc.road_type);
+            grid.cells[i].has_power = sc.has_power;
+            grid.cells[i].has_water = sc.has_water;
+        }
     }
 
     // Restore roads - use saved road types, not default Local
-    **roads = RoadNetwork::default();
-    // Save the road types before place_road overwrites them
-    let saved_road_types: Vec<(usize, usize, u8)> = save
-        .roads
-        .road_positions
-        .iter()
-        .map(|(x, y)| {
-            let idx = y * grid.width + x;
-            let rt = if idx < save.grid.cells.len() {
-                save.grid.cells[idx].road_type
-            } else {
-                0
-            };
-            (*x, *y, rt)
-        })
-        .collect();
-    for (x, y, _) in &saved_road_types {
-        roads.place_road(grid, *x, *y);
-    }
-    // Restore the saved road types (place_road overwrites with Local)
-    for (x, y, rt) in &saved_road_types {
-        if grid.in_bounds(*x, *y) {
-            grid.get_mut(*x, *y).road_type = u8_to_road_type(*rt);
-        }
+    {
+        let grid_width = world.resource::<WorldGrid>().width;
+        let saved_road_types: Vec<(usize, usize, u8)> = save
+            .roads
+            .road_positions
+            .iter()
+            .map(|(x, y)| {
+                let idx = y * grid_width + x;
+                let rt = if idx < save.grid.cells.len() {
+                    save.grid.cells[idx].road_type
+                } else {
+                    0
+                };
+                (*x, *y, rt)
+            })
+            .collect();
+
+        *world.resource_mut::<RoadNetwork>() = RoadNetwork::default();
+
+        world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
+            world.resource_scope(|_world, mut roads: Mut<RoadNetwork>| {
+                for (x, y, _) in &saved_road_types {
+                    roads.place_road(&mut grid, *x, *y);
+                }
+                for (x, y, rt) in &saved_road_types {
+                    if grid.in_bounds(*x, *y) {
+                        grid.get_mut(*x, *y).road_type = u8_to_road_type(*rt);
+                    }
+                }
+            });
+        });
     }
 
     // Restore road segments (if present in save)
     if let Some(ref saved_segments) = save.road_segments {
-        let mut restored = restore_road_segment_store(saved_segments);
-        restored.rasterize_all(grid, roads);
-        **segments = restored;
+        let restored = restore_road_segment_store(saved_segments);
+        *world.resource_mut::<RoadSegmentStore>() = restored;
+        world.resource_scope(|world, mut segments: Mut<RoadSegmentStore>| {
+            world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
+                world.resource_scope(|_world, mut roads: Mut<RoadNetwork>| {
+                    segments.rasterize_all(&mut grid, &mut roads);
+                });
+            });
+        });
     } else {
-        **segments = RoadSegmentStore::default();
+        *world.resource_mut::<RoadSegmentStore>() = RoadSegmentStore::default();
     }
 
     // Restore clock
-    clock.day = save.clock.day;
-    clock.hour = save.clock.hour;
-    clock.speed = save.clock.speed;
-    clock.paused = false;
+    {
+        let mut clock = world.resource_mut::<GameClock>();
+        clock.day = save.clock.day;
+        clock.hour = save.clock.hour;
+        clock.speed = save.clock.speed;
+        clock.paused = false;
+    }
 
     // Restore budget
-    budget.treasury = save.budget.treasury;
-    budget.tax_rate = save.budget.tax_rate;
-    budget.last_collection_day = save.budget.last_collection_day;
+    {
+        let mut budget = world.resource_mut::<CityBudget>();
+        budget.treasury = save.budget.treasury;
+        budget.tax_rate = save.budget.tax_rate;
+        budget.last_collection_day = save.budget.last_collection_day;
+    }
 
     // Restore demand
-    demand.residential = save.demand.residential;
-    demand.commercial = save.demand.commercial;
-    demand.industrial = save.demand.industrial;
-    demand.office = save.demand.office;
-    demand.vacancy_residential = save.demand.vacancy_residential;
-    demand.vacancy_commercial = save.demand.vacancy_commercial;
-    demand.vacancy_industrial = save.demand.vacancy_industrial;
-    demand.vacancy_office = save.demand.vacancy_office;
+    {
+        let mut demand = world.resource_mut::<ZoneDemand>();
+        demand.residential = save.demand.residential;
+        demand.commercial = save.demand.commercial;
+        demand.industrial = save.demand.industrial;
+        demand.office = save.demand.office;
+        demand.vacancy_residential = save.demand.vacancy_residential;
+        demand.vacancy_commercial = save.demand.vacancy_commercial;
+        demand.vacancy_industrial = save.demand.vacancy_industrial;
+        demand.vacancy_office = save.demand.vacancy_office;
+    }
 
     // Restore buildings
     for sb in &save.buildings {
@@ -534,7 +524,7 @@ fn restore_from_bytes(
             } else {
                 MixedUseBuilding::capacities_for_level(sb.level)
             };
-            commands
+            world
                 .spawn((
                     building,
                     MixedUseBuilding {
@@ -546,17 +536,20 @@ fn restore_from_bytes(
                 ))
                 .id()
         } else {
-            commands.spawn(building).id()
+            world.spawn(building).id()
         };
-        if grid.in_bounds(sb.grid_x, sb.grid_y) {
-            grid.get_mut(sb.grid_x, sb.grid_y).building_id = Some(entity);
+        {
+            let mut grid = world.resource_mut::<WorldGrid>();
+            if grid.in_bounds(sb.grid_x, sb.grid_y) {
+                grid.get_mut(sb.grid_x, sb.grid_y).building_id = Some(entity);
+            }
         }
     }
 
     // Restore utility sources
     for su in &save.utility_sources {
         let ut = u8_to_utility_type(su.utility_type);
-        commands.spawn(UtilitySource {
+        world.spawn(UtilitySource {
             utility_type: ut,
             grid_x: su.grid_x,
             grid_y: su.grid_y,
@@ -568,7 +561,7 @@ fn restore_from_bytes(
     for ss in &save.service_buildings {
         if let Some(service_type) = u8_to_service_type(ss.service_type) {
             let radius = ServiceBuilding::coverage_radius(service_type);
-            let entity = commands
+            let entity = world
                 .spawn(ServiceBuilding {
                     service_type,
                     grid_x: ss.grid_x,
@@ -576,8 +569,11 @@ fn restore_from_bytes(
                     radius,
                 })
                 .id();
-            if grid.in_bounds(ss.grid_x, ss.grid_y) {
-                grid.get_mut(ss.grid_x, ss.grid_y).building_id = Some(entity);
+            {
+                let mut grid = world.resource_mut::<WorldGrid>();
+                if grid.in_bounds(ss.grid_x, ss.grid_y) {
+                    grid.get_mut(ss.grid_x, ss.grid_y).building_id = Some(entity);
+                }
             }
         }
     }
@@ -586,9 +582,12 @@ fn restore_from_bytes(
     if let Some(ref saved_water_sources) = save.water_sources {
         for sws in saved_water_sources {
             if let Some(ws) = restore_water_source(sws) {
-                let entity = commands.spawn(ws).id();
-                if grid.in_bounds(sws.grid_x, sws.grid_y) {
-                    grid.get_mut(sws.grid_x, sws.grid_y).building_id = Some(entity);
+                let entity = world.spawn(ws).id();
+                {
+                    let mut grid = world.resource_mut::<WorldGrid>();
+                    if grid.in_bounds(sws.grid_x, sws.grid_y) {
+                        grid.get_mut(sws.grid_x, sws.grid_y).building_id = Some(entity);
+                    }
                 }
             }
         }
@@ -612,20 +611,26 @@ fn restore_from_bytes(
 
         // We need building entities for home/work locations.
         // Find them from the grid if possible, otherwise use a dummy.
-        let home_building = if grid.in_bounds(sc.home_x, sc.home_y) {
-            grid.get(sc.home_x, sc.home_y)
-                .building_id
-                .unwrap_or(Entity::PLACEHOLDER)
-        } else {
-            Entity::PLACEHOLDER
+        let home_building = {
+            let grid = world.resource::<WorldGrid>();
+            if grid.in_bounds(sc.home_x, sc.home_y) {
+                grid.get(sc.home_x, sc.home_y)
+                    .building_id
+                    .unwrap_or(Entity::PLACEHOLDER)
+            } else {
+                Entity::PLACEHOLDER
+            }
         };
 
-        let work_building = if grid.in_bounds(sc.work_x, sc.work_y) {
-            grid.get(sc.work_x, sc.work_y)
-                .building_id
-                .unwrap_or(Entity::PLACEHOLDER)
-        } else {
-            Entity::PLACEHOLDER
+        let work_building = {
+            let grid = world.resource::<WorldGrid>();
+            if grid.in_bounds(sc.work_x, sc.work_y) {
+                grid.get(sc.work_x, sc.work_y)
+                    .building_id
+                    .unwrap_or(Entity::PLACEHOLDER)
+            } else {
+                Entity::PLACEHOLDER
+            }
         };
 
         // Restore position: use saved position if available (non-zero),
@@ -639,6 +644,7 @@ fn restore_from_bytes(
         // Restore path cache: convert saved waypoints to RoadNodes and
         // validate that all waypoints reference valid grid positions.
         let (path_cache, restored_state) = {
+            let grid = world.resource::<WorldGrid>();
             let waypoints: Vec<RoadNode> = sc
                 .path_waypoints
                 .iter()
@@ -685,7 +691,7 @@ fn restore_from_bytes(
             salary * 2.0
         };
 
-        let cit_entity = commands
+        let cit_entity = world
             .spawn((
                 Citizen,
                 CitizenDetails {
@@ -751,7 +757,7 @@ fn restore_from_bytes(
         }
         // Only update if there are actual relationships to restore
         if family.partner.is_some() || !family.children.is_empty() || family.parent.is_some() {
-            if let Some(mut ec) = commands.get_entity(citizen_entities[i]) {
+            if let Ok(mut ec) = world.get_entity_mut(citizen_entities[i]) {
                 ec.insert(family);
             }
         }
@@ -760,236 +766,238 @@ fn restore_from_bytes(
     // Restore V2 fields (policies, weather, unlocks, extended budget, loans)
     // If the save is from V1 (fields are None), use defaults.
     if let Some(ref saved_policies) = save.policies {
-        *v2.policies = restore_policies(saved_policies);
+        *world.resource_mut::<Policies>() = restore_policies(saved_policies);
     } else {
-        *v2.policies = Policies::default();
+        *world.resource_mut::<Policies>() = Policies::default();
     }
 
     if let Some(ref saved_weather) = save.weather {
-        *v2.weather = restore_weather(saved_weather);
-        *v2.climate_zone = restore_climate_zone(saved_weather);
+        *world.resource_mut::<Weather>() = restore_weather(saved_weather);
+        *world.resource_mut::<ClimateZone>() = restore_climate_zone(saved_weather);
     } else {
-        *v2.weather = Weather::default();
-        *v2.climate_zone = ClimateZone::default();
+        *world.resource_mut::<Weather>() = Weather::default();
+        *world.resource_mut::<ClimateZone>() = ClimateZone::default();
     }
 
     if let Some(ref saved_unlocks) = save.unlock_state {
-        *v2.unlock_state = restore_unlock_state(saved_unlocks);
+        *world.resource_mut::<UnlockState>() = restore_unlock_state(saved_unlocks);
     } else {
-        *v2.unlock_state = UnlockState::default();
+        *world.resource_mut::<UnlockState>() = UnlockState::default();
     }
 
     if let Some(ref saved_ext_budget) = save.extended_budget {
-        *v2.extended_budget = restore_extended_budget(saved_ext_budget);
+        *world.resource_mut::<ExtendedBudget>() = restore_extended_budget(saved_ext_budget);
     } else {
-        *v2.extended_budget = ExtendedBudget::default();
+        *world.resource_mut::<ExtendedBudget>() = ExtendedBudget::default();
     }
 
     if let Some(ref saved_loans) = save.loan_book {
-        *v2.loan_book = restore_loan_book(saved_loans);
+        *world.resource_mut::<LoanBook>() = restore_loan_book(saved_loans);
     } else {
-        *v2.loan_book = LoanBook::default();
+        *world.resource_mut::<LoanBook>() = LoanBook::default();
     }
 
     // Restore lifecycle timer (prevents mass aging/death burst on load)
     if let Some(ref saved_timer) = save.lifecycle_timer {
-        **lifecycle_timer = restore_lifecycle_timer(saved_timer);
+        *world.resource_mut::<LifecycleTimer>() = restore_lifecycle_timer(saved_timer);
     } else {
         // Old save without lifecycle timer: set last_aging_day to current day
         // to prevent immediate aging burst on load.
-        lifecycle_timer.last_aging_day = clock.day;
-        lifecycle_timer.last_emigration_tick = 0;
+        let day = world.resource::<GameClock>().day;
+        let mut timer = world.resource_mut::<LifecycleTimer>();
+        timer.last_aging_day = day;
+        timer.last_emigration_tick = 0;
     }
 
     // Restore virtual population (prevents population count mismatch on load)
     if let Some(ref saved_vp) = save.virtual_population {
-        *v2.virtual_population = restore_virtual_population(saved_vp);
+        *world.resource_mut::<VirtualPopulation>() = restore_virtual_population(saved_vp);
     } else {
-        *v2.virtual_population = VirtualPopulation::default();
+        *world.resource_mut::<VirtualPopulation>() = VirtualPopulation::default();
     }
 
     // Restore life sim timer (prevents all life events firing simultaneously on load)
     if let Some(ref saved_lst) = save.life_sim_timer {
-        *v2.life_sim_timer = restore_life_sim_timer(saved_lst);
+        *world.resource_mut::<LifeSimTimer>() = restore_life_sim_timer(saved_lst);
     } else {
-        *v2.life_sim_timer = LifeSimTimer::default();
+        *world.resource_mut::<LifeSimTimer>() = LifeSimTimer::default();
     }
 
     // Restore stormwater grid
     if let Some(ref saved_sw) = save.stormwater_grid {
-        *v2.stormwater_grid = restore_stormwater_grid(saved_sw);
+        *world.resource_mut::<StormwaterGrid>() = restore_stormwater_grid(saved_sw);
     } else {
-        *v2.stormwater_grid = StormwaterGrid::default();
+        *world.resource_mut::<StormwaterGrid>() = StormwaterGrid::default();
     }
 
     // Restore degree days (HDD/CDD tracking)
     if let Some(ref saved_dd) = save.degree_days {
-        *v2.degree_days = restore_degree_days(saved_dd);
+        *world.resource_mut::<DegreeDays>() = restore_degree_days(saved_dd);
     } else {
-        *v2.degree_days = DegreeDays::default();
+        *world.resource_mut::<DegreeDays>() = DegreeDays::default();
     }
 
     // Restore construction modifiers (recomputed each tick from weather, but
     // persisting avoids a 1-tick stale value after load).
     if let Some(ref saved_cm) = save.construction_modifiers {
-        *v2.construction_modifiers = restore_construction_modifiers(saved_cm);
+        *world.resource_mut::<ConstructionModifiers>() = restore_construction_modifiers(saved_cm);
     } else {
-        *v2.construction_modifiers = ConstructionModifiers::default();
+        *world.resource_mut::<ConstructionModifiers>() = ConstructionModifiers::default();
     }
 
     // Restore recycling state and economics
     if let Some(ref saved_recycling) = save.recycling_state {
         let (rs, re) = restore_recycling(saved_recycling);
-        *v2.recycling_state = rs;
-        *v2.recycling_economics = re;
+        *world.resource_mut::<RecyclingState>() = rs;
+        *world.resource_mut::<RecyclingEconomics>() = re;
     } else {
-        *v2.recycling_state = RecyclingState::default();
-        *v2.recycling_economics = RecyclingEconomics::default();
+        *world.resource_mut::<RecyclingState>() = RecyclingState::default();
+        *world.resource_mut::<RecyclingEconomics>() = RecyclingEconomics::default();
     }
 
     // Restore wind damage state
     if let Some(ref saved_wds) = save.wind_damage_state {
-        *v2.wind_damage_state = restore_wind_damage_state(saved_wds);
+        *world.resource_mut::<WindDamageState>() = restore_wind_damage_state(saved_wds);
     } else {
-        *v2.wind_damage_state = WindDamageState::default();
+        *world.resource_mut::<WindDamageState>() = WindDamageState::default();
     }
 
     // Restore UHI grid
     if let Some(ref saved_uhi) = save.uhi_grid {
-        *v2.uhi_grid = restore_uhi_grid(saved_uhi);
+        *world.resource_mut::<UhiGrid>() = restore_uhi_grid(saved_uhi);
     } else {
-        *v2.uhi_grid = UhiGrid::default();
+        *world.resource_mut::<UhiGrid>() = UhiGrid::default();
     }
 
     // Restore drought state
     if let Some(ref saved_drought) = save.drought_state {
-        *v2.drought_state = restore_drought(saved_drought);
+        *world.resource_mut::<DroughtState>() = restore_drought(saved_drought);
     } else {
-        *v2.drought_state = DroughtState::default();
+        *world.resource_mut::<DroughtState>() = DroughtState::default();
     }
 
     // Restore heat wave state
     if let Some(ref saved_hw) = save.heat_wave_state {
-        *v2.heat_wave_state = restore_heat_wave(saved_hw);
+        *world.resource_mut::<HeatWaveState>() = restore_heat_wave(saved_hw);
     } else {
-        *v2.heat_wave_state = HeatWaveState::default();
+        *world.resource_mut::<HeatWaveState>() = HeatWaveState::default();
     }
 
     // Restore composting state
     if let Some(ref saved_cs) = save.composting_state {
-        *v2.composting_state = restore_composting(saved_cs);
+        *world.resource_mut::<CompostingState>() = restore_composting(saved_cs);
     } else {
-        *v2.composting_state = CompostingState::default();
+        *world.resource_mut::<CompostingState>() = CompostingState::default();
     }
 
     // Restore cold snap state
     if let Some(ref saved_cs) = save.cold_snap_state {
-        *v2.cold_snap_state = restore_cold_snap(saved_cs);
+        *world.resource_mut::<ColdSnapState>() = restore_cold_snap(saved_cs);
     } else {
-        *v2.cold_snap_state = ColdSnapState::default();
+        *world.resource_mut::<ColdSnapState>() = ColdSnapState::default();
     }
 
     // Restore water treatment state
     if let Some(ref wts) = save.water_treatment_state {
-        *v2.water_treatment_state = restore_water_treatment(wts);
+        *world.resource_mut::<WaterTreatmentState>() = restore_water_treatment(wts);
     } else {
-        *v2.water_treatment_state = WaterTreatmentState::default();
+        *world.resource_mut::<WaterTreatmentState>() = WaterTreatmentState::default();
     }
 
     // Restore groundwater depletion state
     if let Some(ref gds) = save.groundwater_depletion_state {
-        *v2.groundwater_depletion_state = restore_groundwater_depletion(gds);
+        *world.resource_mut::<GroundwaterDepletionState>() = restore_groundwater_depletion(gds);
     } else {
-        *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
+        *world.resource_mut::<GroundwaterDepletionState>() = GroundwaterDepletionState::default();
     }
 
     // Restore wastewater state
     if let Some(ref ws) = save.wastewater_state {
-        *v2.wastewater_state = restore_wastewater(ws);
+        *world.resource_mut::<WastewaterState>() = restore_wastewater(ws);
     } else {
-        *v2.wastewater_state = WastewaterState::default();
+        *world.resource_mut::<WastewaterState>() = WastewaterState::default();
     }
 
     // Restore hazardous waste state
     if let Some(ref hws) = save.hazardous_waste_state {
-        *v2.hazardous_waste_state = restore_hazardous_waste(hws);
+        *world.resource_mut::<HazardousWasteState>() = restore_hazardous_waste(hws);
     } else {
-        *v2.hazardous_waste_state = HazardousWasteState::default();
+        *world.resource_mut::<HazardousWasteState>() = HazardousWasteState::default();
     }
 
     // Restore storm drainage state
     if let Some(ref sds) = save.storm_drainage_state {
-        *v2.storm_drainage_state = restore_storm_drainage(sds);
+        *world.resource_mut::<StormDrainageState>() = restore_storm_drainage(sds);
     } else {
-        *v2.storm_drainage_state = StormDrainageState::default();
+        *world.resource_mut::<StormDrainageState>() = StormDrainageState::default();
     }
 
     // Restore landfill capacity state
     if let Some(ref lcs) = save.landfill_capacity_state {
-        *v2.landfill_capacity_state = restore_landfill_capacity(lcs);
+        *world.resource_mut::<LandfillCapacityState>() = restore_landfill_capacity(lcs);
     } else {
-        *v2.landfill_capacity_state = LandfillCapacityState::default();
+        *world.resource_mut::<LandfillCapacityState>() = LandfillCapacityState::default();
     }
 
     // Restore flood state
     if let Some(ref fs) = save.flood_state {
-        *v2.flood_state = restore_flood_state(fs);
+        *world.resource_mut::<FloodState>() = restore_flood_state(fs);
     }
     // FloodGrid is transient, always reset to default
-    *v2.flood_grid = FloodGrid::default();
+    *world.resource_mut::<FloodGrid>() = FloodGrid::default();
 
     // Restore reservoir state
     if let Some(ref rs) = save.reservoir_state {
-        *v2.reservoir_state = restore_reservoir_state(rs);
+        *world.resource_mut::<ReservoirState>() = restore_reservoir_state(rs);
     }
 
     // Restore landfill gas state
     if let Some(ref lgs) = save.landfill_gas_state {
-        *v2.landfill_gas_state = restore_landfill_gas(lgs);
+        *world.resource_mut::<LandfillGasState>() = restore_landfill_gas(lgs);
     }
 
     // Restore CSO state
     if let Some(ref s) = save.cso_state {
-        *v2.cso_state = restore_cso(s);
+        *world.resource_mut::<SewerSystemState>() = restore_cso(s);
     }
 
     // Restore water conservation state
     if let Some(ref s) = save.water_conservation_state {
-        *v2.water_conservation_state = restore_water_conservation(s);
+        *world.resource_mut::<WaterConservationState>() = restore_water_conservation(s);
     }
 
     // Restore fog state
     if let Some(ref s) = save.fog_state {
-        *v2.fog_state = restore_fog_state(s);
+        *world.resource_mut::<FogState>() = restore_fog_state(s);
     }
 
     // Restore agriculture state
     if let Some(ref s) = save.agriculture_state {
-        *v2.agriculture_state = restore_agriculture(s);
+        *world.resource_mut::<AgricultureState>() = restore_agriculture(s);
     }
 
     // Restore urban growth boundary
     if let Some(ref s) = save.urban_growth_boundary {
-        *v2.urban_growth_boundary = restore_urban_growth_boundary(s);
+        *world.resource_mut::<UrbanGrowthBoundary>() = restore_urban_growth_boundary(s);
     } else {
-        *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
+        *world.resource_mut::<UrbanGrowthBoundary>() = UrbanGrowthBoundary::default();
     }
 
     // Restore snow state
     if let Some(ref s) = save.snow_state {
         let (sg, sp) = restore_snow(s);
-        *v2.snow_grid = sg;
-        *v2.snow_plowing_state = sp;
+        *world.resource_mut::<SnowGrid>() = sg;
+        *world.resource_mut::<SnowPlowingState>() = sp;
     } else {
-        *v2.snow_grid = SnowGrid::default();
-        *v2.snow_plowing_state = SnowPlowingState::default();
+        *world.resource_mut::<SnowGrid>() = SnowGrid::default();
+        *world.resource_mut::<SnowPlowingState>() = SnowPlowingState::default();
     }
-    *v2.snow_stats = SnowStats::default();
+    *world.resource_mut::<SnowStats>() = SnowStats::default();
 
     // Store extension map for the exclusive system to apply via SaveableRegistry.
     // Always enqueue -- even an empty map -- so that registered resources whose
     // keys are absent get reset to defaults (prevents cross-save contamination).
-    pending_ext.0 = Some(save.extensions.clone());
+    world.resource_mut::<PendingLoadExtensions>().0 = Some(save.extensions.clone());
 }
 
 // ---------------------------------------------------------------------------
@@ -1025,132 +1033,114 @@ fn poll_wasm_load(buffer: Res<WasmLoadBuffer>, mut ready_events: EventWriter<Was
 }
 
 /// Phase 3: restores world state from the bytes loaded by IndexedDB.
+/// Exclusive system for immediate entity teardown.
 #[cfg(target_arch = "wasm32")]
-#[allow(clippy::too_many_arguments)]
-fn handle_wasm_load_ready(
-    mut events: EventReader<WasmLoadReady>,
-    mut commands: Commands,
-    mut grid: ResMut<WorldGrid>,
-    mut roads: ResMut<RoadNetwork>,
-    mut segments: ResMut<RoadSegmentStore>,
-    mut clock: ResMut<GameClock>,
-    mut budget: ResMut<CityBudget>,
-    mut demand: ResMut<ZoneDemand>,
-    existing: ExistingEntities,
-    mut v2: V2ResourcesWrite,
-    mut lifecycle_timer: ResMut<LifecycleTimer>,
-    mut pending_ext: ResMut<PendingLoadExtensions>,
-) {
-    for event in events.read() {
-        restore_from_bytes(
-            &event.0,
-            &mut commands,
-            &mut grid,
-            &mut roads,
-            &mut segments,
-            &mut clock,
-            &mut budget,
-            &mut demand,
-            &existing,
-            &mut v2,
-            &mut lifecycle_timer,
-            &mut pending_ext,
-        );
+fn handle_wasm_load_ready(world: &mut World) {
+    // Extract bytes from the first WasmLoadReady event (if any), then clear.
+    let bytes = {
+        let events = world.resource::<Events<WasmLoadReady>>();
+        let mut cursor = events.get_cursor();
+        cursor.read(events).next().map(|e| e.0.clone())
+    };
+    let Some(bytes) = bytes else {
+        return;
+    };
+    world.resource_mut::<Events<WasmLoadReady>>().clear();
 
-        web_sys::console::log_1(&"Loaded save from IndexedDB".into());
-    }
+    restore_from_bytes(world, &bytes);
+
+    web_sys::console::log_1(&"Loaded save from IndexedDB".into());
 }
 
-/// Handle "New Game" -- despawn all entities, reset all resources, regenerate world.
-#[allow(clippy::too_many_arguments)]
-fn handle_new_game(
-    mut events: EventReader<NewGameEvent>,
-    mut commands: Commands,
-    existing: ExistingEntities,
-    mut grid: ResMut<WorldGrid>,
-    mut roads: ResMut<RoadNetwork>,
-    mut segments: ResMut<RoadSegmentStore>,
-    mut clock: ResMut<GameClock>,
-    mut budget: ResMut<CityBudget>,
-    mut demand: ResMut<ZoneDemand>,
-    mut v2: V2ResourcesWrite,
-    mut lifecycle_timer: ResMut<LifecycleTimer>,
-    mut pending_reset: ResMut<PendingNewGameReset>,
-) {
-    for _ in events.read() {
-        // Despawn all game entities -- deduplicate to avoid double-despawn when
-        // an entity matches multiple queries (e.g. Citizen + CitizenSprite).
-        for entity in existing.all_entities() {
-            if let Some(mut ec) = commands.get_entity(entity) {
-                ec.despawn();
-            }
+/// Handle "New Game" -- exclusive system for immediate entity teardown.
+///
+/// Uses `&mut World` so that entity despawns take effect instantly, preventing
+/// same-frame races with gameplay/render systems.
+fn handle_new_game(world: &mut World) {
+    {
+        let mut events = world.resource_mut::<Events<NewGameEvent>>();
+        if events.is_empty() {
+            return;
         }
+        events.clear();
+    }
 
-        // Reset world grid to fresh empty terrain
-        let width = grid.width;
-        let height = grid.height;
-        *grid = WorldGrid::new(width, height);
-        *roads = RoadNetwork::default();
-        *segments = RoadSegmentStore::default();
+    // Immediate entity teardown.
+    {
+        let entities = collect_game_entities(world);
+        for entity in entities {
+            world.despawn(entity);
+        }
+    }
 
-        // Reset clock
+    let (width, height) = {
+        let grid = world.resource::<WorldGrid>();
+        (grid.width, grid.height)
+    };
+    *world.resource_mut::<WorldGrid>() = WorldGrid::new(width, height);
+    *world.resource_mut::<RoadNetwork>() = RoadNetwork::default();
+    *world.resource_mut::<RoadSegmentStore>() = RoadSegmentStore::default();
+
+    {
+        let mut clock = world.resource_mut::<GameClock>();
         clock.day = 1;
         clock.hour = 8.0;
         clock.speed = 1.0;
         clock.paused = false;
+    }
 
-        // Reset budget to starting money
+    {
+        let mut budget = world.resource_mut::<CityBudget>();
         budget.treasury = 50_000.0;
         budget.tax_rate = 0.10;
         budget.last_collection_day = 0;
+    }
 
-        // Reset demand
-        *demand = ZoneDemand::default();
+    *world.resource_mut::<ZoneDemand>() = ZoneDemand::default();
 
-        // Reset V2 resources
-        *v2.policies = Policies::default();
-        *v2.weather = Weather::default();
-        *v2.climate_zone = ClimateZone::default();
-        *v2.unlock_state = UnlockState::default();
-        *v2.extended_budget = ExtendedBudget::default();
-        *v2.loan_book = LoanBook::default();
-        *v2.virtual_population = VirtualPopulation::default();
-        *lifecycle_timer = LifecycleTimer::default();
-        *v2.life_sim_timer = LifeSimTimer::default();
-        *v2.stormwater_grid = StormwaterGrid::default();
-        *v2.degree_days = DegreeDays::default();
-        *v2.construction_modifiers = ConstructionModifiers::default();
-        *v2.recycling_state = RecyclingState::default();
-        *v2.recycling_economics = RecyclingEconomics::default();
-        *v2.wind_damage_state = WindDamageState::default();
-        *v2.uhi_grid = UhiGrid::default();
-        *v2.drought_state = DroughtState::default();
-        *v2.heat_wave_state = HeatWaveState::default();
-        *v2.composting_state = CompostingState::default();
-        *v2.cold_snap_state = ColdSnapState::default();
-        *v2.water_treatment_state = WaterTreatmentState::default();
-        *v2.groundwater_depletion_state = GroundwaterDepletionState::default();
-        *v2.wastewater_state = WastewaterState::default();
-        *v2.hazardous_waste_state = HazardousWasteState::default();
-        *v2.storm_drainage_state = StormDrainageState::default();
-        *v2.landfill_capacity_state = LandfillCapacityState::default();
-        *v2.flood_state = FloodState::default();
-        *v2.flood_grid = FloodGrid::default();
-        *v2.reservoir_state = ReservoirState::default();
-        *v2.landfill_gas_state = LandfillGasState::default();
-        *v2.cso_state = SewerSystemState::default();
-        *v2.water_conservation_state = WaterConservationState::default();
-        *v2.fog_state = FogState::default();
-        *v2.urban_growth_boundary = UrbanGrowthBoundary::default();
-        *v2.snow_grid = SnowGrid::default();
-        *v2.snow_plowing_state = SnowPlowingState::default();
-        *v2.snow_stats = SnowStats::default();
-        *v2.agriculture_state = AgricultureState::default();
+    *world.resource_mut::<Policies>() = Policies::default();
+    *world.resource_mut::<Weather>() = Weather::default();
+    *world.resource_mut::<ClimateZone>() = ClimateZone::default();
+    *world.resource_mut::<UnlockState>() = UnlockState::default();
+    *world.resource_mut::<ExtendedBudget>() = ExtendedBudget::default();
+    *world.resource_mut::<LoanBook>() = LoanBook::default();
+    *world.resource_mut::<VirtualPopulation>() = VirtualPopulation::default();
+    *world.resource_mut::<LifecycleTimer>() = LifecycleTimer::default();
+    *world.resource_mut::<LifeSimTimer>() = LifeSimTimer::default();
+    *world.resource_mut::<StormwaterGrid>() = StormwaterGrid::default();
+    *world.resource_mut::<DegreeDays>() = DegreeDays::default();
+    *world.resource_mut::<ConstructionModifiers>() = ConstructionModifiers::default();
+    *world.resource_mut::<RecyclingState>() = RecyclingState::default();
+    *world.resource_mut::<RecyclingEconomics>() = RecyclingEconomics::default();
+    *world.resource_mut::<WindDamageState>() = WindDamageState::default();
+    *world.resource_mut::<UhiGrid>() = UhiGrid::default();
+    *world.resource_mut::<DroughtState>() = DroughtState::default();
+    *world.resource_mut::<HeatWaveState>() = HeatWaveState::default();
+    *world.resource_mut::<CompostingState>() = CompostingState::default();
+    *world.resource_mut::<ColdSnapState>() = ColdSnapState::default();
+    *world.resource_mut::<WaterTreatmentState>() = WaterTreatmentState::default();
+    *world.resource_mut::<GroundwaterDepletionState>() = GroundwaterDepletionState::default();
+    *world.resource_mut::<WastewaterState>() = WastewaterState::default();
+    *world.resource_mut::<HazardousWasteState>() = HazardousWasteState::default();
+    *world.resource_mut::<StormDrainageState>() = StormDrainageState::default();
+    *world.resource_mut::<LandfillCapacityState>() = LandfillCapacityState::default();
+    *world.resource_mut::<FloodState>() = FloodState::default();
+    *world.resource_mut::<FloodGrid>() = FloodGrid::default();
+    *world.resource_mut::<ReservoirState>() = ReservoirState::default();
+    *world.resource_mut::<LandfillGasState>() = LandfillGasState::default();
+    *world.resource_mut::<SewerSystemState>() = SewerSystemState::default();
+    *world.resource_mut::<WaterConservationState>() = WaterConservationState::default();
+    *world.resource_mut::<FogState>() = FogState::default();
+    *world.resource_mut::<UrbanGrowthBoundary>() = UrbanGrowthBoundary::default();
+    *world.resource_mut::<SnowGrid>() = SnowGrid::default();
+    *world.resource_mut::<SnowPlowingState>() = SnowPlowingState::default();
+    *world.resource_mut::<SnowStats>() = SnowStats::default();
+    *world.resource_mut::<AgricultureState>() = AgricultureState::default();
 
-        // Signal the exclusive system to reset extension-registered resources.
-        pending_reset.0 = true;
+    world.resource_mut::<PendingNewGameReset>().0 = true;
 
-        // Generate a flat terrain with water on west edge (simple starter map)
+    {
+        let mut grid = world.resource_mut::<WorldGrid>();
         for y in 0..height {
             for x in 0..width {
                 let cell = grid.get_mut(x, y);
@@ -1163,9 +1153,9 @@ fn handle_new_game(
                 }
             }
         }
-
-        println!("New game started — blank map with $50,000 treasury");
     }
+
+    println!("New game started — blank map with $50,000 treasury");
 }
 
 // ---------------------------------------------------------------------------
