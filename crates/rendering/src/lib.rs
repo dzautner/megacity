@@ -32,6 +32,7 @@ pub mod traffic_arrows;
 pub mod traffic_los_render;
 pub mod wind_streamlines;
 
+pub mod grid_align;
 pub mod parallel_snap;
 pub mod screenshot;
 pub mod zone_brush_preview;
@@ -93,6 +94,16 @@ impl Plugin for RenderingPlugin {
                     input::update_cursor_grid_pos,
                     angle_snap::update_angle_snap,
                     input::update_intersection_snap,
+                    grid_align::align_cursor_to_grid
+                        .after(angle_snap::update_angle_snap)
+                        .after(parallel_snap::apply_parallel_snap_to_cursor)
+                        .before(input::handle_tool_input),
+                    grid_align::align_angle_snap_to_grid
+                        .after(angle_snap::update_angle_snap)
+                        .before(input::handle_tool_input),
+                    grid_align::align_intersection_snap_to_grid
+                        .after(input::update_intersection_snap)
+                        .before(input::handle_tool_input),
                     input::handle_tool_input,
                     input::handle_tree_tool,
                     input::keyboard_tool_switch,
