@@ -12,7 +12,7 @@ use simulation::composting::CompostingState;
 use simulation::cso::SewerSystemState;
 use simulation::degree_days::DegreeDays;
 use simulation::drought::DroughtState;
-use simulation::flood_simulation::{FloodGrid, FloodState};
+use simulation::flood_simulation::FloodState;
 use simulation::fog::FogState;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
@@ -24,7 +24,7 @@ use simulation::loans::LoanBook;
 use simulation::policies::Policies;
 use simulation::recycling::{RecyclingEconomics, RecyclingState};
 use simulation::reservoir::ReservoirState;
-use simulation::snow::{SnowGrid, SnowPlowingState, SnowStats};
+use simulation::snow::{SnowGrid, SnowPlowingState};
 use simulation::storm_drainage::StormDrainageState;
 use simulation::stormwater::StormwaterGrid;
 use simulation::unlocks::UnlockState;
@@ -75,46 +75,4 @@ pub(crate) struct V2ResourcesRead<'w> {
     pub snow_grid: Res<'w, SnowGrid>,
     pub snow_plowing_state: Res<'w, SnowPlowingState>,
     pub agriculture_state: Res<'w, AgricultureState>,
-}
-
-/// Mutable access to the V2+ resources.
-#[derive(SystemParam)]
-pub(crate) struct V2ResourcesWrite<'w> {
-    pub policies: ResMut<'w, Policies>,
-    pub weather: ResMut<'w, Weather>,
-    pub unlock_state: ResMut<'w, UnlockState>,
-    pub extended_budget: ResMut<'w, ExtendedBudget>,
-    pub loan_book: ResMut<'w, LoanBook>,
-    pub virtual_population: ResMut<'w, VirtualPopulation>,
-    pub life_sim_timer: ResMut<'w, LifeSimTimer>,
-    pub stormwater_grid: ResMut<'w, StormwaterGrid>,
-    pub degree_days: ResMut<'w, DegreeDays>,
-    pub climate_zone: ResMut<'w, ClimateZone>,
-    pub construction_modifiers: ResMut<'w, ConstructionModifiers>,
-    pub recycling_state: ResMut<'w, RecyclingState>,
-    pub recycling_economics: ResMut<'w, RecyclingEconomics>,
-    pub wind_damage_state: ResMut<'w, WindDamageState>,
-    pub uhi_grid: ResMut<'w, UhiGrid>,
-    pub drought_state: ResMut<'w, DroughtState>,
-    pub heat_wave_state: ResMut<'w, HeatWaveState>,
-    pub composting_state: ResMut<'w, CompostingState>,
-    pub cold_snap_state: ResMut<'w, ColdSnapState>,
-    pub water_treatment_state: ResMut<'w, WaterTreatmentState>,
-    pub groundwater_depletion_state: ResMut<'w, GroundwaterDepletionState>,
-    pub wastewater_state: ResMut<'w, WastewaterState>,
-    pub hazardous_waste_state: ResMut<'w, HazardousWasteState>,
-    pub storm_drainage_state: ResMut<'w, StormDrainageState>,
-    pub landfill_capacity_state: ResMut<'w, LandfillCapacityState>,
-    pub flood_state: ResMut<'w, FloodState>,
-    pub flood_grid: ResMut<'w, FloodGrid>,
-    pub reservoir_state: ResMut<'w, ReservoirState>,
-    pub landfill_gas_state: ResMut<'w, LandfillGasState>,
-    pub cso_state: ResMut<'w, SewerSystemState>,
-    pub water_conservation_state: ResMut<'w, WaterConservationState>,
-    pub fog_state: ResMut<'w, FogState>,
-    pub urban_growth_boundary: ResMut<'w, UrbanGrowthBoundary>,
-    pub snow_grid: ResMut<'w, SnowGrid>,
-    pub snow_plowing_state: ResMut<'w, SnowPlowingState>,
-    pub snow_stats: ResMut<'w, SnowStats>,
-    pub agriculture_state: ResMut<'w, AgricultureState>,
 }
