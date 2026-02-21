@@ -4602,6 +4602,92 @@ fn test_bicycle_lanes_coverage_zero_without_infrastructure() {
     );
 }
 
+// Superblock policy tests
+// ====================================================================
+
+#[test]
+fn test_superblock_state_initialized() {
+    let city = TestCity::new();
+    city.assert_resource_exists::<crate::superblock::SuperblockState>();
+}
+
+#[test]
+fn test_superblock_add_and_query() {
+    use crate::superblock::{Superblock, SuperblockCell, SuperblockState};
+    let mut city = TestCity::new();
+
+    // Add a 5x5 superblock
+    {
+        let world = city.world_mut();
+        let mut state = world.resource_mut::<SuperblockState>();
+        let added = state.add_superblock(Superblock::new(
+            50,
+            50,
+            54,
+            54,
+            "Downtown Block".to_string(),
+        ));
+        assert!(added, "should successfully add a valid superblock");
+    }
+
+    // Verify cell classifications
+    {
+        let state = city.resource::<SuperblockState>();
+        // Interior cell
+        assert_eq!(state.get_cell(52, 52), SuperblockCell::Interior);
+        // Perimeter cell
+        assert_eq!(state.get_cell(50, 50), SuperblockCell::Perimeter);
+        // Outside cell
+        assert_eq!(state.get_cell(40, 40), SuperblockCell::None);
+        // Coverage stats
+        assert_eq!(state.total_interior_cells, 9); // 3x3 interior
+        assert_eq!(state.total_coverage_cells, 25); // 5x5 total
+    }
+}
+
+#[test]
+fn test_superblock_reject_too_small() {
+    use crate::superblock::{Superblock, SuperblockState};
+    let mut city = TestCity::new();
+
+    let world = city.world_mut();
+    let mut state = world.resource_mut::<SuperblockState>();
+
+    // 2x2 is too small (minimum 3x3)
+    let added = state.add_superblock(Superblock::new(10, 10, 11, 11, "Tiny".to_string()));
+    assert!(!added, "should reject superblocks smaller than 3x3");
+    assert!(state.superblocks.is_empty());
+}
+
+#[test]
+fn test_superblock_traffic_multiplier_interior() {
+    use crate::superblock::{Superblock, SuperblockState, SUPERBLOCK_TRAFFIC_PENALTY};
+    let mut city = TestCity::new();
+
+    {
+        let world = city.world_mut();
+        let mut state = world.resource_mut::<SuperblockState>();
+        state.add_superblock(Superblock::new(30, 30, 36, 36, "Test Block".to_string()));
+    }
+
+    let state = city.resource::<SuperblockState>();
+    // Interior cells get the penalty multiplier
+    assert!(
+        (state.traffic_multiplier(33, 33) - SUPERBLOCK_TRAFFIC_PENALTY).abs() < f32::EPSILON,
+        "interior cells should have traffic penalty"
+    );
+    // Perimeter cells have normal cost
+    assert!(
+        (state.traffic_multiplier(30, 30) - 1.0).abs() < f32::EPSILON,
+        "perimeter cells should have no traffic penalty"
+    );
+    // Outside cells have normal cost
+    assert!(
+        (state.traffic_multiplier(20, 20) - 1.0).abs() < f32::EPSILON,
+        "cells outside superblock should have no penalty"
+    );
+}
+
 #[test]
 fn test_bicycle_lanes_add_lane_to_road_segment() {
     let mut city = TestCity::new()
@@ -5088,4 +5174,97 @@ fn test_invariant_no_overcapacity_on_empty_city() {
         violations.job_overcapacity, 0,
         "No job overcapacity violations expected on empty city"
     );
+}
+
+#[test]
+fn test_superblock_remove_clears_grid() {
+    use crate::superblock::{Superblock, SuperblockCell, SuperblockState};
+    let mut city = TestCity::new();
+
+    {
+        let world = city.world_mut();
+        let mut state = world.resource_mut::<SuperblockState>();
+        state.add_superblock(Superblock::new(10, 10, 14, 14, "Temp".to_string()));
+    }
+
+    // Verify it exists
+    assert!(city.resource::<SuperblockState>().is_interior(12, 12));
+
+    // Remove it
+    {
+        let world = city.world_mut();
+        let mut state = world.resource_mut::<SuperblockState>();
+        assert!(state.remove_superblock(0));
+    }
+
+    // Verify it's gone
+    let state = city.resource::<SuperblockState>();
+    assert_eq!(state.get_cell(12, 12), SuperblockCell::None);
+    assert_eq!(state.total_interior_cells, 0);
+    assert_eq!(state.total_coverage_cells, 0);
+}
+
+#[test]
+fn test_superblock_persists_across_slow_tick() {
+    use crate::superblock::{Superblock, SuperblockState};
+    let mut city = TestCity::new();
+
+    {
+        let world = city.world_mut();
+        let mut state = world.resource_mut::<SuperblockState>();
+        state.add_superblock(Superblock::new(20, 20, 25, 25, "Persistent".to_string()));
+    }
+
+    // Run a full slow tick cycle
+    city.tick_slow_cycle();
+
+    // Superblock should still be there
+    let state = city.resource::<SuperblockState>();
+    assert_eq!(state.superblocks.len(), 1);
+    assert!(state.is_interior(22, 22));
+    assert!(state.total_interior_cells > 0);
+}
+
+#[test]
+fn test_superblock_saveable_roundtrip() {
+    use crate::superblock::{Superblock, SuperblockState};
+    use crate::Saveable;
+
+    let mut state = SuperblockState::default();
+    state.add_superblock(Superblock::new(10, 10, 15, 15, "Block A".to_string()));
+    state.add_superblock(Superblock::new(50, 50, 56, 56, "Block B".to_string()));
+
+    // Save
+    let bytes = state
+        .save_to_bytes()
+        .expect("non-empty state should serialize");
+
+    // Load
+    let restored = SuperblockState::load_from_bytes(&bytes);
+    assert_eq!(restored.superblocks.len(), 2);
+    assert_eq!(restored.superblocks[0].name, "Block A");
+    assert!(restored.is_interior(12, 12));
+    assert!(restored.is_interior(53, 53));
+    assert!(restored.total_interior_cells > 0);
+}
+
+#[test]
+fn test_superblock_multiple_blocks_coverage() {
+    use crate::superblock::{Superblock, SuperblockState};
+    let mut city = TestCity::new();
+
+    {
+        let world = city.world_mut();
+        let mut state = world.resource_mut::<SuperblockState>();
+        // Add two non-overlapping 5x5 superblocks
+        state.add_superblock(Superblock::new(10, 10, 14, 14, "A".to_string()));
+        state.add_superblock(Superblock::new(30, 30, 34, 34, "B".to_string()));
+    }
+
+    let state = city.resource::<SuperblockState>();
+    assert_eq!(state.superblocks.len(), 2);
+    // Each 5x5 has 9 interior cells, total = 18
+    assert_eq!(state.total_interior_cells, 18);
+    // Each 5x5 has 25 cells, total = 50
+    assert_eq!(state.total_coverage_cells, 50);
 }

@@ -107,6 +107,7 @@ pub mod specialization;
 pub mod stats;
 pub mod storm_drainage;
 pub mod stormwater;
+pub mod superblock;
 pub mod terrain;
 pub mod time_of_day;
 pub mod tourism;
@@ -318,6 +319,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "road_hierarchy",
     "seasonal_effects_config",
     "seasonal_rendering",
+    "superblock_state",
     "traffic_los",
     "tutorial",
     "uhi_mitigation",
@@ -477,6 +479,7 @@ impl Plugin for SimulationPlugin {
             garbage::GarbagePlugin,
             districts::DistrictsPlugin,
             district_policies::DistrictPoliciesPlugin,
+            superblock::SuperblockPlugin,
             neighborhood_quality::NeighborhoodQualityPlugin,
             lifecycle::LifecyclePlugin,
             building_upgrade::BuildingUpgradePlugin,
