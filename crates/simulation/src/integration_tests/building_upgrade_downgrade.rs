@@ -608,7 +608,9 @@ fn test_downgrade_possible_when_happiness_very_low() {
 
 #[test]
 fn test_no_downgrade_when_happiness_above_threshold() {
-    // Downgrade should NOT happen when happiness > 30.0
+    // Downgrade should NOT happen when happiness > 30.0.
+    // We also reset the SlowTickTimer each iteration to prevent update_stats
+    // from firing and recalculating average_happiness to 0.0 (no citizens).
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialHigh, 3, 50.0);
 
     for _ in 0..100 {
@@ -616,6 +618,8 @@ fn test_no_downgrade_when_happiness_above_threshold() {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
             world.resource_mut::<CityStats>().average_happiness = 50.0;
+            // Prevent update_stats from firing and resetting happiness to 0.0
+            world.resource_mut::<crate::SlowTickTimer>().counter = 1;
         }
         city.tick(1);
     }
