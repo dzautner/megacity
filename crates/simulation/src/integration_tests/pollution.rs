@@ -125,8 +125,9 @@ fn test_pollution_higher_level_industrial_produces_more() {
 // ====================================================================
 
 #[test]
-fn test_pollution_levels_within_u8_range() {
-    // Place several industrial buildings near each other for high pollution
+fn test_pollution_saturates_without_wrapping() {
+    // Place several industrial buildings near each other for high pollution.
+    // With saturating_add the values should cap at 255 rather than wrapping.
     let mut city = TestCity::new()
         .with_building(128, 128, ZoneType::Industrial, 3)
         .with_building(130, 128, ZoneType::Industrial, 3)
@@ -136,14 +137,22 @@ fn test_pollution_levels_within_u8_range() {
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
-    for &level in &grid.levels {
-        // u8 is inherently in [0, 255] but verify no overflow/wrap issues
-        assert!(
-            level <= 255,
-            "pollution level should be within u8 range, got {}",
-            level
-        );
-    }
+    // Find the maximum pollution value -- it should be high due to stacking,
+    // but not have wrapped around to a small value.
+    let max_level = grid.levels.iter().copied().max().unwrap_or(0);
+    assert!(
+        max_level > 20,
+        "stacked industrial buildings should produce significant pollution, max={}",
+        max_level
+    );
+    // Verify that no cells have suspiciously low values near the buildings
+    // (which would indicate u8 overflow wrapping).
+    let at_center = grid.get(129, 129);
+    assert!(
+        at_center > 10,
+        "center of industrial cluster should have high pollution (no wrap), got {}",
+        at_center
+    );
 }
 
 // ====================================================================
