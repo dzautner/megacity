@@ -162,6 +162,11 @@ fn test_pollution_saturates_without_wrapping() {
 #[test]
 fn test_pollution_roads_add_base_pollution() {
     let mut city = TestCity::new().with_road(100, 128, 120, 128, crate::grid::RoadType::Local);
+    {
+        // Disable wind so drift does not shift road pollution away
+        let world = city.world_mut();
+        world.resource_mut::<WindState>().speed = 0.0;
+    }
 
     city.tick_slow_cycle();
 
