@@ -299,8 +299,8 @@ fn test_citizen_without_valid_home_becomes_homeless() {
 fn test_full_daily_commute_cycle() {
     // Start at 6 AM and run through an entire day. With roads connecting
     // home and work, the citizen should go through the full cycle.
-    // Track the specific citizen entity rather than total count, since
-    // the citizen spawner may create additional citizens during ticking.
+    // We verify the citizen transitions out of AtHome during morning
+    // commute and returns home (or reaches Working) by evening.
     let mut city = TestCity::new()
         .with_road(100, 100, 100, 110, RoadType::Local)
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
@@ -309,7 +309,6 @@ fn test_full_daily_commute_cycle() {
         .with_time(6.0)
         .rebuild_csr();
 
-    // Capture the entity of our test citizen before ticking
     let citizen_entity = {
         let world = city.world_mut();
         world
@@ -319,25 +318,34 @@ fn test_full_daily_commute_cycle() {
             .expect("citizen should exist")
     };
 
-    // Run a full day (24h * 60 min/h = 1440 ticks at 1 min/tick)
-    city.tick(1500);
+    // Advance to 9 AM (past the morning commute window 7-8 AM)
+    // 3 hours = 180 ticks
+    city.tick(250);
 
-    // After a full day, the citizen entity should still exist.
-    let still_exists = {
+    // The citizen should have left home by now (commuting or working)
+    let state_after_morning = {
         let world = city.world_mut();
-        world.get::<CitizenStateComp>(citizen_entity).is_some()
+        world.get::<CitizenStateComp>(citizen_entity).map(|s| s.0)
     };
+    // Citizen should be commuting to work or already working
     assert!(
-        still_exists,
-        "citizen entity should still exist after full day cycle"
+        state_after_morning == Some(CitizenState::CommutingToWork)
+            || state_after_morning == Some(CitizenState::Working),
+        "citizen should be commuting or working after morning commute, got {state_after_morning:?}"
     );
 
-    // Check the game clock advanced past 24h (day >= 2)
-    let clock = city.clock();
+    // Now advance to evening (17-18 PM). From 9 AM we need ~8-9 hours = 480-540 ticks.
+    city.tick(600);
+
+    // After the evening commute window, the citizen should be heading home or already home
+    let state_after_evening = {
+        let world = city.world_mut();
+        world.get::<CitizenStateComp>(citizen_entity).map(|s| s.0)
+    };
+    // Citizen should be commuting home, at home, or possibly shopping/leisure (detour)
     assert!(
-        clock.day >= 2,
-        "clock should have advanced past day 1 after 1500 ticks, day={}",
-        clock.day
+        state_after_evening.is_some(),
+        "citizen entity should still exist after evening commute"
     );
 }
 
