@@ -225,8 +225,8 @@ fn test_random_events_epidemic_effect_ticks_decrement() {
 }
 
 /// Test that apply_active_effects drains health during an active epidemic.
-/// Uses before/after pattern: set health on ALL citizens, activate epidemic,
-/// then verify ALL citizens had health drained.
+/// Sets health on ALL citizens right before checking to handle the citizen
+/// spawner creating new citizens with default health=90 during the test.
 #[test]
 fn test_random_events_epidemic_drains_health() {
     use crate::citizen::CitizenDetails;
@@ -234,58 +234,48 @@ fn test_random_events_epidemic_drains_health() {
 
     let home = (10, 10);
     let work = (15, 15);
-
     let mut city = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::Industrial, 1)
         .with_citizen(home, work);
 
-    // Let the city settle first
+    // Let systems settle, then set ALL citizens to known health
     city.tick_slow_cycle();
-
-    // Set health to 80 on ALL citizens and activate a strong epidemic.
-    // The citizen spawner may have added citizens during tick_slow_cycle,
-    // so we set ALL of them to the same baseline.
     {
         let world = city.world_mut();
         let mut q = world.query::<&mut CitizenDetails>();
         for mut d in q.iter_mut(world) {
             d.health = 80.0;
         }
-        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 200;
+        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 50;
     }
 
-    // Run several slow cycles. The epidemic drains 0.5 health per slow tick.
-    city.tick_slow_cycles(10);
+    // One slow cycle drains 0.5 health via apply_active_effects.
+    city.tick_slow_cycle();
 
-    // Re-set health on ALL citizens again (the spawner may have added more).
-    // Then run a final slow cycle to see the drain on ALL citizens.
+    // Re-set ALL citizens to 80 (new spawns may have arrived), keep epidemic
     {
         let world = city.world_mut();
         let mut q = world.query::<&mut CitizenDetails>();
         for mut d in q.iter_mut(world) {
             d.health = 80.0;
         }
-        // Ensure epidemic is still active
-        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 200;
+        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 50;
     }
 
-    // One slow cycle = 0.5 health drain
+    // One more slow cycle: the epidemic drains 0.5 from ALL citizens
     city.tick_slow_cycle();
 
-    // Check ALL citizens have health below 80 (the epidemic drained at least 0.5)
-    let all_below_80 = {
-        let world = city.world_mut();
-        world
-            .query::<&CitizenDetails>()
-            .iter(world)
-            .all(|d| d.health < 80.0)
-    };
-
-    assert!(
-        all_below_80,
-        "Epidemic should drain health below 80.0 for all citizens after one slow tick"
-    );
+    // ALL citizens should now have health < 80
+    let world = city.world_mut();
+    let mut q = world.query::<&CitizenDetails>();
+    for details in q.iter(world) {
+        assert!(
+            details.health < 80.0,
+            "Epidemic should drain health below 80, got {}",
+            details.health
+        );
+    }
 }
 
 /// Test that active effect timers eventually expire after enough ticks.
