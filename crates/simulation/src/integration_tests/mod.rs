@@ -13,6 +13,7 @@ mod combined_scenarios;
 mod curve_road;
 mod destination_cache;
 mod district_stats;
+mod economy_formula;
 mod economy_invariant;
 mod economy_tax;
 mod edge_cases;
