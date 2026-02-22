@@ -547,11 +547,15 @@ fn test_happiness_transport_coverage() {
 #[test]
 fn test_happiness_land_value_bonus() {
     // Before/after on the same citizen eliminates positional noise.
+    // Use low needs (50.0) to keep baseline below 100 so the land_value
+    // bonus isn't clipped by the clamp.
     let home = (100, 100);
     let work = (105, 100);
     let mut city = city_with_utilities(home, work);
 
-    tick_with_stable_needs(&mut city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
     let h_before = first_citizen_happiness(&mut city);
 
     city.tick(HAPPINESS_TICKS - 1);
@@ -561,7 +565,7 @@ fn test_happiness_land_value_bonus() {
             .resource_mut::<crate::land_value::LandValueGrid>()
             .set(home.0, home.1, 200);
     }
-    set_needs_and_health(&mut city, 80.0, 90.0);
+    set_needs_and_health(&mut city, 50.0, 70.0);
     city.tick(1);
     let h_after = first_citizen_happiness(&mut city);
 

@@ -2,6 +2,28 @@ use crate::buildings::Building;
 use crate::grid::{WorldGrid, ZoneType};
 use crate::test_harness::TestCity;
 
+/// Despawn a building and prevent recovery: clear the grid zone so the
+/// building spawner won't recreate it, and set negative savings so
+/// `recover_from_homelessness` won't assign the citizen to any other building.
+fn despawn_home_prevent_recovery(city: &mut TestCity, gx: usize, gy: usize) {
+    let b = city.grid().get(gx, gy).building_id.expect("building");
+    city.world_mut().despawn(b);
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        let cell = grid.get_mut(gx, gy);
+        cell.building_id = None;
+        cell.zone = ZoneType::None;
+    }
+    {
+        let world = city.world_mut();
+        let mut q = world.query::<&mut crate::citizen::CitizenDetails>();
+        for mut d in q.iter_mut(world) {
+            d.savings = -100.0;
+        }
+    }
+}
+
 // ====================================================================
 // Homelessness system tests (TEST-059)
 // ====================================================================
@@ -28,12 +50,8 @@ fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
         );
     }
 
-    // Despawn the home building
-    let building_entity = {
-        let grid = city.grid();
-        grid.get(50, 50).building_id.expect("building should exist")
-    };
-    city.world_mut().despawn(building_entity);
+    // Despawn the home building and prevent recovery
+    despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick past the homelessness CHECK_INTERVAL (50 ticks)
     city.tick(50);
@@ -62,11 +80,18 @@ fn test_homelessness_stats_track_total_homeless() {
         .with_building(60, 60, ZoneType::ResidentialLow, 1)
         .with_citizen((60, 60), (60, 60));
 
-    // Despawn both home buildings
-    let b1 = city.grid().get(50, 50).building_id.expect("building 1");
+    // Despawn both home buildings and prevent recovery
+    despawn_home_prevent_recovery(&mut city, 50, 50);
+    // Re-fetch second building (first despawn may not affect it)
     let b2 = city.grid().get(60, 60).building_id.expect("building 2");
-    city.world_mut().despawn(b1);
     city.world_mut().despawn(b2);
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        let cell = grid.get_mut(60, 60);
+        cell.building_id = None;
+        cell.zone = ZoneType::None;
+    }
 
     // Tick to trigger check_homelessness + seek_shelter
     city.tick(50);
@@ -86,9 +111,16 @@ fn test_homelessness_recover_when_housing_available() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
-    // Despawn the home building to make citizen homeless
+    // Despawn the home building and clear zone to prevent spawner recreation
     let b = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(b);
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        let cell = grid.get_mut(50, 50);
+        cell.building_id = None;
+        cell.zone = ZoneType::None;
+    }
 
     // Tick to make citizen homeless
     city.tick(50);
@@ -154,9 +186,8 @@ fn test_homelessness_happiness_penalty_applied() {
         details.happiness
     };
 
-    // Despawn home building
-    let b = city.grid().get(50, 50).building_id.expect("building");
-    city.world_mut().despawn(b);
+    // Despawn home building and prevent recovery
+    despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick to make citizen homeless
     city.tick(50);
@@ -193,17 +224,8 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
-    // Despawn home building and clear the grid cell zone to prevent the
-    // building spawner from recreating it (which would let citizen recover).
-    let b = city.grid().get(50, 50).building_id.expect("building");
-    city.world_mut().despawn(b);
-    {
-        let world = city.world_mut();
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        let cell = grid.get_mut(50, 50);
-        cell.building_id = None;
-        cell.zone = ZoneType::None;
-    }
+    // Despawn home building and prevent recovery
+    despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick to trigger check_homelessness (citizen becomes homeless)
     city.tick(50);
@@ -252,17 +274,8 @@ fn test_homelessness_shelter_capacity_respected() {
         .with_citizen((50, 50), (50, 50))
         .with_citizen((50, 50), (50, 50));
 
-    // Despawn home building and clear the grid cell zone to prevent the
-    // building spawner from recreating it (which would let citizens recover).
-    let b = city.grid().get(50, 50).building_id.expect("building");
-    city.world_mut().despawn(b);
-    {
-        let world = city.world_mut();
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        let cell = grid.get_mut(50, 50);
-        cell.building_id = None;
-        cell.zone = ZoneType::None;
-    }
+    // Despawn home building and prevent recovery
+    despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick to make citizens homeless
     city.tick(50);
@@ -447,9 +460,17 @@ fn test_homelessness_recovery_updates_stats() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
-    // Despawn home to make citizen homeless
+    // Despawn home and clear zone to prevent building spawner recreation.
+    // Don't set negative savings here — this test needs the citizen to be able to recover.
     let b = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(b);
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        let cell = grid.get_mut(50, 50);
+        cell.building_id = None;
+        cell.zone = ZoneType::None;
+    }
 
     city.tick(50);
 
@@ -499,9 +520,8 @@ fn test_homelessness_ticks_homeless_increments() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
-    // Despawn home
-    let b = city.grid().get(50, 50).building_id.expect("building");
-    city.world_mut().despawn(b);
+    // Despawn home and prevent recovery
+    despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick to make homeless (first check)
     city.tick(50);
