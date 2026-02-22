@@ -356,17 +356,17 @@ fn test_land_value_clamped_to_255_maximum() {
 
     city.tick_slow_cycle();
 
-    // Read all land values and verify none exceed 255
-    let lv = city.resource::<LandValueGrid>();
-    for y in 0..lv.height {
-        for x in 0..lv.width {
-            let val = lv.get(x, y);
-            assert!(
-                val <= 255,
-                "Land value at ({x}, {y}) should be <= 255, got {val}"
-            );
-        }
-    }
+    // With multiple overlapping parks + water, the cell at (100, 100) should have
+    // a high value but still be clamped within u8 range (the type enforces [0, 255]).
+    let val = land_value_at(&city, 100, 100);
+    // The combined boosts would push the raw sum well above 255 if unclamped,
+    // but the code clamps via `.min(255) as u8`. Verify we get a high value.
+    assert!(
+        val > 50,
+        "Multiple overlapping parks should significantly boost land value, got {val}"
+    );
+    // Since the type is u8, the value is inherently in [0, 255] -- the clamping
+    // is verified by the fact that no overflow panic occurred.
 }
 
 #[test]
@@ -390,16 +390,16 @@ fn test_land_value_all_cells_within_valid_range() {
 
     city.tick_slow_cycle();
 
+    // Since `LandValueGrid::values` is `Vec<u8>`, the output is inherently in
+    // [0, 255]. Verify that the system ran without panics and produced
+    // reasonable values: industrial + polluted area should be lower than clean area.
     let lv = city.resource::<LandValueGrid>();
-    for y in 0..lv.height {
-        for x in 0..lv.width {
-            let val = lv.get(x, y);
-            assert!(
-                val <= 255,
-                "Land value at ({x}, {y}) should be in [0, 255], got {val}"
-            );
-        }
-    }
+    let polluted_val = lv.get(55, 55);
+    let clean_val = lv.get(200, 200);
+    assert!(
+        clean_val > polluted_val,
+        "Clean area ({clean_val}) should have higher land value than polluted industrial area ({polluted_val})"
+    );
 }
 
 // -------------------------------------------------------------------------
