@@ -4,7 +4,6 @@
 //! have coverage, cells outside do not, and that overlapping service buildings
 //! produce correct bitflag unions.
 
-use crate::config::CELL_SIZE;
 use crate::happiness::{
     ServiceCoverageGrid, COVERAGE_EDUCATION, COVERAGE_ENTERTAINMENT, COVERAGE_FIRE,
     COVERAGE_HEALTH, COVERAGE_PARK, COVERAGE_POLICE, COVERAGE_TELECOM, COVERAGE_TRANSPORT,
