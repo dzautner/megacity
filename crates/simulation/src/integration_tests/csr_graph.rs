@@ -1,4 +1,5 @@
-use crate::grid::{RoadType, WorldGrid, GRID_HEIGHT, GRID_WIDTH};
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+use crate::grid::{RoadType, WorldGrid};
 use crate::roads::{RoadNetwork, RoadNode};
 use crate::test_harness::TestCity;
 
