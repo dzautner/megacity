@@ -27,6 +27,7 @@ mod homelessness;
 mod job_capacity;
 mod job_capacity_invariant;
 mod keybindings;
+mod land_value;
 mod market_system;
 mod marriage_reciprocity;
 mod mode_choice;
