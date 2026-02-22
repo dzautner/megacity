@@ -112,10 +112,11 @@ fn citizen_happiness_at(city: &mut TestCity, gx: usize, gy: usize) -> f32 {
 /// Create a city with two citizens at different home locations, both with utilities.
 /// Used for same-world comparison tests that eliminate cross-world Bevy change
 /// detection noise (~1.8 point drift between separate worlds).
+/// Work is at the midpoint so both citizens have equal commute distance.
 fn two_citizen_city() -> (TestCity, (usize, usize), (usize, usize)) {
     let home_a = (100, 100);
     let home_b = (130, 130);
-    let work = (110, 110);
+    let work = (115, 115); // equidistant from both homes (~21.2 cells each)
     let city = TestCity::new()
         .with_building(home_a.0, home_a.1, ZoneType::ResidentialLow, 1)
         .with_building(home_b.0, home_b.1, ZoneType::ResidentialLow, 1)
