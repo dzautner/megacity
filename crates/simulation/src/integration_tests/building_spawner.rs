@@ -668,17 +668,23 @@ fn test_building_not_spawned_on_road_cell() {
         }
     }
 
-    // Verify no Building entity has grid coords on a road cell.
+    // Collect building positions first, then check grid (avoids borrow conflict).
     let world = city.world_mut();
-    let grid = world.resource::<WorldGrid>();
-    for building in world.query::<&Building>().iter(world) {
-        let cell = grid.get(building.grid_x, building.grid_y);
+    let building_positions: Vec<(usize, usize)> = world
+        .query::<&Building>()
+        .iter(world)
+        .map(|b| (b.grid_x, b.grid_y))
+        .collect();
+
+    let grid = city.grid();
+    for (bx, by) in &building_positions {
+        let cell = grid.get(*bx, *by);
         assert_ne!(
             cell.cell_type,
             CellType::Road,
             "Building should not be placed on a road cell at ({}, {})",
-            building.grid_x,
-            building.grid_y
+            bx,
+            by
         );
     }
 }
@@ -734,7 +740,6 @@ fn test_building_grid_cell_marked_with_building_id() {
     city.tick(30);
 
     let world = city.world_mut();
-    let grid = world.resource::<WorldGrid>();
     let buildings: Vec<(usize, usize)> = world
         .query::<&Building>()
         .iter(world)
@@ -743,6 +748,7 @@ fn test_building_grid_cell_marked_with_building_id() {
 
     assert!(!buildings.is_empty(), "Should have spawned buildings");
 
+    let grid = city.grid();
     for (x, y) in &buildings {
         let cell = grid.get(*x, *y);
         assert!(
