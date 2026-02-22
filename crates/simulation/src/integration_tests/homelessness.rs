@@ -197,6 +197,16 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
     let b = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(b);
 
+    // Give the citizen negative savings so recover_from_homelessness
+    // won't remove the Homeless component during the ticks below.
+    {
+        let world = city.world_mut();
+        let mut q = world.query::<&mut crate::citizen::CitizenDetails>();
+        for mut d in q.iter_mut(world) {
+            d.savings = -100.0;
+        }
+    }
+
     // Tick to trigger check_homelessness (citizen becomes homeless)
     city.tick(50);
 

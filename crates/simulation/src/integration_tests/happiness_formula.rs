@@ -51,11 +51,14 @@ fn all_citizen_happiness(city: &mut TestCity) -> Vec<f32> {
 }
 
 /// Set coverage flags on the ServiceCoverageGrid for a cell.
+/// Also marks the coverage grid as not-dirty to prevent `update_service_coverage`
+/// from recomputing (and clearing) our injected flags during the next tick.
 fn set_coverage_flags(city: &mut TestCity, x: usize, y: usize, flags: u8) {
     let world = city.world_mut();
     let idx = ServiceCoverageGrid::idx(x, y);
     let mut coverage = world.resource_mut::<ServiceCoverageGrid>();
     coverage.flags[idx] |= flags;
+    coverage.dirty = false;
 }
 
 /// Set needs and health on all citizens.
@@ -348,15 +351,19 @@ fn test_happiness_pollution_penalty() {
     let work = (120, 100);
 
     let mut clean_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut clean_city);
+    clean_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut clean_city, 80.0, 90.0);
+    clean_city.tick(1);
 
     let mut polluted_city = city_with_utilities(home, work);
+    polluted_city.tick(HAPPINESS_TICKS - 1);
     {
         let world = polluted_city.world_mut();
         let mut pollution = world.resource_mut::<crate::pollution::PollutionGrid>();
         pollution.set(home.0, home.1, 200);
     }
-    tick_with_stable_needs(&mut polluted_city);
+    set_needs_and_health(&mut polluted_city, 80.0, 90.0);
+    polluted_city.tick(1);
 
     let h_clean = first_citizen_happiness(&mut clean_city);
     let h_polluted = first_citizen_happiness(&mut polluted_city);
@@ -593,20 +600,24 @@ fn test_happiness_land_value_bonus() {
     let work = (120, 100);
 
     let mut high_lv_city = city_with_utilities(home, work);
+    high_lv_city.tick(HAPPINESS_TICKS - 1);
     {
         let world = high_lv_city.world_mut();
         let mut land_value = world.resource_mut::<crate::land_value::LandValueGrid>();
         land_value.set(home.0, home.1, 200);
     }
-    tick_with_stable_needs(&mut high_lv_city);
+    set_needs_and_health(&mut high_lv_city, 80.0, 90.0);
+    high_lv_city.tick(1);
 
     let mut low_lv_city = city_with_utilities(home, work);
+    low_lv_city.tick(HAPPINESS_TICKS - 1);
     {
         let world = low_lv_city.world_mut();
         let mut land_value = world.resource_mut::<crate::land_value::LandValueGrid>();
         land_value.set(home.0, home.1, 0);
     }
-    tick_with_stable_needs(&mut low_lv_city);
+    set_needs_and_health(&mut low_lv_city, 80.0, 90.0);
+    low_lv_city.tick(1);
 
     let h_high = first_citizen_happiness(&mut high_lv_city);
     let h_low = first_citizen_happiness(&mut low_lv_city);
