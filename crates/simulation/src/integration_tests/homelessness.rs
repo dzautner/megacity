@@ -55,7 +55,7 @@ fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
     despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick past the homelessness CHECK_INTERVAL (50 ticks)
-    city.tick(50);
+    city.tick(100);
 
     // Citizen should now be homeless
     let homeless_count = {
@@ -95,7 +95,7 @@ fn test_homelessness_stats_track_total_homeless() {
     }
 
     // Tick to trigger check_homelessness + seek_shelter
-    city.tick(50);
+    city.tick(100);
 
     let stats = city.resource::<crate::homelessness::HomelessnessStats>();
     assert_eq!(
@@ -124,7 +124,7 @@ fn test_homelessness_recover_when_housing_available() {
     }
 
     // Tick to make citizen homeless
-    city.tick(50);
+    city.tick(100);
 
     {
         let world = city.world_mut();
@@ -154,7 +154,7 @@ fn test_homelessness_recover_when_housing_available() {
     }
 
     // Tick again to trigger recover_from_homelessness
-    city.tick(50);
+    city.tick(100);
 
     let homeless_count = {
         let world = city.world_mut();
@@ -191,7 +191,7 @@ fn test_homelessness_happiness_penalty_applied() {
     despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick to make citizen homeless
-    city.tick(50);
+    city.tick(100);
 
     let new_happiness = {
         let world = city.world_mut();
@@ -294,6 +294,29 @@ fn test_homelessness_shelter_capacity_respected() {
     // Tick enough to guarantee check_homelessness fires
     city.tick(100);
 
+    // Verify all 3 are homeless before continuing
+    {
+        let world = city.world_mut();
+        let homeless_count = world
+            .query::<&crate::homelessness::Homeless>()
+            .iter(world)
+            .count();
+        assert_eq!(
+            homeless_count, 3,
+            "all 3 citizens should be homeless before spawning shelter"
+        );
+    }
+
+    // Re-enforce recovery prevention (salary/savings may have drifted)
+    {
+        let world = city.world_mut();
+        let mut q = world.query::<&mut crate::citizen::CitizenDetails>();
+        for mut d in q.iter_mut(world) {
+            d.savings = -100.0;
+            d.salary = 0.0;
+        }
+    }
+
     // Spawn a shelter with capacity of 1
     {
         city.world_mut()
@@ -377,7 +400,7 @@ fn test_homelessness_citizen_placeholder_home_becomes_homeless() {
     }
 
     // Tick to trigger check_homelessness
-    city.tick(50);
+    city.tick(100);
 
     let homeless_count = {
         let world = city.world_mut();
@@ -440,8 +463,8 @@ fn test_homelessness_rent_unaffordable_becomes_homeless() {
         ));
     }
 
-    // Tick to trigger check_homelessness
-    city.tick(50);
+    // Tick enough to guarantee check_homelessness fires (CHECK_INTERVAL=50)
+    city.tick(100);
 
     let homeless_count = {
         let world = city.world_mut();
@@ -460,7 +483,7 @@ fn test_homelessness_rent_unaffordable_becomes_homeless() {
 fn test_homelessness_stats_zero_in_empty_city() {
     // An empty city should have zero homelessness stats.
     let mut city = TestCity::new();
-    city.tick(50);
+    city.tick(100);
 
     let stats = city.resource::<crate::homelessness::HomelessnessStats>();
     assert_eq!(stats.total_homeless, 0, "no homeless in empty city");
@@ -486,7 +509,7 @@ fn test_homelessness_recovery_updates_stats() {
         cell.zone = ZoneType::None;
     }
 
-    city.tick(50);
+    city.tick(100);
 
     let homeless_before = city
         .resource::<crate::homelessness::HomelessnessStats>()
@@ -515,7 +538,7 @@ fn test_homelessness_recovery_updates_stats() {
     }
 
     // Tick to recover
-    city.tick(50);
+    city.tick(100);
 
     let homeless_after = city
         .resource::<crate::homelessness::HomelessnessStats>()
@@ -538,7 +561,7 @@ fn test_homelessness_ticks_homeless_increments() {
     despawn_home_prevent_recovery(&mut city, 50, 50);
 
     // Tick to make homeless (first check)
-    city.tick(50);
+    city.tick(100);
 
     let ticks_after_first = {
         let world = city.world_mut();
@@ -551,7 +574,7 @@ fn test_homelessness_ticks_homeless_increments() {
     };
 
     // Tick again (second check)
-    city.tick(50);
+    city.tick(100);
 
     let ticks_after_second = {
         let world = city.world_mut();

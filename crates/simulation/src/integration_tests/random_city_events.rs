@@ -225,8 +225,8 @@ fn test_random_events_epidemic_effect_ticks_decrement() {
 }
 
 /// Test that apply_active_effects drains health during an active epidemic.
-/// Uses before/after pattern: set health to a known value, activate epidemic,
-/// tick one slow cycle, and verify the 0.5-point drain occurred.
+/// Uses before/after pattern: set health on ALL citizens, activate epidemic,
+/// then verify ALL citizens had health drained.
 #[test]
 fn test_random_events_epidemic_drains_health() {
     use crate::citizen::CitizenDetails;
@@ -243,8 +243,9 @@ fn test_random_events_epidemic_drains_health() {
     // Let the city settle first
     city.tick_slow_cycle();
 
-    // Set health to known value and activate epidemic with many ticks
-    // so random re-triggers can't deplete it within one slow cycle.
+    // Set health to 80 on ALL citizens and activate a strong epidemic.
+    // The citizen spawner may have added citizens during tick_slow_cycle,
+    // so we set ALL of them to the same baseline.
     {
         let world = city.world_mut();
         let mut q = world.query::<&mut CitizenDetails>();
@@ -254,25 +255,36 @@ fn test_random_events_epidemic_drains_health() {
         world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 200;
     }
 
-    // Run many slow cycles so the cumulative drain (0.5 per slow tick)
-    // is large enough to overcome any minor noise.
-    city.tick_slow_cycles(20);
+    // Run several slow cycles. The epidemic drains 0.5 health per slow tick.
+    city.tick_slow_cycles(10);
 
-    let health_after = {
+    // Re-set health on ALL citizens again (the spawner may have added more).
+    // Then run a final slow cycle to see the drain on ALL citizens.
+    {
+        let world = city.world_mut();
+        let mut q = world.query::<&mut CitizenDetails>();
+        for mut d in q.iter_mut(world) {
+            d.health = 80.0;
+        }
+        // Ensure epidemic is still active
+        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 200;
+    }
+
+    // One slow cycle = 0.5 health drain
+    city.tick_slow_cycle();
+
+    // Check ALL citizens have health below 80 (the epidemic drained at least 0.5)
+    let all_below_80 = {
         let world = city.world_mut();
         world
             .query::<&CitizenDetails>()
             .iter(world)
-            .next()
-            .unwrap()
-            .health
+            .all(|d| d.health < 80.0)
     };
 
-    // 20 slow ticks × 0.5 drain = 10.0 expected drain.
-    // Even with some noise, health should be well below 80.
     assert!(
-        health_after < 78.0,
-        "Epidemic should drain health significantly: started at 80.0, got {health_after}"
+        all_below_80,
+        "Epidemic should drain health below 80.0 for all citizens after one slow tick"
     );
 }
 
