@@ -292,7 +292,7 @@ fn test_happiness_health_service_coverage_bonus() {
     let work = (120, 100);
 
     let mut covered_city = city_with_utilities(home, work);
-    covered_city.tick(1);
+    covered_city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut covered_city,
         home.0,
@@ -300,7 +300,7 @@ fn test_happiness_health_service_coverage_bonus() {
         crate::happiness::COVERAGE_HEALTH,
     );
     set_needs_and_health(&mut covered_city, 80.0, 90.0);
-    covered_city.tick(HAPPINESS_TICKS - 1);
+    covered_city.tick(1);
 
     let mut uncovered_city = city_with_utilities(home, work);
     tick_with_stable_needs(&mut uncovered_city);
@@ -320,7 +320,7 @@ fn test_happiness_park_coverage_bonus() {
     let work = (120, 100);
 
     let mut park_city = city_with_utilities(home, work);
-    park_city.tick(1);
+    park_city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut park_city,
         home.0,
@@ -328,7 +328,7 @@ fn test_happiness_park_coverage_bonus() {
         crate::happiness::COVERAGE_PARK,
     );
     set_needs_and_health(&mut park_city, 80.0, 90.0);
-    park_city.tick(HAPPINESS_TICKS - 1);
+    park_city.tick(1);
 
     let mut no_park_city = city_with_utilities(home, work);
     tick_with_stable_needs(&mut no_park_city);
@@ -453,7 +453,7 @@ fn test_happiness_education_service_coverage() {
     let work = (120, 100);
 
     let mut edu_city = city_with_utilities(home, work);
-    edu_city.tick(1);
+    edu_city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut edu_city,
         home.0,
@@ -461,7 +461,7 @@ fn test_happiness_education_service_coverage() {
         crate::happiness::COVERAGE_EDUCATION,
     );
     set_needs_and_health(&mut edu_city, 80.0, 90.0);
-    edu_city.tick(HAPPINESS_TICKS - 1);
+    edu_city.tick(1);
 
     let mut no_edu_city = city_with_utilities(home, work);
     tick_with_stable_needs(&mut no_edu_city);
@@ -481,7 +481,7 @@ fn test_happiness_police_coverage() {
     let work = (120, 100);
 
     let mut police_city = city_with_utilities(home, work);
-    police_city.tick(1);
+    police_city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut police_city,
         home.0,
@@ -489,7 +489,7 @@ fn test_happiness_police_coverage() {
         crate::happiness::COVERAGE_POLICE,
     );
     set_needs_and_health(&mut police_city, 80.0, 90.0);
-    police_city.tick(HAPPINESS_TICKS - 1);
+    police_city.tick(1);
 
     let mut no_police_city = city_with_utilities(home, work);
     tick_with_stable_needs(&mut no_police_city);
@@ -509,7 +509,7 @@ fn test_happiness_entertainment_coverage() {
     let work = (120, 100);
 
     let mut ent_city = city_with_utilities(home, work);
-    ent_city.tick(1);
+    ent_city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut ent_city,
         home.0,
@@ -517,7 +517,7 @@ fn test_happiness_entertainment_coverage() {
         crate::happiness::COVERAGE_ENTERTAINMENT,
     );
     set_needs_and_health(&mut ent_city, 80.0, 90.0);
-    ent_city.tick(HAPPINESS_TICKS - 1);
+    ent_city.tick(1);
 
     let mut no_ent_city = city_with_utilities(home, work);
     tick_with_stable_needs(&mut no_ent_city);
@@ -537,7 +537,7 @@ fn test_happiness_telecom_coverage() {
     let work = (120, 100);
 
     let mut telecom_city = city_with_utilities(home, work);
-    telecom_city.tick(1);
+    telecom_city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut telecom_city,
         home.0,
@@ -545,7 +545,7 @@ fn test_happiness_telecom_coverage() {
         crate::happiness::COVERAGE_TELECOM,
     );
     set_needs_and_health(&mut telecom_city, 80.0, 90.0);
-    telecom_city.tick(HAPPINESS_TICKS - 1);
+    telecom_city.tick(1);
 
     let mut no_telecom_city = city_with_utilities(home, work);
     tick_with_stable_needs(&mut no_telecom_city);
