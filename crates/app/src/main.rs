@@ -49,11 +49,6 @@ fn main() {
         unfocused_mode: UpdateMode::reactive_low_power(std::time::Duration::from_millis(100)),
     });
 
-    // Disable MSAA on WASM — WebGL2 has limited multisampling support and
-    // it can cause visual artifacts or performance issues on some browsers.
-    #[cfg(target_arch = "wasm32")]
-    app.insert_resource(Msaa::Off);
-
     app.add_plugins((
         simulation::SimulationPlugin,
         rendering::RenderingPlugin,

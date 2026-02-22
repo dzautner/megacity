@@ -8,17 +8,17 @@
 //! `TickCounter.is_multiple_of(10)` (i.e., every 10th FixedUpdate tick).
 //! Various simulation sub-systems (utility propagation, service coverage,
 //! traffic density, needs decay) also run during FixedUpdate and can
-//! overwrite manually-set state. The tests use a "tick then inject" pattern:
-//!   1. `tick(1)` — let the first wave of initialization systems run
+//! overwrite manually-set state. The tests use a "late inject" pattern:
+//!   1. `tick(9)` — let initialization and intermediate systems settle
 //!   2. Inject test-specific state (coverage flags, needs, etc.)
-//!   3. `tick(9)` — advance to tick 10 where happiness fires
+//!   3. `tick(1)` — advance to tick 10 where happiness fires
 //!
-//! This ensures that happiness reads the injected state rather than
-//! defaults or system-cleared values.
+//! Injecting at tick 9 (rather than tick 1) minimizes the window for
+//! other systems (update_needs, etc.) to overwrite the injected values.
 
 use crate::citizen::{CitizenDetails, Needs};
 use crate::grid::ZoneType;
-use crate::happiness::ServiceCoverageGrid;
+use crate::services::{ServiceBuilding, ServiceType};
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
 
@@ -50,12 +50,17 @@ fn all_citizen_happiness(city: &mut TestCity) -> Vec<f32> {
         .collect()
 }
 
-/// Set coverage flags on the ServiceCoverageGrid for a cell.
-fn set_coverage_flags(city: &mut TestCity, x: usize, y: usize, flags: u8) {
-    let world = city.world_mut();
-    let idx = ServiceCoverageGrid::idx(x, y);
-    let mut coverage = world.resource_mut::<ServiceCoverageGrid>();
-    coverage.flags[idx] |= flags;
+/// Spawn a service building at a grid location. The coverage system
+/// (`update_service_coverage`) will detect it via `Added<ServiceBuilding>`
+/// and naturally compute coverage flags, which survives change detection.
+fn spawn_service(city: &mut TestCity, gx: usize, gy: usize, service_type: ServiceType) {
+    let radius = ServiceBuilding::coverage_radius(service_type);
+    city.world_mut().spawn(ServiceBuilding {
+        service_type,
+        grid_x: gx,
+        grid_y: gy,
+        radius,
+    });
 }
 
 /// Set needs and health on all citizens.
@@ -92,13 +97,14 @@ fn city_unemployed_with_utilities(home: (usize, usize)) -> TestCity {
         .with_utility(home.0, home.1 - 1, UtilityType::WaterTower)
 }
 
-/// Tick(1) to let initialization systems run, then re-set needs to
-/// consistent values, then tick(9) so happiness fires at counter=10.
+/// Advance to tick 9, then inject stable needs/health, then tick once more
+/// so happiness fires at counter=10 with our injected values still fresh.
+/// Injecting at tick 9 instead of tick 1 minimizes the window for other
+/// systems (update_needs, etc.) to overwrite injected state.
 fn tick_with_stable_needs(city: &mut TestCity) {
-    city.tick(1);
-    // Re-set needs after first tick to avoid initialization noise
-    set_needs_and_health(city, 80.0, 90.0);
     city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(city, 80.0, 90.0);
+    city.tick(1);
 }
 
 // ====================================================================
@@ -117,27 +123,19 @@ fn test_happiness_all_positive_factors_yields_high_happiness() {
         .with_utility(home.0, home.1 + 1, UtilityType::PowerPlant)
         .with_utility(home.0, home.1 - 1, UtilityType::WaterTower);
 
-    // Run 1 tick so initialization systems run
-    city.tick(1);
-
-    // Inject full service coverage
-    set_coverage_flags(
-        &mut city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_HEALTH
-            | crate::happiness::COVERAGE_EDUCATION
-            | crate::happiness::COVERAGE_POLICE
-            | crate::happiness::COVERAGE_PARK
-            | crate::happiness::COVERAGE_ENTERTAINMENT
-            | crate::happiness::COVERAGE_TELECOM
-            | crate::happiness::COVERAGE_TRANSPORT,
-    );
+    // Spawn service buildings for full coverage
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
 
     // Max needs and health
     set_needs_and_health(&mut city, 100.0, 100.0);
 
-    city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS);
 
     let happiness = first_citizen_happiness(&mut city);
     assert!(
@@ -288,77 +286,72 @@ fn test_happiness_water_bonus_and_penalty() {
 #[test]
 fn test_happiness_health_service_coverage_bonus() {
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut covered_city = city_with_utilities(home, work);
-    covered_city.tick(1);
-    set_coverage_flags(
-        &mut covered_city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_HEALTH,
-    );
-    set_needs_and_health(&mut covered_city, 80.0, 90.0);
-    covered_city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
 
-    let mut uncovered_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut uncovered_city);
-
-    let h_covered = first_citizen_happiness(&mut covered_city);
-    let h_uncovered = first_citizen_happiness(&mut uncovered_city);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_covered > h_uncovered,
-        "Health coverage should increase happiness ({h_covered} vs {h_uncovered})"
+        h_after > h_before,
+        "Health coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_park_coverage_bonus() {
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut park_city = city_with_utilities(home, work);
-    park_city.tick(1);
-    set_coverage_flags(
-        &mut park_city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_PARK,
-    );
-    set_needs_and_health(&mut park_city, 80.0, 90.0);
-    park_city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
 
-    let mut no_park_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_park_city);
-
-    let h_park = first_citizen_happiness(&mut park_city);
-    let h_no_park = first_citizen_happiness(&mut no_park_city);
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_park > h_no_park,
-        "Park coverage should increase happiness ({h_park} vs {h_no_park})"
+        h_after > h_before,
+        "Park coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_pollution_penalty() {
+    // Before/after on the same citizen eliminates positional noise.
+    // Use moderate needs (50.0) so baseline stays well below 100 (avoids clamp).
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut clean_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut clean_city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_clean = first_citizen_happiness(&mut city);
 
-    let mut polluted_city = city_with_utilities(home, work);
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = polluted_city.world_mut();
-        let mut pollution = world.resource_mut::<crate::pollution::PollutionGrid>();
-        pollution.set(home.0, home.1, 200);
+        let world = city.world_mut();
+        world
+            .resource_mut::<crate::pollution::PollutionGrid>()
+            .set(home.0, home.1, 200);
     }
-    tick_with_stable_needs(&mut polluted_city);
-
-    let h_clean = first_citizen_happiness(&mut clean_city);
-    let h_polluted = first_citizen_happiness(&mut polluted_city);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_polluted = first_citizen_happiness(&mut city);
 
     assert!(
         h_clean > h_polluted,
@@ -368,22 +361,26 @@ fn test_happiness_pollution_penalty() {
 
 #[test]
 fn test_happiness_crime_penalty() {
+    // Before/after on the same citizen eliminates positional noise.
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut safe_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut safe_city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_safe = first_citizen_happiness(&mut city);
 
-    let mut crime_city = city_with_utilities(home, work);
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = crime_city.world_mut();
-        let mut crime = world.resource_mut::<crate::crime::CrimeGrid>();
-        crime.set(home.0, home.1, 200);
+        let world = city.world_mut();
+        world
+            .resource_mut::<crate::crime::CrimeGrid>()
+            .set(home.0, home.1, 200);
     }
-    tick_with_stable_needs(&mut crime_city);
-
-    let h_safe = first_citizen_happiness(&mut safe_city);
-    let h_crime = first_citizen_happiness(&mut crime_city);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_crime = first_citizen_happiness(&mut city);
 
     assert!(
         h_safe > h_crime,
@@ -393,22 +390,26 @@ fn test_happiness_crime_penalty() {
 
 #[test]
 fn test_happiness_noise_penalty() {
+    // Before/after on the same citizen eliminates positional noise.
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut quiet_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut quiet_city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_quiet = first_citizen_happiness(&mut city);
 
-    let mut noisy_city = city_with_utilities(home, work);
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = noisy_city.world_mut();
-        let mut noise = world.resource_mut::<crate::noise::NoisePollutionGrid>();
-        noise.set(home.0, home.1, 200);
+        let world = city.world_mut();
+        world
+            .resource_mut::<crate::noise::NoisePollutionGrid>()
+            .set(home.0, home.1, 200);
     }
-    tick_with_stable_needs(&mut noisy_city);
-
-    let h_quiet = first_citizen_happiness(&mut quiet_city);
-    let h_noisy = first_citizen_happiness(&mut noisy_city);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_noisy = first_citizen_happiness(&mut city);
 
     assert!(
         h_quiet > h_noisy,
@@ -418,6 +419,9 @@ fn test_happiness_noise_penalty() {
 
 #[test]
 fn test_happiness_high_tax_penalty() {
+    // Tax rate is a global resource, so we can't differentiate per-citizen in the same world.
+    // Use a large tax difference (0.10 vs 0.30) which creates a 10+ point swing,
+    // well above the ~1.8 point cross-world noise.
     let home = (100, 100);
     let work = (120, 100);
 
@@ -449,202 +453,175 @@ fn test_happiness_high_tax_penalty() {
 #[test]
 fn test_happiness_education_service_coverage() {
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut edu_city = city_with_utilities(home, work);
-    edu_city.tick(1);
-    set_coverage_flags(
-        &mut edu_city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_EDUCATION,
-    );
-    set_needs_and_health(&mut edu_city, 80.0, 90.0);
-    edu_city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
 
-    let mut no_edu_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_edu_city);
-
-    let h_edu = first_citizen_happiness(&mut edu_city);
-    let h_no_edu = first_citizen_happiness(&mut no_edu_city);
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_edu > h_no_edu,
-        "Education coverage should increase happiness ({h_edu} vs {h_no_edu})"
+        h_after > h_before,
+        "Education coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_police_coverage() {
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut police_city = city_with_utilities(home, work);
-    police_city.tick(1);
-    set_coverage_flags(
-        &mut police_city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_POLICE,
-    );
-    set_needs_and_health(&mut police_city, 80.0, 90.0);
-    police_city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
 
-    let mut no_police_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_police_city);
-
-    let h_police = first_citizen_happiness(&mut police_city);
-    let h_no_police = first_citizen_happiness(&mut no_police_city);
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_police > h_no_police,
-        "Police coverage should increase happiness ({h_police} vs {h_no_police})"
+        h_after > h_before,
+        "Police coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_entertainment_coverage() {
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut ent_city = city_with_utilities(home, work);
-    ent_city.tick(1);
-    set_coverage_flags(
-        &mut ent_city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_ENTERTAINMENT,
-    );
-    set_needs_and_health(&mut ent_city, 80.0, 90.0);
-    ent_city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
 
-    let mut no_ent_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_ent_city);
-
-    let h_ent = first_citizen_happiness(&mut ent_city);
-    let h_no_ent = first_citizen_happiness(&mut no_ent_city);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_ent > h_no_ent,
-        "Entertainment coverage should increase happiness ({h_ent} vs {h_no_ent})"
+        h_after > h_before,
+        "Entertainment coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_telecom_coverage() {
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut telecom_city = city_with_utilities(home, work);
-    telecom_city.tick(1);
-    set_coverage_flags(
-        &mut telecom_city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_TELECOM,
-    );
-    set_needs_and_health(&mut telecom_city, 80.0, 90.0);
-    telecom_city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
 
-    let mut no_telecom_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_telecom_city);
-
-    let h_telecom = first_citizen_happiness(&mut telecom_city);
-    let h_no_telecom = first_citizen_happiness(&mut no_telecom_city);
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_telecom > h_no_telecom,
-        "Telecom coverage should increase happiness ({h_telecom} vs {h_no_telecom})"
+        h_after > h_before,
+        "Telecom coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_transport_coverage() {
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut transport_city = city_with_utilities(home, work);
-    transport_city.tick(1);
-    set_coverage_flags(
-        &mut transport_city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_TRANSPORT,
-    );
-    set_needs_and_health(&mut transport_city, 80.0, 90.0);
-    transport_city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
 
-    let mut no_transport_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_transport_city);
-
-    let h_transport = first_citizen_happiness(&mut transport_city);
-    let h_no_transport = first_citizen_happiness(&mut no_transport_city);
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_transport > h_no_transport,
-        "Transport coverage should increase happiness ({h_transport} vs {h_no_transport})"
+        h_after > h_before,
+        "Transport coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_land_value_bonus() {
+    // Before/after on the same citizen eliminates positional noise.
+    // Use low needs (50.0) to keep baseline below 100 so the land_value
+    // bonus isn't clipped by the clamp.
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let mut high_lv_city = city_with_utilities(home, work);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = high_lv_city.world_mut();
-        let mut land_value = world.resource_mut::<crate::land_value::LandValueGrid>();
-        land_value.set(home.0, home.1, 200);
+        let world = city.world_mut();
+        world
+            .resource_mut::<crate::land_value::LandValueGrid>()
+            .set(home.0, home.1, 200);
     }
-    tick_with_stable_needs(&mut high_lv_city);
-
-    let mut low_lv_city = city_with_utilities(home, work);
-    {
-        let world = low_lv_city.world_mut();
-        let mut land_value = world.resource_mut::<crate::land_value::LandValueGrid>();
-        land_value.set(home.0, home.1, 0);
-    }
-    tick_with_stable_needs(&mut low_lv_city);
-
-    let h_high = first_citizen_happiness(&mut high_lv_city);
-    let h_low = first_citizen_happiness(&mut low_lv_city);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_high > h_low,
-        "High land value should increase happiness ({h_high} vs {h_low})"
+        h_after > h_before,
+        "High land value should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_garbage_penalty_threshold() {
+    // Before/after on the same citizen eliminates positional noise.
     let home = (100, 100);
-    let work = (120, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    // Garbage below threshold
-    let mut low_garbage_city = city_with_utilities(home, work);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_clean = first_citizen_happiness(&mut city);
+
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = low_garbage_city.world_mut();
-        let mut garbage = world.resource_mut::<crate::garbage::GarbageGrid>();
-        garbage.set(home.0, home.1, 5);
+        let world = city.world_mut();
+        world
+            .resource_mut::<crate::garbage::GarbageGrid>()
+            .set(home.0, home.1, 50);
     }
-    tick_with_stable_needs(&mut low_garbage_city);
-
-    // Garbage above threshold
-    let mut high_garbage_city = city_with_utilities(home, work);
-    {
-        let world = high_garbage_city.world_mut();
-        let mut garbage = world.resource_mut::<crate::garbage::GarbageGrid>();
-        garbage.set(home.0, home.1, 50);
-    }
-    tick_with_stable_needs(&mut high_garbage_city);
-
-    let h_low = first_citizen_happiness(&mut low_garbage_city);
-    let h_high = first_citizen_happiness(&mut high_garbage_city);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_garbage = first_citizen_happiness(&mut city);
 
     assert!(
-        h_low > h_high,
-        "High garbage (above threshold 10) should reduce happiness ({h_low} vs {h_high})"
+        h_clean > h_garbage,
+        "High garbage (above threshold 10) should reduce happiness ({h_clean} vs {h_garbage})"
     );
 }
 
@@ -654,14 +631,14 @@ fn test_happiness_low_health_penalty() {
     let work = (120, 100);
 
     let mut healthy_city = city_with_utilities(home, work);
-    healthy_city.tick(1);
-    set_needs_and_health(&mut healthy_city, 80.0, 90.0);
     healthy_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut healthy_city, 80.0, 90.0);
+    healthy_city.tick(1);
 
     let mut sick_city = city_with_utilities(home, work);
-    sick_city.tick(1);
-    set_needs_and_health(&mut sick_city, 80.0, 10.0);
     sick_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut sick_city, 80.0, 10.0);
+    sick_city.tick(1);
 
     let h_healthy = first_citizen_happiness(&mut healthy_city);
     let h_sick = first_citizen_happiness(&mut sick_city);
@@ -678,14 +655,14 @@ fn test_happiness_needs_satisfaction_impact() {
     let work = (120, 100);
 
     let mut satisfied_city = city_with_utilities(home, work);
-    satisfied_city.tick(1);
-    set_needs_and_health(&mut satisfied_city, 100.0, 90.0);
     satisfied_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut satisfied_city, 100.0, 90.0);
+    satisfied_city.tick(1);
 
     let mut unsatisfied_city = city_with_utilities(home, work);
-    unsatisfied_city.tick(1);
-    set_needs_and_health(&mut unsatisfied_city, 10.0, 90.0);
     unsatisfied_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut unsatisfied_city, 10.0, 90.0);
+    unsatisfied_city.tick(1);
 
     let h_sat = first_citizen_happiness(&mut satisfied_city);
     let h_unsat = first_citizen_happiness(&mut unsatisfied_city);
@@ -753,27 +730,19 @@ fn test_happiness_clamped_at_hundred() {
         land_value.set(home.0, home.1, 255);
     }
 
-    // Run 1 tick for initialization
-    city.tick(1);
-
-    // Inject full coverage
-    set_coverage_flags(
-        &mut city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_HEALTH
-            | crate::happiness::COVERAGE_EDUCATION
-            | crate::happiness::COVERAGE_POLICE
-            | crate::happiness::COVERAGE_PARK
-            | crate::happiness::COVERAGE_ENTERTAINMENT
-            | crate::happiness::COVERAGE_TELECOM
-            | crate::happiness::COVERAGE_TRANSPORT,
-    );
+    // Spawn service buildings for full coverage
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
 
     // Max needs and health
     set_needs_and_health(&mut city, 100.0, 100.0);
 
-    city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS);
 
     let happiness = first_citizen_happiness(&mut city);
     assert!(
@@ -849,22 +818,18 @@ fn test_happiness_extreme_all_services_max_land_value() {
         land_value.set(home.0, home.1, 255);
     }
 
-    city.tick(1);
-    set_coverage_flags(
-        &mut city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_HEALTH
-            | crate::happiness::COVERAGE_EDUCATION
-            | crate::happiness::COVERAGE_POLICE
-            | crate::happiness::COVERAGE_PARK
-            | crate::happiness::COVERAGE_ENTERTAINMENT
-            | crate::happiness::COVERAGE_TELECOM
-            | crate::happiness::COVERAGE_TRANSPORT
-            | crate::happiness::COVERAGE_FIRE,
-    );
+    // Spawn all service buildings for full coverage
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
+    spawn_service(&mut city, home.0, home.1, ServiceType::FireStation);
+
     set_needs_and_health(&mut city, 100.0, 100.0);
-    city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS);
 
     let happiness = first_citizen_happiness(&mut city);
     assert!(

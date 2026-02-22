@@ -225,40 +225,53 @@ fn test_random_events_epidemic_effect_ticks_decrement() {
 }
 
 /// Test that apply_active_effects drains health during an active epidemic.
+/// Uses only a residential building (no industrial) to prevent the citizen
+/// spawner from creating new citizens that would pollute the health check.
 #[test]
 fn test_random_events_epidemic_drains_health() {
     use crate::citizen::CitizenDetails;
     use crate::events::ActiveCityEffects;
 
     let home = (10, 10);
-    let work = (15, 15);
+    // Use residential for both home and work — spawner requires BOTH residential
+    // AND industrial with capacity to create new citizens.
     let mut city = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
-        .with_building(work.0, work.1, ZoneType::Industrial, 1)
-        .with_citizen(home, work);
+        .with_citizen(home, home);
 
-    {
+    // Let systems settle, then set ALL citizens to known health
+    city.tick_slow_cycle();
+
+    let citizen_count_before = {
         let world = city.world_mut();
         let mut q = world.query::<&mut CitizenDetails>();
-        for mut details in q.iter_mut(world) {
-            details.health = 80.0;
+        let count = q.iter(world).count();
+        for mut d in q.iter_mut(world) {
+            d.health = 80.0;
         }
-    }
-    {
-        let world = city.world_mut();
         world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 50;
-    }
+        count
+    };
 
-    city.tick_slow_cycles(3);
+    // One slow cycle drains 0.5 health via apply_active_effects.
+    city.tick_slow_cycle();
 
+    // Verify no new citizens were spawned
     let world = city.world_mut();
     let mut q = world.query::<&CitizenDetails>();
-    let health = q.iter(world).next().unwrap().health;
-    assert!(
-        health < 80.0,
-        "Epidemic should drain health below 80, got {}",
-        health
+    let citizen_count_after = q.iter(world).count();
+    assert_eq!(
+        citizen_count_before, citizen_count_after,
+        "No new citizens should spawn without industrial buildings"
     );
+
+    for details in q.iter(world) {
+        assert!(
+            details.health < 80.0,
+            "Epidemic should drain health below 80, got {}",
+            details.health
+        );
+    }
 }
 
 /// Test that active effect timers eventually expire after enough ticks.

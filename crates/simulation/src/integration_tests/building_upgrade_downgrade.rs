@@ -577,25 +577,31 @@ fn test_downgrade_possible_when_happiness_very_low() {
     // We run many cycles to ensure at least one downgrade happens statistically.
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialHigh, 5, 10.0);
 
-    // With 1% chance per check and ~500 checks, probability of NO downgrade is (0.99)^500 ~ 0.7%
-    for _ in 0..500 {
+    // 1% chance per check; 2000 checks → (0.99)^2000 ≈ 2e-9 failure probability.
+    // Break early once downgrade is observed to avoid side effects from long runs.
+    let mut downgraded = false;
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
             world.resource_mut::<CityStats>().average_happiness = 10.0;
         }
         city.tick(1);
+
+        let world = city.world_mut();
+        let building = world
+            .query::<&Building>()
+            .iter(world)
+            .next()
+            .expect("building should exist");
+        if building.level < 5 {
+            downgraded = true;
+            break;
+        }
     }
 
-    let world = city.world_mut();
-    let building = world
-        .query::<&Building>()
-        .iter(world)
-        .next()
-        .expect("building should exist");
-
     assert!(
-        building.level < 5,
+        downgraded,
         "Building should have downgraded from level 5 after many cycles with very low happiness"
     );
 }
@@ -660,7 +666,7 @@ fn test_downgrade_updates_capacity() {
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialHigh, 5, 10.0);
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
@@ -712,7 +718,8 @@ fn test_downgrade_clamps_excess_occupants() {
     }
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    // 1% chance per check; 2000 checks → (0.99)^2000 ≈ 2e-9 failure probability
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
@@ -801,7 +808,7 @@ fn test_mixed_use_downgrade_clamps_subcapacity_occupants() {
     }
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
@@ -873,7 +880,7 @@ fn test_mixed_use_downgrade_updates_subcapacities() {
     }
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
