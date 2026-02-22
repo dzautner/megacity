@@ -225,10 +225,11 @@ fn test_random_events_epidemic_effect_ticks_decrement() {
 }
 
 /// Test that apply_active_effects drains health during an active epidemic.
-/// Sets health on ALL citizens right before checking to handle the citizen
-/// spawner creating new citizens with default health=90 during the test.
+/// Fills residential building to capacity to prevent citizen spawner from
+/// creating new citizens with default health=90 that would pollute the check.
 #[test]
 fn test_random_events_epidemic_drains_health() {
+    use crate::buildings::Building;
     use crate::citizen::CitizenDetails;
     use crate::events::ActiveCityEffects;
 
@@ -238,6 +239,15 @@ fn test_random_events_epidemic_drains_health() {
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::Industrial, 1)
         .with_citizen(home, work);
+
+    // Fill all buildings to capacity so citizen spawner won't create new citizens.
+    {
+        let world = city.world_mut();
+        let mut q = world.query::<&mut Building>();
+        for mut b in q.iter_mut(world) {
+            b.occupants = b.capacity;
+        }
+    }
 
     // Let systems settle, then set ALL citizens to known health
     city.tick_slow_cycle();
@@ -251,19 +261,6 @@ fn test_random_events_epidemic_drains_health() {
     }
 
     // One slow cycle drains 0.5 health via apply_active_effects.
-    city.tick_slow_cycle();
-
-    // Re-set ALL citizens to 80 (new spawns may have arrived), keep epidemic
-    {
-        let world = city.world_mut();
-        let mut q = world.query::<&mut CitizenDetails>();
-        for mut d in q.iter_mut(world) {
-            d.health = 80.0;
-        }
-        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 50;
-    }
-
-    // One more slow cycle: the epidemic drains 0.5 from ALL citizens
     city.tick_slow_cycle();
 
     // ALL citizens should now have health < 80
