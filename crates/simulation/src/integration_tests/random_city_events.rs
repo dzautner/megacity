@@ -225,47 +225,46 @@ fn test_random_events_epidemic_effect_ticks_decrement() {
 }
 
 /// Test that apply_active_effects drains health during an active epidemic.
-/// Fills residential building to capacity to prevent citizen spawner from
-/// creating new citizens with default health=90 that would pollute the check.
+/// Uses only a residential building (no industrial) to prevent the citizen
+/// spawner from creating new citizens that would pollute the health check.
 #[test]
 fn test_random_events_epidemic_drains_health() {
-    use crate::buildings::Building;
     use crate::citizen::CitizenDetails;
     use crate::events::ActiveCityEffects;
 
     let home = (10, 10);
-    let work = (15, 15);
+    // Use residential for both home and work — spawner requires BOTH residential
+    // AND industrial with capacity to create new citizens.
     let mut city = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
-        .with_building(work.0, work.1, ZoneType::Industrial, 1)
-        .with_citizen(home, work);
-
-    // Fill all buildings to capacity so citizen spawner won't create new citizens.
-    {
-        let world = city.world_mut();
-        let mut q = world.query::<&mut Building>();
-        for mut b in q.iter_mut(world) {
-            b.occupants = b.capacity;
-        }
-    }
+        .with_citizen(home, home);
 
     // Let systems settle, then set ALL citizens to known health
     city.tick_slow_cycle();
-    {
+
+    let citizen_count_before = {
         let world = city.world_mut();
         let mut q = world.query::<&mut CitizenDetails>();
+        let count = q.iter(world).count();
         for mut d in q.iter_mut(world) {
             d.health = 80.0;
         }
         world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 50;
-    }
+        count
+    };
 
     // One slow cycle drains 0.5 health via apply_active_effects.
     city.tick_slow_cycle();
 
-    // ALL citizens should now have health < 80
+    // Verify no new citizens were spawned
     let world = city.world_mut();
     let mut q = world.query::<&CitizenDetails>();
+    let citizen_count_after = q.iter(world).count();
+    assert_eq!(
+        citizen_count_before, citizen_count_after,
+        "No new citizens should spawn without industrial buildings"
+    );
+
     for details in q.iter(world) {
         assert!(
             details.health < 80.0,

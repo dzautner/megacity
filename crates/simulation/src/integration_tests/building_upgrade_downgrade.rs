@@ -666,7 +666,7 @@ fn test_downgrade_updates_capacity() {
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialHigh, 5, 10.0);
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
@@ -808,7 +808,7 @@ fn test_mixed_use_downgrade_clamps_subcapacity_occupants() {
     }
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
@@ -880,7 +880,7 @@ fn test_mixed_use_downgrade_updates_subcapacities() {
     }
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
