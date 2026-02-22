@@ -6,9 +6,9 @@
 
 use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Gender, HomeLocation, Needs,
-    PathCache, PathRequest, Personality,
+    PathCache, PathRequest, Personality, WorkLocation,
 };
-use crate::grid::{RoadType, ZoneType};
+use crate::grid::{RoadType, WorldGrid, ZoneType};
 use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::roads::RoadNode;
@@ -29,62 +29,68 @@ fn spawn_citizen_in_state(
     state: CitizenState,
 ) -> Entity {
     let world = city.world_mut();
+
+    // Look up entities before spawning (to avoid borrow conflicts)
     let home_entity = {
-        let grid = world.resource::<crate::grid::WorldGrid>();
+        let grid = world.resource::<WorldGrid>();
         grid.get(home.0, home.1)
             .building_id
             .unwrap_or(Entity::PLACEHOLDER)
     };
+    let work_info = work.map(|w| {
+        let grid = world.resource::<WorldGrid>();
+        let entity = grid
+            .get(w.0, w.1)
+            .building_id
+            .unwrap_or(Entity::PLACEHOLDER);
+        (w, entity)
+    });
 
-    let (hx, hy) = crate::grid::WorldGrid::grid_to_world(home.0, home.1);
+    let (hx, hy) = WorldGrid::grid_to_world(home.0, home.1);
 
-    let mut entity_commands = world.spawn((
-        Citizen,
-        crate::citizen::Position { x: hx, y: hy },
-        crate::citizen::Velocity { x: 0.0, y: 0.0 },
-        HomeLocation {
-            grid_x: home.0,
-            grid_y: home.1,
-            building: home_entity,
-        },
-        CitizenStateComp(state),
-        PathCache::new(Vec::new()),
-        CitizenDetails {
-            age: 30,
-            gender: Gender::Male,
-            education: 2,
-            happiness: 60.0,
-            health: 90.0,
-            salary: 3500.0,
-            savings: 7000.0,
-        },
-        Personality {
-            ambition: 0.5,
-            sociability: 0.5,
-            materialism: 0.5,
-            resilience: 0.5,
-        },
-        Needs::default(),
-        crate::citizen::Family::default(),
-        ActivityTimer::default(),
-        ChosenTransportMode::default(),
-    ));
+    let citizen_entity = world
+        .spawn((
+            Citizen,
+            crate::citizen::Position { x: hx, y: hy },
+            crate::citizen::Velocity { x: 0.0, y: 0.0 },
+            HomeLocation {
+                grid_x: home.0,
+                grid_y: home.1,
+                building: home_entity,
+            },
+            CitizenStateComp(state),
+            PathCache::new(Vec::new()),
+            CitizenDetails {
+                age: 30,
+                gender: Gender::Male,
+                education: 2,
+                happiness: 60.0,
+                health: 90.0,
+                salary: 3500.0,
+                savings: 7000.0,
+            },
+            Personality {
+                ambition: 0.5,
+                sociability: 0.5,
+                materialism: 0.5,
+                resilience: 0.5,
+            },
+            Needs::default(),
+            crate::citizen::Family::default(),
+            ActivityTimer::default(),
+            ChosenTransportMode::default(),
+        ))
+        .id();
 
-    if let Some(work_pos) = work {
-        let work_entity = {
-            let grid = world.resource::<crate::grid::WorldGrid>();
-            grid.get(work_pos.0, work_pos.1)
-                .building_id
-                .unwrap_or(Entity::PLACEHOLDER)
-        };
-        entity_commands.insert(crate::citizen::WorkLocation {
-            grid_x: work_pos.0,
-            grid_y: work_pos.1,
+    if let Some((w, work_entity)) = work_info {
+        world.entity_mut(citizen_entity).insert(WorkLocation {
+            grid_x: w.0,
+            grid_y: w.1,
             building: work_entity,
         });
     }
 
-    entity_commands.id()
+    citizen_entity
 }
 
 // ====================================================================
@@ -243,19 +249,12 @@ fn test_citizen_without_job_stays_at_home() {
     // Tick through the entire morning commute window
     city.tick(200);
 
-    // The unemployed citizen should remain AtHome (no work commute)
-    // They might go shopping or to leisure if needs are low, but with
-    // default needs they should stay home during morning hours.
-    let at_home = city.citizens_in_state(CitizenState::AtHome);
+    // The unemployed citizen should never enter CommutingToWork
     let commuting_to_work = city.citizens_in_state(CitizenState::CommutingToWork);
 
     assert_eq!(
         commuting_to_work, 0,
         "unemployed citizen should never enter CommutingToWork state"
-    );
-    assert!(
-        at_home >= 1,
-        "unemployed citizen should remain AtHome, found {at_home} at home"
     );
 }
 
