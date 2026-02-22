@@ -46,6 +46,7 @@ mod road_maintenance;
 mod road_placement;
 mod road_segment_consistency;
 mod road_upgrade;
+mod road_zone_building_chain;
 mod roundabout_builder;
 mod save_load;
 mod save_load_stress;
