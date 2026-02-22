@@ -27,15 +27,6 @@ fn city_with_zoned_corridor(zone: ZoneType) -> TestCity {
         .with_zone_rect(92, 98, 108, 98, zone)
 }
 
-/// After enough ticks, the zoned corridor should have power+water propagated
-/// and eligible cells rebuilt, allowing the spawner to place buildings.
-fn tick_until_utilities_propagate(city: &mut TestCity) {
-    // One tick is enough for utility propagation + eligible cell rebuild.
-    // However, the building spawner has a spawn_interval_ticks=2 timer,
-    // so we tick a few times to ensure the spawner fires.
-    city.tick(5);
-}
-
 // ===========================================================================
 // 1. Building spawns only on zoned cells
 // ===========================================================================
