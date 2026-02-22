@@ -58,6 +58,7 @@ mod tel_aviv_behavioral;
 mod tel_aviv_smoke;
 mod tourism;
 mod traffic_congestion;
+mod traffic_formula;
 mod train_rail;
 mod tram_light_rail;
 mod transit_hub;
