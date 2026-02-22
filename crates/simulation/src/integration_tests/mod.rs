@@ -40,6 +40,7 @@ mod network_viz;
 mod outside_connections;
 mod parallel_road;
 mod policy_system;
+mod pollution;
 mod random_city_events;
 mod road_hierarchy;
 mod road_maintenance;
