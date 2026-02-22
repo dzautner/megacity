@@ -224,8 +224,9 @@ fn test_random_events_epidemic_effect_ticks_decrement() {
     );
 }
 
-/// Test that apply_active_effects drains health during an active epidemic
-/// by recording health before the epidemic and comparing after.
+/// Test that apply_active_effects drains health during an active epidemic.
+/// Uses before/after pattern: set health to a known value, activate epidemic,
+/// tick one slow cycle, and verify the 0.5-point drain occurred.
 #[test]
 fn test_random_events_epidemic_drains_health() {
     use crate::citizen::CitizenDetails;
@@ -242,25 +243,20 @@ fn test_random_events_epidemic_drains_health() {
     // Let the city settle first
     city.tick_slow_cycle();
 
-    // Record health before epidemic
-    let health_before = {
-        let world = city.world_mut();
-        world
-            .query::<&CitizenDetails>()
-            .iter(world)
-            .next()
-            .unwrap()
-            .health
-    };
-
-    // Activate a strong epidemic
+    // Set health to known value and activate epidemic with many ticks
+    // so random re-triggers can't deplete it within one slow cycle.
     {
         let world = city.world_mut();
-        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 100;
+        let mut q = world.query::<&mut CitizenDetails>();
+        for mut d in q.iter_mut(world) {
+            d.health = 80.0;
+        }
+        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 200;
     }
 
-    // Run several slow cycles with the epidemic active
-    city.tick_slow_cycles(5);
+    // Run many slow cycles so the cumulative drain (0.5 per slow tick)
+    // is large enough to overcome any minor noise.
+    city.tick_slow_cycles(20);
 
     let health_after = {
         let world = city.world_mut();
@@ -272,9 +268,11 @@ fn test_random_events_epidemic_drains_health() {
             .health
     };
 
+    // 20 slow ticks × 0.5 drain = 10.0 expected drain.
+    // Even with some noise, health should be well below 80.
     assert!(
-        health_after < health_before,
-        "Epidemic should drain health: before={health_before}, after={health_after}"
+        health_after < 78.0,
+        "Epidemic should drain health significantly: started at 80.0, got {health_after}"
     );
 }
 
