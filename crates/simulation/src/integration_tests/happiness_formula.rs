@@ -18,7 +18,7 @@
 
 use crate::citizen::{CitizenDetails, HomeLocation, Needs};
 use crate::grid::ZoneType;
-use crate::happiness::ServiceCoverageGrid;
+use crate::services::{ServiceBuilding, ServiceType};
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
 
@@ -50,15 +50,17 @@ fn all_citizen_happiness(city: &mut TestCity) -> Vec<f32> {
         .collect()
 }
 
-/// Set coverage flags on the ServiceCoverageGrid for a cell.
-/// Also marks the coverage grid as not-dirty to prevent `update_service_coverage`
-/// from recomputing (and clearing) our injected flags during the next tick.
-fn set_coverage_flags(city: &mut TestCity, x: usize, y: usize, flags: u8) {
-    let world = city.world_mut();
-    let idx = ServiceCoverageGrid::idx(x, y);
-    let mut coverage = world.resource_mut::<ServiceCoverageGrid>();
-    coverage.flags[idx] |= flags;
-    coverage.dirty = false;
+/// Spawn a service building at a grid location. The coverage system
+/// (`update_service_coverage`) will detect it via `Added<ServiceBuilding>`
+/// and naturally compute coverage flags, which survives change detection.
+fn spawn_service(city: &mut TestCity, gx: usize, gy: usize, service_type: ServiceType) {
+    let radius = ServiceBuilding::coverage_radius(service_type);
+    city.world_mut().spawn(ServiceBuilding {
+        service_type,
+        grid_x: gx,
+        grid_y: gy,
+        radius,
+    });
 }
 
 /// Set needs and health on all citizens.
@@ -153,27 +155,19 @@ fn test_happiness_all_positive_factors_yields_high_happiness() {
         .with_utility(home.0, home.1 + 1, UtilityType::PowerPlant)
         .with_utility(home.0, home.1 - 1, UtilityType::WaterTower);
 
-    // Run 1 tick so initialization systems run
-    city.tick(1);
-
-    // Inject full service coverage
-    set_coverage_flags(
-        &mut city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_HEALTH
-            | crate::happiness::COVERAGE_EDUCATION
-            | crate::happiness::COVERAGE_POLICE
-            | crate::happiness::COVERAGE_PARK
-            | crate::happiness::COVERAGE_ENTERTAINMENT
-            | crate::happiness::COVERAGE_TELECOM
-            | crate::happiness::COVERAGE_TRANSPORT,
-    );
+    // Spawn service buildings for full coverage
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
 
     // Max needs and health
     set_needs_and_health(&mut city, 100.0, 100.0);
 
-    city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS);
 
     let happiness = first_citizen_happiness(&mut city);
     assert!(
@@ -324,15 +318,9 @@ fn test_happiness_water_bonus_and_penalty() {
 #[test]
 fn test_happiness_health_service_coverage_bonus() {
     let (mut city, home_a, home_b) = two_citizen_city();
-    city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(
-        &mut city,
-        home_a.0,
-        home_a.1,
-        crate::happiness::COVERAGE_HEALTH,
-    );
+    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::Hospital);
     set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(1);
+    city.tick(HAPPINESS_TICKS);
 
     let h_covered = citizen_happiness_at(&mut city, home_a.0, home_a.1);
     let h_uncovered = citizen_happiness_at(&mut city, home_b.0, home_b.1);
@@ -346,15 +334,9 @@ fn test_happiness_health_service_coverage_bonus() {
 #[test]
 fn test_happiness_park_coverage_bonus() {
     let (mut city, home_a, home_b) = two_citizen_city();
-    city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(
-        &mut city,
-        home_a.0,
-        home_a.1,
-        crate::happiness::COVERAGE_PARK,
-    );
+    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::SmallPark);
     set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(1);
+    city.tick(HAPPINESS_TICKS);
 
     let h_park = citizen_happiness_at(&mut city, home_a.0, home_a.1);
     let h_no_park = citizen_happiness_at(&mut city, home_b.0, home_b.1);
@@ -464,15 +446,9 @@ fn test_happiness_high_tax_penalty() {
 #[test]
 fn test_happiness_education_service_coverage() {
     let (mut city, home_a, home_b) = two_citizen_city();
-    city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(
-        &mut city,
-        home_a.0,
-        home_a.1,
-        crate::happiness::COVERAGE_EDUCATION,
-    );
+    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::ElementarySchool);
     set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(1);
+    city.tick(HAPPINESS_TICKS);
 
     let h_edu = citizen_happiness_at(&mut city, home_a.0, home_a.1);
     let h_no_edu = citizen_happiness_at(&mut city, home_b.0, home_b.1);
@@ -486,15 +462,9 @@ fn test_happiness_education_service_coverage() {
 #[test]
 fn test_happiness_police_coverage() {
     let (mut city, home_a, home_b) = two_citizen_city();
-    city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(
-        &mut city,
-        home_a.0,
-        home_a.1,
-        crate::happiness::COVERAGE_POLICE,
-    );
+    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::PoliceStation);
     set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(1);
+    city.tick(HAPPINESS_TICKS);
 
     let h_police = citizen_happiness_at(&mut city, home_a.0, home_a.1);
     let h_no_police = citizen_happiness_at(&mut city, home_b.0, home_b.1);
@@ -508,15 +478,9 @@ fn test_happiness_police_coverage() {
 #[test]
 fn test_happiness_entertainment_coverage() {
     let (mut city, home_a, home_b) = two_citizen_city();
-    city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(
-        &mut city,
-        home_a.0,
-        home_a.1,
-        crate::happiness::COVERAGE_ENTERTAINMENT,
-    );
+    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::Stadium);
     set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(1);
+    city.tick(HAPPINESS_TICKS);
 
     let h_ent = citizen_happiness_at(&mut city, home_a.0, home_a.1);
     let h_no_ent = citizen_happiness_at(&mut city, home_b.0, home_b.1);
@@ -530,15 +494,9 @@ fn test_happiness_entertainment_coverage() {
 #[test]
 fn test_happiness_telecom_coverage() {
     let (mut city, home_a, home_b) = two_citizen_city();
-    city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(
-        &mut city,
-        home_a.0,
-        home_a.1,
-        crate::happiness::COVERAGE_TELECOM,
-    );
+    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::CellTower);
     set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(1);
+    city.tick(HAPPINESS_TICKS);
 
     let h_telecom = citizen_happiness_at(&mut city, home_a.0, home_a.1);
     let h_no_telecom = citizen_happiness_at(&mut city, home_b.0, home_b.1);
@@ -552,15 +510,9 @@ fn test_happiness_telecom_coverage() {
 #[test]
 fn test_happiness_transport_coverage() {
     let (mut city, home_a, home_b) = two_citizen_city();
-    city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(
-        &mut city,
-        home_a.0,
-        home_a.1,
-        crate::happiness::COVERAGE_TRANSPORT,
-    );
+    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::BusDepot);
     set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(1);
+    city.tick(HAPPINESS_TICKS);
 
     let h_transport = citizen_happiness_at(&mut city, home_a.0, home_a.1);
     let h_no_transport = citizen_happiness_at(&mut city, home_b.0, home_b.1);
@@ -718,27 +670,19 @@ fn test_happiness_clamped_at_hundred() {
         land_value.set(home.0, home.1, 255);
     }
 
-    // Run 1 tick for initialization
-    city.tick(1);
-
-    // Inject full coverage
-    set_coverage_flags(
-        &mut city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_HEALTH
-            | crate::happiness::COVERAGE_EDUCATION
-            | crate::happiness::COVERAGE_POLICE
-            | crate::happiness::COVERAGE_PARK
-            | crate::happiness::COVERAGE_ENTERTAINMENT
-            | crate::happiness::COVERAGE_TELECOM
-            | crate::happiness::COVERAGE_TRANSPORT,
-    );
+    // Spawn service buildings for full coverage
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
 
     // Max needs and health
     set_needs_and_health(&mut city, 100.0, 100.0);
 
-    city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS);
 
     let happiness = first_citizen_happiness(&mut city);
     assert!(
@@ -814,22 +758,18 @@ fn test_happiness_extreme_all_services_max_land_value() {
         land_value.set(home.0, home.1, 255);
     }
 
-    city.tick(1);
-    set_coverage_flags(
-        &mut city,
-        home.0,
-        home.1,
-        crate::happiness::COVERAGE_HEALTH
-            | crate::happiness::COVERAGE_EDUCATION
-            | crate::happiness::COVERAGE_POLICE
-            | crate::happiness::COVERAGE_PARK
-            | crate::happiness::COVERAGE_ENTERTAINMENT
-            | crate::happiness::COVERAGE_TELECOM
-            | crate::happiness::COVERAGE_TRANSPORT
-            | crate::happiness::COVERAGE_FIRE,
-    );
+    // Spawn all service buildings for full coverage
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
+    spawn_service(&mut city, home.0, home.1, ServiceType::FireStation);
+
     set_needs_and_health(&mut city, 100.0, 100.0);
-    city.tick(HAPPINESS_TICKS - 1);
+    city.tick(HAPPINESS_TICKS);
 
     let happiness = first_citizen_happiness(&mut city);
     assert!(
