@@ -7,6 +7,7 @@ mod blueprint_system;
 mod budget;
 mod buildings;
 mod bulldoze_refund;
+mod citizen_state_machine;
 mod citizens;
 mod colorblind;
 mod combined_scenarios;
