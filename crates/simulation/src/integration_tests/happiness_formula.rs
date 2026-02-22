@@ -4,9 +4,8 @@
 //! that the output is clamped to [0.0, 100.0], and that extreme inputs are
 //! handled gracefully.
 
-use crate::citizen::{Citizen, CitizenDetails, Needs};
+use crate::citizen::{CitizenDetails, Needs};
 use crate::grid::ZoneType;
-use crate::happiness::ServiceCoverageGrid;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
@@ -200,34 +199,6 @@ fn test_happiness_all_negative_factors_yields_low_happiness() {
 // ====================================================================
 // 3. Individual factor tests — toggle one factor and check delta
 // ====================================================================
-
-/// Create a baseline city with a citizen that has power and water but no
-/// services, no pollution, no crime, etc. Returns the baseline happiness.
-fn baseline_city() -> TestCity {
-    let home = (100, 100);
-    let work = (120, 100); // moderate commute (20 cells = not short)
-
-    let mut city = TestCity::new()
-        .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
-        .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
-        .with_citizen(home, work);
-
-    // Give power and water
-    {
-        let world = city.world_mut();
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        grid.get_mut(home.0, home.1).has_power = true;
-        grid.get_mut(home.0, home.1).has_water = true;
-    }
-
-    city
-}
-
-fn baseline_happiness() -> f32 {
-    let mut city = baseline_city();
-    city.tick(HAPPINESS_TICKS);
-    first_citizen_happiness(&mut city)
-}
 
 #[test]
 fn test_happiness_employment_bonus() {
