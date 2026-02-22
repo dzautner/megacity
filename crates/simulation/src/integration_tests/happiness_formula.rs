@@ -351,15 +351,16 @@ fn test_happiness_park_coverage_bonus() {
 #[test]
 fn test_happiness_pollution_penalty() {
     // Before/after on the same citizen eliminates positional noise.
+    // Use moderate needs (50.0) so baseline stays well below 100 (avoids clamp).
     let home = (100, 100);
     let work = (105, 100);
     let mut city = city_with_utilities(home, work);
 
-    // Baseline happiness without pollution
-    tick_with_stable_needs(&mut city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
     let h_clean = first_citizen_happiness(&mut city);
 
-    // Inject pollution and measure again at the next happiness tick
     city.tick(HAPPINESS_TICKS - 1);
     {
         let world = city.world_mut();
@@ -367,7 +368,7 @@ fn test_happiness_pollution_penalty() {
             .resource_mut::<crate::pollution::PollutionGrid>()
             .set(home.0, home.1, 200);
     }
-    set_needs_and_health(&mut city, 80.0, 90.0);
+    set_needs_and_health(&mut city, 50.0, 70.0);
     city.tick(1);
     let h_polluted = first_citizen_happiness(&mut city);
 
@@ -384,7 +385,9 @@ fn test_happiness_crime_penalty() {
     let work = (105, 100);
     let mut city = city_with_utilities(home, work);
 
-    tick_with_stable_needs(&mut city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
     let h_safe = first_citizen_happiness(&mut city);
 
     city.tick(HAPPINESS_TICKS - 1);
@@ -394,7 +397,7 @@ fn test_happiness_crime_penalty() {
             .resource_mut::<crate::crime::CrimeGrid>()
             .set(home.0, home.1, 200);
     }
-    set_needs_and_health(&mut city, 80.0, 90.0);
+    set_needs_and_health(&mut city, 50.0, 70.0);
     city.tick(1);
     let h_crime = first_citizen_happiness(&mut city);
 
@@ -411,7 +414,9 @@ fn test_happiness_noise_penalty() {
     let work = (105, 100);
     let mut city = city_with_utilities(home, work);
 
-    tick_with_stable_needs(&mut city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
     let h_quiet = first_citizen_happiness(&mut city);
 
     city.tick(HAPPINESS_TICKS - 1);
@@ -421,7 +426,7 @@ fn test_happiness_noise_penalty() {
             .resource_mut::<crate::noise::NoisePollutionGrid>()
             .set(home.0, home.1, 200);
     }
-    set_needs_and_health(&mut city, 80.0, 90.0);
+    set_needs_and_health(&mut city, 50.0, 70.0);
     city.tick(1);
     let h_noisy = first_citizen_happiness(&mut city);
 
@@ -582,7 +587,9 @@ fn test_happiness_garbage_penalty_threshold() {
     let work = (105, 100);
     let mut city = city_with_utilities(home, work);
 
-    tick_with_stable_needs(&mut city);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
     let h_clean = first_citizen_happiness(&mut city);
 
     city.tick(HAPPINESS_TICKS - 1);
@@ -592,7 +599,7 @@ fn test_happiness_garbage_penalty_threshold() {
             .resource_mut::<crate::garbage::GarbageGrid>()
             .set(home.0, home.1, 50);
     }
-    set_needs_and_health(&mut city, 80.0, 90.0);
+    set_needs_and_health(&mut city, 50.0, 70.0);
     city.tick(1);
     let h_garbage = first_citizen_happiness(&mut city);
 
