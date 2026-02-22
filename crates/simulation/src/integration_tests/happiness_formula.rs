@@ -107,6 +107,26 @@ fn citizen_happiness_at(city: &mut TestCity, gx: usize, gy: usize) -> f32 {
         .happiness
 }
 
+/// Create a city with two citizens at different home locations, both with utilities.
+/// Used for same-world comparison tests that eliminate cross-world Bevy change
+/// detection noise (~1.8 point drift between separate worlds).
+fn two_citizen_city() -> (TestCity, (usize, usize), (usize, usize)) {
+    let home_a = (100, 100);
+    let home_b = (130, 130);
+    let work = (110, 110);
+    let city = TestCity::new()
+        .with_building(home_a.0, home_a.1, ZoneType::ResidentialLow, 1)
+        .with_building(home_b.0, home_b.1, ZoneType::ResidentialLow, 1)
+        .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
+        .with_citizen(home_a, work)
+        .with_citizen(home_b, work)
+        .with_utility(home_a.0, home_a.1 + 1, UtilityType::PowerPlant)
+        .with_utility(home_a.0, home_a.1 - 1, UtilityType::WaterTower)
+        .with_utility(home_b.0, home_b.1 + 1, UtilityType::PowerPlant)
+        .with_utility(home_b.0, home_b.1 - 1, UtilityType::WaterTower);
+    (city, home_a, home_b)
+}
+
 /// Advance to tick 9, then inject stable needs/health, then tick once more
 /// so happiness fires at counter=10 with our injected values still fresh.
 /// Injecting at tick 9 instead of tick 1 minimizes the window for other
@@ -303,48 +323,19 @@ fn test_happiness_water_bonus_and_penalty() {
 
 #[test]
 fn test_happiness_health_service_coverage_bonus() {
-    // Two citizens in the SAME world: one with health coverage, one without.
-    // This eliminates cross-world differences from Bevy change detection.
-    let home_covered = (100, 100);
-    let home_uncovered = (130, 130);
-    let work = (110, 110);
-
-    let mut city = TestCity::new()
-        .with_building(home_covered.0, home_covered.1, ZoneType::ResidentialLow, 1)
-        .with_building(
-            home_uncovered.0,
-            home_uncovered.1,
-            ZoneType::ResidentialLow,
-            1,
-        )
-        .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
-        .with_citizen(home_covered, work)
-        .with_citizen(home_uncovered, work)
-        .with_utility(home_covered.0, home_covered.1 + 1, UtilityType::PowerPlant)
-        .with_utility(home_covered.0, home_covered.1 - 1, UtilityType::WaterTower)
-        .with_utility(
-            home_uncovered.0,
-            home_uncovered.1 + 1,
-            UtilityType::PowerPlant,
-        )
-        .with_utility(
-            home_uncovered.0,
-            home_uncovered.1 - 1,
-            UtilityType::WaterTower,
-        );
-
+    let (mut city, home_a, home_b) = two_citizen_city();
     city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut city,
-        home_covered.0,
-        home_covered.1,
+        home_a.0,
+        home_a.1,
         crate::happiness::COVERAGE_HEALTH,
     );
     set_needs_and_health(&mut city, 80.0, 90.0);
     city.tick(1);
 
-    let h_covered = citizen_happiness_at(&mut city, home_covered.0, home_covered.1);
-    let h_uncovered = citizen_happiness_at(&mut city, home_uncovered.0, home_uncovered.1);
+    let h_covered = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_uncovered = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_covered > h_uncovered,
@@ -354,28 +345,19 @@ fn test_happiness_health_service_coverage_bonus() {
 
 #[test]
 fn test_happiness_park_coverage_bonus() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut park_city = city_with_utilities(home, work);
-    park_city.tick(HAPPINESS_TICKS - 1);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
-        &mut park_city,
-        home.0,
-        home.1,
+        &mut city,
+        home_a.0,
+        home_a.1,
         crate::happiness::COVERAGE_PARK,
     );
-    set_needs_and_health(&mut park_city, 80.0, 90.0);
-    park_city.tick(1);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let mut no_park_city = city_with_utilities(home, work);
-    no_park_city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(&mut no_park_city, home.0, home.1, 0);
-    set_needs_and_health(&mut no_park_city, 80.0, 90.0);
-    no_park_city.tick(1);
-
-    let h_park = first_citizen_happiness(&mut park_city);
-    let h_no_park = first_citizen_happiness(&mut no_park_city);
+    let h_park = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_no_park = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_park > h_no_park,
@@ -385,26 +367,18 @@ fn test_happiness_park_coverage_bonus() {
 
 #[test]
 fn test_happiness_pollution_penalty() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut clean_city = city_with_utilities(home, work);
-    clean_city.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut clean_city, 80.0, 90.0);
-    clean_city.tick(1);
-
-    let mut polluted_city = city_with_utilities(home, work);
-    polluted_city.tick(HAPPINESS_TICKS - 1);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = polluted_city.world_mut();
+        let world = city.world_mut();
         let mut pollution = world.resource_mut::<crate::pollution::PollutionGrid>();
-        pollution.set(home.0, home.1, 200);
+        pollution.set(home_a.0, home_a.1, 200);
     }
-    set_needs_and_health(&mut polluted_city, 80.0, 90.0);
-    polluted_city.tick(1);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let h_clean = first_citizen_happiness(&mut clean_city);
-    let h_polluted = first_citizen_happiness(&mut polluted_city);
+    let h_clean = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    let h_polluted = citizen_happiness_at(&mut city, home_a.0, home_a.1);
 
     assert!(
         h_clean > h_polluted,
@@ -414,22 +388,18 @@ fn test_happiness_pollution_penalty() {
 
 #[test]
 fn test_happiness_crime_penalty() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut safe_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut safe_city);
-
-    let mut crime_city = city_with_utilities(home, work);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = crime_city.world_mut();
+        let world = city.world_mut();
         let mut crime = world.resource_mut::<crate::crime::CrimeGrid>();
-        crime.set(home.0, home.1, 200);
+        crime.set(home_a.0, home_a.1, 200);
     }
-    tick_with_stable_needs(&mut crime_city);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let h_safe = first_citizen_happiness(&mut safe_city);
-    let h_crime = first_citizen_happiness(&mut crime_city);
+    let h_safe = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    let h_crime = citizen_happiness_at(&mut city, home_a.0, home_a.1);
 
     assert!(
         h_safe > h_crime,
@@ -439,22 +409,18 @@ fn test_happiness_crime_penalty() {
 
 #[test]
 fn test_happiness_noise_penalty() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut quiet_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut quiet_city);
-
-    let mut noisy_city = city_with_utilities(home, work);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = noisy_city.world_mut();
+        let world = city.world_mut();
         let mut noise = world.resource_mut::<crate::noise::NoisePollutionGrid>();
-        noise.set(home.0, home.1, 200);
+        noise.set(home_a.0, home_a.1, 200);
     }
-    tick_with_stable_needs(&mut noisy_city);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let h_quiet = first_citizen_happiness(&mut quiet_city);
-    let h_noisy = first_citizen_happiness(&mut noisy_city);
+    let h_quiet = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    let h_noisy = citizen_happiness_at(&mut city, home_a.0, home_a.1);
 
     assert!(
         h_quiet > h_noisy,
@@ -464,6 +430,9 @@ fn test_happiness_noise_penalty() {
 
 #[test]
 fn test_happiness_high_tax_penalty() {
+    // Tax rate is a global resource, so we can't differentiate per-citizen in the same world.
+    // Use a large tax difference (0.10 vs 0.30) which creates a 10+ point swing,
+    // well above the ~1.8 point cross-world noise.
     let home = (100, 100);
     let work = (120, 100);
 
@@ -494,28 +463,19 @@ fn test_happiness_high_tax_penalty() {
 
 #[test]
 fn test_happiness_education_service_coverage() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut edu_city = city_with_utilities(home, work);
-    edu_city.tick(HAPPINESS_TICKS - 1);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
-        &mut edu_city,
-        home.0,
-        home.1,
+        &mut city,
+        home_a.0,
+        home_a.1,
         crate::happiness::COVERAGE_EDUCATION,
     );
-    set_needs_and_health(&mut edu_city, 80.0, 90.0);
-    edu_city.tick(1);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let mut no_edu_city = city_with_utilities(home, work);
-    no_edu_city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(&mut no_edu_city, home.0, home.1, 0);
-    set_needs_and_health(&mut no_edu_city, 80.0, 90.0);
-    no_edu_city.tick(1);
-
-    let h_edu = first_citizen_happiness(&mut edu_city);
-    let h_no_edu = first_citizen_happiness(&mut no_edu_city);
+    let h_edu = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_no_edu = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_edu > h_no_edu,
@@ -525,28 +485,19 @@ fn test_happiness_education_service_coverage() {
 
 #[test]
 fn test_happiness_police_coverage() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut police_city = city_with_utilities(home, work);
-    police_city.tick(HAPPINESS_TICKS - 1);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
-        &mut police_city,
-        home.0,
-        home.1,
+        &mut city,
+        home_a.0,
+        home_a.1,
         crate::happiness::COVERAGE_POLICE,
     );
-    set_needs_and_health(&mut police_city, 80.0, 90.0);
-    police_city.tick(1);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let mut no_police_city = city_with_utilities(home, work);
-    no_police_city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(&mut no_police_city, home.0, home.1, 0);
-    set_needs_and_health(&mut no_police_city, 80.0, 90.0);
-    no_police_city.tick(1);
-
-    let h_police = first_citizen_happiness(&mut police_city);
-    let h_no_police = first_citizen_happiness(&mut no_police_city);
+    let h_police = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_no_police = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_police > h_no_police,
@@ -556,47 +507,19 @@ fn test_happiness_police_coverage() {
 
 #[test]
 fn test_happiness_entertainment_coverage() {
-    // Two citizens in the SAME world: one with entertainment coverage, one without.
-    let home_covered = (100, 100);
-    let home_uncovered = (130, 130);
-    let work = (110, 110);
-
-    let mut city = TestCity::new()
-        .with_building(home_covered.0, home_covered.1, ZoneType::ResidentialLow, 1)
-        .with_building(
-            home_uncovered.0,
-            home_uncovered.1,
-            ZoneType::ResidentialLow,
-            1,
-        )
-        .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
-        .with_citizen(home_covered, work)
-        .with_citizen(home_uncovered, work)
-        .with_utility(home_covered.0, home_covered.1 + 1, UtilityType::PowerPlant)
-        .with_utility(home_covered.0, home_covered.1 - 1, UtilityType::WaterTower)
-        .with_utility(
-            home_uncovered.0,
-            home_uncovered.1 + 1,
-            UtilityType::PowerPlant,
-        )
-        .with_utility(
-            home_uncovered.0,
-            home_uncovered.1 - 1,
-            UtilityType::WaterTower,
-        );
-
+    let (mut city, home_a, home_b) = two_citizen_city();
     city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut city,
-        home_covered.0,
-        home_covered.1,
+        home_a.0,
+        home_a.1,
         crate::happiness::COVERAGE_ENTERTAINMENT,
     );
     set_needs_and_health(&mut city, 80.0, 90.0);
     city.tick(1);
 
-    let h_ent = citizen_happiness_at(&mut city, home_covered.0, home_covered.1);
-    let h_no_ent = citizen_happiness_at(&mut city, home_uncovered.0, home_uncovered.1);
+    let h_ent = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_no_ent = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_ent > h_no_ent,
@@ -606,28 +529,19 @@ fn test_happiness_entertainment_coverage() {
 
 #[test]
 fn test_happiness_telecom_coverage() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut telecom_city = city_with_utilities(home, work);
-    telecom_city.tick(HAPPINESS_TICKS - 1);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
-        &mut telecom_city,
-        home.0,
-        home.1,
+        &mut city,
+        home_a.0,
+        home_a.1,
         crate::happiness::COVERAGE_TELECOM,
     );
-    set_needs_and_health(&mut telecom_city, 80.0, 90.0);
-    telecom_city.tick(1);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let mut no_telecom_city = city_with_utilities(home, work);
-    no_telecom_city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(&mut no_telecom_city, home.0, home.1, 0);
-    set_needs_and_health(&mut no_telecom_city, 80.0, 90.0);
-    no_telecom_city.tick(1);
-
-    let h_telecom = first_citizen_happiness(&mut telecom_city);
-    let h_no_telecom = first_citizen_happiness(&mut no_telecom_city);
+    let h_telecom = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_no_telecom = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_telecom > h_no_telecom,
@@ -637,28 +551,19 @@ fn test_happiness_telecom_coverage() {
 
 #[test]
 fn test_happiness_transport_coverage() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut transport_city = city_with_utilities(home, work);
-    transport_city.tick(HAPPINESS_TICKS - 1);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
-        &mut transport_city,
-        home.0,
-        home.1,
+        &mut city,
+        home_a.0,
+        home_a.1,
         crate::happiness::COVERAGE_TRANSPORT,
     );
-    set_needs_and_health(&mut transport_city, 80.0, 90.0);
-    transport_city.tick(1);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let mut no_transport_city = city_with_utilities(home, work);
-    no_transport_city.tick(HAPPINESS_TICKS - 1);
-    set_coverage_flags(&mut no_transport_city, home.0, home.1, 0);
-    set_needs_and_health(&mut no_transport_city, 80.0, 90.0);
-    no_transport_city.tick(1);
-
-    let h_transport = first_citizen_happiness(&mut transport_city);
-    let h_no_transport = first_citizen_happiness(&mut no_transport_city);
+    let h_transport = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_no_transport = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_transport > h_no_transport,
@@ -668,31 +573,18 @@ fn test_happiness_transport_coverage() {
 
 #[test]
 fn test_happiness_land_value_bonus() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    let mut high_lv_city = city_with_utilities(home, work);
-    high_lv_city.tick(HAPPINESS_TICKS - 1);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = high_lv_city.world_mut();
+        let world = city.world_mut();
         let mut land_value = world.resource_mut::<crate::land_value::LandValueGrid>();
-        land_value.set(home.0, home.1, 200);
+        land_value.set(home_a.0, home_a.1, 200);
     }
-    set_needs_and_health(&mut high_lv_city, 80.0, 90.0);
-    high_lv_city.tick(1);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    let mut low_lv_city = city_with_utilities(home, work);
-    low_lv_city.tick(HAPPINESS_TICKS - 1);
-    {
-        let world = low_lv_city.world_mut();
-        let mut land_value = world.resource_mut::<crate::land_value::LandValueGrid>();
-        land_value.set(home.0, home.1, 0);
-    }
-    set_needs_and_health(&mut low_lv_city, 80.0, 90.0);
-    low_lv_city.tick(1);
-
-    let h_high = first_citizen_happiness(&mut high_lv_city);
-    let h_low = first_citizen_happiness(&mut low_lv_city);
+    let h_high = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_low = citizen_happiness_at(&mut city, home_b.0, home_b.1);
 
     assert!(
         h_high > h_low,
@@ -702,29 +594,18 @@ fn test_happiness_land_value_bonus() {
 
 #[test]
 fn test_happiness_garbage_penalty_threshold() {
-    let home = (100, 100);
-    let work = (120, 100);
-
-    // Garbage below threshold
-    let mut low_garbage_city = city_with_utilities(home, work);
+    let (mut city, home_a, home_b) = two_citizen_city();
+    city.tick(HAPPINESS_TICKS - 1);
     {
-        let world = low_garbage_city.world_mut();
+        let world = city.world_mut();
         let mut garbage = world.resource_mut::<crate::garbage::GarbageGrid>();
-        garbage.set(home.0, home.1, 5);
+        garbage.set(home_a.0, home_a.1, 50);
     }
-    tick_with_stable_needs(&mut low_garbage_city);
+    set_needs_and_health(&mut city, 80.0, 90.0);
+    city.tick(1);
 
-    // Garbage above threshold
-    let mut high_garbage_city = city_with_utilities(home, work);
-    {
-        let world = high_garbage_city.world_mut();
-        let mut garbage = world.resource_mut::<crate::garbage::GarbageGrid>();
-        garbage.set(home.0, home.1, 50);
-    }
-    tick_with_stable_needs(&mut high_garbage_city);
-
-    let h_low = first_citizen_happiness(&mut low_garbage_city);
-    let h_high = first_citizen_happiness(&mut high_garbage_city);
+    let h_low = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    let h_high = citizen_happiness_at(&mut city, home_a.0, home_a.1);
 
     assert!(
         h_low > h_high,
