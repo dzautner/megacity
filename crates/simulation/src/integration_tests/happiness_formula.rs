@@ -306,7 +306,10 @@ fn test_happiness_health_service_coverage_bonus() {
     covered_city.tick(1);
 
     let mut uncovered_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut uncovered_city);
+    uncovered_city.tick(HAPPINESS_TICKS - 1);
+    set_coverage_flags(&mut uncovered_city, home.0, home.1, 0);
+    set_needs_and_health(&mut uncovered_city, 80.0, 90.0);
+    uncovered_city.tick(1);
 
     let h_covered = first_citizen_happiness(&mut covered_city);
     let h_uncovered = first_citizen_happiness(&mut uncovered_city);
@@ -334,7 +337,10 @@ fn test_happiness_park_coverage_bonus() {
     park_city.tick(1);
 
     let mut no_park_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_park_city);
+    no_park_city.tick(HAPPINESS_TICKS - 1);
+    set_coverage_flags(&mut no_park_city, home.0, home.1, 0);
+    set_needs_and_health(&mut no_park_city, 80.0, 90.0);
+    no_park_city.tick(1);
 
     let h_park = first_citizen_happiness(&mut park_city);
     let h_no_park = first_citizen_happiness(&mut no_park_city);
@@ -471,7 +477,10 @@ fn test_happiness_education_service_coverage() {
     edu_city.tick(1);
 
     let mut no_edu_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_edu_city);
+    no_edu_city.tick(HAPPINESS_TICKS - 1);
+    set_coverage_flags(&mut no_edu_city, home.0, home.1, 0);
+    set_needs_and_health(&mut no_edu_city, 80.0, 90.0);
+    no_edu_city.tick(1);
 
     let h_edu = first_citizen_happiness(&mut edu_city);
     let h_no_edu = first_citizen_happiness(&mut no_edu_city);
@@ -499,7 +508,10 @@ fn test_happiness_police_coverage() {
     police_city.tick(1);
 
     let mut no_police_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_police_city);
+    no_police_city.tick(HAPPINESS_TICKS - 1);
+    set_coverage_flags(&mut no_police_city, home.0, home.1, 0);
+    set_needs_and_health(&mut no_police_city, 80.0, 90.0);
+    no_police_city.tick(1);
 
     let h_police = first_citizen_happiness(&mut police_city);
     let h_no_police = first_citizen_happiness(&mut no_police_city);
@@ -527,7 +539,10 @@ fn test_happiness_entertainment_coverage() {
     ent_city.tick(1);
 
     let mut no_ent_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_ent_city);
+    no_ent_city.tick(HAPPINESS_TICKS - 1);
+    set_coverage_flags(&mut no_ent_city, home.0, home.1, 0);
+    set_needs_and_health(&mut no_ent_city, 80.0, 90.0);
+    no_ent_city.tick(1);
 
     let h_ent = first_citizen_happiness(&mut ent_city);
     let h_no_ent = first_citizen_happiness(&mut no_ent_city);
@@ -555,7 +570,10 @@ fn test_happiness_telecom_coverage() {
     telecom_city.tick(1);
 
     let mut no_telecom_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_telecom_city);
+    no_telecom_city.tick(HAPPINESS_TICKS - 1);
+    set_coverage_flags(&mut no_telecom_city, home.0, home.1, 0);
+    set_needs_and_health(&mut no_telecom_city, 80.0, 90.0);
+    no_telecom_city.tick(1);
 
     let h_telecom = first_citizen_happiness(&mut telecom_city);
     let h_no_telecom = first_citizen_happiness(&mut no_telecom_city);
@@ -583,7 +601,10 @@ fn test_happiness_transport_coverage() {
     transport_city.tick(1);
 
     let mut no_transport_city = city_with_utilities(home, work);
-    tick_with_stable_needs(&mut no_transport_city);
+    no_transport_city.tick(HAPPINESS_TICKS - 1);
+    set_coverage_flags(&mut no_transport_city, home.0, home.1, 0);
+    set_needs_and_health(&mut no_transport_city, 80.0, 90.0);
+    no_transport_city.tick(1);
 
     let h_transport = first_citizen_happiness(&mut transport_city);
     let h_no_transport = first_citizen_happiness(&mut no_transport_city);
