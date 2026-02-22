@@ -2,7 +2,7 @@
 //!
 //! Tests cover:
 //! - Upgrade when all conditions are met (high occupancy + high happiness)
-//! - No upgrade when conditions are not met (low occupancy, low happiness)
+//! - No upgrade when conditions not met (low occupancy, low happiness)
 //! - Building level never exceeds zone max_level
 //! - Building level respects policy max_building_level (HighRiseBan)
 //! - Building level respects FAR cap
@@ -494,13 +494,13 @@ fn test_downgrade_possible_when_happiness_very_low() {
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialHigh, 5, 10.0);
 
     // Run many downgrade cycles (each cycle is 30 ticks)
-    // With 1% chance per check and ~300 checks, probability of NO downgrade is (0.99)^300 ~ 5%
-    // Use 500 checks to be more confident
+    // With 1% chance per check and ~500 checks, probability of NO downgrade is (0.99)^500 ~ 0.7%
     for _ in 0..500 {
-        let world = city.world_mut();
-        world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
-        world.resource_mut::<CityStats>().average_happiness = 10.0;
-        drop(world);
+        {
+            let world = city.world_mut();
+            world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
+            world.resource_mut::<CityStats>().average_happiness = 10.0;
+        }
         city.tick(1);
     }
 
@@ -524,10 +524,11 @@ fn test_no_downgrade_when_happiness_above_threshold() {
 
     // Run several downgrade cycles
     for _ in 0..100 {
-        let world = city.world_mut();
-        world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
-        world.resource_mut::<CityStats>().average_happiness = 50.0;
-        drop(world);
+        {
+            let world = city.world_mut();
+            world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
+            world.resource_mut::<CityStats>().average_happiness = 50.0;
+        }
         city.tick(1);
     }
 
@@ -550,10 +551,11 @@ fn test_no_downgrade_below_level_1() {
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialLow, 1, 5.0);
 
     for _ in 0..200 {
-        let world = city.world_mut();
-        world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
-        world.resource_mut::<CityStats>().average_happiness = 5.0;
-        drop(world);
+        {
+            let world = city.world_mut();
+            world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
+            world.resource_mut::<CityStats>().average_happiness = 5.0;
+        }
         city.tick(1);
     }
 
@@ -578,10 +580,11 @@ fn test_downgrade_updates_capacity() {
     // Force downgrade by running many cycles
     let mut downgraded = false;
     for _ in 0..500 {
-        let world = city.world_mut();
-        world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
-        world.resource_mut::<CityStats>().average_happiness = 10.0;
-        drop(world);
+        {
+            let world = city.world_mut();
+            world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
+            world.resource_mut::<CityStats>().average_happiness = 10.0;
+        }
         city.tick(1);
 
         let world = city.world_mut();
@@ -630,10 +633,11 @@ fn test_downgrade_clamps_excess_occupants() {
     // Run many cycles until a downgrade happens
     let mut downgraded = false;
     for _ in 0..500 {
-        let world = city.world_mut();
-        world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
-        world.resource_mut::<CityStats>().average_happiness = 10.0;
-        drop(world);
+        {
+            let world = city.world_mut();
+            world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
+            world.resource_mut::<CityStats>().average_happiness = 10.0;
+        }
         city.tick(1);
 
         let world = city.world_mut();
@@ -755,10 +759,11 @@ fn test_mixed_use_downgrade_clamps_subcapacity_occupants() {
 
     let mut downgraded = false;
     for _ in 0..500 {
-        let world = city.world_mut();
-        world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
-        world.resource_mut::<CityStats>().average_happiness = 10.0;
-        drop(world);
+        {
+            let world = city.world_mut();
+            world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
+            world.resource_mut::<CityStats>().average_happiness = 10.0;
+        }
         city.tick(1);
 
         let world = city.world_mut();
