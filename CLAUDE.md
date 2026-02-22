@@ -32,8 +32,41 @@ New features should NOT touch shared files. Follow this pattern:
 1. Create your module file (e.g., `simulation/src/my_feature.rs`)
 2. Add `pub mod my_feature;` to `simulation/src/lib.rs` (only line you touch there)
 3. Define a `Plugin` struct in your module with all `init_resource`/`add_systems` calls
-4. Add your plugin to the appropriate group in `SimulationPlugin::build()`
+4. Add your plugin to `simulation/src/plugin_registration.rs` (one plugin per line, no tuples)
 5. For saveable state, implement the `Saveable` trait and call `app.register_saveable::<MyState>()` in your plugin -- do NOT modify `save_types.rs`, `serialization.rs`, `save_restore.rs`, or `save_helpers.rs`
+
+## Code Modularity (Treat This as a 100+ Contributor Project)
+This project is structured for high parallelism — many agents/contributors working simultaneously on separate features. **Every file should be small, focused, and conflict-resistant.**
+
+### File Size Limits
+- **Hard limit: 500 lines per file.** If a file exceeds 500 lines, split it before adding more code.
+- **Target: 200–400 lines.** This is the sweet spot for readability, reviewability, and merge-conflict avoidance.
+- **Shared files (lib.rs, mod.rs, plugin_registration.rs):** Keep as thin as possible — just `pub mod`, `pub use`, and delegation calls. No logic.
+
+### Single Responsibility
+- Each `.rs` file should do ONE thing. If you can't describe the file's purpose in one sentence, it's too big.
+- Feature logic, tests, and registration are separated: feature code in `my_feature.rs`, tests in `integration_tests/my_feature.rs`, plugin registration in `plugin_registration.rs`.
+- Never put unrelated functionality in the same file just because "it's small" or "it's convenient."
+
+### Avoiding Merge Conflicts
+- **Never append to shared lists** (like plugin registrations or mod declarations) in the same block — use one-item-per-line format so git can merge additions from parallel branches.
+- **Registration files** (`plugin_registration.rs`, `saveable_keys.rs`, `integration_tests/mod.rs`) use one entry per line — never group into tuples or multi-item blocks.
+- **Test files:** ONE file per feature domain. Never add tests to someone else's test file — create a new one.
+- **Large structs or enums** that many features extend: put each variant/field on its own line.
+
+### When to Split a File
+Split a file if any of these are true:
+1. It exceeds 500 lines
+2. It has more than one "reason to change" (e.g., it handles both simulation logic AND rendering)
+3. Multiple PRs frequently conflict on it
+4. It contains both public API and private implementation details that could be separated
+5. It has more than 3 logically distinct sections separated by comment headers
+
+### How to Split
+- Extract into a sibling file in the same directory (e.g., `economy.rs` -> `economy.rs` + `economy_taxes.rs`)
+- Or use a subdirectory with `mod.rs` (e.g., `economy/mod.rs` + `economy/taxes.rs` + `economy/budget.rs`)
+- Re-export from the parent so callers don't need to change their imports
+- The original file should become a thin facade: just `pub mod` + `pub use` statements
 
 ## PR Requirements
 - All code must compile: `cargo build --workspace`
