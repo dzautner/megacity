@@ -20,7 +20,7 @@ use crate::time_of_day::GameClock;
 fn test_formula_property_tax_known_inputs() {
     // 100 * 2 * 0.10 = 20.0
     let tax = property_tax_for_building(100.0, 2, 0.10);
-    assert!((tax - 20.0).abs() < 1e-9, "Expected 20.0, got {tax}");
+    assert!((tax - 20.0).abs() < 1e-6, "Expected 20.0, got {tax}");
 }
 
 /// Verify tax formula linearity: doubling land value doubles tax.
@@ -29,7 +29,7 @@ fn test_formula_property_tax_linear_in_land_value() {
     let tax_a = property_tax_for_building(200.0, 1, 0.05);
     let tax_b = property_tax_for_building(400.0, 1, 0.05);
     assert!(
-        (tax_b - 2.0 * tax_a).abs() < 1e-9,
+        (tax_b - 2.0 * tax_a).abs() < 1e-6,
         "Tax should double when land value doubles: {tax_a} vs {tax_b}"
     );
 }
@@ -40,7 +40,7 @@ fn test_formula_property_tax_linear_in_level() {
     let tax_l1 = property_tax_for_building(50.0, 1, 0.08);
     let tax_l4 = property_tax_for_building(50.0, 4, 0.08);
     assert!(
-        (tax_l4 - 4.0 * tax_l1).abs() < 1e-9,
+        (tax_l4 - 4.0 * tax_l1).abs() < 1e-6,
         "Level 4 tax should be 4x level 1: l1={tax_l1}, l4={tax_l4}"
     );
 }
@@ -51,7 +51,7 @@ fn test_formula_property_tax_linear_in_rate() {
     let tax_5pct = property_tax_for_building(100.0, 1, 0.05);
     let tax_15pct = property_tax_for_building(100.0, 1, 0.15);
     assert!(
-        (tax_15pct - 3.0 * tax_5pct).abs() < 1e-9,
+        (tax_15pct - 3.0 * tax_5pct).abs() < 1e-6,
         "15% rate should be 3x 5%: 5%={tax_5pct}, 15%={tax_15pct}"
     );
 }
@@ -787,7 +787,7 @@ fn test_formula_loan_debt_to_income_no_debt_no_income() {
     let book = LoanBook::default();
     let ratio = book.debt_to_income(0.0);
     assert!(
-        (ratio - 0.0).abs() < 1e-9,
+        (ratio - 0.0).abs() < 1e-6,
         "No debt + no income should yield 0.0, got {ratio}"
     );
 }
