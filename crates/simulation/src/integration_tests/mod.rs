@@ -40,6 +40,7 @@ mod random_city_events;
 mod road_hierarchy;
 mod road_maintenance;
 mod road_placement;
+mod road_placement_unit;
 mod road_segment_consistency;
 mod road_upgrade;
 mod roundabout_builder;
