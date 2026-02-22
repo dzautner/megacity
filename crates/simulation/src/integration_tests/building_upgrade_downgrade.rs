@@ -577,8 +577,8 @@ fn test_downgrade_possible_when_happiness_very_low() {
     // We run many cycles to ensure at least one downgrade happens statistically.
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialHigh, 5, 10.0);
 
-    // With 1% chance per check and ~500 checks, probability of NO downgrade is (0.99)^500 ~ 0.7%
-    for _ in 0..500 {
+    // 1% chance per check; 2000 checks → (0.99)^2000 ≈ 2e-9 failure probability
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
@@ -712,7 +712,8 @@ fn test_downgrade_clamps_excess_occupants() {
     }
 
     let mut downgraded = false;
-    for _ in 0..500 {
+    // 1% chance per check; 2000 checks → (0.99)^2000 ≈ 2e-9 failure probability
+    for _ in 0..2000 {
         {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;

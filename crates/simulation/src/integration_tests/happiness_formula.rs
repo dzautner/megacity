@@ -527,6 +527,15 @@ fn test_happiness_transport_coverage() {
 #[test]
 fn test_happiness_land_value_bonus() {
     let (mut city, home_a, home_b) = two_citizen_city();
+    // Make citizens HighIncome (education=3) so land_value weight = 2.0 instead of 0.3.
+    // This gives a (200/50)*2.0 = 8.0 point bonus, well above positional noise (~3.8 pts).
+    {
+        let world = city.world_mut();
+        let mut q = world.query::<&mut CitizenDetails>();
+        for mut details in q.iter_mut(world) {
+            details.education = 3;
+        }
+    }
     city.tick(HAPPINESS_TICKS - 1);
     {
         let world = city.world_mut();
