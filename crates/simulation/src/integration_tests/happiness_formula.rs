@@ -350,18 +350,26 @@ fn test_happiness_park_coverage_bonus() {
 
 #[test]
 fn test_happiness_pollution_penalty() {
-    let (mut city, home_a, home_b) = two_citizen_city();
+    // Before/after on the same citizen eliminates positional noise.
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
+
+    // Baseline happiness without pollution
+    tick_with_stable_needs(&mut city);
+    let h_clean = first_citizen_happiness(&mut city);
+
+    // Inject pollution and measure again at the next happiness tick
     city.tick(HAPPINESS_TICKS - 1);
     {
         let world = city.world_mut();
-        let mut pollution = world.resource_mut::<crate::pollution::PollutionGrid>();
-        pollution.set(home_a.0, home_a.1, 200);
+        world
+            .resource_mut::<crate::pollution::PollutionGrid>()
+            .set(home.0, home.1, 200);
     }
     set_needs_and_health(&mut city, 80.0, 90.0);
     city.tick(1);
-
-    let h_clean = citizen_happiness_at(&mut city, home_b.0, home_b.1);
-    let h_polluted = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_polluted = first_citizen_happiness(&mut city);
 
     assert!(
         h_clean > h_polluted,
@@ -371,18 +379,24 @@ fn test_happiness_pollution_penalty() {
 
 #[test]
 fn test_happiness_crime_penalty() {
-    let (mut city, home_a, home_b) = two_citizen_city();
+    // Before/after on the same citizen eliminates positional noise.
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
+
+    tick_with_stable_needs(&mut city);
+    let h_safe = first_citizen_happiness(&mut city);
+
     city.tick(HAPPINESS_TICKS - 1);
     {
         let world = city.world_mut();
-        let mut crime = world.resource_mut::<crate::crime::CrimeGrid>();
-        crime.set(home_a.0, home_a.1, 200);
+        world
+            .resource_mut::<crate::crime::CrimeGrid>()
+            .set(home.0, home.1, 200);
     }
     set_needs_and_health(&mut city, 80.0, 90.0);
     city.tick(1);
-
-    let h_safe = citizen_happiness_at(&mut city, home_b.0, home_b.1);
-    let h_crime = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_crime = first_citizen_happiness(&mut city);
 
     assert!(
         h_safe > h_crime,
@@ -392,18 +406,24 @@ fn test_happiness_crime_penalty() {
 
 #[test]
 fn test_happiness_noise_penalty() {
-    let (mut city, home_a, home_b) = two_citizen_city();
+    // Before/after on the same citizen eliminates positional noise.
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
+
+    tick_with_stable_needs(&mut city);
+    let h_quiet = first_citizen_happiness(&mut city);
+
     city.tick(HAPPINESS_TICKS - 1);
     {
         let world = city.world_mut();
-        let mut noise = world.resource_mut::<crate::noise::NoisePollutionGrid>();
-        noise.set(home_a.0, home_a.1, 200);
+        world
+            .resource_mut::<crate::noise::NoisePollutionGrid>()
+            .set(home.0, home.1, 200);
     }
     set_needs_and_health(&mut city, 80.0, 90.0);
     city.tick(1);
-
-    let h_quiet = citizen_happiness_at(&mut city, home_b.0, home_b.1);
-    let h_noisy = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_noisy = first_citizen_happiness(&mut city);
 
     assert!(
         h_quiet > h_noisy,
@@ -526,52 +546,55 @@ fn test_happiness_transport_coverage() {
 
 #[test]
 fn test_happiness_land_value_bonus() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    // Make citizens HighIncome (education=3) so land_value weight = 2.0 instead of 0.3.
-    // This gives a (200/50)*2.0 = 8.0 point bonus, well above positional noise (~3.8 pts).
-    {
-        let world = city.world_mut();
-        let mut q = world.query::<&mut CitizenDetails>();
-        for mut details in q.iter_mut(world) {
-            details.education = 3;
-        }
-    }
+    // Before/after on the same citizen eliminates positional noise.
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
+
+    tick_with_stable_needs(&mut city);
+    let h_before = first_citizen_happiness(&mut city);
+
     city.tick(HAPPINESS_TICKS - 1);
     {
         let world = city.world_mut();
-        let mut land_value = world.resource_mut::<crate::land_value::LandValueGrid>();
-        land_value.set(home_a.0, home_a.1, 200);
+        world
+            .resource_mut::<crate::land_value::LandValueGrid>()
+            .set(home.0, home.1, 200);
     }
     set_needs_and_health(&mut city, 80.0, 90.0);
     city.tick(1);
-
-    let h_high = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_low = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_high > h_low,
-        "High land value should increase happiness ({h_high} vs {h_low})"
+        h_after > h_before,
+        "High land value should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_garbage_penalty_threshold() {
-    let (mut city, home_a, home_b) = two_citizen_city();
+    // Before/after on the same citizen eliminates positional noise.
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
+
+    tick_with_stable_needs(&mut city);
+    let h_clean = first_citizen_happiness(&mut city);
+
     city.tick(HAPPINESS_TICKS - 1);
     {
         let world = city.world_mut();
-        let mut garbage = world.resource_mut::<crate::garbage::GarbageGrid>();
-        garbage.set(home_a.0, home_a.1, 50);
+        world
+            .resource_mut::<crate::garbage::GarbageGrid>()
+            .set(home.0, home.1, 50);
     }
     set_needs_and_health(&mut city, 80.0, 90.0);
     city.tick(1);
-
-    let h_low = citizen_happiness_at(&mut city, home_b.0, home_b.1);
-    let h_high = citizen_happiness_at(&mut city, home_a.0, home_a.1);
+    let h_garbage = first_citizen_happiness(&mut city);
 
     assert!(
-        h_low > h_high,
-        "High garbage (above threshold 10) should reduce happiness ({h_low} vs {h_high})"
+        h_clean > h_garbage,
+        "High garbage (above threshold 10) should reduce happiness ({h_clean} vs {h_garbage})"
     );
 }
 
