@@ -3,8 +3,8 @@ use crate::grid::{WorldGrid, ZoneType};
 use crate::test_harness::TestCity;
 
 /// Despawn a building and prevent recovery: clear the grid zone so the
-/// building spawner won't recreate it, and set negative savings so
-/// `recover_from_homelessness` won't assign the citizen to any other building.
+/// building spawner won't recreate it, and set negative savings + zero salary
+/// so `recover_from_homelessness` won't assign the citizen to any other building.
 fn despawn_home_prevent_recovery(city: &mut TestCity, gx: usize, gy: usize) {
     let b = city.grid().get(gx, gy).building_id.expect("building");
     city.world_mut().despawn(b);
@@ -20,6 +20,7 @@ fn despawn_home_prevent_recovery(city: &mut TestCity, gx: usize, gy: usize) {
         let mut q = world.query::<&mut crate::citizen::CitizenDetails>();
         for mut d in q.iter_mut(world) {
             d.savings = -100.0;
+            d.salary = 0.0;
         }
     }
 }
@@ -227,8 +228,21 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
     // Despawn home building and prevent recovery
     despawn_home_prevent_recovery(&mut city, 50, 50);
 
-    // Tick to trigger check_homelessness (citizen becomes homeless)
-    city.tick(50);
+    // Tick enough to guarantee check_homelessness fires (CHECK_INTERVAL=50)
+    city.tick(100);
+
+    // Verify citizen is actually homeless before continuing
+    {
+        let world = city.world_mut();
+        let homeless_count = world
+            .query::<&crate::homelessness::Homeless>()
+            .iter(world)
+            .count();
+        assert_eq!(
+            homeless_count, 1,
+            "citizen should be homeless after home despawned"
+        );
+    }
 
     // Now spawn a HomelessShelter component entity
     {
@@ -241,8 +255,8 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
             });
     }
 
-    // Tick again to trigger seek_shelter
-    city.tick(50);
+    // Tick enough to guarantee seek_shelter fires
+    city.tick(100);
 
     // Citizen should now be sheltered
     let sheltered = {
@@ -277,8 +291,8 @@ fn test_homelessness_shelter_capacity_respected() {
     // Despawn home building and prevent recovery
     despawn_home_prevent_recovery(&mut city, 50, 50);
 
-    // Tick to make citizens homeless
-    city.tick(50);
+    // Tick enough to guarantee check_homelessness fires
+    city.tick(100);
 
     // Spawn a shelter with capacity of 1
     {
@@ -291,8 +305,8 @@ fn test_homelessness_shelter_capacity_respected() {
             });
     }
 
-    // Tick to trigger seek_shelter
-    city.tick(50);
+    // Tick enough to guarantee seek_shelter fires
+    city.tick(100);
 
     let (sheltered_count, total_homeless) = {
         let world = city.world_mut();
