@@ -6,6 +6,7 @@ mod bicycle_lanes;
 mod blueprint_system;
 mod budget;
 mod building_spawner;
+mod building_upgrade_downgrade;
 mod buildings;
 mod bulldoze_refund;
 mod citizens;
