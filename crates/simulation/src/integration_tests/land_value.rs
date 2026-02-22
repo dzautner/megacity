@@ -7,7 +7,6 @@
 use crate::garbage::WasteCollectionGrid;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::land_value::LandValueGrid;
-use crate::pollution::PollutionGrid;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::waste_effects::WasteAccumulation;
@@ -134,53 +133,51 @@ fn test_land_value_park_boosts_more_than_non_park() {
 }
 
 // -------------------------------------------------------------------------
-// 4. Pollution penalty
+// 4. Pollution penalty (via industrial buildings that generate real pollution)
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_land_value_pollution_reduces_value() {
-    let mut city = TestCity::new();
-
-    // Inject pollution directly into the grid
-    {
-        let world = city.world_mut();
-        let mut pollution = world.resource_mut::<PollutionGrid>();
-        pollution.set(100, 100, 90);
-    }
-
+fn test_land_value_pollution_from_industrial_building_reduces_value() {
+    // Place an industrial building to generate real pollution through the
+    // update_pollution system (which runs before update_land_value).
+    let mut city = TestCity::new().with_building(100, 100, ZoneType::Industrial, 3);
     city.tick_slow_cycle();
 
     let val = land_value_at(&city, 100, 100);
-    // Base is 50, pollution 90 => penalty = 90/3 = 30 => expected ~20
+    // Industrial zone penalty (-15) + pollution from the building
+    // Level 3 industrial: intensity = 5 + 3*3 = 14, at dist 0 => 14 pollution
+    // Pollution penalty = 14/3 = 4
+    // Total: 50 - 15 - 4 = 31
     assert!(
         val < 50,
-        "Pollution should reduce land value below 50, got {val}"
+        "Industrial building should reduce land value via pollution + zone penalty, got {val}"
+    );
+    // Should be lower than the zone-only penalty of 35
+    assert!(
+        val < 35,
+        "Pollution from industrial building should reduce value below zone-only penalty of 35, got {val}"
     );
 }
 
 #[test]
-fn test_land_value_higher_pollution_means_lower_value() {
-    let mut city_low = TestCity::new();
-    {
-        let world = city_low.world_mut();
-        let mut pollution = world.resource_mut::<PollutionGrid>();
-        pollution.set(100, 100, 30);
-    }
-    city_low.tick_slow_cycle();
-    let val_low_poll = land_value_at(&city_low, 100, 100);
+fn test_land_value_more_industrial_buildings_means_lower_value() {
+    // Single industrial building
+    let mut city_one = TestCity::new().with_building(100, 100, ZoneType::Industrial, 2);
+    city_one.tick_slow_cycle();
+    let val_one = land_value_at(&city_one, 100, 100);
 
-    let mut city_high = TestCity::new();
-    {
-        let world = city_high.world_mut();
-        let mut pollution = world.resource_mut::<PollutionGrid>();
-        pollution.set(100, 100, 150);
-    }
-    city_high.tick_slow_cycle();
-    let val_high_poll = land_value_at(&city_high, 100, 100);
+    // Multiple industrial buildings nearby to stack pollution
+    let mut city_many = TestCity::new()
+        .with_building(100, 100, ZoneType::Industrial, 2)
+        .with_building(101, 100, ZoneType::Industrial, 2)
+        .with_building(100, 101, ZoneType::Industrial, 2)
+        .with_building(99, 100, ZoneType::Industrial, 2);
+    city_many.tick_slow_cycle();
+    let val_many = land_value_at(&city_many, 100, 100);
 
     assert!(
-        val_low_poll > val_high_poll,
-        "Lower pollution ({val_low_poll}) should yield higher land value than higher pollution ({val_high_poll})"
+        val_one > val_many,
+        "More nearby industrial buildings ({val_many}) should yield lower land value than one ({val_one})"
     );
 }
 
@@ -319,20 +316,26 @@ fn test_land_value_accumulated_waste_penalty() {
 
 #[test]
 fn test_land_value_clamped_to_zero_minimum() {
+    // Use many high-level industrial buildings clustered together to generate
+    // extreme pollution that drives land value to 0 via the i32 clamp.
     let mut city = TestCity::new();
-    {
-        // Apply extreme pollution to drive value below 0
-        let world = city.world_mut();
-        let mut pollution = world.resource_mut::<PollutionGrid>();
-        pollution.set(100, 100, 255);
+    // Place a dense cluster of level-5 industrial buildings around (100, 100)
+    // Each generates intensity = 5 + 5*3 = 20 pollution at dist 0
+    for dy in -3i32..=3 {
+        for dx in -3i32..=3 {
+            let x = (100i32 + dx) as usize;
+            let y = (100i32 + dy) as usize;
+            city = city.with_building(x, y, ZoneType::Industrial, 5);
+        }
     }
     city.tick_slow_cycle();
 
     let val = land_value_at(&city, 100, 100);
-    // Base 50, pollution penalty = 255/3 = 85 => 50-85 = -35 => clamped to 0
+    // With many overlapping industrial buildings, pollution is extremely high
+    // Combined with the -15 industrial zone penalty, value should clamp to 0
     assert_eq!(
         val, 0,
-        "Land value should be clamped to 0 with extreme pollution, got {val}"
+        "Land value should be clamped to 0 with extreme industrial pollution, got {val}"
     );
 }
 
@@ -371,34 +374,25 @@ fn test_land_value_clamped_to_255_maximum() {
 
 #[test]
 fn test_land_value_all_cells_within_valid_range() {
-    // Use a city with mixed features and verify the full grid is in [0, 255]
+    // Use a city with mixed features: industrial buildings (generate real pollution)
+    // and services (boost value). Verify the system runs without panics and
+    // produces sensible relative values.
     let mut city = TestCity::new()
-        .with_zone_rect(50, 50, 60, 60, ZoneType::Industrial)
+        .with_building(55, 55, ZoneType::Industrial, 3)
+        .with_building(56, 55, ZoneType::Industrial, 3)
+        .with_building(55, 56, ZoneType::Industrial, 3)
         .with_service(80, 80, ServiceType::SmallPark)
         .with_service(120, 120, ServiceType::Hospital);
 
-    // Inject some pollution
-    {
-        let world = city.world_mut();
-        let mut pollution = world.resource_mut::<PollutionGrid>();
-        for y in 50..60 {
-            for x in 50..60 {
-                pollution.set(x, y, 100);
-            }
-        }
-    }
-
     city.tick_slow_cycle();
 
-    // Since `LandValueGrid::values` is `Vec<u8>`, the output is inherently in
-    // [0, 255]. Verify that the system ran without panics and produced
-    // reasonable values: industrial + polluted area should be lower than clean area.
+    // Industrial area with pollution should have lower value than clean area
     let lv = city.resource::<LandValueGrid>();
-    let polluted_val = lv.get(55, 55);
+    let industrial_val = lv.get(55, 55);
     let clean_val = lv.get(200, 200);
     assert!(
-        clean_val > polluted_val,
-        "Clean area ({clean_val}) should have higher land value than polluted industrial area ({polluted_val})"
+        clean_val > industrial_val,
+        "Clean area ({clean_val}) should have higher land value than industrial area ({industrial_val})"
     );
 }
 
@@ -407,20 +401,20 @@ fn test_land_value_all_cells_within_valid_range() {
 // -------------------------------------------------------------------------
 
 #[test]
-fn test_land_value_combined_pollution_and_industrial_stack() {
-    let mut city = TestCity::new().with_zone(100, 100, ZoneType::Industrial);
-    {
-        let world = city.world_mut();
-        let mut pollution = world.resource_mut::<PollutionGrid>();
-        pollution.set(100, 100, 60);
-    }
-    city.tick_slow_cycle();
+fn test_land_value_combined_industrial_building_stacks_zone_and_pollution() {
+    // An industrial building applies both the zone penalty AND generates pollution
+    let mut city_zone_only = TestCity::new().with_zone(100, 100, ZoneType::Industrial);
+    city_zone_only.tick_slow_cycle();
+    let val_zone_only = land_value_at(&city_zone_only, 100, 100);
 
-    let val = land_value_at(&city, 100, 100);
-    // Base 50, industrial -15 => 35, pollution penalty 60/3=20 => 35-20 = 15
-    assert_eq!(
-        val, 15,
-        "Industrial + pollution should stack penalties: expected 15, got {val}"
+    let mut city_building = TestCity::new().with_building(100, 100, ZoneType::Industrial, 3);
+    city_building.tick_slow_cycle();
+    let val_building = land_value_at(&city_building, 100, 100);
+
+    // Building should have lower value due to additional pollution
+    assert!(
+        val_building < val_zone_only,
+        "Industrial building ({val_building}) should have lower value than zone-only ({val_zone_only}) due to pollution"
     );
 }
 
