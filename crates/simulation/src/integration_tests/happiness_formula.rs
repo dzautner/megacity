@@ -16,7 +16,7 @@
 //! Injecting at tick 9 (rather than tick 1) minimizes the window for
 //! other systems (update_needs, etc.) to overwrite the injected values.
 
-use crate::citizen::{CitizenDetails, HomeLocation, Needs};
+use crate::citizen::{CitizenDetails, Needs};
 use crate::grid::ZoneType;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::test_harness::TestCity;
@@ -95,39 +95,6 @@ fn city_unemployed_with_utilities(home: (usize, usize)) -> TestCity {
         .with_unemployed_citizen(home)
         .with_utility(home.0, home.1 + 1, UtilityType::PowerPlant)
         .with_utility(home.0, home.1 - 1, UtilityType::WaterTower)
-}
-
-/// Get happiness of a citizen at a specific home grid location.
-fn citizen_happiness_at(city: &mut TestCity, gx: usize, gy: usize) -> f32 {
-    let world = city.world_mut();
-    world
-        .query::<(&CitizenDetails, &HomeLocation)>()
-        .iter(world)
-        .find(|(_, home)| home.grid_x == gx && home.grid_y == gy)
-        .expect("expected a citizen at the given location")
-        .0
-        .happiness
-}
-
-/// Create a city with two citizens at different home locations, both with utilities.
-/// Used for same-world comparison tests that eliminate cross-world Bevy change
-/// detection noise (~1.8 point drift between separate worlds).
-/// Work is at the midpoint so both citizens have equal commute distance.
-fn two_citizen_city() -> (TestCity, (usize, usize), (usize, usize)) {
-    let home_a = (100, 100);
-    let home_b = (130, 130);
-    let work = (115, 115); // equidistant from both homes (~21.2 cells each)
-    let city = TestCity::new()
-        .with_building(home_a.0, home_a.1, ZoneType::ResidentialLow, 1)
-        .with_building(home_b.0, home_b.1, ZoneType::ResidentialLow, 1)
-        .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
-        .with_citizen(home_a, work)
-        .with_citizen(home_b, work)
-        .with_utility(home_a.0, home_a.1 + 1, UtilityType::PowerPlant)
-        .with_utility(home_a.0, home_a.1 - 1, UtilityType::WaterTower)
-        .with_utility(home_b.0, home_b.1 + 1, UtilityType::PowerPlant)
-        .with_utility(home_b.0, home_b.1 - 1, UtilityType::WaterTower);
-    (city, home_a, home_b)
 }
 
 /// Advance to tick 9, then inject stable needs/health, then tick once more
@@ -318,33 +285,47 @@ fn test_happiness_water_bonus_and_penalty() {
 
 #[test]
 fn test_happiness_health_service_coverage_bonus() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::Hospital);
-    set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(HAPPINESS_TICKS);
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let h_covered = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_uncovered = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    spawn_service(&mut city, home.0, home.1, ServiceType::Hospital);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_covered > h_uncovered,
-        "Health coverage should increase happiness ({h_covered} vs {h_uncovered})"
+        h_after > h_before,
+        "Health coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_park_coverage_bonus() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::SmallPark);
-    set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(HAPPINESS_TICKS);
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let h_park = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_no_park = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    spawn_service(&mut city, home.0, home.1, ServiceType::SmallPark);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_park > h_no_park,
-        "Park coverage should increase happiness ({h_park} vs {h_no_park})"
+        h_after > h_before,
+        "Park coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
@@ -471,81 +452,116 @@ fn test_happiness_high_tax_penalty() {
 
 #[test]
 fn test_happiness_education_service_coverage() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::ElementarySchool);
-    set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(HAPPINESS_TICKS);
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let h_edu = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_no_edu = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    spawn_service(&mut city, home.0, home.1, ServiceType::ElementarySchool);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_edu > h_no_edu,
-        "Education coverage should increase happiness ({h_edu} vs {h_no_edu})"
+        h_after > h_before,
+        "Education coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_police_coverage() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::PoliceStation);
-    set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(HAPPINESS_TICKS);
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let h_police = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_no_police = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    spawn_service(&mut city, home.0, home.1, ServiceType::PoliceStation);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_police > h_no_police,
-        "Police coverage should increase happiness ({h_police} vs {h_no_police})"
+        h_after > h_before,
+        "Police coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_entertainment_coverage() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::Stadium);
-    set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(HAPPINESS_TICKS);
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let h_ent = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_no_ent = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    spawn_service(&mut city, home.0, home.1, ServiceType::Stadium);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_ent > h_no_ent,
-        "Entertainment coverage should increase happiness ({h_ent} vs {h_no_ent})"
+        h_after > h_before,
+        "Entertainment coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_telecom_coverage() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::CellTower);
-    set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(HAPPINESS_TICKS);
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let h_telecom = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_no_telecom = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    spawn_service(&mut city, home.0, home.1, ServiceType::CellTower);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_telecom > h_no_telecom,
-        "Telecom coverage should increase happiness ({h_telecom} vs {h_no_telecom})"
+        h_after > h_before,
+        "Telecom coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
 #[test]
 fn test_happiness_transport_coverage() {
-    let (mut city, home_a, home_b) = two_citizen_city();
-    spawn_service(&mut city, home_a.0, home_a.1, ServiceType::BusDepot);
-    set_needs_and_health(&mut city, 80.0, 90.0);
-    city.tick(HAPPINESS_TICKS);
+    let home = (100, 100);
+    let work = (105, 100);
+    let mut city = city_with_utilities(home, work);
 
-    let h_transport = citizen_happiness_at(&mut city, home_a.0, home_a.1);
-    let h_no_transport = citizen_happiness_at(&mut city, home_b.0, home_b.1);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_before = first_citizen_happiness(&mut city);
+
+    spawn_service(&mut city, home.0, home.1, ServiceType::BusDepot);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    city.tick(1);
+    let h_after = first_citizen_happiness(&mut city);
 
     assert!(
-        h_transport > h_no_transport,
-        "Transport coverage should increase happiness ({h_transport} vs {h_no_transport})"
+        h_after > h_before,
+        "Transport coverage should increase happiness ({h_after} vs {h_before})"
     );
 }
 
