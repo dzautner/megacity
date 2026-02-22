@@ -577,7 +577,9 @@ fn test_downgrade_possible_when_happiness_very_low() {
     // We run many cycles to ensure at least one downgrade happens statistically.
     let mut city = city_with_building_ready_for_downgrade(ZoneType::ResidentialHigh, 5, 10.0);
 
-    // 1% chance per check; 2000 checks → (0.99)^2000 ≈ 2e-9 failure probability
+    // 1% chance per check; 2000 checks → (0.99)^2000 ≈ 2e-9 failure probability.
+    // Break early once downgrade is observed to avoid side effects from long runs.
+    let mut downgraded = false;
     for _ in 0..2000 {
         {
             let world = city.world_mut();
@@ -585,17 +587,21 @@ fn test_downgrade_possible_when_happiness_very_low() {
             world.resource_mut::<CityStats>().average_happiness = 10.0;
         }
         city.tick(1);
+
+        let world = city.world_mut();
+        let building = world
+            .query::<&Building>()
+            .iter(world)
+            .next()
+            .expect("building should exist");
+        if building.level < 5 {
+            downgraded = true;
+            break;
+        }
     }
 
-    let world = city.world_mut();
-    let building = world
-        .query::<&Building>()
-        .iter(world)
-        .next()
-        .expect("building should exist");
-
     assert!(
-        building.level < 5,
+        downgraded,
         "Building should have downgraded from level 5 after many cycles with very low happiness"
     );
 }

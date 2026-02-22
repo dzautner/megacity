@@ -193,18 +193,16 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
-    // Despawn home to make citizen homeless
+    // Despawn home building and clear the grid cell zone to prevent the
+    // building spawner from recreating it (which would let citizen recover).
     let b = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(b);
-
-    // Give the citizen negative savings so recover_from_homelessness
-    // won't remove the Homeless component during the ticks below.
     {
         let world = city.world_mut();
-        let mut q = world.query::<&mut crate::citizen::CitizenDetails>();
-        for mut d in q.iter_mut(world) {
-            d.savings = -100.0;
-        }
+        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
+        let cell = grid.get_mut(50, 50);
+        cell.building_id = None;
+        cell.zone = ZoneType::None;
     }
 
     // Tick to trigger check_homelessness (citizen becomes homeless)
@@ -254,18 +252,16 @@ fn test_homelessness_shelter_capacity_respected() {
         .with_citizen((50, 50), (50, 50))
         .with_citizen((50, 50), (50, 50));
 
-    // Despawn home building to make all 3 citizens homeless
+    // Despawn home building and clear the grid cell zone to prevent the
+    // building spawner from recreating it (which would let citizens recover).
     let b = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(b);
-
-    // Give citizens negative savings so recover_from_homelessness
-    // won't remove the Homeless component during the ticks below.
     {
         let world = city.world_mut();
-        let mut q = world.query::<&mut crate::citizen::CitizenDetails>();
-        for mut d in q.iter_mut(world) {
-            d.savings = -100.0;
-        }
+        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
+        let cell = grid.get_mut(50, 50);
+        cell.building_id = None;
+        cell.zone = ZoneType::None;
     }
 
     // Tick to make citizens homeless
