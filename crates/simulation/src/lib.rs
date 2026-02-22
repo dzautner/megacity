@@ -104,6 +104,7 @@ pub mod road_upgrade;
 pub mod roads;
 pub mod roundabout;
 pub mod save_load_state;
+pub mod saveable_keys;
 pub mod seasonal_rendering;
 pub mod services;
 pub mod simulation_invariants;
@@ -153,10 +154,14 @@ pub mod wind_damage;
 pub mod world_init;
 pub mod zones;
 
+mod plugin_registration;
+
 #[cfg(test)]
 mod integration_tests;
 #[cfg(any(test, feature = "bench"))]
 pub mod test_harness;
+
+pub use saveable_keys::{validate_saveable_registry, EXPECTED_SAVEABLE_KEYS};
 
 use road_graph_csr::CsrGraph;
 use road_segments::RoadSegmentStore;
@@ -292,112 +297,6 @@ impl SaveableRegistry {
 }
 
 // ---------------------------------------------------------------------------
-// Saveable registration validation
-// ---------------------------------------------------------------------------
-
-/// Exhaustive list of every `SAVE_KEY` that types implementing `Saveable` declare
-/// across the codebase. The `validate_saveable_registry` startup system asserts
-/// that each of these keys is present in the `SaveableRegistry`, catching the
-/// class of bugs where a type implements `Saveable` but its plugin forgets to
-/// call `register_saveable`.
-///
-/// When you add a new `Saveable` type, add its key here. The startup assertion
-/// will remind you if you forget to register it.
-pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
-    "blueprint_library",
-    "bicycle_lanes",
-    "bus_transit",
-    "chart_history",
-    "climate_change",
-    "colorblind_settings",
-    "cumulative_zoning",
-    "day_night_controls",
-    "dismissed_advisor_tips",
-    "district_policies",
-    "far_transfer",
-    "flood_protection",
-    "freight_traffic",
-    "form_transect",
-    "game_params",
-    "heat_mitigation",
-    "historic_preservation",
-    "inclusionary_zoning",
-    "keybindings",
-    "landfill_state",
-    "localization",
-    "metro_transit",
-    "mode_share_stats",
-    "multi_select",
-    "neighborhood_quality",
-    "nimby_state",
-    "oneway_direction_map",
-    "parking_policy",
-    "road_hierarchy",
-    "roundabout_registry",
-    "seasonal_effects_config",
-    "seasonal_rendering",
-    "superblock_state",
-    "traffic_los",
-    "train_transit",
-    "tram_transit",
-    "tram_transit_stats",
-    "transit_hub_stats",
-    "transit_hubs",
-    "tutorial",
-    "uhi_mitigation",
-    "walkability",
-    "waste_policies",
-    "water_pressure",
-];
-
-/// Startup system that validates the `SaveableRegistry` against the expected key
-/// list. Panics if any expected key is missing (indicating a `Saveable` type whose
-/// plugin forgot to register it) or if duplicate keys are detected.
-///
-/// Runs in `PostStartup` so all plugins have had a chance to register their types.
-pub fn validate_saveable_registry(registry: Res<SaveableRegistry>) {
-    let registered: std::collections::HashSet<&str> =
-        registry.entries.iter().map(|e| e.key.as_str()).collect();
-
-    // Check for duplicate keys.
-    if registered.len() != registry.entries.len() {
-        let mut seen = std::collections::HashSet::new();
-        for entry in &registry.entries {
-            if !seen.insert(entry.key.as_str()) {
-                panic!(
-                    "SaveableRegistry: duplicate key '{}' detected — two types share the same SAVE_KEY",
-                    entry.key
-                );
-            }
-        }
-    }
-
-    // Check for missing registrations.
-    let mut missing = Vec::new();
-    for &expected in EXPECTED_SAVEABLE_KEYS {
-        if !registered.contains(expected) {
-            missing.push(expected);
-        }
-    }
-
-    if !missing.is_empty() {
-        panic!(
-            "SaveableRegistry drift detected: {} expected key(s) not registered: {:?}. \
-             Each type implementing `Saveable` must be registered via `register_saveable` \
-             in its plugin's `build()` method.",
-            missing.len(),
-            missing,
-        );
-    }
-
-    info!(
-        "SaveableRegistry validated: {} keys registered, all {} expected keys present",
-        registry.entries.len(),
-        EXPECTED_SAVEABLE_KEYS.len(),
-    );
-}
-
-// ---------------------------------------------------------------------------
 // Core resources
 // ---------------------------------------------------------------------------
 
@@ -470,203 +369,8 @@ impl Plugin for SimulationPlugin {
                 tick_lod_frame_counter.in_set(SimulationUpdateSet::Visual),
             );
 
-        // Core simulation chain
-        app.add_plugins((
-            game_params::GameParamsPlugin,
-            time_of_day::TimeOfDayPlugin,
-            zones::ZonesPlugin,
-            buildings::BuildingsPlugin,
-            education_jobs::EducationJobsPlugin,
-            citizen_spawner::CitizenSpawnerPlugin,
-            movement::MovementPlugin,
-            traffic::TrafficPlugin,
-            bicycle_lanes::BicycleLanesPlugin,
-        ));
-
-        // Happiness and services
-        app.add_plugins((
-            postal::PostalPlugin,
-            happiness::HappinessPlugin,
-            economy::EconomyPlugin,
-            stats::StatsPlugin,
-            chart_data::ChartDataPlugin,
-            utilities::UtilitiesPlugin,
-            network_viz::NetworkVizPlugin,
-            education::EducationPlugin,
-        ));
-
-        // Pollution, land value, garbage, districts
-        app.add_plugins((
-            pollution::PollutionPlugin,
-            land_value::LandValuePlugin,
-            garbage::GarbagePlugin,
-            districts::DistrictsPlugin,
-            district_policies::DistrictPoliciesPlugin,
-            superblock::SuperblockPlugin,
-            neighborhood_quality::NeighborhoodQualityPlugin,
-            lifecycle::LifecyclePlugin,
-            building_upgrade::BuildingUpgradePlugin,
-            imports_exports::ImportsExportsPlugin,
-            historic_preservation::HistoricPreservationPlugin,
-            inclusionary_zoning::InclusionaryZoningPlugin,
-            far_transfer::FarTransferPlugin,
-        ));
-
-        // Waste and recycling
-        app.add_plugins((
-            waste_effects::WasteEffectsPlugin,
-            recycling::RecyclingPlugin,
-            road_maintenance::RoadMaintenancePlugin,
-            road_upgrade::RoadUpgradePlugin,
-            curve_road_drawing::CurveRoadDrawingPlugin,
-            oneway::OneWayPlugin,
-            traffic_accidents::TrafficAccidentsPlugin,
-            traffic_congestion::TrafficCongestionPlugin,
-            traffic_los::TrafficLosPlugin,
-            road_hierarchy::RoadHierarchyPlugin,
-            bus_transit::BusTransitPlugin,
-            transit_hub::TransitHubPlugin,
-            loans::LoansPlugin,
-            bulldoze_refund::BulldozeRefundPlugin,
-            roundabout::RoundaboutPlugin,
-        ));
-
-        // Day/night visual controls
-        app.add_plugins(day_night_controls::DayNightControlsPlugin);
-
-        // Weather and environment
-        app.add_plugins((
-            weather::WeatherPlugin,
-            fog::FogPlugin,
-            degree_days::DegreeDaysPlugin,
-            heating::HeatingPlugin,
-            wind::WindPlugin,
-            wind_damage::WindDamagePlugin,
-            urban_heat_island::UrbanHeatIslandPlugin,
-            uhi_mitigation::UhiMitigationPlugin,
-            drought::DroughtPlugin,
-            noise::NoisePlugin,
-            crime::CrimePlugin,
-            health::HealthPlugin,
-            death_care::DeathCarePlugin,
-            climate_change::ClimateChangePlugin,
-            seasonal_rendering::SeasonalRenderingPlugin,
-        ));
-
-        // Water systems
-        app.add_plugins((
-            water_pollution::WaterPollutionPlugin,
-            groundwater::GroundwaterPlugin,
-            stormwater::StormwaterPlugin,
-            water_demand::WaterDemandPlugin,
-            heat_wave::HeatWavePlugin,
-            heat_mitigation::HeatMitigationPlugin,
-            composting::CompostingPlugin,
-            cold_snap::ColdSnapPlugin,
-            cso::CsoPlugin,
-            water_treatment::WaterTreatmentPlugin,
-            water_conservation::WaterConservationPlugin,
-            water_pressure::WaterPressurePlugin,
-            groundwater_depletion::GroundwaterDepletionPlugin,
-            wastewater::WastewaterPlugin,
-        ));
-
-        // Waste management
-        app.add_plugins((
-            hazardous_waste::HazardousWastePlugin,
-            landfill::LandfillPlugin,
-            landfill_gas::LandfillGasPlugin,
-            landfill_warning::LandfillWarningPlugin,
-            waste_policies::WastePoliciesPlugin,
-        ));
-
-        // Infrastructure and resources
-        app.add_plugins((
-            storm_drainage::StormDrainagePlugin,
-            water_sources::WaterSourcesPlugin,
-            natural_resources::NaturalResourcesPlugin,
-            wealth::WealthPlugin,
-            tourism::TourismPlugin,
-            unlocks::UnlocksPlugin,
-            reservoir::ReservoirPlugin,
-            flood_simulation::FloodSimulationPlugin,
-            flood_protection::FloodProtectionPlugin,
-            trees::TreesPlugin,
-            airport::AirportPlugin,
-            metro_transit::MetroTransitPlugin,
-            train_transit::TrainTransitPlugin,
-            snow::SnowPlugin,
-        ));
-
-        // Transit and connections
-        app.add_plugins((
-            tram_transit::TramTransitPlugin,
-            outside_connections::OutsideConnectionsPlugin,
-        ));
-
-        // Production and economy
-        app.add_plugins((
-            agriculture::AgriculturePlugin,
-            production::ProductionPlugin,
-            market::MarketPlugin,
-            events::EventsPlugin,
-            notifications::NotificationsPlugin,
-            specialization::SpecializationPlugin,
-            advisors::AdvisorsPlugin,
-            achievements::AchievementsPlugin,
-            freight_traffic::FreightTrafficPlugin,
-        ));
-
-        // Building lifecycle and disasters
-        app.add_plugins((
-            abandonment::AbandonmentPlugin,
-            fire::FirePlugin,
-            forest_fire::ForestFirePlugin,
-            disasters::DisastersPlugin,
-        ));
-
-        // Citizens and population
-        app.add_plugins((
-            life_simulation::LifeSimulationPlugin,
-            homelessness::HomelessnessPlugin,
-            welfare::WelfarePlugin,
-            immigration::ImmigrationPlugin,
-            lod::LodPlugin,
-            virtual_population::VirtualPopulationPlugin,
-            urban_growth_boundary::UrbanGrowthBoundaryPlugin,
-            nimby::NimbyPlugin,
-            walkability::WalkabilityPlugin,
-            form_transect::FormTransectPlugin,
-            cumulative_zoning::CumulativeZoningPlugin,
-            parking::ParkingPlugin,
-            tutorial::TutorialPlugin,
-            multi_select::MultiSelectPlugin,
-        ));
-        app.add_plugins((
-            blueprints::BlueprintPlugin,
-            simulation_invariants::SimulationInvariantsPlugin,
-        ));
-
-        // Mode choice (TRAF-007)
-        app.add_plugins(mode_choice::ModeChoicePlugin);
-
-        // Localization infrastructure
-        app.add_plugins(localization::LocalizationPlugin);
-
-        // Accessibility
-        app.add_plugins(colorblind::ColorblindPlugin);
-
-        // Customizable keybindings
-        app.add_plugins(keybindings::KeyBindingsPlugin);
-
-        // Freehand road drawing (UX-020)
-        app.add_plugins(freehand_road::FreehandRoadPlugin);
-
-        // Auto-grid road placement (TRAF-010)
-        app.add_plugins(auto_grid_road::AutoGridRoadPlugin);
-
-        // Undo/redo system
-        app.add_plugins(undo_redo::UndoRedoPlugin);
+        // Register all feature plugins (extracted to separate file for conflict-free additions)
+        plugin_registration::register_feature_plugins(app);
     }
 }
 
