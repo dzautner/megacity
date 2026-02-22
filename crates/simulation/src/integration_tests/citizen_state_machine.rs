@@ -117,14 +117,13 @@ fn test_at_home_transitions_to_commuting_to_work_at_work_hour() {
 
     // The citizen should have left the AtHome state. They could be in
     // CommutingToWork (path found) or Working (if they arrived quickly).
-    let at_home = city.citizens_in_state(CitizenState::AtHome);
     let commuting = city.citizens_in_state(CitizenState::CommutingToWork);
     let working = city.citizens_in_state(CitizenState::Working);
 
     assert!(
         commuting > 0 || working > 0,
         "citizen should have started commuting or arrived at work during morning hours, \
-         but found: AtHome={at_home}, CommutingToWork={commuting}, Working={working}"
+         but found: CommutingToWork={commuting}, Working={working}"
     );
 }
 
@@ -286,9 +285,9 @@ fn test_citizen_without_valid_home_becomes_homeless() {
             .iter(world)
             .count()
     };
-    assert_eq!(
-        homeless_count, 1,
-        "citizen with despawned home should become homeless"
+    assert!(
+        homeless_count >= 1,
+        "citizen with despawned home should become homeless, got {homeless_count}"
     );
 }
 
@@ -300,6 +299,8 @@ fn test_citizen_without_valid_home_becomes_homeless() {
 fn test_full_daily_commute_cycle() {
     // Start at 6 AM and run through an entire day. With roads connecting
     // home and work, the citizen should go through the full cycle.
+    // Track the specific citizen entity rather than total count, since
+    // the citizen spawner may create additional citizens during ticking.
     let mut city = TestCity::new()
         .with_road(100, 100, 100, 110, RoadType::Local)
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
@@ -308,17 +309,30 @@ fn test_full_daily_commute_cycle() {
         .with_time(6.0)
         .rebuild_csr();
 
+    // Capture the entity of our test citizen before ticking
+    let citizen_entity = {
+        let world = city.world_mut();
+        world
+            .query_filtered::<Entity, With<Citizen>>()
+            .iter(world)
+            .next()
+            .expect("citizen should exist")
+    };
+
     // Run a full day (24h * 60 min/h = 1440 ticks at 1 min/tick)
     city.tick(1500);
 
-    // After a full day, the citizen should have returned home.
-    // They may be AtHome or in any state depending on exact timing,
-    // but the important thing is they completed the cycle without crashing.
-    let total = city.citizen_count();
-    assert_eq!(total, 1, "citizen should still exist after full day cycle");
+    // After a full day, the citizen entity should still exist.
+    let still_exists = {
+        let world = city.world_mut();
+        world.get::<CitizenStateComp>(citizen_entity).is_some()
+    };
+    assert!(
+        still_exists,
+        "citizen entity should still exist after full day cycle"
+    );
 
-    // Check the citizen went through at least part of the cycle:
-    // the game clock should have advanced past 24h (i.e., day >= 2)
+    // Check the game clock advanced past 24h (day >= 2)
     let clock = city.clock();
     assert!(
         clock.day >= 2,
@@ -335,6 +349,7 @@ fn test_full_daily_commute_cycle() {
 fn test_paused_clock_prevents_state_transitions() {
     // When the game clock is paused, the citizen state machine should
     // not process any transitions.
+    // Track a specific citizen entity to avoid confusion with spawned citizens.
     let mut city = TestCity::new()
         .with_road(100, 100, 100, 115, RoadType::Local)
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
@@ -342,6 +357,16 @@ fn test_paused_clock_prevents_state_transitions() {
         .with_citizen((100, 100), (100, 115))
         .with_time(7.5)
         .rebuild_csr();
+
+    // Capture our citizen entity
+    let citizen_entity = {
+        let world = city.world_mut();
+        world
+            .query_filtered::<Entity, With<Citizen>>()
+            .iter(world)
+            .next()
+            .expect("citizen should exist")
+    };
 
     // Pause the clock
     {
@@ -351,10 +376,14 @@ fn test_paused_clock_prevents_state_transitions() {
 
     city.tick(200);
 
-    // Citizen should remain AtHome because the clock is paused
-    let at_home = city.citizens_in_state(CitizenState::AtHome);
+    // Our specific citizen should remain AtHome because the clock is paused
+    let state = {
+        let world = city.world_mut();
+        world.get::<CitizenStateComp>(citizen_entity).map(|s| s.0)
+    };
     assert_eq!(
-        at_home, 1,
+        state,
+        Some(CitizenState::AtHome),
         "citizen should remain AtHome when clock is paused"
     );
 }
@@ -366,7 +395,7 @@ fn test_paused_clock_prevents_state_transitions() {
 #[test]
 fn test_citizen_stays_at_home_outside_commute_hours() {
     // At 3 AM (well outside commute window), a citizen with a job
-    // should remain AtHome.
+    // should remain AtHome. Track the specific entity.
     let mut city = TestCity::new()
         .with_road(100, 100, 100, 115, RoadType::Local)
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
@@ -375,12 +404,25 @@ fn test_citizen_stays_at_home_outside_commute_hours() {
         .with_time(3.0)
         .rebuild_csr();
 
+    let citizen_entity = {
+        let world = city.world_mut();
+        world
+            .query_filtered::<Entity, With<Citizen>>()
+            .iter(world)
+            .next()
+            .expect("citizen should exist")
+    };
+
     // Only tick a few times (not enough to advance the clock to commute hour)
     city.tick(50);
 
-    let at_home = city.citizens_in_state(CitizenState::AtHome);
+    let state = {
+        let world = city.world_mut();
+        world.get::<CitizenStateComp>(citizen_entity).map(|s| s.0)
+    };
     assert_eq!(
-        at_home, 1,
+        state,
+        Some(CitizenState::AtHome),
         "citizen should stay AtHome at 3 AM (outside commute hours)"
     );
 }
@@ -616,45 +658,45 @@ fn test_multiple_citizens_different_states() {
         .with_building(100, 100, ZoneType::ResidentialLow, 1)
         .with_building(100, 115, ZoneType::CommercialLow, 1);
 
-    // Spawn citizens in different states
-    spawn_citizen_in_state(
+    // Spawn citizens in different states and track their entities
+    let home_citizen = spawn_citizen_in_state(
         &mut city,
         (100, 100),
         Some((100, 115)),
         CitizenState::AtHome,
     );
-    spawn_citizen_in_state(
+    let working_citizen = spawn_citizen_in_state(
         &mut city,
         (100, 100),
         Some((100, 115)),
         CitizenState::Working,
     );
-    spawn_citizen_in_state(
+    let commuting_citizen = spawn_citizen_in_state(
         &mut city,
         (100, 100),
         Some((100, 115)),
         CitizenState::CommutingHome,
     );
 
-    // Verify we can query each state
-    // Note: CommutingHome citizen will transition to AtHome on the first tick
-    // since their path is empty, so check before ticking.
+    // Verify each citizen is in the expected state (before ticking)
+    let world = city.world_mut();
     assert_eq!(
-        city.citizens_in_state(CitizenState::AtHome),
-        1,
-        "should have 1 AtHome citizen"
+        world.get::<CitizenStateComp>(home_citizen).map(|s| s.0),
+        Some(CitizenState::AtHome),
+        "first citizen should be AtHome"
     );
     assert_eq!(
-        city.citizens_in_state(CitizenState::Working),
-        1,
-        "should have 1 Working citizen"
+        world.get::<CitizenStateComp>(working_citizen).map(|s| s.0),
+        Some(CitizenState::Working),
+        "second citizen should be Working"
     );
     assert_eq!(
-        city.citizens_in_state(CitizenState::CommutingHome),
-        1,
-        "should have 1 CommutingHome citizen"
+        world
+            .get::<CitizenStateComp>(commuting_citizen)
+            .map(|s| s.0),
+        Some(CitizenState::CommutingHome),
+        "third citizen should be CommutingHome"
     );
-    assert_eq!(city.citizen_count(), 3, "should have 3 total citizens");
 }
 
 // ====================================================================
