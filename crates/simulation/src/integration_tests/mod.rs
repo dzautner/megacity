@@ -5,6 +5,7 @@ mod behavioral_save_load;
 mod bicycle_lanes;
 mod blueprint_system;
 mod budget;
+mod building_spawner;
 mod buildings;
 mod bulldoze_refund;
 mod citizens;
