@@ -8,13 +8,13 @@
 //! `TickCounter.is_multiple_of(10)` (i.e., every 10th FixedUpdate tick).
 //! Various simulation sub-systems (utility propagation, service coverage,
 //! traffic density, needs decay) also run during FixedUpdate and can
-//! overwrite manually-set state. The tests use a "tick then inject" pattern:
-//!   1. `tick(1)` — let the first wave of initialization systems run
+//! overwrite manually-set state. The tests use a "late inject" pattern:
+//!   1. `tick(9)` — let initialization and intermediate systems settle
 //!   2. Inject test-specific state (coverage flags, needs, etc.)
-//!   3. `tick(9)` — advance to tick 10 where happiness fires
+//!   3. `tick(1)` — advance to tick 10 where happiness fires
 //!
-//! This ensures that happiness reads the injected state rather than
-//! defaults or system-cleared values.
+//! Injecting at tick 9 (rather than tick 1) minimizes the window for
+//! other systems (update_needs, etc.) to overwrite the injected values.
 
 use crate::citizen::{CitizenDetails, Needs};
 use crate::grid::ZoneType;
@@ -92,13 +92,14 @@ fn city_unemployed_with_utilities(home: (usize, usize)) -> TestCity {
         .with_utility(home.0, home.1 - 1, UtilityType::WaterTower)
 }
 
-/// Tick(1) to let initialization systems run, then re-set needs to
-/// consistent values, then tick(9) so happiness fires at counter=10.
+/// Advance to tick 9, then inject stable needs/health, then tick once more
+/// so happiness fires at counter=10 with our injected values still fresh.
+/// Injecting at tick 9 instead of tick 1 minimizes the window for other
+/// systems (update_needs, etc.) to overwrite injected state.
 fn tick_with_stable_needs(city: &mut TestCity) {
-    city.tick(1);
-    // Re-set needs after first tick to avoid initialization noise
-    set_needs_and_health(city, 80.0, 90.0);
     city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(city, 80.0, 90.0);
+    city.tick(1);
 }
 
 // ====================================================================
@@ -564,7 +565,7 @@ fn test_happiness_transport_coverage() {
     let work = (120, 100);
 
     let mut transport_city = city_with_utilities(home, work);
-    transport_city.tick(1);
+    transport_city.tick(HAPPINESS_TICKS - 1);
     set_coverage_flags(
         &mut transport_city,
         home.0,
@@ -572,7 +573,7 @@ fn test_happiness_transport_coverage() {
         crate::happiness::COVERAGE_TRANSPORT,
     );
     set_needs_and_health(&mut transport_city, 80.0, 90.0);
-    transport_city.tick(HAPPINESS_TICKS - 1);
+    transport_city.tick(1);
 
     let mut no_transport_city = city_with_utilities(home, work);
     tick_with_stable_needs(&mut no_transport_city);
@@ -654,14 +655,14 @@ fn test_happiness_low_health_penalty() {
     let work = (120, 100);
 
     let mut healthy_city = city_with_utilities(home, work);
-    healthy_city.tick(1);
-    set_needs_and_health(&mut healthy_city, 80.0, 90.0);
     healthy_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut healthy_city, 80.0, 90.0);
+    healthy_city.tick(1);
 
     let mut sick_city = city_with_utilities(home, work);
-    sick_city.tick(1);
-    set_needs_and_health(&mut sick_city, 80.0, 10.0);
     sick_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut sick_city, 80.0, 10.0);
+    sick_city.tick(1);
 
     let h_healthy = first_citizen_happiness(&mut healthy_city);
     let h_sick = first_citizen_happiness(&mut sick_city);
@@ -678,14 +679,14 @@ fn test_happiness_needs_satisfaction_impact() {
     let work = (120, 100);
 
     let mut satisfied_city = city_with_utilities(home, work);
-    satisfied_city.tick(1);
-    set_needs_and_health(&mut satisfied_city, 100.0, 90.0);
     satisfied_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut satisfied_city, 100.0, 90.0);
+    satisfied_city.tick(1);
 
     let mut unsatisfied_city = city_with_utilities(home, work);
-    unsatisfied_city.tick(1);
-    set_needs_and_health(&mut unsatisfied_city, 10.0, 90.0);
     unsatisfied_city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut unsatisfied_city, 10.0, 90.0);
+    unsatisfied_city.tick(1);
 
     let h_sat = first_citizen_happiness(&mut satisfied_city);
     let h_unsat = first_citizen_happiness(&mut unsatisfied_city);

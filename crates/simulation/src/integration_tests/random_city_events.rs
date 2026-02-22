@@ -224,7 +224,8 @@ fn test_random_events_epidemic_effect_ticks_decrement() {
     );
 }
 
-/// Test that apply_active_effects drains health during an active epidemic.
+/// Test that apply_active_effects drains health during an active epidemic
+/// by comparing an epidemic city against a non-epidemic baseline.
 #[test]
 fn test_random_events_epidemic_drains_health() {
     use crate::citizen::CitizenDetails;
@@ -232,32 +233,48 @@ fn test_random_events_epidemic_drains_health() {
 
     let home = (10, 10);
     let work = (15, 15);
-    let mut city = TestCity::new()
+
+    // City WITH epidemic
+    let mut epidemic_city = TestCity::new()
+        .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
+        .with_building(work.0, work.1, ZoneType::Industrial, 1)
+        .with_citizen(home, work);
+    {
+        let world = epidemic_city.world_mut();
+        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 50;
+    }
+
+    // Identical city WITHOUT epidemic
+    let mut baseline_city = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::Industrial, 1)
         .with_citizen(home, work);
 
-    {
-        let world = city.world_mut();
-        let mut q = world.query::<&mut CitizenDetails>();
-        for mut details in q.iter_mut(world) {
-            details.health = 80.0;
-        }
-    }
-    {
-        let world = city.world_mut();
-        world.resource_mut::<ActiveCityEffects>().epidemic_ticks = 50;
-    }
+    epidemic_city.tick_slow_cycles(3);
+    baseline_city.tick_slow_cycles(3);
 
-    city.tick_slow_cycles(3);
+    let epidemic_health = {
+        let world = epidemic_city.world_mut();
+        world
+            .query::<&CitizenDetails>()
+            .iter(world)
+            .next()
+            .unwrap()
+            .health
+    };
+    let baseline_health = {
+        let world = baseline_city.world_mut();
+        world
+            .query::<&CitizenDetails>()
+            .iter(world)
+            .next()
+            .unwrap()
+            .health
+    };
 
-    let world = city.world_mut();
-    let mut q = world.query::<&CitizenDetails>();
-    let health = q.iter(world).next().unwrap().health;
     assert!(
-        health < 80.0,
-        "Epidemic should drain health below 80, got {}",
-        health
+        epidemic_health < baseline_health,
+        "Epidemic city should have lower health ({epidemic_health}) than baseline ({baseline_health})"
     );
 }
 
