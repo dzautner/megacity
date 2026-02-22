@@ -22,6 +22,7 @@ mod freehand_road;
 mod freight_traffic;
 mod game_params;
 mod ghost_road_pathfinding;
+mod happiness_formula;
 mod harness_bootstrap;
 mod homelessness;
 mod job_capacity;
