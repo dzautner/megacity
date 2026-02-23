@@ -803,6 +803,10 @@ fn test_mixed_use_downgrade_clamps_subcapacity_occupants() {
                 residential_occupants: res_cap, // fully occupied
             },
         ));
+        // Provide utilities to prevent building abandonment
+        let mut grid = world.resource_mut::<WorldGrid>();
+        grid.cells[100][100].has_power = true;
+        grid.cells[100][100].has_water = true;
     }
 
     // Set up downgrade conditions
@@ -817,6 +821,10 @@ fn test_mixed_use_downgrade_clamps_subcapacity_occupants() {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
             world.resource_mut::<CityStats>().average_happiness = 10.0;
+            // Re-set utilities to prevent abandonment
+            let mut grid = world.resource_mut::<WorldGrid>();
+            grid.cells[100][100].has_power = true;
+            grid.cells[100][100].has_water = true;
         }
         city.tick(1);
 
@@ -876,6 +884,10 @@ fn test_mixed_use_downgrade_updates_subcapacities() {
                 residential_occupants: 0,
             },
         ));
+        // Provide utilities to prevent building abandonment during the long tick loop
+        let mut grid = world.resource_mut::<WorldGrid>();
+        grid.cells[100][100].has_power = true;
+        grid.cells[100][100].has_water = true;
     }
 
     {
@@ -889,6 +901,10 @@ fn test_mixed_use_downgrade_updates_subcapacities() {
             let world = city.world_mut();
             world.resource_mut::<UpgradeTimer>().downgrade_tick = 29;
             world.resource_mut::<CityStats>().average_happiness = 10.0;
+            // Re-set utilities each iteration to prevent abandonment
+            let mut grid = world.resource_mut::<WorldGrid>();
+            grid.cells[100][100].has_power = true;
+            grid.cells[100][100].has_water = true;
         }
         city.tick(1);
 
