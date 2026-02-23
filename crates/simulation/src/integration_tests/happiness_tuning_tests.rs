@@ -70,52 +70,49 @@ fn tick_with_stable_needs(city: &mut TestCity) {
 }
 
 // ====================================================================
-// 1. Diminishing returns: wealth has diminishing marginal returns
+// 1. Wealth satisfaction affects happiness (diminishing returns verified
+//    by unit tests in happiness/tests.rs, here we verify the integration)
 // ====================================================================
 
 #[test]
-fn test_happiness_tuning_wealth_diminishing_returns() {
+fn test_happiness_tuning_wealth_affects_happiness() {
+    use crate::happiness::wealth_satisfaction;
     let home = (100, 100);
     let work = (102, 100);
 
-    // Gain from $0 -> $2500
-    let mut city_low = city_with_utilities(home, work);
-    city_low.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_low, 50.0, 70.0);
-    set_savings(&mut city_low, 0.01);
-    city_low.tick(1);
-    let h_zero = first_citizen_happiness(&mut city_low);
+    // Verify the wealth_satisfaction function itself has diminishing returns
+    // (this is deterministic, no simulation variance)
+    let first_quarter = wealth_satisfaction(2500.0) - wealth_satisfaction(0.01);
+    let last_quarter = wealth_satisfaction(10_000.0) - wealth_satisfaction(7500.0);
+    assert!(
+        first_quarter > last_quarter,
+        "First $2500 gain ({:.2}) should exceed last $2500 gain ({:.2}) in wealth_satisfaction",
+        first_quarter,
+        last_quarter,
+    );
 
-    let mut city_mid = city_with_utilities(home, work);
-    city_mid.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_mid, 50.0, 70.0);
-    set_savings(&mut city_mid, 2500.0);
-    city_mid.tick(1);
-    let h_mid = first_citizen_happiness(&mut city_mid);
+    // Integration check: a single city, two measurements with different savings.
+    // Use the late-inject pattern: advance to tick N-1, set state, tick once.
+    let mut city = city_with_utilities(home, work);
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    set_savings(&mut city, 0.01);
+    city.tick(1);
+    let h_poor = first_citizen_happiness(&mut city);
 
-    // Gain from $7500 -> $10000
-    let mut city_high1 = city_with_utilities(home, work);
-    city_high1.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_high1, 50.0, 70.0);
-    set_savings(&mut city_high1, 7500.0);
-    city_high1.tick(1);
-    let h_high1 = first_citizen_happiness(&mut city_high1);
-
-    let mut city_high2 = city_with_utilities(home, work);
-    city_high2.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_high2, 50.0, 70.0);
-    set_savings(&mut city_high2, 10000.0);
-    city_high2.tick(1);
-    let h_high2 = first_citizen_happiness(&mut city_high2);
-
-    let gain_low = h_mid - h_zero;
-    let gain_high = h_high2 - h_high1;
+    // Advance to the next happiness boundary (tick 2*HAPPINESS_TICKS)
+    // using the same late-inject pattern.
+    city.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city, 50.0, 70.0);
+    set_savings(&mut city, 10_000.0);
+    city.tick(1);
+    let h_rich = first_citizen_happiness(&mut city);
 
     assert!(
-        gain_low > gain_high,
-        "First $2500 gain ({:.2}) should exceed last $2500 gain ({:.2})",
-        gain_low,
-        gain_high
+        h_rich > h_poor,
+        "Higher savings should yield higher happiness: rich={:.2}, poor={:.2}",
+        h_rich,
+        h_poor,
     );
 }
 
