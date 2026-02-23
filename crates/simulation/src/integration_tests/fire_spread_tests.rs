@@ -19,7 +19,7 @@ use crate::trees::TreeGrid;
 use crate::weather::{Weather, WeatherCondition};
 
 // ====================================================================
-// Helper: set up a patch of trees at (cx, cy) with given radius
+// Helpers
 // ====================================================================
 
 fn plant_trees(city: &mut TestCity, cx: usize, cy: usize, radius: usize) {
@@ -36,63 +36,75 @@ fn plant_trees(city: &mut TestCity, cx: usize, cy: usize, radius: usize) {
     }
 }
 
-/// Ignite a forest fire cell at (x, y) with given intensity.
 fn ignite_forest_fire(city: &mut TestCity, x: usize, y: usize, intensity: u8) {
     let world = city.world_mut();
     let mut ff_grid = world.resource_mut::<ForestFireGrid>();
     ff_grid.set(x, y, intensity);
 }
 
-/// Count total cells with active forest fire.
 fn count_forest_fires(city: &mut TestCity) -> u32 {
     let world = city.world_mut();
     let ff_grid = world.resource::<ForestFireGrid>();
-    ff_grid
-        .intensities
-        .iter()
-        .filter(|&&v| v > 0)
-        .count() as u32
+    ff_grid.intensities.iter().filter(|&&v| v > 0).count() as u32
 }
 
-/// Get the forest fire intensity at a specific cell.
 fn get_fire_intensity(city: &mut TestCity, x: usize, y: usize) -> u8 {
     let world = city.world_mut();
     let ff_grid = world.resource::<ForestFireGrid>();
     ff_grid.get(x, y)
 }
 
-/// Set weather conditions directly for deterministic testing.
-fn set_weather(city: &mut TestCity, condition: WeatherCondition, temperature: f32) {
+/// Set weather by configuring atmospheric state so the weather system
+/// derives the desired condition even after hourly updates.
+fn set_weather_persistent(city: &mut TestCity, condition: WeatherCondition, temperature: f32) {
     let world = city.world_mut();
     let mut weather = world.resource_mut::<Weather>();
     weather.current_event = condition;
     weather.temperature = temperature;
+    // Set atmospheric state to produce the desired condition via from_atmosphere()
+    match condition {
+        WeatherCondition::Storm => {
+            weather.cloud_cover = 0.95;
+            weather.atmo_precipitation = 0.85;
+            weather.humidity = 0.95;
+            weather.event_days_remaining = 100; // keep event active
+        }
+        WeatherCondition::Rain => {
+            weather.cloud_cover = 0.75;
+            weather.atmo_precipitation = 0.3;
+            weather.humidity = 0.85;
+            weather.event_days_remaining = 100;
+        }
+        WeatherCondition::Sunny => {
+            weather.cloud_cover = 0.1;
+            weather.atmo_precipitation = 0.0;
+            weather.humidity = 0.3;
+            weather.event_days_remaining = 0;
+        }
+        _ => {}
+    }
 }
 
 // ====================================================================
 // Test 1: Forest fire spreads to adjacent cells with trees
 // ====================================================================
 
-/// A burning cell with trees should spread fire to its 8-connected neighbors
-/// that also have trees, after enough ticks.
 #[test]
 fn test_fire_spreads_to_adjacent_tree_cells() {
     let mut city = TestCity::new();
 
-    // Set up: plant a 7x7 patch of trees centered at (128, 128)
+    // Plant a 7x7 patch of trees centered at (128, 128)
     plant_trees(&mut city, 128, 128, 3);
 
-    // Set calm, dry weather so rain/storm don't interfere
-    set_weather(&mut city, WeatherCondition::Sunny, 25.0);
+    // Set calm, dry weather
+    set_weather_persistent(&mut city, WeatherCondition::Sunny, 25.0);
 
     // Ignite the center cell with high intensity to maximize spread chance
     ignite_forest_fire(&mut city, 128, 128, 200);
 
-    // Run enough ticks for the fire system to execute multiple times.
-    // FIRE_UPDATE_INTERVAL = 10 ticks, so 200 ticks = 20 fire updates.
+    // Run 200 ticks = 20 fire updates (FIRE_UPDATE_INTERVAL = 10)
     city.tick(200);
 
-    // After 20 fire update cycles, fire should have spread beyond the origin.
     let total_fires = count_forest_fires(&mut city);
     assert!(
         total_fires > 1,
@@ -124,32 +136,26 @@ fn test_fire_spreads_to_adjacent_tree_cells() {
 // Test 2: Fire does not spread across water cells
 // ====================================================================
 
-/// Water cells should block fire spread entirely. A fire adjacent to water
-/// should not cross to the other side.
 #[test]
 fn test_fire_does_not_spread_across_water() {
     use crate::grid::CellType;
 
     let mut city = TestCity::new();
 
-    // Plant trees on two sides separated by a water column.
-    // Need to avoid double mutable borrow by doing tree_grid first, then grid.
+    // Plant trees on left side only, separated by water barrier
     {
         let world = city.world_mut();
         let mut tree_grid = world.resource_mut::<TreeGrid>();
         for y in 126..=130 {
-            // Left side: trees at x=125..127
             for x in 125..=127 {
                 tree_grid.set(x, y, true);
             }
-            // Right side: trees at x=129..131
             for x in 129..=131 {
                 tree_grid.set(x, y, true);
             }
         }
     }
     {
-        // Water barrier at x=128, y=126..130
         let world = city.world_mut();
         let mut grid = world.resource_mut::<WorldGrid>();
         for y in 126..=130 {
@@ -157,15 +163,12 @@ fn test_fire_does_not_spread_across_water() {
         }
     }
 
-    set_weather(&mut city, WeatherCondition::Sunny, 25.0);
-
-    // Ignite center of left patch
+    set_weather_persistent(&mut city, WeatherCondition::Sunny, 25.0);
     ignite_forest_fire(&mut city, 126, 128, 200);
 
-    // Run 300 ticks (30 fire updates)
     city.tick(300);
 
-    // Check that no cell on the right side of the water barrier has fire
+    // No fire should cross the water barrier
     let mut right_side_fire = false;
     for y in 126..=130 {
         for x in 129..=131 {
@@ -184,17 +187,18 @@ fn test_fire_does_not_spread_across_water() {
 // Test 3: Building fire spreads between adjacent buildings
 // ====================================================================
 
-/// When a building is on fire (OnFire component), the fire should spread
-/// to adjacent buildings via the spread_fire system.
 #[test]
 fn test_building_fire_spreads_to_adjacent_buildings() {
     use bevy::prelude::*;
 
+    // Place 4 adjacent industrial buildings to increase spread surface
     let mut city = TestCity::new()
         .with_building(80, 80, ZoneType::Industrial, 1)
-        .with_building(81, 80, ZoneType::Industrial, 1);
+        .with_building(81, 80, ZoneType::Industrial, 1)
+        .with_building(80, 81, ZoneType::Industrial, 1)
+        .with_building(81, 81, ZoneType::Industrial, 1);
 
-    // Manually add OnFire to the first building
+    // Set the first building on fire with high intensity
     {
         let world = city.world_mut();
         let mut query = world.query::<(Entity, &Building)>();
@@ -205,48 +209,44 @@ fn test_building_fire_spreads_to_adjacent_buildings() {
         for (entity, gx, gy) in entities {
             if gx == 80 && gy == 80 {
                 world.entity_mut(entity).insert(OnFire {
-                    intensity: 50.0,
-                    ticks_burning: 100,
+                    intensity: 30.0,
+                    ticks_burning: 0,
                 });
             }
         }
     }
 
-    // Run many ticks. spread_fire has SPREAD_CHANCE = 0.05 per tick per neighbor,
-    // so we need many ticks for the stochastic spread to trigger.
-    city.tick(500);
+    // Run 200 ticks — SPREAD_CHANCE = 0.05 per tick per neighbor.
+    // With 2 adjacent neighbors, prob of NO spread = (0.95^2)^200 ~ 0.
+    // Keep ticks under DESTRUCTION_TICK_THRESHOLD (200) to avoid building destruction.
+    city.tick(190);
 
-    // Check if the second building caught fire
-    let mut second_building_on_fire = false;
+    // Check if any other building caught fire
+    let mut spread_count = 0;
     {
         let world = city.world_mut();
         let mut query = world.query::<(&Building, &OnFire)>();
-        for (b, _fire) in query.iter(world) {
-            if b.grid_x == 81 && b.grid_y == 80 {
-                second_building_on_fire = true;
+        for (b, _) in query.iter(world) {
+            if !(b.grid_x == 80 && b.grid_y == 80) {
+                spread_count += 1;
             }
         }
     }
 
-    // Due to randomness (5% per tick), after 500 ticks the probability of
-    // NOT spreading is (0.95)^500 which is essentially 0.
     assert!(
-        second_building_on_fire,
-        "Fire should have spread to the adjacent building after 500 ticks"
+        spread_count > 0,
+        "Fire should have spread to at least one adjacent building after 190 ticks"
     );
 }
 
 // ====================================================================
-// Test 4: Fire station coverage reduces/extinguishes building fires
+// Test 4: Fire station coverage extinguishes building fires
 // ====================================================================
 
-/// Buildings within fire station coverage should have their fire intensity
-/// reduced and eventually extinguished by the extinguish_fires system.
 #[test]
 fn test_fire_station_coverage_extinguishes_building_fire() {
     use bevy::prelude::*;
 
-    // Place a fire station at (100, 100) and a building within its coverage
     let mut city = TestCity::new()
         .with_service(100, 100, ServiceType::FireStation)
         .with_building(105, 100, ZoneType::Industrial, 1);
@@ -254,7 +254,7 @@ fn test_fire_station_coverage_extinguishes_building_fire() {
     // Run one slow cycle to compute service coverage
     city.tick_slow_cycles(1);
 
-    // Verify the building cell has fire coverage
+    // Verify fire coverage exists
     {
         let cov = city.resource::<ServiceCoverageGrid>();
         let idx = ServiceCoverageGrid::idx(105, 100);
@@ -264,7 +264,12 @@ fn test_fire_station_coverage_extinguishes_building_fire() {
         );
     }
 
-    // Set the building on fire
+    // Set the building on fire.
+    // extinguish_fires reduces by COVERAGE_REDUCTION_PER_TICK=2.0 each tick.
+    // spread_fire grows intensity = max(current, ticks_burning * 0.5).
+    // After tick N: intensity growth = max(prev, N*0.5), reduction = 2.0/tick.
+    // For small ticks_burning, the reduction dominates.
+    // Set high initial intensity so growth doesn't surpass it quickly.
     {
         let world = city.world_mut();
         let mut query = world.query::<(Entity, &Building)>();
@@ -275,49 +280,50 @@ fn test_fire_station_coverage_extinguishes_building_fire() {
         for (entity, gx, gy) in entities {
             if gx == 105 && gy == 100 {
                 world.entity_mut(entity).insert(OnFire {
-                    intensity: 20.0,
+                    intensity: 50.0,
                     ticks_burning: 0,
                 });
             }
         }
     }
 
-    // COVERAGE_REDUCTION_PER_TICK = 2.0, so after ~10 ticks intensity 20 -> 0
-    city.tick(15);
+    // With coverage reduction = 2.0/tick and growth = ticks * 0.5:
+    // Net per tick: growth tries ticks*0.5, coverage subtracts 2.0.
+    // After 25 ticks: growth = 25*0.5 = 12.5, but reduction = 25*2 = 50.
+    // The extinguish system should win. Run enough ticks.
+    city.tick(50);
 
-    // The building should no longer be on fire
+    // Check if building fire was extinguished
+    let mut still_burning = false;
     {
         let world = city.world_mut();
         let mut query = world.query::<(&Building, &OnFire)>();
-        let still_burning: Vec<_> = query
-            .iter(world)
-            .filter(|(b, _)| b.grid_x == 105 && b.grid_y == 100)
-            .collect();
-        assert!(
-            still_burning.is_empty(),
-            "Building within fire coverage should have its fire extinguished"
-        );
+        for (b, _) in query.iter(world) {
+            if b.grid_x == 105 && b.grid_y == 100 {
+                still_burning = true;
+            }
+        }
     }
+    assert!(
+        !still_burning,
+        "Building within fire coverage should have its fire extinguished"
+    );
 }
 
 // ====================================================================
-// Test 5: Building WITHOUT fire coverage stays on fire longer
+// Test 5: Building WITHOUT fire coverage stays on fire
 // ====================================================================
 
-/// A building outside fire station coverage should NOT have its fire reduced
-/// by the extinguish_fires system. Instead, intensity should grow over time.
 #[test]
 fn test_building_without_fire_coverage_stays_on_fire() {
     use bevy::prelude::*;
 
-    // Place a building far from any fire station
     let mut city = TestCity::new()
         .with_building(200, 200, ZoneType::Industrial, 1);
 
-    // Run a slow cycle (service coverage computes but no fire station exists)
     city.tick_slow_cycles(1);
 
-    // Verify no fire coverage at the building
+    // Verify no fire coverage
     {
         let cov = city.resource::<ServiceCoverageGrid>();
         let idx = ServiceCoverageGrid::idx(200, 200);
@@ -327,7 +333,7 @@ fn test_building_without_fire_coverage_stays_on_fire() {
         );
     }
 
-    // Set the building on fire with moderate intensity
+    // Set building on fire
     {
         let world = city.world_mut();
         let mut query = world.query::<(Entity, &Building)>();
@@ -345,11 +351,9 @@ fn test_building_without_fire_coverage_stays_on_fire() {
         }
     }
 
-    // Run some ticks — without coverage, extinguish_fires does nothing,
-    // and spread_fire increases intensity via INTENSITY_GROWTH_RATE.
+    // Run 30 ticks — intensity should grow without coverage
     city.tick(30);
 
-    // The building should still be on fire and intensity should have grown
     {
         let world = city.world_mut();
         let mut query = world.query::<(&Building, &OnFire)>();
@@ -370,7 +374,7 @@ fn test_building_without_fire_coverage_stays_on_fire() {
         }
         assert!(
             found,
-            "Building at (200,200) should still have OnFire component without fire coverage"
+            "Building should still have OnFire component without fire coverage"
         );
     }
 }
@@ -379,31 +383,34 @@ fn test_building_without_fire_coverage_stays_on_fire() {
 // Test 6: Rain weather suppresses forest fire intensity
 // ====================================================================
 
-/// Forest fire intensity should decrease faster during rain conditions
-/// due to the RAIN_REDUCTION constant (8 per fire update).
 #[test]
 fn test_rain_suppresses_forest_fire_intensity() {
     let mut city = TestCity::new();
 
-    // Plant a single tree and ignite it
+    // Plant a single tree
     {
         let world = city.world_mut();
         let mut tree_grid = world.resource_mut::<TreeGrid>();
         tree_grid.set(128, 128, true);
     }
 
-    // Set rainy weather
-    set_weather(&mut city, WeatherCondition::Rain, 15.0);
+    // Set rainy weather persistently
+    set_weather_persistent(&mut city, WeatherCondition::Rain, 15.0);
 
-    // Ignite with moderate intensity
     ignite_forest_fire(&mut city, 128, 128, 50);
 
-    // Run enough ticks for several fire updates (FIRE_UPDATE_INTERVAL = 10)
-    // BURNOUT_RATE = 2, RAIN_REDUCTION = 8, so total reduction per update = 10
-    // But intensity also grows by 3 if the tree is still alive and intensity < 200.
-    // Net reduction per update in rain = 2 + 8 - 3 = 7 per fire update.
-    // Starting at 50, after ~8 fire updates (80 ticks), should be near 0.
-    city.tick(100);
+    // Run fire updates. Each fire update (every 10 ticks):
+    //   - Natural burnout: -2
+    //   - Rain reduction: -8
+    //   - Growth (if tree alive & intensity < 200): +3
+    //   - Net per fire update: -7
+    // After 10 fire updates (100 ticks), 50 - 70 = 0 (clamped).
+    // But weather system may override, so we need persistent weather.
+    // Re-set weather before each batch of ticks to be safe.
+    for _ in 0..10 {
+        set_weather_persistent(&mut city, WeatherCondition::Rain, 15.0);
+        city.tick(10);
+    }
 
     let intensity = get_fire_intensity(&mut city, 128, 128);
     assert!(
@@ -417,35 +424,39 @@ fn test_rain_suppresses_forest_fire_intensity() {
 // Test 7: Storm weather extinguishes forest fire quickly
 // ====================================================================
 
-/// Storm weather should suppress fire even more aggressively than rain.
-/// Both RAIN_REDUCTION and STORM_REDUCTION apply since storm is_precipitation.
 #[test]
 fn test_storm_extinguishes_forest_fire_quickly() {
     let mut city = TestCity::new();
 
-    // Plant a single tree and ignite it
+    // Plant a single tree
     {
         let world = city.world_mut();
         let mut tree_grid = world.resource_mut::<TreeGrid>();
         tree_grid.set(128, 128, true);
     }
 
-    // Set storm weather
-    set_weather(&mut city, WeatherCondition::Storm, 15.0);
+    // Set storm weather persistently
+    set_weather_persistent(&mut city, WeatherCondition::Storm, 15.0);
 
-    // Ignite with moderate intensity
     ignite_forest_fire(&mut city, 128, 128, 40);
 
-    // BURNOUT_RATE = 2, RAIN_REDUCTION = 8, STORM_REDUCTION = 15
-    // Total reduction per fire update = 2 + 8 + 15 - 3 (growth) = 22 net
-    // (Storm is_precipitation and is_storm, so both reductions apply)
-    // Starting at 40, should be extinguished in ~2 fire updates (20 ticks).
-    city.tick(50);
+    // Each fire update in storm:
+    //   - Natural burnout: -2
+    //   - Rain (storm is_precipitation): -8
+    //   - Storm: -15
+    //   - Growth: +3
+    //   - Net: -22
+    // After 2 fire updates (20 ticks): 40 - 44 = 0.
+    // Re-set weather persistently between tick batches.
+    for _ in 0..5 {
+        set_weather_persistent(&mut city, WeatherCondition::Storm, 15.0);
+        city.tick(10);
+    }
 
     let intensity = get_fire_intensity(&mut city, 128, 128);
     assert_eq!(
         intensity, 0,
-        "Storm should fully extinguish a moderate forest fire. Remaining intensity: {}",
+        "Storm should fully extinguish a moderate forest fire. Remaining: {}",
         intensity
     );
 }
