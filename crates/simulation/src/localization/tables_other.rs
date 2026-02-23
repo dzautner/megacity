@@ -1,0 +1,316 @@
+use std::collections::BTreeMap;
+
+use super::StringTable;
+
+// =============================================================================
+// German string table
+// =============================================================================
+
+pub(crate) fn build_german_table() -> StringTable {
+    let entries: &[(&str, &str)] = &[
+        ("ui.day", "Tag"),
+        ("ui.population", "Bev"),
+        ("ui.happiness", "Zufrieden"),
+        ("ui.treasury", "Kasse"),
+        ("ui.save", "Speichern"),
+        ("ui.load", "Laden"),
+        ("ui.new_game", "Neu"),
+        ("ui.settings", "Einstellungen"),
+        ("ui.language", "Sprache"),
+        ("ui.overlay", "Overlay"),
+        ("ui.grid_snap", "RASTER"),
+        ("ui.demand", "Bedarf"),
+        ("ui.surplus", "Ueberschuss"),
+        ("ui.balanced", "Ausgeglichen"),
+        ("ui.speed.pause", "Pause"),
+        ("ui.speed.normal", "Normal"),
+        ("ui.speed.fast", "Schnell"),
+        ("ui.speed.fastest", "Sehr schnell"),
+        ("category.roads", "Strassen"),
+        ("category.zones", "Zonen"),
+        ("category.utilities", "Versorgung"),
+        ("category.emergency", "Notdienste"),
+        ("category.education", "Bildung"),
+        ("category.parks", "Parks"),
+        ("category.landmarks", "Wahrzeichen"),
+        ("category.sanitation", "Entsorgung"),
+        ("category.transport", "Transport"),
+        ("category.telecom", "Telekom"),
+        ("category.views", "Ansichten"),
+        ("category.environment", "Umwelt"),
+        ("category.terrain", "Gelaende"),
+        ("category.districts", "Bezirke"),
+        ("category.tools", "Werkzeuge"),
+        ("tool.local_road", "Nebenstrasse"),
+        ("tool.avenue", "Allee"),
+        ("tool.boulevard", "Boulevard"),
+        ("tool.highway", "Autobahn"),
+        ("tool.one_way", "Einbahnstrasse"),
+        ("tool.path", "Weg"),
+        ("tool.bulldoze", "Abreissen"),
+        ("tool.inspect", "Inspizieren"),
+        ("milestone.settlement", "Siedlung"),
+        ("milestone.village", "Dorf"),
+        ("milestone.hamlet", "Weiler"),
+        ("milestone.town", "Kleinstadt"),
+        ("milestone.small_city", "Stadt"),
+        ("milestone.city", "Grossstadt"),
+        ("milestone.large_city", "Grosse Stadt"),
+        ("milestone.metropolis", "Metropole"),
+        ("milestone.major_metropolis", "Grossmetropole"),
+        ("milestone.megacity", "Megastadt"),
+        ("milestone.megalopolis", "Megalopolis"),
+        ("milestone.world_capital", "Welthauptstadt"),
+        ("panel.statistics", "Statistiken"),
+        ("panel.budget", "Haushalt"),
+        ("panel.policies", "Politik"),
+        ("panel.charts", "Diagramme"),
+        ("panel.journal", "Journal"),
+        ("panel.advisor", "Berater"),
+        ("season.spring", "Fruehling"),
+        ("season.summer", "Sommer"),
+        ("season.autumn", "Herbst"),
+        ("season.winter", "Winter"),
+    ];
+
+    entries
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+// =============================================================================
+// Spanish string table
+// =============================================================================
+
+pub(crate) fn build_spanish_table() -> StringTable {
+    let entries: &[(&str, &str)] = &[
+        ("ui.day", "Dia"),
+        ("ui.population", "Pob"),
+        ("ui.happiness", "Felicidad"),
+        ("ui.treasury", "Tesoro"),
+        ("ui.save", "Guardar"),
+        ("ui.load", "Cargar"),
+        ("ui.new_game", "Nuevo"),
+        ("ui.settings", "Ajustes"),
+        ("ui.language", "Idioma"),
+        ("ui.overlay", "Capa"),
+        ("ui.grid_snap", "REJILLA"),
+        ("ui.demand", "demanda"),
+        ("ui.surplus", "excedente"),
+        ("ui.balanced", "equilibrado"),
+        ("ui.speed.pause", "Pausa"),
+        ("ui.speed.normal", "Normal"),
+        ("ui.speed.fast", "Rapido"),
+        ("ui.speed.fastest", "Muy rapido"),
+        ("category.roads", "Carreteras"),
+        ("category.zones", "Zonas"),
+        ("category.utilities", "Servicios"),
+        ("category.emergency", "Emergencia"),
+        ("category.education", "Educacion"),
+        ("category.parks", "Parques"),
+        ("category.landmarks", "Monumentos"),
+        ("category.sanitation", "Saneamiento"),
+        ("category.transport", "Transporte"),
+        ("category.telecom", "Telecom"),
+        ("category.views", "Vistas"),
+        ("category.environment", "Medio Ambiente"),
+        ("category.terrain", "Terreno"),
+        ("category.districts", "Distritos"),
+        ("category.tools", "Herramientas"),
+        ("tool.bulldoze", "Demoler"),
+        ("tool.inspect", "Inspeccionar"),
+        ("milestone.settlement", "Asentamiento"),
+        ("milestone.village", "Pueblo"),
+        ("milestone.hamlet", "Aldea"),
+        ("milestone.town", "Villa"),
+        ("milestone.small_city", "Ciudad pequena"),
+        ("milestone.city", "Ciudad"),
+        ("milestone.large_city", "Gran ciudad"),
+        ("milestone.metropolis", "Metropolis"),
+        ("milestone.major_metropolis", "Gran metropolis"),
+        ("milestone.megacity", "Megaciudad"),
+        ("milestone.megalopolis", "Megalopolis"),
+        ("milestone.world_capital", "Capital mundial"),
+        ("panel.statistics", "Estadisticas"),
+        ("panel.budget", "Presupuesto"),
+        ("panel.policies", "Politicas"),
+        ("panel.charts", "Graficos"),
+        ("panel.journal", "Diario"),
+        ("panel.advisor", "Asesor"),
+        ("season.spring", "Primavera"),
+        ("season.summer", "Verano"),
+        ("season.autumn", "Otono"),
+        ("season.winter", "Invierno"),
+    ];
+
+    entries
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+// =============================================================================
+// French string table
+// =============================================================================
+
+pub(crate) fn build_french_table() -> StringTable {
+    let entries: &[(&str, &str)] = &[
+        ("ui.day", "Jour"),
+        ("ui.population", "Pop"),
+        ("ui.happiness", "Bonheur"),
+        ("ui.treasury", "Tresor"),
+        ("ui.save", "Sauvegarder"),
+        ("ui.load", "Charger"),
+        ("ui.new_game", "Nouveau"),
+        ("ui.settings", "Parametres"),
+        ("ui.language", "Langue"),
+        ("ui.overlay", "Calque"),
+        ("ui.grid_snap", "GRILLE"),
+        ("ui.demand", "demande"),
+        ("ui.surplus", "surplus"),
+        ("ui.balanced", "equilibre"),
+        ("ui.speed.pause", "Pause"),
+        ("ui.speed.normal", "Normal"),
+        ("ui.speed.fast", "Rapide"),
+        ("ui.speed.fastest", "Tres rapide"),
+        ("category.roads", "Routes"),
+        ("category.zones", "Zones"),
+        ("category.utilities", "Services"),
+        ("category.emergency", "Urgences"),
+        ("category.education", "Education"),
+        ("category.parks", "Parcs"),
+        ("category.landmarks", "Monuments"),
+        ("category.sanitation", "Assainissement"),
+        ("category.transport", "Transport"),
+        ("category.telecom", "Telecom"),
+        ("category.views", "Vues"),
+        ("category.environment", "Environnement"),
+        ("category.terrain", "Terrain"),
+        ("category.districts", "Quartiers"),
+        ("category.tools", "Outils"),
+        ("tool.bulldoze", "Demolir"),
+        ("tool.inspect", "Inspecter"),
+        ("milestone.settlement", "Campement"),
+        ("milestone.village", "Village"),
+        ("milestone.hamlet", "Hameau"),
+        ("milestone.town", "Bourg"),
+        ("milestone.small_city", "Petite ville"),
+        ("milestone.city", "Ville"),
+        ("milestone.large_city", "Grande ville"),
+        ("milestone.metropolis", "Metropole"),
+        ("milestone.major_metropolis", "Grande metropole"),
+        ("milestone.megacity", "Megapole"),
+        ("milestone.megalopolis", "Megalopole"),
+        ("milestone.world_capital", "Capitale mondiale"),
+        ("panel.statistics", "Statistiques"),
+        ("panel.budget", "Budget"),
+        ("panel.policies", "Politiques"),
+        ("panel.charts", "Graphiques"),
+        ("panel.journal", "Journal"),
+        ("panel.advisor", "Conseiller"),
+        ("season.spring", "Printemps"),
+        ("season.summer", "Ete"),
+        ("season.autumn", "Automne"),
+        ("season.winter", "Hiver"),
+    ];
+
+    entries
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+// =============================================================================
+// Japanese string table
+// =============================================================================
+
+pub(crate) fn build_japanese_table() -> StringTable {
+    let entries: &[(&str, &str)] = &[
+        ("ui.day", "\u{65e5}"),
+        ("ui.population", "\u{4eba}\u{53e3}"),
+        ("ui.happiness", "\u{5e78}\u{798f}\u{5ea6}"),
+        ("ui.treasury", "\u{8ca1}\u{653f}"),
+        ("ui.save", "\u{4fdd}\u{5b58}"),
+        ("ui.load", "\u{8aad}\u{8fbc}"),
+        ("ui.new_game", "\u{65b0}\u{898f}"),
+        ("ui.settings", "\u{8a2d}\u{5b9a}"),
+        ("ui.language", "\u{8a00}\u{8a9e}"),
+        (
+            "ui.overlay",
+            "\u{30aa}\u{30fc}\u{30d0}\u{30fc}\u{30ec}\u{30a4}",
+        ),
+        ("ui.grid_snap", "\u{30b0}\u{30ea}\u{30c3}\u{30c9}"),
+        ("ui.demand", "\u{9700}\u{8981}"),
+        ("ui.surplus", "\u{4f59}\u{5270}"),
+        ("ui.balanced", "\u{5747}\u{8861}"),
+        ("category.roads", "\u{9053}\u{8def}"),
+        ("category.zones", "\u{30be}\u{30fc}\u{30f3}"),
+        (
+            "category.utilities",
+            "\u{30e6}\u{30fc}\u{30c6}\u{30a3}\u{30ea}\u{30c6}\u{30a3}",
+        ),
+        ("category.emergency", "\u{7dca}\u{6025}"),
+        ("category.education", "\u{6559}\u{80b2}"),
+        ("category.parks", "\u{516c}\u{5712}"),
+        ("category.tools", "\u{30c4}\u{30fc}\u{30eb}"),
+        ("milestone.settlement", "\u{96c6}\u{843d}"),
+        ("milestone.village", "\u{6751}"),
+        ("milestone.town", "\u{753a}"),
+        ("milestone.city", "\u{5e02}"),
+        ("milestone.megacity", "\u{5de8}\u{5927}\u{90fd}\u{5e02}"),
+        ("season.spring", "\u{6625}"),
+        ("season.summer", "\u{590f}"),
+        ("season.autumn", "\u{79cb}"),
+        ("season.winter", "\u{51ac}"),
+    ];
+
+    entries
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+// =============================================================================
+// Chinese string table
+// =============================================================================
+
+pub(crate) fn build_chinese_table() -> StringTable {
+    let entries: &[(&str, &str)] = &[
+        ("ui.day", "\u{5929}"),
+        ("ui.population", "\u{4eba}\u{53e3}"),
+        ("ui.happiness", "\u{5e78}\u{798f}"),
+        ("ui.treasury", "\u{8d22}\u{653f}"),
+        ("ui.save", "\u{4fdd}\u{5b58}"),
+        ("ui.load", "\u{52a0}\u{8f7d}"),
+        ("ui.new_game", "\u{65b0}\u{6e38}\u{620f}"),
+        ("ui.settings", "\u{8bbe}\u{7f6e}"),
+        ("ui.language", "\u{8bed}\u{8a00}"),
+        ("ui.overlay", "\u{53e0}\u{52a0}\u{5c42}"),
+        ("ui.grid_snap", "\u{7f51}\u{683c}"),
+        ("ui.demand", "\u{9700}\u{6c42}"),
+        ("ui.surplus", "\u{76c8}\u{4f59}"),
+        ("ui.balanced", "\u{5e73}\u{8861}"),
+        ("category.roads", "\u{9053}\u{8def}"),
+        ("category.zones", "\u{533a}\u{57df}"),
+        ("category.utilities", "\u{516c}\u{7528}\u{4e8b}\u{4e1a}"),
+        ("category.emergency", "\u{7d27}\u{6025}"),
+        ("category.education", "\u{6559}\u{80b2}"),
+        ("category.parks", "\u{516c}\u{56ed}"),
+        ("category.tools", "\u{5de5}\u{5177}"),
+        ("milestone.settlement", "\u{5b9a}\u{5c45}\u{70b9}"),
+        ("milestone.village", "\u{6751}\u{5e84}"),
+        ("milestone.town", "\u{5c0f}\u{9547}"),
+        ("milestone.city", "\u{57ce}\u{5e02}"),
+        ("milestone.megacity", "\u{5de8}\u{578b}\u{57ce}\u{5e02}"),
+        ("season.spring", "\u{6625}"),
+        ("season.summer", "\u{590f}"),
+        ("season.autumn", "\u{79cb}"),
+        ("season.winter", "\u{51ac}"),
+    ];
+
+    entries
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}

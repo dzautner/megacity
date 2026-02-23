@@ -1,0 +1,183 @@
+use std::collections::BTreeMap;
+
+use super::StringTable;
+
+// =============================================================================
+// English string table (complete)
+// =============================================================================
+
+pub(crate) fn build_english_table() -> StringTable {
+    let entries: &[(&str, &str)] = &[
+        // General UI
+        ("ui.day", "Day"),
+        ("ui.population", "Pop"),
+        ("ui.happiness", "Happy"),
+        ("ui.treasury", "Treasury"),
+        ("ui.save", "Save"),
+        ("ui.load", "Load"),
+        ("ui.new_game", "New"),
+        ("ui.settings", "Settings"),
+        ("ui.language", "Language"),
+        ("ui.overlay", "Overlay"),
+        ("ui.grid_snap", "GRID SNAP"),
+        ("ui.demand", "demand"),
+        ("ui.surplus", "surplus"),
+        ("ui.balanced", "balanced"),
+        // Speed controls
+        ("ui.speed.pause", "Pause"),
+        ("ui.speed.normal", "Normal"),
+        ("ui.speed.fast", "Fast"),
+        ("ui.speed.fastest", "Fastest"),
+        // Tool categories
+        ("category.roads", "Roads"),
+        ("category.zones", "Zones"),
+        ("category.utilities", "Utilities"),
+        ("category.emergency", "Emergency"),
+        ("category.education", "Education"),
+        ("category.parks", "Parks"),
+        ("category.landmarks", "Landmarks"),
+        ("category.sanitation", "Sanitation"),
+        ("category.transport", "Transport"),
+        ("category.telecom", "Telecom"),
+        ("category.views", "Views"),
+        ("category.environment", "Environment"),
+        ("category.terrain", "Terrain"),
+        ("category.districts", "Districts"),
+        ("category.tools", "Tools"),
+        // Roads
+        ("tool.local_road", "Local Road"),
+        ("tool.avenue", "Avenue"),
+        ("tool.boulevard", "Boulevard"),
+        ("tool.highway", "Highway"),
+        ("tool.one_way", "One-Way"),
+        ("tool.path", "Path"),
+        // Zones
+        ("tool.res_low", "Res Low"),
+        ("tool.res_medium", "Res Medium"),
+        ("tool.res_high", "Res High"),
+        ("tool.com_low", "Com Low"),
+        ("tool.com_high", "Com High"),
+        ("tool.industrial", "Industrial"),
+        ("tool.office", "Office"),
+        ("tool.mixed_use", "Mixed-Use"),
+        // Utilities
+        ("tool.power_plant", "Power Plant"),
+        ("tool.solar_farm", "Solar Farm"),
+        ("tool.wind_turbine", "Wind Turbine"),
+        ("tool.nuclear_plant", "Nuclear Plant"),
+        ("tool.geothermal", "Geothermal"),
+        ("tool.water_tower", "Water Tower"),
+        ("tool.sewage_plant", "Sewage Plant"),
+        ("tool.pumping_station", "Pumping Station"),
+        ("tool.water_treatment", "Water Treatment"),
+        // Emergency
+        ("tool.fire_house", "Fire House"),
+        ("tool.fire_station", "Fire Station"),
+        ("tool.fire_hq", "Fire HQ"),
+        ("tool.police_kiosk", "Police Kiosk"),
+        ("tool.police_station", "Police Station"),
+        ("tool.police_hq", "Police HQ"),
+        ("tool.prison", "Prison"),
+        ("tool.medical_clinic", "Medical Clinic"),
+        ("tool.hospital", "Hospital"),
+        ("tool.medical_center", "Medical Center"),
+        // Education
+        ("tool.kindergarten", "Kindergarten"),
+        ("tool.elementary", "Elementary"),
+        ("tool.high_school", "High School"),
+        ("tool.university", "University"),
+        ("tool.library", "Library"),
+        // Parks
+        ("tool.small_park", "Small Park"),
+        ("tool.large_park", "Large Park"),
+        ("tool.playground", "Playground"),
+        ("tool.plaza", "Plaza"),
+        ("tool.sports_field", "Sports Field"),
+        ("tool.stadium", "Stadium"),
+        // Landmarks
+        ("tool.city_hall", "City Hall"),
+        ("tool.museum", "Museum"),
+        ("tool.cathedral", "Cathedral"),
+        ("tool.tv_station", "TV Station"),
+        // Sanitation
+        ("tool.landfill", "Landfill"),
+        ("tool.recycling_center", "Recycling Center"),
+        ("tool.incinerator", "Incinerator"),
+        ("tool.transfer_station", "Transfer Station"),
+        ("tool.cemetery", "Cemetery"),
+        ("tool.crematorium", "Crematorium"),
+        // Transport
+        ("tool.bus_depot", "Bus Depot"),
+        ("tool.train_station", "Train Station"),
+        ("tool.subway", "Subway"),
+        ("tool.tram_depot", "Tram Depot"),
+        ("tool.ferry_pier", "Ferry Pier"),
+        ("tool.small_airstrip", "Small Airstrip"),
+        ("tool.regional_airport", "Regional Airport"),
+        ("tool.intl_airport", "Int'l Airport"),
+        // Telecom
+        ("tool.cell_tower", "Cell Tower"),
+        ("tool.data_center", "Data Center"),
+        // Views/Overlays
+        ("overlay.power", "Power"),
+        ("overlay.water", "Water"),
+        ("overlay.traffic", "Traffic"),
+        ("overlay.pollution", "Pollution"),
+        ("overlay.land_value", "Land Value"),
+        ("overlay.education", "Education"),
+        ("overlay.garbage", "Garbage"),
+        ("overlay.noise", "Noise"),
+        ("overlay.water_pollution", "Water Pollution"),
+        ("overlay.gw_level", "GW Level"),
+        ("overlay.gw_quality", "GW Quality"),
+        // Environment
+        ("tool.plant_tree", "Plant Tree"),
+        ("tool.remove_tree", "Remove Tree"),
+        // Terrain
+        ("tool.raise", "Raise"),
+        ("tool.lower", "Lower"),
+        ("tool.flatten", "Flatten"),
+        ("tool.water", "Water"),
+        // Districts
+        ("tool.downtown", "Downtown"),
+        ("tool.suburbs", "Suburbs"),
+        ("tool.waterfront", "Waterfront"),
+        ("tool.historic", "Historic"),
+        ("tool.arts", "Arts"),
+        ("tool.tech_park", "Tech Park"),
+        ("tool.erase_district", "Erase District"),
+        // Tools
+        ("tool.bulldoze", "Bulldoze"),
+        ("tool.inspect", "Inspect"),
+        // Milestone names
+        ("milestone.settlement", "Settlement"),
+        ("milestone.village", "Village"),
+        ("milestone.hamlet", "Hamlet"),
+        ("milestone.town", "Town"),
+        ("milestone.small_city", "Small City"),
+        ("milestone.city", "City"),
+        ("milestone.large_city", "Large City"),
+        ("milestone.metropolis", "Metropolis"),
+        ("milestone.major_metropolis", "Major Metropolis"),
+        ("milestone.megacity", "Megacity"),
+        ("milestone.megalopolis", "Megalopolis"),
+        ("milestone.world_capital", "World Capital"),
+        // Info panel sections
+        ("panel.statistics", "Statistics"),
+        ("panel.budget", "Budget"),
+        ("panel.policies", "Policies"),
+        ("panel.charts", "Charts"),
+        ("panel.journal", "Journal"),
+        ("panel.advisor", "Advisor"),
+        // Seasons
+        ("season.spring", "Spring"),
+        ("season.summer", "Summer"),
+        ("season.autumn", "Autumn"),
+        ("season.winter", "Winter"),
+    ];
+
+    entries
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
