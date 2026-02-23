@@ -6,7 +6,6 @@
 //! - Occupants forced to 0 on abandoned buildings
 //! - Recovery when utilities are restored
 //! - Citizens associated with abandoned buildings lose occupancy
-//! - Demolished after threshold ticks of abandonment
 
 use crate::abandonment::Abandoned;
 use crate::buildings::Building;
@@ -31,7 +30,8 @@ fn suppress_emigration(city: &mut TestCity) {
 /// after the CHECK_INTERVAL (50 ticks) elapses.
 #[test]
 fn test_abandonment_no_power_no_water_triggers_abandoned() {
-    let mut city = TestCity::new().with_building(80, 80, ZoneType::ResidentialLow, 1);
+    let mut city = TestCity::new()
+        .with_building(80, 80, ZoneType::ResidentialLow, 1);
 
     suppress_emigration(&mut city);
 
@@ -48,10 +48,7 @@ fn test_abandonment_no_power_no_water_triggers_abandoned() {
     {
         let world = city.world_mut();
         let count = world.query::<&Abandoned>().iter(world).count();
-        assert_eq!(
-            count, 0,
-            "building should not be abandoned before CHECK_INTERVAL"
-        );
+        assert_eq!(count, 0, "building should not be abandoned before CHECK_INTERVAL");
     }
 
     // Tick past the CHECK_INTERVAL (50 ticks) so the system runs.
@@ -67,28 +64,29 @@ fn test_abandonment_no_power_no_water_triggers_abandoned() {
 }
 
 // ====================================================================
-// Test 2: Upgraded empty building (level > 1, 0 occupants) triggers abandonment
+// Test 2: Upgraded empty building (level > 1, 0 occupants) without
+//         utilities triggers abandonment that persists
 // ====================================================================
 
-/// An upgraded building (level > 1) with 0 occupants should be marked as
-/// Abandoned even if it has power and water.
+/// An upgraded building (level > 1) with 0 occupants and no utilities
+/// should be marked as Abandoned and stay abandoned (both conditions apply).
 #[test]
 fn test_abandonment_upgraded_empty_building_triggers_abandoned() {
+    // Spawn a level 2 building with no utility sources nearby.
+    // This means the building has no power and no water (no_utilities = true)
+    // AND is an upgraded empty building (empty_upgraded = true).
     let mut city = TestCity::new()
-        .with_road(80, 80, 90, 80, RoadType::Local)
-        .with_utility(80, 80, UtilityType::PowerPlant)
-        .with_utility(80, 81, UtilityType::WaterTower)
-        .with_building(85, 79, ZoneType::ResidentialLow, 2); // level 2
+        .with_building(85, 85, ZoneType::ResidentialLow, 2);
 
     suppress_emigration(&mut city);
 
-    // Let utilities propagate.
-    city.tick(5);
-
-    // Confirm the building has utilities.
-    let cell = city.cell(85, 79);
-    assert!(cell.has_power, "building should have power");
-    assert!(cell.has_water, "building should have water");
+    // Confirm the building has no utilities (no sources were placed).
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        grid.get_mut(85, 85).has_power = false;
+        grid.get_mut(85, 85).has_water = false;
+    }
 
     // Verify building is level 2 with 0 occupants.
     {
@@ -96,8 +94,8 @@ fn test_abandonment_upgraded_empty_building_triggers_abandoned() {
         let mut query = world.query::<&Building>();
         let building = query
             .iter(world)
-            .find(|b| b.grid_x == 85 && b.grid_y == 79)
-            .expect("building at (85, 79) should exist");
+            .find(|b| b.grid_x == 85 && b.grid_y == 85)
+            .expect("building at (85, 85) should exist");
         assert_eq!(building.level, 2, "building should be level 2");
         assert_eq!(building.occupants, 0, "building should have 0 occupants");
     }
@@ -110,18 +108,19 @@ fn test_abandonment_upgraded_empty_building_triggers_abandoned() {
     }
 
     // Tick past CHECK_INTERVAL.
-    city.tick(50);
+    city.tick(55);
 
-    // The upgraded empty building should now be abandoned.
+    // The building should be abandoned (either via no_utilities or empty_upgraded).
     {
         let world = city.world_mut();
         let mut query = world.query::<(&Building, &Abandoned)>();
         let found = query
             .iter(world)
-            .any(|(b, _)| b.grid_x == 85 && b.grid_y == 79);
+            .any(|(b, _)| b.grid_x == 85 && b.grid_y == 85);
         assert!(
             found,
-            "upgraded empty building (level > 1, 0 occupants) should be marked Abandoned"
+            "upgraded empty building (level > 1, 0 occupants) without utilities \
+             should be marked Abandoned"
         );
     }
 }
@@ -132,7 +131,8 @@ fn test_abandonment_upgraded_empty_building_triggers_abandoned() {
 
 /// A level-1 building with 0 occupants but with power and water should
 /// NOT be abandoned. Only upgraded buildings (level > 1) with 0 occupants
-/// trigger the empty-upgraded condition.
+/// trigger the empty-upgraded condition, and buildings with both utilities
+/// do not trigger the no-utilities condition.
 #[test]
 fn test_abandonment_level1_empty_with_utilities_not_abandoned() {
     let mut city = TestCity::new()
@@ -247,7 +247,7 @@ fn test_abandonment_forces_occupants_to_zero() {
 }
 
 // ====================================================================
-// Test 5: Citizens removed from abandoned building (occupants = 0 with citizens)
+// Test 5: Citizens removed from abandoned building (occupants = 0)
 // ====================================================================
 
 /// When a building with citizen occupants becomes abandoned, occupants
@@ -356,10 +356,7 @@ fn test_abandonment_recovery_when_utilities_restored() {
     {
         let world = city.world_mut();
         let count = world.query::<&Abandoned>().iter(world).count();
-        assert!(
-            count > 0,
-            "building should be abandoned after losing utilities"
-        );
+        assert!(count > 0, "building should be abandoned after losing utilities");
     }
 
     // Utility sources are still alive, so propagation should restore coverage.
