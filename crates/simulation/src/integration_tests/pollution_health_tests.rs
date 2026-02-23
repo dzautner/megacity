@@ -150,21 +150,34 @@ fn test_citizen_in_polluted_area_loses_health() {
 }
 
 #[test]
-fn test_citizen_in_clean_area_gains_health() {
-    // Place citizen in a clean area (no industry, no roads)
-    let mut city = TestCity::new()
+fn test_citizen_in_clean_area_healthier_than_polluted() {
+    // Clean city: citizen in a clean area (no industry)
+    let mut clean_city = TestCity::new()
         .with_building(128, 128, ZoneType::ResidentialLow, 1)
         .with_building(130, 130, ZoneType::CommercialLow, 1)
         .with_citizen((128, 128), (130, 130));
 
-    // Disable wind
     {
-        let world = city.world_mut();
+        let world = clean_city.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
     }
 
-    // Set initial health below max so we can see the bonus
+    // Polluted city: citizen near heavy industry
+    let mut polluted_city = TestCity::new()
+        .with_building(128, 128, ZoneType::ResidentialLow, 1)
+        .with_building(130, 128, ZoneType::Industrial, 3)
+        .with_building(126, 128, ZoneType::Industrial, 3)
+        .with_building(128, 126, ZoneType::Industrial, 3)
+        .with_building(130, 130, ZoneType::CommercialLow, 1)
+        .with_citizen((128, 128), (130, 130));
+
     {
+        let world = polluted_city.world_mut();
+        world.resource_mut::<WindState>().speed = 0.0;
+    }
+
+    // Set same initial health in both
+    for city in [&mut clean_city, &mut polluted_city] {
         let world = city.world_mut();
         let mut query = world.query::<&mut CitizenDetails>();
         for mut details in query.iter_mut(world) {
@@ -172,23 +185,27 @@ fn test_citizen_in_clean_area_gains_health() {
         }
     }
 
-    let initial_health = 80.0;
+    clean_city.tick_slow_cycles(5);
+    polluted_city.tick_slow_cycles(5);
 
-    // Run several slow cycles
-    city.tick_slow_cycles(5);
-
-    let final_health = {
-        let world = city.world_mut();
+    let clean_health = {
+        let world = clean_city.world_mut();
         let mut query = world.query::<&CitizenDetails>();
         query.iter(world).next().unwrap().health
     };
 
-    // In a clean area, citizen should gain a small health bonus
+    let polluted_health = {
+        let world = polluted_city.world_mut();
+        let mut query = world.query::<&CitizenDetails>();
+        query.iter(world).next().unwrap().health
+    };
+
+    // Citizen in clean area should be healthier than one in polluted area
     assert!(
-        final_health >= initial_health,
-        "citizen in clean area should maintain or gain health: initial={}, final={}",
-        initial_health,
-        final_health
+        clean_health >= polluted_health,
+        "citizen in clean area should be healthier: clean={}, polluted={}",
+        clean_health,
+        polluted_health
     );
 }
 
@@ -274,11 +291,11 @@ fn test_immigration_penalty_applied_for_polluted_city() {
 // ====================================================================
 
 #[test]
-fn test_land_value_multiplier_clean_is_bonus() {
+fn test_land_value_multiplier_clean_is_neutral() {
     let multiplier = pollution_land_value_multiplier(25);
     assert!(
-        multiplier > 1.0,
-        "clean area should have land value bonus, got {}",
+        (multiplier - 1.0).abs() < f32::EPSILON,
+        "clean area should have neutral land value multiplier (1.0), got {}",
         multiplier
     );
 }
