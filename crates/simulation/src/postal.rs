@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::budget::ExtendedBudget;
@@ -38,7 +39,7 @@ impl PostalCoverage {
 }
 
 /// Aggregate postal statistics for the city (saveable).
-#[derive(Resource, Default, Clone, Serialize, Deserialize)]
+#[derive(Resource, Default, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct PostalStats {
     pub total_covered_cells: u32,
     pub coverage_percentage: f32,
@@ -383,7 +384,10 @@ impl Plugin for PostalPlugin {
                     .in_set(crate::SimulationSet::Simulation),
             );
 
-        use save::SaveableAppExt;
-        app.register_saveable::<PostalStats>();
+        // Register for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<PostalStats>();
     }
 }
