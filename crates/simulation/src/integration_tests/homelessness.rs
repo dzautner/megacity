@@ -1,4 +1,5 @@
 use crate::buildings::Building;
+use crate::citizen::{Citizen, CitizenDetails};
 use crate::grid::{WorldGrid, ZoneType};
 use crate::test_harness::TestCity;
 
@@ -34,6 +35,21 @@ fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50)]);
+
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
 
     // Verify citizen exists and is not homeless yet
     {
@@ -84,6 +100,21 @@ fn test_homelessness_stats_track_total_homeless() {
 
     enable_utilities(&mut city, &[(50, 50), (60, 60)]);
 
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
+
     // Despawn both home buildings
     let b1 = city.grid().get(50, 50).building_id.expect("building 1");
     let b2 = city.grid().get(60, 60).building_id.expect("building 2");
@@ -110,6 +141,21 @@ fn test_homelessness_recover_when_housing_available() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50), (70, 70)]);
+
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
 
     // Despawn the home building to make citizen homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
@@ -175,6 +221,21 @@ fn test_homelessness_happiness_penalty_applied() {
 
     enable_utilities(&mut city, &[(50, 50)]);
 
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
+
     // Let happiness stabilize before making citizen homeless
     city.tick(10);
 
@@ -226,6 +287,21 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50), (55, 55)]);
+
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
 
     // Despawn home to make citizen homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
@@ -287,6 +363,21 @@ fn test_homelessness_shelter_capacity_respected() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50), (55, 55)]);
+
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
 
     // Despawn home building to make all 3 citizens homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
@@ -361,10 +452,10 @@ fn test_homelessness_citizen_placeholder_home_becomes_homeless() {
                 age: 30,
                 gender: Gender::Male,
                 education: 2,
-                happiness: 60.0,
-                health: 90.0,
+                happiness: 95.0,
+                health: 100.0,
                 salary: 3500.0,
-                savings: 7000.0,
+                savings: 50_000.0,
             },
             Personality {
                 ambition: 0.5,
@@ -427,8 +518,8 @@ fn test_homelessness_rent_unaffordable_becomes_homeless() {
                 age: 30,
                 gender: Gender::Male,
                 education: 0,
-                happiness: 50.0,
-                health: 80.0,
+                happiness: 95.0,
+                health: 100.0,
                 salary: 500.0,   // below RENT_AFFORDABILITY_THRESHOLD (1000.0)
                 savings: -100.0, // negative savings
             },
@@ -480,6 +571,21 @@ fn test_homelessness_recovery_updates_stats() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50), (70, 70)]);
+
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
 
     // Despawn home to make citizen homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
@@ -534,6 +640,21 @@ fn test_homelessness_ticks_homeless_increments() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50)]);
+
+    // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
+    // needs decay over 50-tick windows cannot push it below the emigration
+    // threshold (20.0).  Default happiness of 60 is too close to the edge.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
 
     // Despawn home
     let b = city.grid().get(50, 50).building_id.expect("building");
