@@ -186,4 +186,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Undo/redo system
     app.add_plugins(undo_redo::UndoRedoPlugin);
+
+    // Environmental grid save/load (POLL-033)
+    app.add_plugins(env_grid_save::EnvGridSavePlugin);
 }
