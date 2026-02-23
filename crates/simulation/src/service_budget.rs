@@ -325,24 +325,25 @@ pub fn update_service_budget(
     state.total_spending = total_spending;
     state.overall_per_capita = total_spending / population;
 
+    // Extract funding ratios before mutating effects (avoids borrow conflict)
+    let police_ratio = state.department(Department::Police).funding_ratio;
+    let fire_ratio = state.department(Department::FireEms).funding_ratio;
+    let works_ratio = state.department(Department::PublicWorks).funding_ratio;
+    let edu_ratio = state.department(Department::Education).funding_ratio;
+    let health_ratio = state.department(Department::Healthcare).funding_ratio;
+    let parks_ratio = state.department(Department::ParksRecreation).funding_ratio;
+    let sanit_ratio = state.department(Department::Sanitation).funding_ratio;
+    let trans_ratio = state.department(Department::Transport).funding_ratio;
+
     // Compute effect multipliers from funding ratios
-    let effects = &mut state.effects;
-    effects.police_effectiveness =
-        funding_ratio_to_effect(state.department(Department::Police).funding_ratio);
-    effects.fire_response =
-        funding_ratio_to_effect(state.department(Department::FireEms).funding_ratio);
-    effects.road_quality =
-        funding_ratio_to_effect(state.department(Department::PublicWorks).funding_ratio);
-    effects.education_quality =
-        funding_ratio_to_effect(state.department(Department::Education).funding_ratio);
-    effects.healthcare_quality =
-        funding_ratio_to_effect(state.department(Department::Healthcare).funding_ratio);
-    effects.park_quality =
-        funding_ratio_to_effect(state.department(Department::ParksRecreation).funding_ratio);
-    effects.sanitation_efficiency =
-        funding_ratio_to_effect(state.department(Department::Sanitation).funding_ratio);
-    effects.transit_efficiency =
-        funding_ratio_to_effect(state.department(Department::Transport).funding_ratio);
+    state.effects.police_effectiveness = funding_ratio_to_effect(police_ratio);
+    state.effects.fire_response = funding_ratio_to_effect(fire_ratio);
+    state.effects.road_quality = funding_ratio_to_effect(works_ratio);
+    state.effects.education_quality = funding_ratio_to_effect(edu_ratio);
+    state.effects.healthcare_quality = funding_ratio_to_effect(health_ratio);
+    state.effects.park_quality = funding_ratio_to_effect(parks_ratio);
+    state.effects.sanitation_efficiency = funding_ratio_to_effect(sanit_ratio);
+    state.effects.transit_efficiency = funding_ratio_to_effect(trans_ratio);
 }
 
 // ---------------------------------------------------------------------------
