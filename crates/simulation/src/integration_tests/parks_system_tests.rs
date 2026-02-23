@@ -87,9 +87,9 @@ fn test_plaza_provides_commercial_boost() {
 fn test_park_deficit_penalty_with_population() {
     let mut city = TestCity::new()
         .with_road(10, 10, 10, 20, RoadType::Local)
-        .with_zone_rect(11, 10, 12, 20, ZoneType::Residential)
-        .with_building(11, 12, ZoneType::Residential, 1)
-        .with_building(12, 12, ZoneType::Residential, 1)
+        .with_zone_rect(11, 10, 12, 20, ZoneType::ResidentialLow)
+        .with_building(11, 12, ZoneType::ResidentialLow, 1)
+        .with_building(12, 12, ZoneType::ResidentialLow, 1)
         .with_citizen((11, 12), (12, 12))
         .with_citizen((11, 12), (12, 12))
         .with_citizen((11, 12), (12, 12));
