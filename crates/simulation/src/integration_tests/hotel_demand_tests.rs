@@ -4,7 +4,6 @@ use crate::grid::ZoneType;
 use crate::hotel_demand::HotelDemandState;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
-use crate::tourism::Tourism;
 
 // ====================================================================
 // Resource existence
