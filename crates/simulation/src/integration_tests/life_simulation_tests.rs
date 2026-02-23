@@ -1,0 +1,463 @@
+//! Integration tests for life simulation: aging, death, education advancement,
+//! and home building validity (TEST-047).
+
+use bevy::prelude::*;
+
+use crate::buildings::Building;
+use crate::citizen::{
+    Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
+    PathCache, Personality, Position, Velocity,
+};
+use crate::death_care::DeathCareStats;
+use crate::education::EducationGrid;
+use crate::grid::{RoadType, WorldGrid, ZoneType};
+use crate::immigration::CityAttractiveness;
+use crate::mode_choice::ChosenTransportMode;
+use crate::movement::ActivityTimer;
+use crate::services::ServiceType;
+use crate::test_harness::TestCity;
+use crate::time_of_day::GameClock;
+use crate::virtual_population::VirtualPopulation;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Spawn a citizen with specific age, education, health, and gender.
+fn spawn_citizen_with(
+    world: &mut World,
+    home_building: Entity,
+    home_gx: usize,
+    home_gy: usize,
+    age: u8,
+    education: u8,
+    health: f32,
+    gender: Gender,
+) -> Entity {
+    let (wx, wy) = WorldGrid::grid_to_world(home_gx, home_gy);
+    world
+        .spawn((
+            Citizen,
+            Position { x: wx, y: wy },
+            Velocity { x: 0.0, y: 0.0 },
+            HomeLocation {
+                grid_x: home_gx,
+                grid_y: home_gy,
+                building: home_building,
+            },
+            CitizenStateComp(CitizenState::AtHome),
+            PathCache::new(Vec::new()),
+            CitizenDetails {
+                age,
+                gender,
+                education,
+                happiness: 90.0,
+                health,
+                salary: CitizenDetails::base_salary_for_education(education),
+                savings: 5000.0,
+            },
+            Personality {
+                ambition: 0.5,
+                sociability: 0.5,
+                materialism: 0.5,
+                resilience: 0.5,
+            },
+            Needs {
+                hunger: 100.0,
+                energy: 100.0,
+                social: 100.0,
+                fun: 100.0,
+                comfort: 100.0,
+            },
+            Family::default(),
+            ActivityTimer::default(),
+            ChosenTransportMode::default(),
+        ))
+        .id()
+}
+
+/// Create a test city with a residential building at (50,50).
+fn setup_city_with_home() -> (TestCity, Entity) {
+    let city = TestCity::new().with_building(50, 50, ZoneType::ResidentialLow, 3);
+    let building = city.grid().get(50, 50).building_id.unwrap();
+    (city, building)
+}
+
+/// Prevent emigration by setting city attractiveness high.
+fn prevent_emigration(world: &mut World) {
+    if let Some(mut attr) = world.get_resource_mut::<CityAttractiveness>() {
+        attr.overall_score = 80.0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test: aging increments age by 1 per aging tick
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_aging_increments_age_by_one_per_year() {
+    let (mut city, building) = setup_city_with_home();
+    let ages: Vec<u8> = vec![0, 10, 25, 50, 65];
+    let mut entities = Vec::new();
+    for &age in &ages {
+        let e = spawn_citizen_with(
+            city.world_mut(),
+            building,
+            50,
+            50,
+            age,
+            0,
+            100.0,
+            Gender::Male,
+        );
+        entities.push(e);
+    }
+    prevent_emigration(city.world_mut());
+
+    let initial_ages: Vec<u8> = {
+        let world = city.world_mut();
+        entities
+            .iter()
+            .map(|&e| world.get::<CitizenDetails>(e).unwrap().age)
+            .collect()
+    };
+
+    // Aging triggers when clock.day >= last_aging_day + 365
+    // LifecycleTimer.last_aging_day defaults to 0, so day=365 triggers it.
+    city.world_mut().resource_mut::<GameClock>().day = 365;
+    city.tick(1);
+
+    for (i, &entity) in entities.iter().enumerate() {
+        let world = city.world_mut();
+        if let Some(details) = world.get::<CitizenDetails>(entity) {
+            assert_eq!(
+                details.age,
+                initial_ages[i] + 1,
+                "Citizen starting at age {} should now be {}, got {}",
+                initial_ages[i],
+                initial_ages[i] + 1,
+                details.age
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test: multiple aging cycles increment cumulatively
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_aging_multiple_years_cumulative() {
+    let (mut city, building) = setup_city_with_home();
+    let entity = spawn_citizen_with(
+        city.world_mut(),
+        building,
+        50,
+        50,
+        20,
+        2,
+        100.0,
+        Gender::Female,
+    );
+    prevent_emigration(city.world_mut());
+
+    for year in 1..=3 {
+        city.world_mut().resource_mut::<GameClock>().day = 365 * year;
+        city.tick(1);
+    }
+
+    let age = city.world_mut().get::<CitizenDetails>(entity).unwrap().age;
+    assert_eq!(
+        age, 23,
+        "Citizen should be 23 after 3 aging cycles from age 20"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test: citizens at MAX_AGE (100) always die
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_death_certainty_at_max_age() {
+    let (mut city, building) = setup_city_with_home();
+
+    // Spawn 10 citizens at age 99 (will become 100 after aging => guaranteed death)
+    let mut entities = Vec::new();
+    for _ in 0..10 {
+        let e = spawn_citizen_with(
+            city.world_mut(),
+            building,
+            50,
+            50,
+            99,
+            0,
+            100.0,
+            Gender::Male,
+        );
+        entities.push(e);
+    }
+    city.world_mut()
+        .resource_mut::<VirtualPopulation>()
+        .total_virtual = 10;
+    prevent_emigration(city.world_mut());
+
+    let count_before = city.citizen_count();
+    assert_eq!(count_before, 10);
+
+    // Trigger aging: 99 -> 100 => MAX_AGE => guaranteed despawn
+    city.world_mut().resource_mut::<GameClock>().day = 365;
+    city.tick(1);
+
+    let count_after = city.citizen_count();
+    assert_eq!(
+        count_after, 0,
+        "All citizens at age 100 should die (guaranteed death at MAX_AGE)"
+    );
+
+    let stats = city.resource::<DeathCareStats>();
+    assert_eq!(stats.total_deaths_this_month, 10, "Should record 10 deaths");
+}
+
+// ---------------------------------------------------------------------------
+// Test: death probability is higher for older citizens vs younger
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_death_probability_increases_with_age() {
+    // Statistical test: age-96 citizens should die more than age-70 citizens.
+    let mut deaths_old = 0u32;
+    let mut deaths_young_old = 0u32;
+    let trials = 20;
+
+    for _ in 0..trials {
+        // Test age 95 -> 96 (high death chance: age_factor = 26/60 = 0.433)
+        let (mut city, building) = setup_city_with_home();
+        let e = spawn_citizen_with(
+            city.world_mut(),
+            building,
+            50,
+            50,
+            95,
+            0,
+            100.0,
+            Gender::Male,
+        );
+        city.world_mut()
+            .resource_mut::<VirtualPopulation>()
+            .total_virtual = 1;
+        prevent_emigration(city.world_mut());
+        city.world_mut().resource_mut::<GameClock>().day = 365;
+        city.tick(1);
+        if city.world_mut().get::<CitizenDetails>(e).is_none() {
+            deaths_old += 1;
+        }
+
+        // Test age 69 -> 70 (low death chance: age_factor = 0/60 = 0.0)
+        let (mut city2, building2) = setup_city_with_home();
+        let e2 = spawn_citizen_with(
+            city2.world_mut(),
+            building2,
+            50,
+            50,
+            69,
+            0,
+            100.0,
+            Gender::Female,
+        );
+        city2
+            .world_mut()
+            .resource_mut::<VirtualPopulation>()
+            .total_virtual = 1;
+        prevent_emigration(city2.world_mut());
+        city2.world_mut().resource_mut::<GameClock>().day = 365;
+        city2.tick(1);
+        if city2.world_mut().get::<CitizenDetails>(e2).is_none() {
+            deaths_young_old += 1;
+        }
+    }
+
+    // Age 70 has death_chance = 0.0, so deaths_young_old should be 0
+    // Age 96 has death_chance = 0.433, so deaths_old should be > 0
+    assert!(
+        deaths_old > deaths_young_old,
+        "Citizens aged 96 should die more often than those aged 70: \
+         old_deaths={deaths_old}, young_old_deaths={deaths_young_old} over {trials} trials"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test: education advancement from school coverage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_education_advancement_from_school_coverage() {
+    let mut city = TestCity::new()
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_building(51, 51, ZoneType::ResidentialLow, 3)
+        .with_service(50, 50, ServiceType::University);
+
+    let building = city.grid().get(51, 51).building_id.unwrap();
+
+    // Spawn citizen aged 20 with education=0 (eligible for university: age >= 18)
+    let entity = spawn_citizen_with(
+        city.world_mut(),
+        building,
+        51,
+        51,
+        20,
+        0,
+        100.0,
+        Gender::Female,
+    );
+    prevent_emigration(city.world_mut());
+
+    // Propagate EducationGrid via slow tick
+    city.tick_slow_cycle();
+
+    let edu_level = city.resource::<EducationGrid>().get(51, 51);
+    assert!(
+        edu_level >= 1,
+        "Education grid should cover (51,51), got {edu_level}"
+    );
+
+    // Run enough ticks for education_advancement (EDUCATION_INTERVAL = 1440)
+    city.tick(1500);
+
+    let details = city
+        .world_mut()
+        .get::<CitizenDetails>(entity)
+        .expect("citizen should still exist");
+    assert!(
+        details.education > 0,
+        "Citizen near university should advance education, got {}",
+        details.education
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test: education requires eligible age
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_education_requires_eligible_age() {
+    let mut city = TestCity::new()
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_building(51, 51, ZoneType::ResidentialLow, 3)
+        .with_service(50, 50, ServiceType::University);
+
+    let building = city.grid().get(51, 51).building_id.unwrap();
+
+    // Child aged 3: NOT eligible for university (requires age >= 18)
+    let child = spawn_citizen_with(
+        city.world_mut(),
+        building,
+        51,
+        51,
+        3,
+        0,
+        100.0,
+        Gender::Male,
+    );
+    // Adult aged 22: eligible for university
+    let adult = spawn_citizen_with(
+        city.world_mut(),
+        building,
+        51,
+        51,
+        22,
+        0,
+        100.0,
+        Gender::Female,
+    );
+    prevent_emigration(city.world_mut());
+
+    city.tick_slow_cycle();
+    city.tick(1500);
+
+    let child_edu = city
+        .world_mut()
+        .get::<CitizenDetails>(child)
+        .expect("child should exist")
+        .education;
+    let adult_edu = city
+        .world_mut()
+        .get::<CitizenDetails>(adult)
+        .expect("adult should exist")
+        .education;
+
+    assert_eq!(
+        child_edu, 0,
+        "Child aged 3 should NOT get university education"
+    );
+    assert!(
+        adult_edu > 0,
+        "Adult aged 22 should advance education, got {adult_edu}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test: citizens with homes reference valid buildings
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_citizens_home_references_valid_building() {
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::ResidentialLow, 3)
+        .with_building(60, 60, ZoneType::ResidentialLow, 2);
+
+    let building_50 = city.grid().get(50, 50).building_id.unwrap();
+    let building_60 = city.grid().get(60, 60).building_id.unwrap();
+
+    for _ in 0..5 {
+        spawn_citizen_with(
+            city.world_mut(),
+            building_50,
+            50,
+            50,
+            30,
+            1,
+            90.0,
+            Gender::Male,
+        );
+    }
+    for _ in 0..3 {
+        spawn_citizen_with(
+            city.world_mut(),
+            building_60,
+            60,
+            60,
+            25,
+            2,
+            95.0,
+            Gender::Female,
+        );
+    }
+    prevent_emigration(city.world_mut());
+    city.tick(100);
+
+    // Verify every citizen's HomeLocation.building points to a valid Building
+    let world = city.world_mut();
+    let mut query = world.query_filtered::<&HomeLocation, With<Citizen>>();
+    let homes: Vec<(usize, usize, Entity)> = query
+        .iter(world)
+        .map(|h| (h.grid_x, h.grid_y, h.building))
+        .collect();
+
+    assert!(!homes.is_empty(), "should have citizens with homes");
+    for (gx, gy, building_entity) in &homes {
+        let building = world.get::<Building>(*building_entity);
+        assert!(
+            building.is_some(),
+            "Home building {:?} at ({},{}) should be a valid Building",
+            building_entity,
+            gx,
+            gy
+        );
+        let b = building.unwrap();
+        assert_eq!(
+            (b.grid_x, b.grid_y),
+            (*gx, *gy),
+            "Building grid position should match citizen's home location"
+        );
+    }
+}
