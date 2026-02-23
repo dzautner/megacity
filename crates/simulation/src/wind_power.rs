@@ -103,7 +103,7 @@ impl crate::Saveable for WindPowerState {
 ///
 /// Returns 0.0 if wind speed is below cut-in or above cut-out thresholds.
 pub fn wind_power_output(nameplate_mw: f32, wind_speed: f32) -> f32 {
-    if wind_speed < CUT_IN_SPEED || wind_speed > CUT_OUT_SPEED {
+    if !(CUT_IN_SPEED..=CUT_OUT_SPEED).contains(&wind_speed) {
         return 0.0;
     }
     nameplate_mw * wind_speed * wind_speed * wind_speed
