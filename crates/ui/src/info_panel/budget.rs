@@ -3,7 +3,7 @@ use bevy_egui::{egui, EguiContexts};
 
 use simulation::economy::CityBudget;
 
-use super::BudgetPanelVisible;
+use super::types::BudgetPanelVisible;
 
 // ---------------------------------------------------------------------------
 // Trend tracking
