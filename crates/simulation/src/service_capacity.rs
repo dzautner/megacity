@@ -151,6 +151,12 @@ pub fn default_capacity(service_type: ServiceType) -> u32 {
         // Care services
         ServiceType::Daycare => 200,
         ServiceType::Eldercare => 150,
+
+        // Social services (SVC-013)
+        ServiceType::CommunityCenter => 300,
+        ServiceType::SubstanceAbuseTreatmentCenter => 100,
+        ServiceType::SeniorCenter => 200,
+        ServiceType::YouthCenter => 250,
     }
 }
 

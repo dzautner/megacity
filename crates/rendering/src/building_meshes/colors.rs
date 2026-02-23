@@ -70,6 +70,10 @@ pub fn service_base_color(service_type: ServiceType) -> Color {
         ServiceType::WellPump => Color::srgb(0.40, 0.60, 0.55),
         ServiceType::Daycare => Color::srgb(0.75, 0.65, 0.85),
         ServiceType::Eldercare => Color::srgb(0.60, 0.75, 0.65),
+        ServiceType::CommunityCenter => Color::srgb(0.55, 0.70, 0.80),
+        ServiceType::SubstanceAbuseTreatmentCenter => Color::srgb(0.50, 0.60, 0.65),
+        ServiceType::SeniorCenter => Color::srgb(0.65, 0.75, 0.60),
+        ServiceType::YouthCenter => Color::srgb(0.60, 0.65, 0.85),
     }
 }
 

@@ -132,4 +132,14 @@ impl ServiceBuilding {
             ServiceType::Daycare | ServiceType::Eldercare
         )
     }
+
+    pub fn is_social_service(service_type: ServiceType) -> bool {
+        matches!(
+            service_type,
+            ServiceType::CommunityCenter
+                | ServiceType::SubstanceAbuseTreatmentCenter
+                | ServiceType::SeniorCenter
+                | ServiceType::YouthCenter
+        )
+    }
 }

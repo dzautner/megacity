@@ -67,6 +67,10 @@ impl ServiceBuilding {
             ServiceType::GeothermalPlant => 60.0 * CELL_SIZE,
             ServiceType::Daycare => 20.0 * CELL_SIZE,
             ServiceType::Eldercare => 15.0 * CELL_SIZE,
+            ServiceType::CommunityCenter => 18.0 * CELL_SIZE,
+            ServiceType::SubstanceAbuseTreatmentCenter => 15.0 * CELL_SIZE,
+            ServiceType::SeniorCenter => 15.0 * CELL_SIZE,
+            ServiceType::YouthCenter => 15.0 * CELL_SIZE,
         }
     }
 
@@ -124,6 +128,10 @@ impl ServiceBuilding {
             ServiceType::GeothermalPlant => 5000.0,
             ServiceType::Daycare => 500.0,
             ServiceType::Eldercare => 600.0,
+            ServiceType::CommunityCenter => 800.0,
+            ServiceType::SubstanceAbuseTreatmentCenter => 1200.0,
+            ServiceType::SeniorCenter => 700.0,
+            ServiceType::YouthCenter => 600.0,
         }
     }
 
@@ -181,6 +189,10 @@ impl ServiceBuilding {
             ServiceType::GeothermalPlant => 80.0,
             ServiceType::Daycare => 15.0,
             ServiceType::Eldercare => 20.0,
+            ServiceType::CommunityCenter => 25.0,
+            ServiceType::SubstanceAbuseTreatmentCenter => 35.0,
+            ServiceType::SeniorCenter => 20.0,
+            ServiceType::YouthCenter => 18.0,
         }
     }
 
