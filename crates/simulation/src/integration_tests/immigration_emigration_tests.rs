@@ -7,6 +7,8 @@
 //! - No immigration occurs when no housing is available
 
 use crate::citizen::{Citizen, CitizenDetails};
+use crate::economy::CityBudget;
+use crate::education_jobs::EmploymentStats;
 use crate::grid::ZoneType;
 use crate::immigration::{CityAttractiveness, ImmigrationStats};
 use crate::test_harness::TestCity;
@@ -111,9 +113,10 @@ fn test_immigration_high_attractiveness_increases_population() {
 }
 
 /// Test that low attractiveness -> emigration.
-/// When the city attractiveness score drops below 30, the immigration_wave
-/// system triggers emigration. We remove TestSafetyNet so the destructive
-/// emigration system can actually despawn citizens.
+/// We create citizens in miserable conditions (low happiness, high
+/// unemployment, high taxes) to produce a low attractiveness score, then
+/// verify that citizens are removed. We remove TestSafetyNet so the
+/// destructive emigration systems can actually despawn citizens.
 #[test]
 fn test_emigration_low_attractiveness_decreases_population() {
     let mut city = TestCity::new()
@@ -135,9 +138,18 @@ fn test_emigration_low_attractiveness_decreases_population() {
     // Remove the safety net so emigration systems can despawn citizens.
     city.world_mut().remove_resource::<crate::TestSafetyNet>();
 
-    // Force low attractiveness so the immigration_wave emigration path fires.
-    // Also make citizens miserable so they are selected for removal.
-    fn force_low_attractiveness(city: &mut TestCity) {
+    // Force all attractiveness inputs low so compute_attractiveness
+    // naturally calculates a score < 30 (the emigration threshold).
+    fn force_bad_conditions(city: &mut TestCity) {
+        make_citizens_miserable(city);
+        if let Some(mut stats) = city.world_mut().get_resource_mut::<EmploymentStats>() {
+            stats.unemployment_rate = 0.5;
+            stats.total_unemployed = 100;
+            stats.total_employed = 100;
+        }
+        if let Some(mut budget) = city.world_mut().get_resource_mut::<CityBudget>() {
+            budget.tax_rate = 0.30;
+        }
         if let Some(mut attr) = city.world_mut().get_resource_mut::<CityAttractiveness>() {
             attr.overall_score = 10.0;
             attr.employment_factor = 0.0;
@@ -148,11 +160,12 @@ fn test_emigration_low_attractiveness_decreases_population() {
         }
     }
 
-    // immigration_wave runs every 100 ticks. Re-apply conditions before
-    // each wave to prevent compute_attractiveness from overriding.
+    force_bad_conditions(&mut city);
+
+    // Run multiple immigration wave intervals (each 100 ticks), re-applying
+    // bad conditions before each wave to guarantee emigration fires.
     for _ in 0..4 {
-        force_low_attractiveness(&mut city);
-        make_citizens_miserable(&mut city);
+        force_bad_conditions(&mut city);
         city.tick(100);
     }
 
