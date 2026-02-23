@@ -1,48 +1,8 @@
 use bevy::prelude::*;
 
-pub mod angle_snap;
-pub mod aqi_colors;
-pub mod auto_grid_draw;
-pub mod box_selection;
-pub mod building_mesh_variants;
-pub mod building_meshes;
-pub mod building_preview_mesh;
-pub mod building_render;
-pub mod building_status_enhanced;
-pub mod camera;
-pub mod camera_smoothing;
-pub mod citizen_render;
-pub mod color_ramps;
-pub mod colorblind_palette;
-pub mod construction_anim;
-pub mod cursor_preview;
-pub mod day_night;
-pub mod input;
-pub mod lane_markings;
-pub mod network_viz;
-pub mod oneway_arrows;
-pub mod overlay;
-pub mod props;
-pub mod satellite_view;
-pub mod terrain_render;
-pub mod tree_props;
-
-pub mod road_grade;
-pub mod road_render;
-pub mod selection_highlight;
-pub mod status_icons;
-pub mod traffic_arrows;
-pub mod traffic_los_render;
-pub mod wind_streamlines;
-
-pub mod enhanced_select;
-pub mod freehand_draw;
-pub mod grid_align;
-pub mod intersection_preview;
-pub mod parallel_draw;
-pub mod parallel_snap;
-pub mod screenshot;
-pub mod zone_brush_preview;
+// Auto-discover all public modules from src/ directory.
+// plugin_registration is declared manually below because it is private.
+automod_dir::dir!(pub "src" exclude "plugin_registration");
 
 mod plugin_registration;
 

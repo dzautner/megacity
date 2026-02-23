@@ -9,6 +9,7 @@ bevy_egui = { workspace = true }
 simulation = { path = "../simulation" }
 rendering = { path = "../rendering" }
 save = { path = "../save" }
+automod_dir = { path = "../automod_dir" }
 
 [lints]
 workspace = true

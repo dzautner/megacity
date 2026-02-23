@@ -27,13 +27,19 @@
 - Traffic-aware pathfinding via `csr_find_path_with_traffic()`
 - `SpatialIndex` on `DestinationCache` for O(1) nearest lookups
 
+## Auto-Module Discovery
+Modules in `simulation`, `rendering`, and `ui` crates are auto-discovered at compile time using `automod_dir::dir!()`. This means:
+- **You do NOT need to add `pub mod my_feature;` to `lib.rs`** — just create the file and it's automatically included
+- **You do NOT need to add `mod my_test;` to `integration_tests/mod.rs`** — just create the test file
+- Only `plugin_registration.rs` (private), `integration_tests` (cfg-gated), and `test_harness` (cfg-gated) are declared manually
+- The `save` crate still uses manual `mod` declarations due to mixed visibility and conditional compilation
+
 ## Adding New Features (Conflict-Free Pattern)
 New features should NOT touch shared files. Follow this pattern:
-1. Create your module file (e.g., `simulation/src/my_feature.rs`)
-2. Add `pub mod my_feature;` to `simulation/src/lib.rs` (only line you touch there)
-3. Define a `Plugin` struct in your module with all `init_resource`/`add_systems` calls
-4. Add your plugin to `simulation/src/plugin_registration.rs` (one plugin per line, no tuples)
-5. For saveable state, implement the `Saveable` trait and call `app.register_saveable::<MyState>()` in your plugin -- do NOT modify `save_types.rs`, `serialization.rs`, `save_restore.rs`, or `save_helpers.rs`
+1. Create your module file (e.g., `simulation/src/my_feature.rs`) — it is auto-discovered, NO lib.rs edit needed
+2. Define a `Plugin` struct in your module with all `init_resource`/`add_systems` calls
+3. Add your plugin to `simulation/src/plugin_registration.rs` (one plugin per line, no tuples)
+4. For saveable state, implement the `Saveable` trait and call `app.register_saveable::<MyState>()` in your plugin -- do NOT modify `save_types.rs`, `serialization.rs`, `save_restore.rs`, or `save_helpers.rs`
 
 ## Code Modularity (Treat This as a 100+ Contributor Project)
 This project is structured for high parallelism — many agents/contributors working simultaneously on separate features. **Every file should be small, focused, and conflict-resistant.**
@@ -49,8 +55,8 @@ This project is structured for high parallelism — many agents/contributors wor
 - Never put unrelated functionality in the same file just because "it's small" or "it's convenient."
 
 ### Avoiding Merge Conflicts
-- **Never append to shared lists** (like plugin registrations or mod declarations) in the same block — use one-item-per-line format so git can merge additions from parallel branches.
-- **Registration files** (`plugin_registration.rs`, `saveable_keys.rs`, `integration_tests/mod.rs`) use one entry per line — never group into tuples or multi-item blocks.
+- **Module declarations are auto-discovered** — `lib.rs` and `integration_tests/mod.rs` use `automod_dir::dir!()` so new modules never cause conflicts.
+- **Registration files** (`plugin_registration.rs`, `saveable_keys.rs`) use one entry per line — never group into tuples or multi-item blocks.
 - **Test files:** ONE file per feature domain. Never add tests to someone else's test file — create a new one.
 - **Large structs or enums** that many features extend: put each variant/field on its own line.
 
@@ -79,8 +85,7 @@ Split a file if any of these are true:
 - Every PR that adds or modifies simulation behavior MUST include integration tests using `TestCity`
 - Test harness: `simulation/src/test_harness.rs` provides `TestCity` builder for headless Bevy App tests
 - Integration test files live in: `simulation/src/integration_tests/` (one file per feature domain)
-- New tests go in a NEW file: `simulation/src/integration_tests/<feature>_tests.rs`
-- Add `mod <feature>_tests;` to `simulation/src/integration_tests/mod.rs`
+- New tests go in a NEW file: `simulation/src/integration_tests/<feature>_tests.rs` — it is auto-discovered, NO mod.rs edit needed
 - Do NOT append tests to existing test files — create a new file to avoid merge conflicts
 - Test pattern:
   1. Set up city state using `TestCity::new()` builder methods (roads, zones, buildings, citizens, etc.)
