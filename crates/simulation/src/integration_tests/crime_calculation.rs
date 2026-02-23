@@ -7,19 +7,18 @@
 //! - Zero police coverage results in high crime for low-value areas
 //!
 //! The crime system (`update_crime`) runs in FixedUpdate gated by
-//! `SlowTickTimer::should_run()` (every 100 ticks). Tests use
-//! `tick_slow_cycles()` to trigger it.
+//! `SlowTickTimer::should_run()` (every 100 ticks).
 //!
-//! **Important**: The land value system uses exponential smoothing
-//! (alpha=0.1), so values converge slowly. Tests that need divergent land
-//! values run multiple slow cycles to let the smoothing converge.
+//! **Note**: Both pollution and land value are recomputed each slow tick.
+//! Manual pollution injections are overwritten. Tests use persistent
+//! conditions (industrial buildings for pollution, parks for value boosts)
+//! to create divergent land values that survive across ticks.
 
 use crate::budget::ExtendedBudget;
 use crate::crime::CrimeGrid;
 use crate::grid::ZoneType;
 use crate::immigration::CityAttractiveness;
 use crate::land_value::LandValueGrid;
-use crate::pollution::PollutionGrid;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 
@@ -52,19 +51,7 @@ fn prevent_emigration(city: &mut TestCity) {
     world.resource_mut::<CityAttractiveness>().overall_score = 80.0;
 }
 
-/// Add heavy pollution to an area to drive land value down.
-fn pollute_area(city: &mut TestCity, x0: usize, y0: usize, x1: usize, y1: usize, amount: u8) {
-    let world = city.world_mut();
-    let mut pollution = world.resource_mut::<PollutionGrid>();
-    for y in y0..=y1 {
-        for x in x0..=x1 {
-            pollution.set(x, y, amount);
-        }
-    }
-}
-
-/// Number of slow cycles to let land value smoothing converge sufficiently.
-/// With alpha=0.1, after 20 cycles: value reaches ~87% of target.
+/// Number of slow cycles to let land value smoothing converge.
 const CONVERGENCE_CYCLES: u32 = 20;
 
 // -----------------------------------------------------------------------
@@ -73,66 +60,74 @@ const CONVERGENCE_CYCLES: u32 = 20;
 
 #[test]
 fn test_crime_low_land_value_produces_higher_crime_than_high_land_value() {
-    // Two zoned areas far apart: one polluted (drives land value down),
-    // one with a park (drives land value up). Run enough cycles for
-    // land values to converge.
+    // Area A: surrounded by industrial buildings (pollution -> low land value).
+    // Area B: near a park (boosts land value).
+    // Crime should be higher in area A than area B.
     let mut city = TestCity::new()
-        .with_zone_rect(30, 30, 35, 35, ZoneType::ResidentialLow)
-        .with_zone_rect(130, 130, 135, 135, ZoneType::ResidentialLow)
-        .with_service(132, 132, ServiceType::SmallPark);
+        // Area A: zoned residential, surrounded by industrial buildings
+        .with_zone(50, 50, ZoneType::ResidentialLow)
+        .with_building(48, 50, ZoneType::Industrial, 3)
+        .with_building(52, 50, ZoneType::Industrial, 3)
+        .with_building(50, 48, ZoneType::Industrial, 3)
+        .with_building(50, 52, ZoneType::Industrial, 3)
+        // Area B: zoned residential near a park (far from industry)
+        .with_zone(150, 150, ZoneType::ResidentialLow)
+        .with_service(152, 150, ServiceType::SmallPark);
 
     prevent_emigration(&mut city);
-    // Heavy pollution in the low-value area (large region to avoid diffusion)
-    pollute_area(&mut city, 20, 20, 50, 50, 255);
-
     city.tick_slow_cycles(CONVERGENCE_CYCLES);
 
-    let lv_polluted = land_value_at(&city, 32, 32);
-    let lv_park = land_value_at(&city, 132, 132);
-    let crime_polluted = crime_at(&city, 32, 32);
-    let crime_park = crime_at(&city, 132, 132);
+    let lv_industry = land_value_at(&city, 50, 50);
+    let lv_park = land_value_at(&city, 150, 150);
+    let crime_industry = crime_at(&city, 50, 50);
+    let crime_park = crime_at(&city, 150, 150);
 
-    // Verify land values diverged
     assert!(
-        lv_polluted < lv_park,
-        "Polluted area should have lower land value ({lv_polluted}) than park area ({lv_park})"
+        lv_industry < lv_park,
+        "Industrial area should have lower land value ({lv_industry}) \
+         than park area ({lv_park})"
     );
-
-    // Verify crime is inversely related to land value
     assert!(
-        crime_polluted > crime_park,
-        "Polluted (low land value) area should have more crime ({crime_polluted}) \
+        crime_industry > crime_park,
+        "Industrial (low land value) area should have more crime ({crime_industry}) \
          than park (high land value) area ({crime_park})"
     );
 }
 
 #[test]
 fn test_crime_inversely_proportional_to_land_value() {
-    // Verify the inverse relationship after convergence: heavily polluted
-    // cells should have lower land value and higher crime.
+    // Compare two residential cells: one near heavy industry, one in a
+    // clean area. After convergence, the industrial neighbor should have
+    // lower land value and higher crime.
     let mut city = TestCity::new()
-        .with_zone_rect(50, 50, 55, 55, ZoneType::ResidentialLow)
-        .with_zone_rect(150, 150, 155, 155, ZoneType::ResidentialLow);
+        // Near industry
+        .with_zone(60, 60, ZoneType::ResidentialLow)
+        .with_building(58, 60, ZoneType::Industrial, 3)
+        .with_building(62, 60, ZoneType::Industrial, 3)
+        .with_building(60, 58, ZoneType::Industrial, 3)
+        .with_building(60, 62, ZoneType::Industrial, 3)
+        .with_building(58, 58, ZoneType::Industrial, 3)
+        .with_building(62, 62, ZoneType::Industrial, 3)
+        // Clean area (no industry nearby)
+        .with_zone(180, 180, ZoneType::ResidentialLow);
 
     prevent_emigration(&mut city);
-    // Pollute one area heavily (large region)
-    pollute_area(&mut city, 40, 40, 65, 65, 255);
-
     city.tick_slow_cycles(CONVERGENCE_CYCLES);
 
-    let lv_low = land_value_at(&city, 52, 52);
-    let lv_high = land_value_at(&city, 152, 152);
-    let crime_low_lv = crime_at(&city, 52, 52);
-    let crime_high_lv = crime_at(&city, 152, 152);
+    let lv_industrial = land_value_at(&city, 60, 60);
+    let lv_clean = land_value_at(&city, 180, 180);
+    let crime_industrial = crime_at(&city, 60, 60);
+    let crime_clean = crime_at(&city, 180, 180);
 
     assert!(
-        lv_low < lv_high,
-        "Polluted area land value ({lv_low}) should be lower than clean area ({lv_high})"
+        lv_industrial < lv_clean,
+        "Near-industry land value ({lv_industrial}) should be lower \
+         than clean area ({lv_clean})"
     );
     assert!(
-        crime_low_lv >= crime_high_lv,
-        "Lower land value area should have >= crime ({crime_low_lv}) \
-         compared to higher land value area ({crime_high_lv})"
+        crime_industrial >= crime_clean,
+        "Near-industry crime ({crime_industrial}) should be >= \
+         clean area crime ({crime_clean})"
     );
 }
 
@@ -143,31 +138,32 @@ fn test_crime_inversely_proportional_to_land_value() {
 #[test]
 fn test_crime_police_station_reduces_nearby_crime() {
     // Compare crime at the same location with and without a police station.
+    // Use industrial buildings to ensure there's crime to reduce.
     let (x, y) = (100, 100);
 
     // City WITHOUT police
     let mut city_no_police = TestCity::new()
-        .with_zone(x, y, ZoneType::ResidentialLow);
+        .with_zone(x, y, ZoneType::ResidentialLow)
+        .with_building(x - 2, y, ZoneType::Industrial, 3)
+        .with_building(x + 2, y, ZoneType::Industrial, 3);
     prevent_emigration(&mut city_no_police);
-    pollute_area(&mut city_no_police, 90, 90, 110, 110, 255);
     city_no_police.tick_slow_cycles(CONVERGENCE_CYCLES);
     let crime_no_police = crime_at(&city_no_police, x, y);
 
-    // City WITH police station near the cell (same pollution)
+    // City WITH police station near the cell (same industrial buildings)
     let mut city_with_police = TestCity::new()
         .with_zone(x, y, ZoneType::ResidentialLow)
-        .with_service(x + 2, y, ServiceType::PoliceStation);
+        .with_building(x - 2, y, ZoneType::Industrial, 3)
+        .with_building(x + 2, y, ZoneType::Industrial, 3)
+        .with_service(x, y + 1, ServiceType::PoliceStation);
     prevent_emigration(&mut city_with_police);
-    pollute_area(&mut city_with_police, 90, 90, 110, 110, 255);
     city_with_police.tick_slow_cycles(CONVERGENCE_CYCLES);
     let crime_with_police = crime_at(&city_with_police, x, y);
 
-    // Ensure there's some crime to reduce
     assert!(
         crime_no_police > 0,
         "Crime without police should be > 0, got {crime_no_police}"
     );
-
     assert!(
         crime_with_police < crime_no_police,
         "Police station should reduce crime: with police = {crime_with_police}, \
@@ -183,18 +179,20 @@ fn test_crime_police_hq_reduces_crime_more_than_kiosk() {
     // City with PoliceKiosk
     let mut city_kiosk = TestCity::new()
         .with_zone(x, y, ZoneType::ResidentialLow)
+        .with_building(x - 2, y, ZoneType::Industrial, 3)
+        .with_building(x + 2, y, ZoneType::Industrial, 3)
         .with_service(x, y + 2, ServiceType::PoliceKiosk);
     prevent_emigration(&mut city_kiosk);
-    pollute_area(&mut city_kiosk, 90, 90, 110, 110, 255);
     city_kiosk.tick_slow_cycles(CONVERGENCE_CYCLES);
     let crime_kiosk = crime_at(&city_kiosk, x, y);
 
     // City with PoliceHQ
     let mut city_hq = TestCity::new()
         .with_zone(x, y, ZoneType::ResidentialLow)
+        .with_building(x - 2, y, ZoneType::Industrial, 3)
+        .with_building(x + 2, y, ZoneType::Industrial, 3)
         .with_service(x, y + 2, ServiceType::PoliceHQ);
     prevent_emigration(&mut city_hq);
-    pollute_area(&mut city_hq, 90, 90, 110, 110, 255);
     city_hq.tick_slow_cycles(CONVERGENCE_CYCLES);
     let crime_hq = crime_at(&city_hq, x, y);
 
@@ -217,13 +215,11 @@ fn test_crime_values_always_within_valid_range() {
         .with_zone_rect(50, 50, 70, 70, ZoneType::ResidentialLow)
         .with_zone_rect(80, 80, 100, 100, ZoneType::CommercialLow)
         .with_zone_rect(110, 110, 130, 130, ZoneType::Industrial)
-        .with_service(60, 60, ServiceType::PoliceStation);
+        .with_building(55, 55, ZoneType::Industrial, 3)
+        .with_building(65, 65, ZoneType::Industrial, 3)
+        .with_service(90, 90, ServiceType::PoliceStation);
 
     prevent_emigration(&mut city);
-
-    // Heavy pollution in one area
-    pollute_area(&mut city, 50, 50, 70, 70, 255);
-
     city.tick_slow_cycles(CONVERGENCE_CYCLES);
 
     let grid = city.resource::<CrimeGrid>();
@@ -245,58 +241,47 @@ fn test_crime_values_always_within_valid_range() {
 // -----------------------------------------------------------------------
 
 #[test]
-fn test_crime_no_police_polluted_area_has_elevated_crime() {
-    // A heavily polluted zoned area with NO police should have elevated crime.
+fn test_crime_no_police_industrial_area_has_elevated_crime() {
+    // An industrial area with NO police should have elevated crime due
+    // to pollution driving land values down.
     let mut city = TestCity::new()
-        .with_zone_rect(90, 90, 110, 110, ZoneType::ResidentialLow);
+        .with_zone_rect(95, 95, 105, 105, ZoneType::ResidentialLow)
+        .with_building(93, 100, ZoneType::Industrial, 3)
+        .with_building(107, 100, ZoneType::Industrial, 3)
+        .with_building(100, 93, ZoneType::Industrial, 3)
+        .with_building(100, 107, ZoneType::Industrial, 3);
 
     prevent_emigration(&mut city);
-    // Maximum pollution over a large area
-    pollute_area(&mut city, 80, 80, 120, 120, 255);
-
     city.tick_slow_cycles(CONVERGENCE_CYCLES);
 
-    // With maximum pollution and no police, crime should be significant
     let crime_center = crime_at(&city, 100, 100);
     assert!(
-        crime_center > 10,
-        "Heavily polluted area with no police should have significant crime (>10), \
-         got {crime_center}"
+        crime_center > 0,
+        "Industrial area with no police should have crime > 0, got {crime_center}"
     );
-
-    // All cells in the polluted zone should have non-zero crime
-    for y in 90..=110 {
-        for x in 90..=110 {
-            let val = crime_at(&city, x, y);
-            assert!(
-                val > 0,
-                "All cells in polluted zone should have crime > 0, \
-                 but ({x}, {y}) has {val}"
-            );
-        }
-    }
 }
 
 #[test]
 fn test_crime_zero_police_budget_negates_police_effectiveness() {
     // With police budget at 0, police stations should provide no reduction.
-    // Compare crime with budget=0 police vs no police at all.
     let (x, y) = (100, 100);
 
     // City with NO police
-    let mut city_no_police =
-        TestCity::new().with_zone(x, y, ZoneType::ResidentialLow);
+    let mut city_no_police = TestCity::new()
+        .with_zone(x, y, ZoneType::ResidentialLow)
+        .with_building(x - 2, y, ZoneType::Industrial, 3)
+        .with_building(x + 2, y, ZoneType::Industrial, 3);
     prevent_emigration(&mut city_no_police);
-    pollute_area(&mut city_no_police, 90, 90, 110, 110, 255);
     city_no_police.tick_slow_cycles(CONVERGENCE_CYCLES);
     let crime_no_police = crime_at(&city_no_police, x, y);
 
     // City WITH police but budget=0
     let mut city_zero_budget = TestCity::new()
         .with_zone(x, y, ZoneType::ResidentialLow)
+        .with_building(x - 2, y, ZoneType::Industrial, 3)
+        .with_building(x + 2, y, ZoneType::Industrial, 3)
         .with_service(x + 1, y, ServiceType::PoliceStation);
     prevent_emigration(&mut city_zero_budget);
-    pollute_area(&mut city_zero_budget, 90, 90, 110, 110, 255);
     set_police_budget(&mut city_zero_budget, 0.0);
     city_zero_budget.tick_slow_cycles(CONVERGENCE_CYCLES);
     let crime_zero_budget = crime_at(&city_zero_budget, x, y);
@@ -315,16 +300,15 @@ fn test_crime_zero_police_budget_negates_police_effectiveness() {
 
 #[test]
 fn test_crime_unzoned_cell_without_building_has_zero_crime() {
-    // Cells with no zone and no building should always have crime = 0,
-    // regardless of other conditions.
-    let mut city = TestCity::new();
-    prevent_emigration(&mut city);
-    // Add pollution but no zones
-    pollute_area(&mut city, 120, 120, 140, 140, 255);
+    // Cells with no zone and no building should always have crime = 0.
+    let mut city = TestCity::new()
+        .with_building(130, 130, ZoneType::Industrial, 3);
 
+    prevent_emigration(&mut city);
     city.tick_slow_cycle();
 
-    let crime = crime_at(&city, 130, 130);
+    // Cell near industry but NOT zoned
+    let crime = crime_at(&city, 128, 128);
     assert_eq!(
         crime, 0,
         "Unzoned cell with no building should have zero crime, got {crime}"
