@@ -6,7 +6,6 @@
 //! - Immigration scales with available housing
 //! - No immigration occurs when no housing is available
 
-use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails};
 use crate::grid::ZoneType;
 use crate::immigration::{CityAttractiveness, ImmigrationStats};
