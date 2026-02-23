@@ -330,38 +330,30 @@ fn test_happiness_tuning_pollution_diminishing_returns() {
     let home = (100, 100);
     let work = (102, 100);
 
-    // No pollution (baseline)
-    let mut city_clean = city_with_utilities(home, work);
-    city_clean.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_clean, 50.0, 70.0);
-    city_clean.tick(1);
-    let h_clean = first_citizen_happiness(&mut city_clean);
-
-    // Moderate pollution: 100
-    let mut city_moderate = city_with_utilities(home, work);
-    {
-        let world = city_moderate.world_mut();
-        world
-            .resource_mut::<crate::pollution::PollutionGrid>()
-            .set(home.0, home.1, 100);
+    // Helper: inject pollution at tick N-1 (alongside needs/health) so that
+    // wind drift and pollution decay during earlier ticks don't erase the
+    // value before the happiness system reads it on tick N.
+    fn measure_happiness_at_pollution(
+        home: (usize, usize),
+        work: (usize, usize),
+        pollution_level: u8,
+    ) -> f32 {
+        let mut city = city_with_utilities(home, work);
+        city.tick(HAPPINESS_TICKS - 1);
+        set_needs_and_health(&mut city, 50.0, 70.0);
+        {
+            let world = city.world_mut();
+            world
+                .resource_mut::<crate::pollution::PollutionGrid>()
+                .set(home.0, home.1, pollution_level);
+        }
+        city.tick(1);
+        first_citizen_happiness(&mut city)
     }
-    city_moderate.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_moderate, 50.0, 70.0);
-    city_moderate.tick(1);
-    let h_moderate = first_citizen_happiness(&mut city_moderate);
 
-    // Max pollution: 255
-    let mut city_max = city_with_utilities(home, work);
-    {
-        let world = city_max.world_mut();
-        world
-            .resource_mut::<crate::pollution::PollutionGrid>()
-            .set(home.0, home.1, 255);
-    }
-    city_max.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_max, 50.0, 70.0);
-    city_max.tick(1);
-    let h_max = first_citizen_happiness(&mut city_max);
+    let h_clean = measure_happiness_at_pollution(home, work, 0);
+    let h_moderate = measure_happiness_at_pollution(home, work, 100);
+    let h_max = measure_happiness_at_pollution(home, work, 255);
 
     // More pollution should always be worse
     assert!(
