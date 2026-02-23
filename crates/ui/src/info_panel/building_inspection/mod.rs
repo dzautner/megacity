@@ -5,14 +5,11 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
 use simulation::buildings::Building;
-use simulation::citizen::{
-    Citizen, CitizenDetails, CitizenStateComp, Family, HomeLocation, Needs, Personality,
-    WorkLocation,
-};
+use simulation::citizen::Citizen;
 use simulation::config::CELL_SIZE;
 use simulation::config::GRID_WIDTH;
 use simulation::economy::CityBudget;
-use simulation::grid::{WorldGrid, ZoneType};
+use simulation::grid::WorldGrid;
 use simulation::land_value::LandValueGrid;
 use simulation::pollution::PollutionGrid;
 use simulation::services::ServiceBuilding;
@@ -21,28 +18,16 @@ use simulation::utilities::UtilitySource;
 use rendering::input::SelectedBuilding;
 
 use helpers::{power_water_labels, zone_type_name};
-use residential::{render_residential_section, render_workers_section};
+use residential::{render_residential_section, render_workers_section, CitizenQuery};
 
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn building_inspection_ui(
     mut contexts: EguiContexts,
     selected: Res<SelectedBuilding>,
     buildings: Query<&Building>,
     service_buildings: Query<&ServiceBuilding>,
     utility_sources: Query<&UtilitySource>,
-    citizens: Query<
-        (
-            Entity,
-            &CitizenDetails,
-            &HomeLocation,
-            Option<&WorkLocation>,
-            &CitizenStateComp,
-            Option<&Needs>,
-            Option<&Personality>,
-            Option<&Family>,
-        ),
-        With<Citizen>,
-    >,
+    citizens: Query<CitizenQuery, With<Citizen>>,
     grid: Res<WorldGrid>,
     pollution: Res<PollutionGrid>,
     land_value: Res<LandValueGrid>,
@@ -79,24 +64,12 @@ pub fn building_inspection_ui(
     }
 }
 
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 fn render_zone_building(
     contexts: &mut EguiContexts,
     entity: Entity,
     building: &Building,
-    citizens: &Query<
-        (
-            Entity,
-            &CitizenDetails,
-            &HomeLocation,
-            Option<&WorkLocation>,
-            &CitizenStateComp,
-            Option<&Needs>,
-            Option<&Personality>,
-            Option<&Family>,
-        ),
-        With<Citizen>,
-    >,
+    citizens: &Query<CitizenQuery, With<Citizen>>,
     grid: &WorldGrid,
     pollution: &PollutionGrid,
     land_value: &LandValueGrid,

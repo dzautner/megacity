@@ -10,37 +10,29 @@ use simulation::wealth::WealthTier;
 
 use super::helpers::{citizen_name, education_abbrev, happiness_label, needs_bar, state_name};
 
+/// Query type for citizen data used in building inspection.
+pub type CitizenQuery = (
+    Entity,
+    &'static CitizenDetails,
+    &'static HomeLocation,
+    Option<&'static WorkLocation>,
+    &'static CitizenStateComp,
+    Option<&'static Needs>,
+    Option<&'static Personality>,
+    Option<&'static Family>,
+);
+
 /// Renders the residential section of a zone building (residents list, stats, needs, education).
-#[allow(clippy::too_many_arguments)]
 pub fn render_residential_section(
     ui: &mut egui::Ui,
     building_entity: Entity,
-    citizens: &Query<
-        (
-            Entity,
-            &CitizenDetails,
-            &HomeLocation,
-            Option<&WorkLocation>,
-            &CitizenStateComp,
-            Option<&Needs>,
-            Option<&Personality>,
-            Option<&Family>,
-        ),
-        With<Citizen>,
-    >,
+    citizens: &Query<CitizenQuery, With<Citizen>>,
     budget: &CityBudget,
 ) {
     ui.separator();
     ui.heading("Residents");
 
-    let mut residents: Vec<(
-        Entity,
-        &CitizenDetails,
-        &CitizenStateComp,
-        Option<&Needs>,
-        Option<&Personality>,
-        Option<&Family>,
-    )> = citizens
+    let mut residents: Vec<_> = citizens
         .iter()
         .filter(|(_, _, home, _, _, _, _, _)| home.building == building_entity)
         .map(|(e, details, _, _, state, needs, pers, fam)| (e, details, state, needs, pers, fam))
@@ -221,28 +213,15 @@ pub fn render_residential_section(
 }
 
 /// Renders the workers section of a non-residential zone building.
-#[allow(clippy::too_many_arguments)]
 pub fn render_workers_section(
     ui: &mut egui::Ui,
     building_entity: Entity,
-    citizens: &Query<
-        (
-            Entity,
-            &CitizenDetails,
-            &HomeLocation,
-            Option<&WorkLocation>,
-            &CitizenStateComp,
-            Option<&Needs>,
-            Option<&Personality>,
-            Option<&Family>,
-        ),
-        With<Citizen>,
-    >,
+    citizens: &Query<CitizenQuery, With<Citizen>>,
 ) {
     ui.separator();
     ui.heading("Workers");
 
-    let mut workers: Vec<(Entity, &CitizenDetails, &CitizenStateComp)> = citizens
+    let mut workers: Vec<_> = citizens
         .iter()
         .filter(|(_, _, _, work, _, _, _, _)| {
             work.map(|w| w.building == building_entity).unwrap_or(false)
