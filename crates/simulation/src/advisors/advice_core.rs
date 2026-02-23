@@ -1,7 +1,7 @@
 //! Advisor logic for Finance, Infrastructure, Health, and Education domains,
 //! plus grid-search helpers used by all advice functions.
 
-use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+use crate::config::GRID_WIDTH;
 use crate::fire::FireGrid;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 

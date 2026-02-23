@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::crime::CrimeGrid;
-use crate::economy::CityBudget;
 use crate::education::EducationGrid;
 use crate::education_jobs::EmploymentStats;
 use crate::fire::FireGrid;
@@ -12,7 +11,6 @@ use crate::homelessness::HomelessnessStats;
 use crate::loans::LoanBook;
 use crate::pollution::PollutionGrid;
 use crate::road_maintenance::RoadMaintenanceStats;
-use crate::stats::CityStats;
 use crate::traffic::TrafficGrid;
 use crate::zones::ZoneDemand;
 
@@ -281,8 +279,3 @@ pub struct AdvisorExtras<'w> {
     pub traffic: Res<'w, TrafficGrid>,
     pub zone_demand: Res<'w, ZoneDemand>,
 }
-
-// Re-export common items used by advice modules
-pub(crate) use crate::economy::CityBudget;
-pub(crate) use crate::grid::WorldGrid;
-pub(crate) use crate::stats::CityStats;
