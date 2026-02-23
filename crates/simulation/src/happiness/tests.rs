@@ -150,14 +150,12 @@ mod tests {
 
     #[test]
     fn test_diminishing_returns_clamps_input() {
-        // Negative input should be clamped to 0
         let neg = diminishing_returns(-0.5, DIMINISHING_K_DEFAULT);
         assert!(
             neg.abs() < 0.001,
             "diminishing_returns(-0.5) should be ~0, got {}",
             neg
         );
-        // Input > 1 should be clamped to 1
         let over = diminishing_returns(2.0, DIMINISHING_K_DEFAULT);
         let at_one = diminishing_returns(1.0, DIMINISHING_K_DEFAULT);
         assert!(
@@ -168,7 +166,6 @@ mod tests {
 
     #[test]
     fn test_diminishing_returns_different_k_values() {
-        // Higher k should saturate faster
         let low_k = diminishing_returns(0.5, 1.0);
         let high_k = diminishing_returns(0.5, 5.0);
         assert!(
@@ -211,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_service_coverage_ratio_partial() {
-        let partial = COVERAGE_HEALTH | COVERAGE_EDUCATION; // 2 out of 8
+        let partial = COVERAGE_HEALTH | COVERAGE_EDUCATION;
         let ratio = service_coverage_ratio(partial);
         assert!(
             (ratio - 0.25).abs() < 0.001,
@@ -235,7 +232,6 @@ mod tests {
 
     #[test]
     fn test_critical_no_water_severe() {
-        // Total penalty for no water should be at least 40
         let total = NO_WATER_PENALTY + CRITICAL_NO_WATER_PENALTY;
         assert!(
             total >= 40.0,
@@ -295,7 +291,6 @@ mod tests {
 
     #[test]
     fn test_wealth_satisfaction_diminishing() {
-        // First $2500 should matter more than going from $7500 to $10000
         let first_quarter = wealth_satisfaction(2500.0) - wealth_satisfaction(0.01);
         let last_quarter =
             wealth_satisfaction(WEALTH_COMFORTABLE_SAVINGS) - wealth_satisfaction(7500.0);

@@ -11,14 +11,17 @@ pub const COVERAGE_FIRE: u8 = 0b1000_0000;
 // ---------------------------------------------------------------------------
 // Update interval (ticks between happiness recalculations)
 // ---------------------------------------------------------------------------
-/// How often (in ticks) the happiness system recalculates. Changed from the
-/// original 100 ticks to 20 for faster responsiveness.
+/// How often (in ticks) the happiness system recalculates. Reduced from the
+/// original value for faster responsiveness.
 pub const HAPPINESS_UPDATE_INTERVAL: u64 = 20;
 
 // ---------------------------------------------------------------------------
 // Base & linear bonuses / penalties
 // ---------------------------------------------------------------------------
-pub const BASE_HAPPINESS: f32 = 50.0;
+/// Base happiness before any factors. Reduced from 50 to accommodate new
+/// wealth satisfaction and weather factors while keeping the overall range
+/// balanced.
+pub const BASE_HAPPINESS: f32 = 42.0;
 pub const EMPLOYED_BONUS: f32 = 15.0;
 pub const SHORT_COMMUTE_BONUS: f32 = 10.0;
 pub const POWER_BONUS: f32 = 5.0;
@@ -65,9 +68,6 @@ pub const CRITICAL_CRIME_PENALTY: f32 = 10.0;
 // ---------------------------------------------------------------------------
 /// Steepness parameter `k` for the diminishing returns function
 /// `f(x) = 1 - exp(-k * x)`. Higher k = faster saturation.
-///
-/// Used for service coverage: the first service building matters most,
-/// and for continuous factors like land value and needs satisfaction.
 pub const DIMINISHING_K_DEFAULT: f32 = 3.0;
 /// Steepness for pollution/crime factors (negative impacts also diminish).
 pub const DIMINISHING_K_NEGATIVE: f32 = 2.5;

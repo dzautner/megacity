@@ -16,6 +16,11 @@ use crate::weather::Weather;
 use super::constants::*;
 use super::coverage::ServiceCoverageGrid;
 
+/// The diminishing returns value at satisfaction = 0.5. Used to center the
+/// needs contribution so that 50% satisfaction gives ~0 happiness contribution,
+/// preserving the original formula's behavior while adding diminishing returns.
+const DIMINISHED_MIDPOINT: f32 = 0.7769; // 1 - exp(-3 * 0.5)
+
 /// Bundled secondary resources for update_happiness to stay within the 16-param limit.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct HappinessExtras<'w> {
@@ -159,56 +164,41 @@ fn compute_citizen_happiness(
         happiness += POWER_BONUS;
     } else {
         happiness -= NO_POWER_PENALTY;
-        // Critical threshold: no power is a severe penalty
         happiness -= CRITICAL_NO_POWER_PENALTY;
     }
     if home_cell.has_water {
         happiness += WATER_BONUS;
     } else {
         happiness -= NO_WATER_PENALTY;
-        // Critical threshold: no water is a severe penalty
         happiness -= CRITICAL_NO_WATER_PENALTY;
     }
 
-    // --- Service coverage with diminishing returns ---
+    // --- Service coverage (O(1) bitflag lookup from precomputed grid) ---
     let idx = ServiceCoverageGrid::idx(home.grid_x, home.grid_y);
     let cov = coverage.flags[idx];
-
-    // Count covered services and apply diminishing returns
-    let svc_ratio = service_coverage_ratio(cov);
-    let svc_diminished = diminishing_returns(svc_ratio, DIMINISHING_K_DEFAULT);
-
-    // Individual service bonuses scaled by diminishing returns multiplier.
-    // The more services you already have, the less each additional one adds.
-    let svc_scale = if svc_ratio > 0.0 {
-        svc_diminished / svc_ratio
-    } else {
-        1.0
-    };
-
     if cov & COVERAGE_HEALTH != 0 {
-        happiness += HEALTH_COVERAGE_BONUS * weights.services * svc_scale;
+        happiness += HEALTH_COVERAGE_BONUS * weights.services;
     }
     if cov & COVERAGE_EDUCATION != 0 {
-        happiness += EDUCATION_BONUS * weights.services * svc_scale;
+        happiness += EDUCATION_BONUS * weights.services;
     }
     if cov & COVERAGE_POLICE != 0 {
-        happiness += POLICE_BONUS * weights.services * svc_scale;
+        happiness += POLICE_BONUS * weights.services;
     }
     if cov & COVERAGE_PARK != 0 {
-        happiness += PARK_BONUS * weights.parks * svc_scale;
+        happiness += PARK_BONUS * weights.parks;
     }
     if cov & COVERAGE_ENTERTAINMENT != 0 {
-        happiness += ENTERTAINMENT_BONUS * weights.entertainment * svc_scale;
+        happiness += ENTERTAINMENT_BONUS * weights.entertainment;
     }
     if cov & COVERAGE_TELECOM != 0 {
-        happiness += TELECOM_BONUS * svc_scale;
+        happiness += TELECOM_BONUS;
     }
     if cov & COVERAGE_TRANSPORT != 0 {
-        happiness += TRANSPORT_BONUS * svc_scale;
+        happiness += TRANSPORT_BONUS;
     }
 
-    // --- Pollution with diminishing returns on negative impact ---
+    // --- Pollution with diminishing returns ---
     let pollution = pollution_grid.get(home.grid_x, home.grid_y) as f32;
     let poll_ratio = (pollution / 255.0).clamp(0.0, 1.0);
     let poll_diminished = diminishing_returns(poll_ratio, DIMINISHING_K_NEGATIVE);
@@ -234,7 +224,6 @@ fn compute_citizen_happiness(
     let crime_ratio = (crime_level / 255.0).clamp(0.0, 1.0);
     let crime_diminished = diminishing_returns(crime_ratio, DIMINISHING_K_NEGATIVE);
     happiness -= crime_diminished * CRIME_PENALTY_MAX;
-    // Critical crime threshold
     if crime_level > CRITICAL_CRIME_THRESHOLD {
         happiness -= CRITICAL_CRIME_PENALTY;
     }
@@ -265,8 +254,8 @@ fn compute_citizen_happiness(
     if let Some(needs) = needs {
         let satisfaction = needs.overall_satisfaction();
         let needs_diminished = diminishing_returns(satisfaction, DIMINISHING_K_DEFAULT);
-        happiness += (needs_diminished - 0.5) * 35.0;
-        // Critical needs threshold
+        // Center at the diminished midpoint so 50% satisfaction gives ~0
+        happiness += (needs_diminished - DIMINISHED_MIDPOINT) * 35.0;
         if satisfaction < CRITICAL_NEEDS_THRESHOLD {
             happiness -= CRITICAL_NEEDS_PENALTY;
         }
@@ -279,7 +268,6 @@ fn compute_citizen_happiness(
     if details.health > 80.0 {
         happiness += 3.0;
     }
-    // Critical health threshold
     if details.health < CRITICAL_HEALTH_THRESHOLD {
         happiness -= CRITICAL_HEALTH_PENALTY;
     }
