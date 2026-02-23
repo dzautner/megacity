@@ -21,6 +21,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Happiness and services
     app.add_plugins(postal::PostalPlugin);
+    app.add_plugins(telecom::TelecomPlugin);
     app.add_plugins(happiness::HappinessPlugin);
     app.add_plugins(service_capacity::ServiceCapacityPlugin);
     app.add_plugins(parks_system::ParksSystemPlugin);
