@@ -13,22 +13,19 @@ use crate::Saveable;
 // =============================================================================
 
 /// Priority level for load shedding during supply shortages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Encode, Decode)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Encode, Decode, Default,
+)]
 pub enum LoadPriority {
     /// Critical infrastructure (hospitals, data centers) — shed last.
     Critical,
     /// High priority (residential, commercial) — shed after non-essential.
     High,
     /// Normal priority (industrial, offices) — shed before high.
+    #[default]
     Normal,
     /// Low priority (parks, plazas) — shed first.
     Low,
-}
-
-impl Default for LoadPriority {
-    fn default() -> Self {
-        LoadPriority::Normal
-    }
 }
 
 // =============================================================================

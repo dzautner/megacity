@@ -104,7 +104,7 @@ pub fn aggregate_energy_demand(
     consumers: Query<&EnergyConsumer>,
     mut energy_grid: ResMut<EnergyGrid>,
 ) {
-    if tick.0 % AGGREGATION_INTERVAL != 0 {
+    if !tick.0.is_multiple_of(AGGREGATION_INTERVAL) {
         return;
     }
 
