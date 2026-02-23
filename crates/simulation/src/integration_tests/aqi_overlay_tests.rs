@@ -7,6 +7,7 @@
 //! AQI color mapping and tier classification unit tests are located in
 //! `crates/rendering/src/aqi_colors.rs`.
 
+use crate::grid::{RoadType, ZoneType};
 use crate::pollution::PollutionGrid;
 use crate::test_harness::TestCity;
 
@@ -14,10 +15,10 @@ use crate::test_harness::TestCity;
 #[test]
 fn test_pollution_grid_starts_clean() {
     let city = TestCity::new();
-    let pollution = city.app.world().resource::<PollutionGrid>();
+    let pollution = city.resource::<PollutionGrid>();
 
     // Spot-check several cells
-    for (x, y) in [(0, 0), (10, 10), (50, 50), (100, 100), (255, 255)] {
+    for (x, y) in [(0, 0), (10, 10), (50, 50), (100, 100), (200, 200)] {
         assert_eq!(
             pollution.get(x, y),
             0,
@@ -32,7 +33,7 @@ fn test_pollution_grid_starts_clean() {
 fn test_pollution_grid_full_u8_range() {
     let mut city = TestCity::new();
     {
-        let mut pollution = city.app.world_mut().resource_mut::<PollutionGrid>();
+        let pollution = city.world_mut().resource_mut::<PollutionGrid>();
 
         // Test boundary values
         pollution.set(10, 10, 0); // Minimum (AQI 0 = Good)
@@ -43,7 +44,7 @@ fn test_pollution_grid_full_u8_range() {
         pollution.set(60, 60, 255); // Maximum (AQI 500 = Hazardous)
     }
 
-    let pollution = city.app.world().resource::<PollutionGrid>();
+    let pollution = city.resource::<PollutionGrid>();
     assert_eq!(pollution.get(10, 10), 0);
     assert_eq!(pollution.get(20, 20), 25);
     assert_eq!(pollution.get(30, 30), 51);
@@ -57,7 +58,7 @@ fn test_pollution_grid_full_u8_range() {
 fn test_pollution_grid_saturating_add() {
     let mut city = TestCity::new();
     {
-        let mut pollution = city.app.world_mut().resource_mut::<PollutionGrid>();
+        let mut pollution = city.world_mut().resource_mut::<PollutionGrid>();
         pollution.set(10, 10, 250);
         // Manually test saturating behavior
         let current = pollution.get(10, 10);
@@ -65,7 +66,7 @@ fn test_pollution_grid_saturating_add() {
         pollution.set(10, 10, new_val);
     }
 
-    let pollution = city.app.world().resource::<PollutionGrid>();
+    let pollution = city.resource::<PollutionGrid>();
     assert_eq!(
         pollution.get(10, 10),
         255,
@@ -76,20 +77,18 @@ fn test_pollution_grid_saturating_add() {
 /// Verify that industrial buildings generate pollution after simulation ticks.
 #[test]
 fn test_pollution_from_industrial_buildings() {
-    let mut city = TestCity::new();
-    city.place_road(50, 50, 55, 50);
-    city.zone_area(50, 51, 55, 55, crate::grid::ZoneType::Industrial);
-    city.tick_slow_cycles(5);
+    let mut city = TestCity::new()
+        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_zone_rect(50, 51, 55, 55, ZoneType::Industrial)
+        .with_building(52, 53, ZoneType::Industrial, 1);
+    city.tick_slow_cycles(3);
 
-    let pollution = city.app.world().resource::<PollutionGrid>();
-    // Industrial area should have some pollution
-    let industrial_pollution = pollution.get(52, 53);
-    // The exact value depends on whether buildings spawned, but at least
-    // roads should contribute +2 pollution
-    let road_pollution = pollution.get(52, 50);
+    let pollution = city.resource::<PollutionGrid>();
+    // Industrial building should generate pollution in its vicinity
+    let building_pollution = pollution.get(52, 53);
     assert!(
-        road_pollution > 0 || industrial_pollution > 0,
-        "Roads and/or industrial zones should generate pollution"
+        building_pollution > 0,
+        "Industrial building should generate pollution, got {building_pollution}"
     );
 }
 
