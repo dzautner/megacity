@@ -88,6 +88,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(health::HealthPlugin);
     app.add_plugins(disease_model::DiseaseModelPlugin);
     app.add_plugins(death_care::DeathCarePlugin);
+    app.add_plugins(deathcare_capacity::DeathCareCapacityPlugin);
     app.add_plugins(climate_change::ClimateChangePlugin);
     app.add_plugins(seasonal_rendering::SeasonalRenderingPlugin);
 
