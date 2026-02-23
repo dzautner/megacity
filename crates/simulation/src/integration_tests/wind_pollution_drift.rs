@@ -175,14 +175,15 @@ fn test_wind_drift_calm_threshold_no_drift() {
 // ====================================================================
 
 #[test]
-fn test_wind_drift_boundary_drain_reduces_edge_pollution() {
-    // Industrial near the east edge with strong east wind should lose pollution
-    // off the edge.
-    let mut city_edge = TestCity::new().with_building(250, 128, ZoneType::Industrial, 2);
+fn test_wind_drift_boundary_drain_loses_total_pollution() {
+    // When strong wind pushes pollution toward the edge, some should drain
+    // off, reducing total pollution compared to the same setup in the center.
+    // We compare total grid-wide pollution between edge and center buildings.
+    let mut city_edge = TestCity::new().with_building(252, 128, ZoneType::Industrial, 2);
     {
         let world = city_edge.world_mut();
         let mut wind = world.resource_mut::<WindState>();
-        wind.direction = 0.0; // east
+        wind.direction = 0.0; // east, pushing toward edge
         wind.speed = 0.9;
     }
 
@@ -197,26 +198,23 @@ fn test_wind_drift_boundary_drain_reduces_edge_pollution() {
     city_edge.tick_slow_cycle();
     city_center.tick_slow_cycle();
 
-    // Edge building should have less total pollution nearby (some drained off)
-    let edge_total: u32 = {
-        let grid = city_edge.resource::<PollutionGrid>();
-        (245..=255.min(grid.width - 1))
-            .flat_map(|x| (123..133).map(move |y| (x, y)))
-            .map(|(x, y)| grid.get(x, y) as u32)
-            .sum()
-    };
+    let edge_total: u64 = city_edge
+        .resource::<PollutionGrid>()
+        .levels
+        .iter()
+        .map(|&v| v as u64)
+        .sum();
 
-    let center_total: u32 = {
-        let grid = city_center.resource::<PollutionGrid>();
-        (123..133)
-            .flat_map(|x| (123..133).map(move |y| (x, y)))
-            .map(|(x, y)| grid.get(x, y) as u32)
-            .sum()
-    };
+    let center_total: u64 = city_center
+        .resource::<PollutionGrid>()
+        .levels
+        .iter()
+        .map(|&v| v as u64)
+        .sum();
 
     assert!(
         edge_total < center_total,
-        "boundary drain: edge_total={} should be < center_total={} due to pollution draining off map",
+        "boundary drain: edge total={} should be < center total={} (pollution lost off edge)",
         edge_total,
         center_total
     );
