@@ -1,8 +1,8 @@
 //! Integration tests for SVC-010: Heating Service and Weather Integration.
 
 use crate::buildings::Building;
-use crate::grid::ZoneType;
-use crate::heating::{HeatingGrid, HeatingPlant, HeatingPlantType, HeatingStats};
+use crate::grid::{RoadType, ZoneType};
+use crate::heating::{HeatingPlant, HeatingPlantType};
 use crate::heating_service::HeatingServiceState;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
@@ -28,7 +28,7 @@ fn test_heating_service_state_exists() {
 fn test_no_heating_demand_in_warm_weather() {
     let mut city = TestCity::new()
         .with_weather(25.0) // warm
-        .with_road(50, 50, 60, 50)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_building(52, 49, ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
@@ -51,7 +51,7 @@ fn test_no_heating_demand_in_warm_weather() {
 fn test_individual_heating_in_cold_weather() {
     let mut city = TestCity::new()
         .with_weather(-5.0) // cold
-        .with_road(50, 50, 60, 50)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_building(52, 49, ZoneType::ResidentialLow, 1);
 
     // Add some occupants to the building
@@ -89,7 +89,7 @@ fn test_individual_heating_in_cold_weather() {
 fn test_district_heating_plant_attaches_component() {
     let mut city = TestCity::new()
         .with_weather(-5.0)
-        .with_road(50, 50, 60, 50)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(55, 48, ServiceType::DistrictHeatingPlant);
 
     city.tick_slow_cycle();
@@ -107,7 +107,7 @@ fn test_district_heating_plant_attaches_component() {
 fn test_geothermal_plant_attaches_component() {
     let mut city = TestCity::new()
         .with_weather(-5.0)
-        .with_road(50, 50, 60, 50)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(55, 48, ServiceType::GeothermalPlant);
 
     city.tick_slow_cycle();
@@ -115,7 +115,10 @@ fn test_geothermal_plant_attaches_component() {
     let world = city.world_mut();
     let mut query = world.query::<&HeatingPlant>();
     let plants: Vec<_> = query.iter(world).collect();
-    assert!(!plants.is_empty(), "GeothermalPlant should get HeatingPlant component");
+    assert!(
+        !plants.is_empty(),
+        "GeothermalPlant should get HeatingPlant component"
+    );
     assert_eq!(
         plants[0].plant_type,
         HeatingPlantType::Geothermal,
@@ -131,7 +134,7 @@ fn test_geothermal_plant_attaches_component() {
 fn test_district_heating_covers_nearby_buildings() {
     let mut city = TestCity::new()
         .with_weather(-5.0)
-        .with_road(50, 50, 70, 50)
+        .with_road(50, 50, 70, 50, RoadType::Local)
         .with_service(55, 48, ServiceType::DistrictHeatingPlant)
         .with_building(57, 49, ZoneType::ResidentialLow, 1);
 
@@ -162,7 +165,7 @@ fn test_district_heating_covers_nearby_buildings() {
 fn test_heating_consumes_energy() {
     let mut city = TestCity::new()
         .with_weather(-5.0)
-        .with_road(50, 50, 60, 50)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_building(52, 49, ZoneType::ResidentialLow, 1);
 
     // Add occupants for individual heating
@@ -190,7 +193,10 @@ fn test_heating_consumes_energy() {
 
 #[test]
 fn test_individual_heating_costs_more() {
-    use crate::heating_service::{INDIVIDUAL_HEATING_COST_PER_BUILDING, INDIVIDUAL_HEATING_ENERGY_MW, DISTRICT_HEATING_ENERGY_MW};
+    use crate::heating_service::{
+        DISTRICT_HEATING_ENERGY_MW, INDIVIDUAL_HEATING_COST_PER_BUILDING,
+        INDIVIDUAL_HEATING_ENERGY_MW,
+    };
 
     // Individual heating uses more energy per building than district
     assert!(
