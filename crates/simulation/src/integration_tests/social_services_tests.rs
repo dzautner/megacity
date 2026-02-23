@@ -1,6 +1,5 @@
 //! SVC-013: Integration tests for Social Services building types.
 
-use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
 use crate::grid::ZoneType;
 use crate::services::ServiceType;
 use crate::social_services::{
