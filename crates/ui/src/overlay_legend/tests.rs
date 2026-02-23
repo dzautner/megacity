@@ -105,3 +105,48 @@ fn bevy_color_to_egui_produces_valid_output() {
     assert!(egui_color.g() > 0);
     assert!(egui_color.b() > 0);
 }
+
+#[test]
+fn pollution_overlay_returns_tiered_legend() {
+    let (name, kind) = legend_for_mode(OverlayMode::Pollution, ColorblindMode::Normal).unwrap();
+    assert_eq!(name, "Air Quality (AQI)");
+    assert!(
+        matches!(kind, LegendKind::Tiered { .. }),
+        "Pollution overlay should use Tiered legend"
+    );
+}
+
+#[test]
+fn pollution_tiered_legend_has_six_entries() {
+    let (_, kind) = legend_for_mode(OverlayMode::Pollution, ColorblindMode::Normal).unwrap();
+    if let LegendKind::Tiered { entries } = kind {
+        assert_eq!(entries.len(), 6, "AQI legend should have 6 tiers");
+        // Verify all labels are non-empty
+        for entry in entries {
+            assert!(
+                !entry.label.is_empty(),
+                "Each tier label should be non-empty"
+            );
+        }
+    } else {
+        panic!("Expected Tiered legend kind");
+    }
+}
+
+#[test]
+fn pollution_tiered_legend_has_distinct_colors() {
+    let (_, kind) = legend_for_mode(OverlayMode::Pollution, ColorblindMode::Normal).unwrap();
+    if let LegendKind::Tiered { entries } = kind {
+        for i in 0..entries.len() {
+            for j in (i + 1)..entries.len() {
+                assert_ne!(
+                    entries[i].color, entries[j].color,
+                    "Tiers {} and {} should have distinct colors",
+                    i, j
+                );
+            }
+        }
+    } else {
+        panic!("Expected Tiered legend kind");
+    }
+}

@@ -1,4 +1,5 @@
 mod airport;
+mod aqi_overlay_tests;
 mod assertion_helpers;
 mod auto_grid_road;
 mod behavioral_save_load;

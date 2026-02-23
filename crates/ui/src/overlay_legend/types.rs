@@ -37,6 +37,12 @@ pub struct LegendTextureCache {
 // Legend kind
 // =============================================================================
 
+/// A single entry in a tiered legend (color swatch + label).
+pub(crate) struct TieredEntry {
+    pub color: egui::Color32,
+    pub label: &'static str,
+}
+
 /// Describes how to render the legend for a given overlay.
 pub(crate) enum LegendKind {
     /// Continuous color ramp with min/max labels.
@@ -54,4 +60,6 @@ pub(crate) enum LegendKind {
     },
     /// Directional overlay with informational description (no color ramp).
     Directional { description: &'static str },
+    /// Tiered overlay with discrete color swatches and labels (e.g., AQI).
+    Tiered { entries: &'static [TieredEntry] },
 }

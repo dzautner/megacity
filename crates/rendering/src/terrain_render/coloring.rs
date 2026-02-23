@@ -6,6 +6,7 @@ use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::network_viz::NetworkVizData;
 use simulation::weather::Season;
 
+use crate::aqi_colors;
 use crate::color_ramps::{self, CIVIDIS, GROUNDWATER_LEVEL, GROUNDWATER_QUALITY, INFERNO, VIRIDIS};
 use crate::colorblind_palette;
 use crate::overlay::{DualOverlayMode, OverlayMode};
@@ -192,9 +193,9 @@ pub(super) fn apply_overlay(
                 return base;
             }
             if let Some(pollution) = grids.pollution {
-                let intensity = (pollution.get(gx, gy) as f32 / 50.0).clamp(0.0, 1.0);
-                // Inferno: dark (clean) -> bright (polluted)
-                color_ramps::overlay_continuous(&INFERNO, intensity)
+                let concentration = pollution.get(gx, gy);
+                // EPA AQI 6-tier color scheme (POLL-020)
+                aqi_colors::aqi_overlay_color(concentration)
             } else {
                 color_ramps::darken(base, 0.8)
             }

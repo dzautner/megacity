@@ -62,6 +62,9 @@ pub(crate) fn overlay_legend_ui(
         LegendKind::Directional { description } => {
             render_directional_legend(ctx, &mut cache, mode, cb_mode, name, description, &screen);
         }
+        LegendKind::Tiered { entries } => {
+            render_tiered_legend(ctx, &mut cache, mode, cb_mode, name, entries, &screen);
+        }
     }
 }
 
@@ -247,6 +250,60 @@ fn render_directional_legend(
                             .size(11.0)
                             .color(egui::Color32::LIGHT_GRAY),
                     );
+                });
+        });
+}
+
+/// Render a tiered legend with discrete color swatches and labels.
+fn render_tiered_legend(
+    ctx: &egui::Context,
+    cache: &mut ResMut<LegendTextureCache>,
+    mode: OverlayMode,
+    cb_mode: simulation::colorblind::ColorblindMode,
+    name: &str,
+    entries: &[super::types::TieredEntry],
+    screen: &egui::Rect,
+) {
+    // Clear any cached gradient texture
+    if cache.cached_mode != Some(mode) || cache.cached_cb_mode != Some(cb_mode) {
+        cache.texture = None;
+        cache.cached_mode = Some(mode);
+        cache.cached_cb_mode = Some(cb_mode);
+    }
+
+    // Each entry is ~20px tall + spacing, plus header
+    let panel_height = 40.0 + entries.len() as f32 * 22.0;
+    let pos = egui::pos2(MARGIN, screen.max.y - panel_height - MARGIN);
+
+    egui::Area::new(egui::Id::new("overlay_legend"))
+        .fixed_pos(pos)
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            egui::Frame::new()
+                .fill(egui::Color32::from_rgba_unmultiplied(35, 37, 48, 220))
+                .corner_radius(egui::CornerRadius::same(6))
+                .inner_margin(egui::Margin::same(8))
+                .show(ui, |ui| {
+                    ui.label(
+                        egui::RichText::new(name)
+                            .strong()
+                            .size(13.0)
+                            .color(egui::Color32::WHITE),
+                    );
+                    ui.add_space(4.0);
+
+                    for entry in entries {
+                        ui.horizontal(|ui| {
+                            let (rect, _) = ui
+                                .allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::hover());
+                            ui.painter().rect_filled(rect, 2.0, entry.color);
+                            ui.label(
+                                egui::RichText::new(entry.label)
+                                    .size(11.0)
+                                    .color(egui::Color32::LIGHT_GRAY),
+                            );
+                        });
+                    }
                 });
         });
 }

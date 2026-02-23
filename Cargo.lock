@@ -4954,6 +4954,7 @@ dependencies = [
  "bitcode",
  "criterion",
  "fastnoise-lite",
+ "futures-lite",
  "pathfinding",
  "rand 0.8.5",
  "serde",
