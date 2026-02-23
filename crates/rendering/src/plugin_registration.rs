@@ -13,6 +13,7 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
         Startup,
         (
             camera::setup_camera,
+            camera_smoothing::init_camera_target,
             super::setup_lighting,
             terrain_render::spawn_terrain_chunks,
             building_preview_mesh::setup_building_preview_meshes,
@@ -23,18 +24,32 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             .after(simulation::world_init::init_world),
     );
 
-    // Camera controls
+    // Camera controls pipeline:
+    //   1. sync_target_from_external_changes — detect external OrbitCamera writes
+    //   2. Camera input systems — write to CameraTarget
+    //   3. smooth_camera_to_target — lerp OrbitCamera toward CameraTarget
+    //   4. apply_orbit_camera — update the Transform from OrbitCamera
     app.add_systems(
         Update,
         (
-            camera::camera_pan_keyboard,
-            camera::camera_pan_drag,
-            camera::camera_left_drag,
-            camera::camera_orbit_drag,
-            camera::camera_zoom,
-            camera::camera_zoom_keyboard,
-            camera::camera_rotate_keyboard,
-            camera::apply_orbit_camera,
+            camera_smoothing::sync_target_from_external_changes,
+            camera::camera_pan_keyboard.after(camera_smoothing::sync_target_from_external_changes),
+            camera::camera_pan_drag.after(camera_smoothing::sync_target_from_external_changes),
+            camera::camera_left_drag.after(camera_smoothing::sync_target_from_external_changes),
+            camera::camera_orbit_drag.after(camera_smoothing::sync_target_from_external_changes),
+            camera::camera_zoom.after(camera_smoothing::sync_target_from_external_changes),
+            camera::camera_zoom_keyboard.after(camera_smoothing::sync_target_from_external_changes),
+            camera::camera_rotate_keyboard
+                .after(camera_smoothing::sync_target_from_external_changes),
+            camera_smoothing::smooth_camera_to_target
+                .after(camera::camera_pan_keyboard)
+                .after(camera::camera_pan_drag)
+                .after(camera::camera_left_drag)
+                .after(camera::camera_orbit_drag)
+                .after(camera::camera_zoom)
+                .after(camera::camera_zoom_keyboard)
+                .after(camera::camera_rotate_keyboard),
+            camera::apply_orbit_camera.after(camera_smoothing::smooth_camera_to_target),
         ),
     );
 
