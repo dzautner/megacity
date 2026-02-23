@@ -17,6 +17,50 @@ use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
 use bevy::prelude::*;
 
+/// Enable power and water on grid cells to prevent the happiness system from
+/// tanking citizen happiness due to critical utility penalties, which can
+/// trigger emigration and interfere with the test.
+fn enable_utilities(city: &mut TestCity, cells: &[(usize, usize)]) {
+    let world = city.world_mut();
+    let mut grid = world.resource_mut::<WorldGrid>();
+    for &(x, y) in cells {
+        if grid.in_bounds(x, y) {
+            grid.get_mut(x, y).has_power = true;
+            grid.get_mut(x, y).has_water = true;
+        }
+    }
+}
+
+/// Stabilize test environment by enabling utilities on given cells and boosting
+/// CityAttractiveness + CityStats. This prevents the happiness system + emigration
+/// system from despawning citizens during multi-tick test runs.
+fn stabilize_test(city: &mut TestCity, cells: &[(usize, usize)]) {
+    enable_utilities(city, cells);
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city
+            .world_mut()
+            .resource_mut::<crate::stats::CityStats>();
+        stats.average_happiness = 75.0;
+    }
+    // Also boost all existing citizens' happiness and savings to ensure the
+    // happiness formula + lifecycle emigration don't despawn them.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.savings = 50_000.0;
+            details.health = 100.0;
+        }
+    }
+}
+
 // ====================================================================
 // Helper: spawn a citizen manually with a specific state
 // ====================================================================
@@ -91,6 +135,17 @@ fn spawn_citizen_in_state(
         });
     }
 
+    // Enable utilities at home (and work if applicable) to prevent the
+    // happiness system from applying critical utility penalties, which can
+    // tank happiness below the lifecycle emigration threshold.
+    {
+        let mut cells = vec![home];
+        if let Some(w) = work {
+            cells.push(w);
+        }
+        stabilize_test(city, &cells);
+    }
+
     citizen_entity
 }
 
@@ -117,6 +172,7 @@ fn test_at_home_transitions_to_commuting_to_work_at_work_hour() {
         let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
         attr.overall_score = 80.0;
     }
+
     // Run enough ticks to cover the jitter window (entity index % 120 minutes)
     // and for pathfinding to complete. 200 ticks should be plenty.
     city.tick(200);
@@ -256,6 +312,7 @@ fn test_citizen_without_job_stays_at_home() {
         let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
         attr.overall_score = 80.0;
     }
+
     // Tick through the entire morning commute window
     city.tick(200);
 
@@ -296,6 +353,19 @@ fn test_citizen_without_valid_home_becomes_homeless() {
         attr.overall_score = 80.0;
     }
 
+    // Enable utilities and boost attractiveness to prevent the emigration
+    // system from despawning the citizen before homelessness triggers.
+    stabilize_test(&mut city, &[(50, 50)]);
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+        }
+    }
+
     // Despawn the home building
     let building_entity = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(building_entity);
@@ -333,6 +403,10 @@ fn test_full_daily_commute_cycle_morning_departure() {
         .with_time(6.0)
         .rebuild_csr();
 
+    // Enable utilities on both buildings to prevent critical utility penalties
+    // from tanking happiness and triggering emigration.
+    stabilize_test(&mut city, &[(100, 100), (100, 110)]);
+
     let citizen_entity = {
         let world = city.world_mut();
         world
@@ -342,12 +416,15 @@ fn test_full_daily_commute_cycle_morning_departure() {
             .expect("citizen should exist")
     };
 
-    // Prevent emigration from despawning the citizen during the long tick run.
-    // In a near-empty test city, CityAttractiveness can drop below 30, which
-    // triggers the emigration system to despawn the unhappiest citizens.
+    // Boost citizen happiness to survive the needs-decay over 200 ticks.
     {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 80.0;
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+        }
     }
 
     // Advance past the morning commute window (7-8 AM).
@@ -389,12 +466,6 @@ fn test_full_daily_commute_cycle_evening_departure() {
         CitizenState::Working,
     );
 
-    // Prevent emigration from despawning the citizen during the long tick run.
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 80.0;
-    }
-
     // Tick enough to enter the evening commute window (17-18)
     // 1.5 hours = 90 ticks from 16:30
     city.tick(120);
@@ -426,6 +497,8 @@ fn test_paused_clock_prevents_state_transitions() {
         .with_time(7.5)
         .rebuild_csr();
 
+    stabilize_test(&mut city, &[(100, 100), (100, 115)]);
+
     // Capture our citizen entity
     let citizen_entity = {
         let world = city.world_mut();
@@ -440,14 +513,6 @@ fn test_paused_clock_prevents_state_transitions() {
     {
         let mut clock = city.world_mut().resource_mut::<GameClock>();
         clock.paused = true;
-    }
-
-    // Prevent emigration from despawning the citizen during the long tick run.
-    // Even with the clock paused, immigration_wave runs on tick count (not
-    // game-clock time), so it can still trigger emigration in an empty city.
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 80.0;
     }
 
     city.tick(200);
@@ -479,6 +544,8 @@ fn test_citizen_stays_at_home_outside_commute_hours() {
         .with_citizen((100, 100), (100, 115))
         .with_time(3.0)
         .rebuild_csr();
+
+    stabilize_test(&mut city, &[(100, 100), (100, 115)]);
 
     let citizen_entity = {
         let world = city.world_mut();
