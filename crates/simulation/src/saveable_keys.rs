@@ -19,6 +19,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "coal_power",
     "colorblind_settings",
     "crime_grid",
+    "crime_justice",
     "cumulative_zoning",
     "day_night_controls",
     "dismissed_advisor_tips",
