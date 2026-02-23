@@ -5,6 +5,7 @@
 //! Both increase happiness for citizens within their coverage radius.
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
@@ -96,7 +97,7 @@ impl DaycareEldercareCoverage {
 // Saveable State (city-wide stats)
 // ---------------------------------------------------------------------------
 
-#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
 pub struct DaycareEldercareState {
     /// Number of daycare buildings in the city.
     pub daycare_count: u32,
@@ -247,12 +248,16 @@ pub struct DaycareEldercarePlugin;
 
 impl Plugin for DaycareEldercarePlugin {
     fn build(&self, app: &mut App) {
-        use save::SaveableAppExt;
-
         app.init_resource::<DaycareEldercareCoverage>()
-            .init_resource::<DaycareEldercareState>()
-            .register_saveable::<DaycareEldercareState>()
-            .add_systems(
+            .init_resource::<DaycareEldercareState>();
+
+        // Register for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<DaycareEldercareState>();
+
+        app.add_systems(
                 FixedUpdate,
                 (
                     update_daycare_eldercare_coverage,
