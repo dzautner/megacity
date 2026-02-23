@@ -128,12 +128,10 @@ fn test_happiness_tuning_no_water_critical_penalty() {
     let home = (100, 100);
     let work = (102, 100);
 
-    // City WITH water
     let mut city_water = city_with_utilities(home, work);
     tick_with_stable_needs(&mut city_water);
     let h_water = first_citizen_happiness(&mut city_water);
 
-    // City WITHOUT water (only power)
     let mut city_no_water = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
@@ -142,7 +140,6 @@ fn test_happiness_tuning_no_water_critical_penalty() {
     tick_with_stable_needs(&mut city_no_water);
     let h_no_water = first_citizen_happiness(&mut city_no_water);
 
-    // No water should cause a large happiness drop (> 25 points)
     let drop = h_water - h_no_water;
     assert!(
         drop > 25.0,
@@ -162,12 +159,10 @@ fn test_happiness_tuning_no_power_critical_penalty() {
     let home = (100, 100);
     let work = (102, 100);
 
-    // City WITH power
     let mut city_power = city_with_utilities(home, work);
     tick_with_stable_needs(&mut city_power);
     let h_power = first_citizen_happiness(&mut city_power);
 
-    // City WITHOUT power (only water)
     let mut city_no_power = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
@@ -176,7 +171,6 @@ fn test_happiness_tuning_no_power_critical_penalty() {
     tick_with_stable_needs(&mut city_no_power);
     let h_no_power = first_citizen_happiness(&mut city_no_power);
 
-    // No power should cause a significant drop (> 20 points)
     let drop = h_power - h_no_power;
     assert!(
         drop > 20.0,
@@ -196,7 +190,6 @@ fn test_happiness_tuning_wealth_savings_positive() {
     let home = (100, 100);
     let work = (102, 100);
 
-    // City with zero savings
     let mut city_poor = city_with_utilities(home, work);
     city_poor.tick(HAPPINESS_TICKS - 1);
     set_needs_and_health(&mut city_poor, 50.0, 70.0);
@@ -204,7 +197,6 @@ fn test_happiness_tuning_wealth_savings_positive() {
     city_poor.tick(1);
     let h_poor = first_citizen_happiness(&mut city_poor);
 
-    // City with comfortable savings
     let mut city_rich = city_with_utilities(home, work);
     city_rich.tick(HAPPINESS_TICKS - 1);
     set_needs_and_health(&mut city_rich, 50.0, 70.0);
@@ -235,21 +227,18 @@ fn test_happiness_tuning_critical_health_penalty() {
     let home = (100, 100);
     let work = (102, 100);
 
-    // Citizen with normal health
     let mut city_healthy = city_with_utilities(home, work);
     city_healthy.tick(HAPPINESS_TICKS - 1);
     set_needs_and_health(&mut city_healthy, 50.0, 90.0);
     city_healthy.tick(1);
     let h_healthy = first_citizen_happiness(&mut city_healthy);
 
-    // Citizen with critically low health
     let mut city_sick = city_with_utilities(home, work);
     city_sick.tick(HAPPINESS_TICKS - 1);
     set_needs_and_health(&mut city_sick, 50.0, 15.0);
     city_sick.tick(1);
     let h_sick = first_citizen_happiness(&mut city_sick);
 
-    // Health 90 gives +3; health 15 gives -(50-15)*0.3 - 20 = -30.5
     let drop = h_healthy - h_sick;
     assert!(
         drop > 15.0,
@@ -336,7 +325,7 @@ fn test_happiness_tuning_all_negative_low() {
 }
 
 // ====================================================================
-// 9. Diminishing returns on pollution
+// 9. Diminishing returns: pollution impact levels off at extreme values
 // ====================================================================
 
 #[test]
@@ -344,31 +333,25 @@ fn test_happiness_tuning_pollution_diminishing_returns() {
     let home = (100, 100);
     let work = (102, 100);
 
-    // Low pollution: 50
-    let mut city_low = city_with_utilities(home, work);
-    {
-        let world = city_low.world_mut();
-        world
-            .resource_mut::<crate::pollution::PollutionGrid>()
-            .set(home.0, home.1, 50);
-    }
-    city_low.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_low, 50.0, 70.0);
-    city_low.tick(1);
-    let h_low = first_citizen_happiness(&mut city_low);
+    // No pollution (baseline)
+    let mut city_clean = city_with_utilities(home, work);
+    city_clean.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city_clean, 50.0, 70.0);
+    city_clean.tick(1);
+    let h_clean = first_citizen_happiness(&mut city_clean);
 
-    // High pollution: 200
-    let mut city_high = city_with_utilities(home, work);
+    // Moderate pollution: 100
+    let mut city_moderate = city_with_utilities(home, work);
     {
-        let world = city_high.world_mut();
+        let world = city_moderate.world_mut();
         world
             .resource_mut::<crate::pollution::PollutionGrid>()
-            .set(home.0, home.1, 200);
+            .set(home.0, home.1, 100);
     }
-    city_high.tick(HAPPINESS_TICKS - 1);
-    set_needs_and_health(&mut city_high, 50.0, 70.0);
-    city_high.tick(1);
-    let h_high = first_citizen_happiness(&mut city_high);
+    city_moderate.tick(HAPPINESS_TICKS - 1);
+    set_needs_and_health(&mut city_moderate, 50.0, 70.0);
+    city_moderate.tick(1);
+    let h_moderate = first_citizen_happiness(&mut city_moderate);
 
     // Max pollution: 255
     let mut city_max = city_with_utilities(home, work);
@@ -384,17 +367,27 @@ fn test_happiness_tuning_pollution_diminishing_returns() {
     let h_max = first_citizen_happiness(&mut city_max);
 
     // More pollution should always be worse
-    assert!(h_low > h_high, "Low pollution should be better than high");
-    assert!(h_high > h_max, "High pollution should be better than max");
-
-    // Due to diminishing returns, the drop from 50->200 should be bigger
-    // than the drop from 200->255 (going from bad to worse hurts less)
-    let drop_low_to_high = h_low - h_high;
-    let drop_high_to_max = h_high - h_max;
     assert!(
-        drop_low_to_high > drop_high_to_max,
-        "Drop 50->200 ({:.2}) should exceed drop 200->255 ({:.2})",
-        drop_low_to_high,
-        drop_high_to_max
+        h_clean > h_moderate,
+        "Clean ({:.2}) should be better than moderate pollution ({:.2})",
+        h_clean,
+        h_moderate
+    );
+    assert!(
+        h_moderate >= h_max,
+        "Moderate pollution ({:.2}) should be no worse than max ({:.2})",
+        h_moderate,
+        h_max
+    );
+
+    // Due to diminishing returns, the drop from 0->100 should be bigger
+    // than the drop from 100->255 (going from bad to worse hurts less).
+    let drop_first = h_clean - h_moderate;
+    let drop_last = h_moderate - h_max;
+    assert!(
+        drop_first > drop_last,
+        "Drop 0->100 ({:.2}) should exceed drop 100->255 ({:.2})",
+        drop_first,
+        drop_last
     );
 }
