@@ -31,6 +31,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "energy_dispatch",
     "energy_grid",
     "far_transfer",
+    "fire_tiers",
     "flood_protection",
     "forest_fire_grid",
     "freight_traffic",

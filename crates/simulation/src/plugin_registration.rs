@@ -154,6 +154,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     // Building lifecycle and disasters
     app.add_plugins(abandonment::AbandonmentPlugin);
     app.add_plugins(fire::FirePlugin);
+    app.add_plugins(fire_tiers::FireTiersPlugin);
     app.add_plugins(forest_fire::ForestFirePlugin);
     app.add_plugins(disasters::DisastersPlugin);
 
