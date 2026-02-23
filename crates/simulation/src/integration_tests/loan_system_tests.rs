@@ -22,6 +22,15 @@ fn force_clock_to_day(city: &mut TestCity, day: u32) {
     world.resource_mut::<GameClock>().day = day;
 }
 
+/// Helper: take a loan via LoanBook in a TestCity, working around
+/// Bevy's borrow rules by reading treasury first, then mutating.
+fn take_loan_in_city(city: &mut TestCity, tier: LoanTier) {
+    let world = city.world_mut();
+    let mut treasury = world.resource::<CityBudget>().treasury;
+    world.resource_mut::<LoanBook>().take_loan(tier, &mut treasury);
+    world.resource_mut::<CityBudget>().treasury = treasury;
+}
+
 // ====================================================================
 // 1. Loan interest calculation
 // ====================================================================
@@ -133,15 +142,7 @@ fn test_loan_payment_deduction_extended_budget() {
 #[test]
 fn test_loan_payment_deduction_via_ecs() {
     let mut city = TestCity::new().with_budget(100_000.0);
-
-    // Take a loan via LoanBook
-    {
-        let world = city.world_mut();
-        let mut book = world.resource_mut::<LoanBook>();
-        let mut treasury = world.resource::<CityBudget>().treasury;
-        book.take_loan(LoanTier::Small, &mut treasury);
-        world.resource_mut::<CityBudget>().treasury = treasury;
-    }
+    take_loan_in_city(&mut city, LoanTier::Small);
 
     let treasury_after_loan = city.budget().treasury;
     assert!(
@@ -205,14 +206,7 @@ fn test_loan_remaining_balance_non_negative_after_payments() {
 #[test]
 fn test_loan_remaining_balance_non_negative_loan_book() {
     let mut city = TestCity::new().with_budget(1_000_000.0);
-
-    {
-        let world = city.world_mut();
-        let mut book = world.resource_mut::<LoanBook>();
-        let mut treasury = world.resource::<CityBudget>().treasury;
-        book.take_loan(LoanTier::Small, &mut treasury);
-        world.resource_mut::<CityBudget>().treasury = treasury;
-    }
+    take_loan_in_city(&mut city, LoanTier::Small);
 
     // Advance through many days to ensure payments are processed
     for day in 1..400 {
@@ -262,14 +256,7 @@ fn test_loan_payoff_clears_loan_extended_budget() {
 #[test]
 fn test_loan_payoff_clears_loan_book_via_ecs() {
     let mut city = TestCity::new().with_budget(1_000_000.0);
-
-    {
-        let world = city.world_mut();
-        let mut book = world.resource_mut::<LoanBook>();
-        let mut treasury = world.resource::<CityBudget>().treasury;
-        book.take_loan(LoanTier::Small, &mut treasury);
-        world.resource_mut::<CityBudget>().treasury = treasury;
-    }
+    take_loan_in_city(&mut city, LoanTier::Small);
 
     // Small loan: 12 months term. At 30 days/month = 360 game-days.
     for day in 1..500 {
@@ -398,7 +385,10 @@ fn test_credit_rating_consecutive_solvent_days_tracking() {
     city.tick(1);
 
     let reset_days = city.resource::<LoanBook>().consecutive_solvent_days;
-    assert_eq!(reset_days, 0, "Solvent days should reset, got {reset_days}");
+    assert_eq!(
+        reset_days, 0,
+        "Solvent days should reset, got {reset_days}"
+    );
 }
 
 /// Max loans limit is enforced by LoanBook.
@@ -422,7 +412,10 @@ fn test_credit_rating_max_loans_extended_budget() {
     let mut ext = ExtendedBudget::default();
     let mut treasury = 0.0;
     for i in 0..5 {
-        assert!(ext.take_loan(0, &mut treasury), "Should take loan {i}");
+        assert!(
+            ext.take_loan(0, &mut treasury),
+            "Should take loan {i}"
+        );
     }
     assert!(
         !ext.take_loan(0, &mut treasury),
@@ -439,15 +432,8 @@ fn test_credit_rating_max_loans_extended_budget() {
 #[test]
 fn test_loan_treasury_stays_finite_after_many_cycles() {
     let mut city = TestCity::new().with_budget(50_000.0);
-
-    {
-        let world = city.world_mut();
-        let mut book = world.resource_mut::<LoanBook>();
-        let mut treasury = world.resource::<CityBudget>().treasury;
-        book.take_loan(LoanTier::Small, &mut treasury);
-        book.take_loan(LoanTier::Medium, &mut treasury);
-        world.resource_mut::<CityBudget>().treasury = treasury;
-    }
+    take_loan_in_city(&mut city, LoanTier::Small);
+    take_loan_in_city(&mut city, LoanTier::Medium);
 
     for day in 1..200 {
         force_clock_to_day(&mut city, day);
