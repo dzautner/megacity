@@ -1,14 +1,43 @@
 //! Overlay-to-legend metadata mapping.
 //!
 //! Maps each `OverlayMode` to its legend representation (continuous ramp,
-//! binary swatches, or directional label).
+//! binary swatches, tiered bands, or directional label).
 
 use rendering::color_ramps::{CIVIDIS, GROUNDWATER_LEVEL, GROUNDWATER_QUALITY, INFERNO, VIRIDIS};
 use rendering::colorblind_palette;
 use rendering::overlay::OverlayMode;
 
 use super::systems::bevy_color_to_egui;
-use super::types::LegendKind;
+use super::types::{LegendKind, TieredEntry};
+
+/// Pre-computed AQI legend entries (static to avoid per-frame allocation).
+/// Colors are the EPA standard AQI colors converted to egui Color32.
+static AQI_LEGEND_ENTRIES: [TieredEntry; 6] = [
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(0, 148, 23),
+        label: "0-50 Good",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(255, 222, 0),
+        label: "51-100 Moderate",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(255, 125, 0),
+        label: "101-150 Sensitive",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(255, 0, 0),
+        label: "151-200 Unhealthy",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(153, 51, 153),
+        label: "201-300 Very Unhealthy",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(128, 0, 33),
+        label: "301-500 Hazardous",
+    },
+];
 
 pub(crate) fn legend_for_mode(
     mode: OverlayMode,
@@ -53,11 +82,9 @@ pub(crate) fn legend_for_mode(
             },
         )),
         OverlayMode::Pollution => Some((
-            "Pollution",
-            LegendKind::Continuous {
-                ramp: &INFERNO,
-                min_label: "Clean",
-                max_label: "Polluted",
+            "Air Quality (AQI)",
+            LegendKind::Tiered {
+                entries: &AQI_LEGEND_ENTRIES,
             },
         )),
         OverlayMode::LandValue => Some((

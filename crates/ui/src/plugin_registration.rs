@@ -27,6 +27,7 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     app.add_plugins(oneway_ui::OneWayUiPlugin);
     app.add_plugins(settings_panel::SettingsPanelPlugin);
     app.add_plugins(advisor_tips::AdvisorTipsPlugin);
+    app.add_plugins(aqi_tooltip::AqiTooltipPlugin);
     app.add_plugins(auto_grid_ui::AutoGridUiPlugin);
     app.add_plugins(keybindings_panel::KeybindingsPanelPlugin);
     app.add_plugins(search::SearchPlugin);

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub mod advisor_tips;
+pub mod aqi_tooltip;
 pub mod auto_grid_ui;
 pub mod box_selection;
 pub mod cell_info_panel;

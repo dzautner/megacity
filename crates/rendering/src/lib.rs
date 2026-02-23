@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub mod angle_snap;
+pub mod aqi_colors;
 pub mod auto_grid_draw;
 pub mod box_selection;
 pub mod building_mesh_variants;
