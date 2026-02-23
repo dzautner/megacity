@@ -677,6 +677,21 @@ fn test_homelessness_ticks_homeless_increments() {
         "citizen should be homeless after first interval"
     );
 
+    // Re-boost happiness before the second interval so the citizen does not
+    // emigrate. The lifecycle emigration system runs every 30 ticks and
+    // despawns citizens with happiness < 20. After the first homeless penalty
+    // (-30) plus needs decay, happiness can drop enough to trigger emigration.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, bevy::prelude::With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.health = 100.0;
+        }
+    }
+
     // Tick again (second check)
     city.tick(50);
 

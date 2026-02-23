@@ -20,15 +20,20 @@ fn test_wind_drift_diagonal_ne_shifts_industrial_pollution() {
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
-    // NE (downwind) should have more pollution than SW (upwind) at same distance
-    let ne = grid.get(133, 133); // 5 cells NE
-    let sw = grid.get(123, 123); // 5 cells SW
+    // Sum over a band of cells 2-4 units in each diagonal direction.
+    // Sample points at Manhattan distance <= 8 to stay within pollution radius.
+    let ne_sum: u32 = (130..=132)
+        .flat_map(|x| (130..=132).map(move |y| grid.get(x, y) as u32))
+        .sum();
+    let sw_sum: u32 = (124..=126)
+        .flat_map(|x| (124..=126).map(move |y| grid.get(x, y) as u32))
+        .sum();
 
     assert!(
-        ne > sw,
-        "NE wind: downwind NE={} should be > upwind SW={}",
-        ne,
-        sw
+        ne_sum > sw_sum,
+        "NE wind: downwind NE_sum={} should be > upwind SW_sum={}",
+        ne_sum,
+        sw_sum
     );
 }
 
@@ -45,14 +50,18 @@ fn test_wind_drift_diagonal_sw_shifts_pollution() {
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
-    let sw = grid.get(123, 123);
-    let ne = grid.get(133, 133);
+    let sw_sum: u32 = (124..=126)
+        .flat_map(|x| (124..=126).map(move |y| grid.get(x, y) as u32))
+        .sum();
+    let ne_sum: u32 = (130..=132)
+        .flat_map(|x| (130..=132).map(move |y| grid.get(x, y) as u32))
+        .sum();
 
     assert!(
-        sw > ne,
-        "SW wind: downwind SW={} should be > upwind NE={}",
-        sw,
-        ne
+        sw_sum > ne_sum,
+        "SW wind: downwind SW_sum={} should be > upwind NE_sum={}",
+        sw_sum,
+        ne_sum
     );
 }
 
@@ -69,14 +78,20 @@ fn test_wind_drift_diagonal_se_shifts_pollution() {
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
-    let se = grid.get(133, 123);
-    let nw = grid.get(123, 133);
+    // SE direction: +x, -y in the wind vector. Sum over nearby cells to
+    // capture the asymmetry within the pollution radius.
+    let se_sum: u32 = (130..=132)
+        .flat_map(|x| (124..=126).map(move |y| grid.get(x, y) as u32))
+        .sum();
+    let nw_sum: u32 = (124..=126)
+        .flat_map(|x| (130..=132).map(move |y| grid.get(x, y) as u32))
+        .sum();
 
     assert!(
-        se > nw,
-        "SE wind: downwind SE={} should be > upwind NW={}",
-        se,
-        nw
+        se_sum > nw_sum,
+        "SE wind: downwind SE_sum={} should be > upwind NW_sum={}",
+        se_sum,
+        nw_sum
     );
 }
 
@@ -93,14 +108,18 @@ fn test_wind_drift_diagonal_nw_shifts_pollution() {
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
-    let nw = grid.get(123, 133);
-    let se = grid.get(133, 123);
+    let nw_sum: u32 = (124..=126)
+        .flat_map(|x| (130..=132).map(move |y| grid.get(x, y) as u32))
+        .sum();
+    let se_sum: u32 = (130..=132)
+        .flat_map(|x| (124..=126).map(move |y| grid.get(x, y) as u32))
+        .sum();
 
     assert!(
-        nw > se,
-        "NW wind: downwind NW={} should be > upwind SE={}",
-        nw,
-        se
+        nw_sum > se_sum,
+        "NW wind: downwind NW_sum={} should be > upwind SE_sum={}",
+        nw_sum,
+        se_sum
     );
 }
 
@@ -110,7 +129,9 @@ fn test_wind_drift_diagonal_nw_shifts_pollution() {
 
 #[test]
 fn test_wind_drift_speed_scales_shift_magnitude() {
-    // Faster wind should shift pollution further downwind
+    // Faster wind should shift pollution further downwind.
+    // We use a wider sampling range and sum over multiple far-downwind cells
+    // to avoid flaky failures from u8 rounding at individual cells.
     let mut city_slow = TestCity::new().with_building(128, 128, ZoneType::Industrial, 2);
     {
         let world = city_slow.world_mut();
@@ -130,15 +151,22 @@ fn test_wind_drift_speed_scales_shift_magnitude() {
     city_slow.tick_slow_cycle();
     city_fast.tick_slow_cycle();
 
-    // Further downwind cells should have more pollution with faster wind
-    let slow_far = city_slow.resource::<PollutionGrid>().get(135, 128);
-    let fast_far = city_fast.resource::<PollutionGrid>().get(135, 128);
+    // Sum pollution over far-downwind cells (x=134..140) to reduce noise from
+    // integer rounding. Faster wind should push more total pollution further east.
+    let slow_grid = city_slow.resource::<PollutionGrid>();
+    let fast_grid = city_fast.resource::<PollutionGrid>();
+    let slow_far_sum: u32 = (134..=140)
+        .map(|x| slow_grid.get(x, 128) as u32)
+        .sum();
+    let fast_far_sum: u32 = (134..=140)
+        .map(|x| fast_grid.get(x, 128) as u32)
+        .sum();
 
     assert!(
-        fast_far >= slow_far,
-        "faster wind should shift more pollution further: fast_far={}, slow_far={}",
-        fast_far,
-        slow_far
+        fast_far_sum >= slow_far_sum,
+        "faster wind should shift more pollution further: fast_far_sum={}, slow_far_sum={}",
+        fast_far_sum,
+        slow_far_sum
     );
 }
 
