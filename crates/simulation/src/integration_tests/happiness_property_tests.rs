@@ -7,7 +7,7 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-use crate::happiness::constants::*;
+use crate::happiness::*;
 
 /// Deterministic seed for reproducibility.
 const SEED: u64 = 0xDEAD_BEEF_CAFE_1337;
