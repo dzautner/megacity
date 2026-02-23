@@ -15,7 +15,6 @@ use rand::{Rng, SeedableRng};
 use crate::budget::ExtendedBudget;
 use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails};
-use crate::economy::CityBudget;
 use crate::grid::{RoadType, ZoneType};
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
