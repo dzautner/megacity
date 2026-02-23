@@ -1,6 +1,7 @@
 //! Tests for historic preservation.
 
 use super::*;
+use crate::districts::DistrictMap;
 
 // -------------------------------------------------------------------------
 // Default state tests
