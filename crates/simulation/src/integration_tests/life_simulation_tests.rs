@@ -10,12 +10,11 @@ use crate::citizen::{
 };
 use crate::death_care::DeathCareStats;
 use crate::education::EducationGrid;
-use crate::grid::{RoadType, WorldGrid, ZoneType};
+use crate::grid::{WorldGrid, ZoneType};
 use crate::immigration::CityAttractiveness;
 use crate::life_simulation::LifeSimTimer;
 use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
-use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
 use crate::utilities::UtilityType;
@@ -78,8 +77,7 @@ fn spawn_citizen_with(
         .id()
 }
 
-/// Create a test city with a residential building at (50,50) plus
-/// power and water utilities so the building does not get abandoned.
+/// Create a test city with a residential building at (50,50) plus utilities.
 fn setup_city_with_home() -> (TestCity, Entity) {
     let city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 3)
@@ -129,7 +127,6 @@ fn test_aging_increments_age_by_one_per_year() {
     };
 
     // Aging triggers when clock.day >= last_aging_day + 365.
-    // LifecycleTimer.last_aging_day defaults to 0, so day=365 triggers it.
     city.world_mut().resource_mut::<GameClock>().day = 365;
     city.tick(1);
 
@@ -238,7 +235,7 @@ fn test_death_probability_increases_with_age() {
     let trials = 20;
 
     for _ in 0..trials {
-        // Age 95 -> 96: age_factor = (96-70)/60 = 0.433
+        // Age 95 -> 96: death_chance = (96-70)/60 = 0.433
         let (mut city, building) = setup_city_with_home();
         let e = spawn_citizen_with(
             city.world_mut(),
@@ -260,7 +257,7 @@ fn test_death_probability_increases_with_age() {
             deaths_old += 1;
         }
 
-        // Age 69 -> 70: age_factor = (70-70)/60 = 0.0
+        // Age 69 -> 70: death_chance = (70-70)/60 = 0.0
         let (mut city2, building2) = setup_city_with_home();
         let e2 = spawn_citizen_with(
             city2.world_mut(),
@@ -284,7 +281,6 @@ fn test_death_probability_increases_with_age() {
         }
     }
 
-    // Age 70 has death_chance = 0.0, so deaths_young_old should be 0
     assert!(
         deaths_old > deaths_young_old,
         "Citizens aged 96 should die more often than those aged 70: \
@@ -298,22 +294,14 @@ fn test_death_probability_increases_with_age() {
 
 #[test]
 fn test_education_advancement_from_school_coverage() {
-    // Place residential building near a university with road + utilities.
-    let mut city = TestCity::new()
-        .with_road(50, 50, 60, 50, RoadType::Local)
-        .with_building(51, 51, ZoneType::ResidentialLow, 3)
-        .with_service(50, 50, ServiceType::University)
-        .with_utility(52, 52, UtilityType::PowerPlant)
-        .with_utility(54, 54, UtilityType::WaterTower);
+    let (mut city, building) = setup_city_with_home();
 
-    let building = city.grid().get(51, 51).building_id.unwrap();
-
-    // Citizen aged 20 with education=0: eligible for university (age >= 18)
+    // Citizen aged 20, education=0: eligible for all education levels
     let entity = spawn_citizen_with(
         city.world_mut(),
         building,
-        51,
-        51,
+        50,
+        50,
         20,
         0,
         100.0,
@@ -321,31 +309,28 @@ fn test_education_advancement_from_school_coverage() {
     );
     prevent_emigration(city.world_mut());
 
-    // Propagate EducationGrid via slow tick so the grid is populated
-    city.tick_slow_cycle();
+    // Directly write education level 3 (University) to the EducationGrid
+    // at the citizen's home cell. This avoids running tick_slow_cycle()
+    // and the associated emigration/attractiveness side effects.
+    city.world_mut()
+        .resource_mut::<EducationGrid>()
+        .set(50, 50, 3);
 
-    let edu_level = city.resource::<EducationGrid>().get(51, 51);
-    assert!(
-        edu_level >= 1,
-        "Education grid should cover (51,51), got {edu_level}"
-    );
+    // Advance the education timer to just below threshold, then tick once
+    // so education_advancement fires exactly once.
+    city.world_mut()
+        .resource_mut::<LifeSimTimer>()
+        .education_tick = 1439; // EDUCATION_INTERVAL - 1
 
-    // Instead of ticking 1500 times (which triggers emigration and other
-    // side effects), directly advance the LifeSimTimer.education_tick to
-    // just below the threshold, then tick once to fire education_advancement.
-    {
-        let world = city.world_mut();
-        world.resource_mut::<LifeSimTimer>().education_tick = 1439; // EDUCATION_INTERVAL - 1
-    }
     city.tick(1);
 
     let details = city
         .world_mut()
         .get::<CitizenDetails>(entity)
-        .expect("citizen should still exist after 1 education tick");
+        .expect("citizen should exist after a single education tick");
     assert!(
         details.education > 0,
-        "Citizen near university should advance education, got {}",
+        "Citizen at university-covered cell should advance education, got {}",
         details.education
     );
 }
@@ -356,21 +341,14 @@ fn test_education_advancement_from_school_coverage() {
 
 #[test]
 fn test_education_requires_eligible_age() {
-    let mut city = TestCity::new()
-        .with_road(50, 50, 60, 50, RoadType::Local)
-        .with_building(51, 51, ZoneType::ResidentialLow, 3)
-        .with_service(50, 50, ServiceType::University)
-        .with_utility(52, 52, UtilityType::PowerPlant)
-        .with_utility(54, 54, UtilityType::WaterTower);
-
-    let building = city.grid().get(51, 51).building_id.unwrap();
+    let (mut city, building) = setup_city_with_home();
 
     // Child aged 3: NOT eligible for university (requires age >= 18)
     let child = spawn_citizen_with(
         city.world_mut(),
         building,
-        51,
-        51,
+        50,
+        50,
         3,
         0,
         100.0,
@@ -380,8 +358,8 @@ fn test_education_requires_eligible_age() {
     let adult = spawn_citizen_with(
         city.world_mut(),
         building,
-        51,
-        51,
+        50,
+        50,
         22,
         0,
         100.0,
@@ -389,25 +367,26 @@ fn test_education_requires_eligible_age() {
     );
     prevent_emigration(city.world_mut());
 
-    // Propagate EducationGrid
-    city.tick_slow_cycle();
+    // Directly set education grid to level 3 (University) at home cell
+    city.world_mut()
+        .resource_mut::<EducationGrid>()
+        .set(50, 50, 3);
 
-    // Directly advance education timer to threshold - 1, then tick once
-    {
-        let world = city.world_mut();
-        world.resource_mut::<LifeSimTimer>().education_tick = 1439;
-    }
+    // Fire education_advancement once
+    city.world_mut()
+        .resource_mut::<LifeSimTimer>()
+        .education_tick = 1439;
     city.tick(1);
 
     let child_edu = city
         .world_mut()
         .get::<CitizenDetails>(child)
-        .expect("child should exist after 1 education tick")
+        .expect("child should exist after 1 tick")
         .education;
     let adult_edu = city
         .world_mut()
         .get::<CitizenDetails>(adult)
-        .expect("adult should exist after 1 education tick")
+        .expect("adult should exist after 1 tick")
         .education;
 
     assert_eq!(
@@ -462,7 +441,6 @@ fn test_citizens_home_references_valid_building() {
     prevent_emigration(city.world_mut());
     city.tick(10);
 
-    // Verify every citizen's HomeLocation.building points to a valid Building
     let world = city.world_mut();
     let mut query = world.query_filtered::<&HomeLocation, With<Citizen>>();
     let homes: Vec<(usize, usize, Entity)> = query
