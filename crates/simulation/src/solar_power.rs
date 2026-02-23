@@ -167,16 +167,18 @@ pub struct SolarPowerPlugin;
 
 impl Plugin for SolarPowerPlugin {
     fn build(&self, app: &mut App) {
-        use save::SaveableAppExt;
+        app.init_resource::<SolarPowerState>().add_systems(
+            FixedUpdate,
+            update_solar_power
+                .after(crate::imports_exports::process_trade)
+                .in_set(crate::SimulationSet::Simulation),
+        );
 
-        app.init_resource::<SolarPowerState>()
-            .register_saveable::<SolarPowerState>()
-            .add_systems(
-                FixedUpdate,
-                update_solar_power
-                    .after(crate::imports_exports::process_trade)
-                    .in_set(crate::SimulationSet::Simulation),
-            );
+        // Register for save/load
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<SolarPowerState>();
     }
 }
 
