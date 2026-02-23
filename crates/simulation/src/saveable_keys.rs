@@ -16,6 +16,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "bus_transit",
     "chart_history",
     "climate_change",
+    "coal_power",
     "colorblind_settings",
     "cumulative_zoning",
     "day_night_controls",
