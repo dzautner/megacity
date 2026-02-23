@@ -3,12 +3,12 @@
 use bevy::prelude::*;
 
 use crate::economy::CityBudget;
-use crate::grid::{RoadType, WorldGrid, ZoneType};
+use crate::grid::{WorldGrid, ZoneType};
 use crate::keybindings::KeyBinding;
 use crate::road_segments::RoadSegmentStore;
 use crate::roads::RoadNetwork;
-use crate::services::{self, ServiceBuilding, ServiceType};
-use crate::utilities::{UtilitySource, UtilityType};
+use crate::services::{self, ServiceBuilding};
+use crate::utilities::UtilitySource;
 
 use super::history::{ActionHistory, RedoRequested, UndoRequested};
 use super::types::CityAction;
