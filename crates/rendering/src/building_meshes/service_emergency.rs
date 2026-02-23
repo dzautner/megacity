@@ -3,7 +3,7 @@
 
 use simulation::services::ServiceType;
 
-use super::mesh_data::{darken, lighten};
+use super::mesh_data::darken;
 use super::MeshData;
 
 /// Populate `m` with geometry for an emergency-service building.
