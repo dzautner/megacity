@@ -33,7 +33,7 @@ fn test_pollution_grid_starts_clean() {
 fn test_pollution_grid_full_u8_range() {
     let mut city = TestCity::new();
     {
-        let pollution = city.world_mut().resource_mut::<PollutionGrid>();
+        let mut pollution = city.world_mut().resource_mut::<PollutionGrid>();
 
         // Test boundary values
         pollution.set(10, 10, 0); // Minimum (AQI 0 = Good)
