@@ -56,7 +56,7 @@ pub fn seasonal_capacity_factor(season: Season) -> f32 {
 /// - Peak at noon (hour 12): 1.0.
 /// - Smooth sinusoidal curve between sunrise (6) and sunset (18).
 pub fn time_of_day_curve(hour: f32) -> f32 {
-    if hour < 6.0 || hour >= 18.0 {
+    if !(6.0..18.0).contains(&hour) {
         return 0.0;
     }
     // Map [6, 18] -> [0, PI] for a sine curve peaking at noon.
