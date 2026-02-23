@@ -76,6 +76,36 @@ fn set_citizen_stats(city: &mut TestCity, education: u8, happiness: f32) {
     }
 }
 
+/// Inject heating and coverage before a slow tick cycle.
+/// Since other systems may overwrite these grids, re-inject before each cycle.
+fn inject_full_services(city: &mut TestCity, x: usize, y: usize, coverage_flags: u8) {
+    inject_heating(city, x, y);
+    inject_coverage(city, x, y, coverage_flags);
+}
+
+/// Advance through multiple slow tick cycles, re-injecting state before each.
+fn advance_tiers(
+    city: &mut TestCity,
+    cycles: usize,
+    coverage_flags: u8,
+    land_val: Option<u8>,
+    edu: Option<u8>,
+    happy: Option<f32>,
+) {
+    for _ in 0..cycles {
+        inject_full_services(city, 11, 11, coverage_flags);
+        if let Some(lv) = land_val {
+            inject_land_value(city, 11, 11, lv);
+        }
+        if let Some(e) = edu {
+            if let Some(h) = happy {
+                set_citizen_stats(city, e, h);
+            }
+        }
+        tick_slow(city);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -123,17 +153,13 @@ fn test_citizen_advances_to_comfort_with_power_and_heating() {
 #[test]
 fn test_citizen_advances_to_community_with_services() {
     let mut city = city_with_powered_citizen();
-    inject_heating(&mut city, 11, 11);
 
     use crate::happiness::*;
-    inject_coverage(
-        &mut city,
-        11,
-        11,
-        COVERAGE_EDUCATION | COVERAGE_HEALTH | COVERAGE_PARK,
-    );
+    let flags = COVERAGE_EDUCATION | COVERAGE_HEALTH | COVERAGE_PARK;
 
-    tick_slow(&mut city);
+    // Citizens advance one tier per slow tick cycle:
+    // Basic -> Comfort (cycle 1), Comfort -> Community (cycle 2)
+    advance_tiers(&mut city, 2, flags, None, None, None);
 
     let tier = first_citizen_tier(&mut city);
     assert!(
@@ -146,17 +172,13 @@ fn test_citizen_advances_to_community_with_services() {
 #[test]
 fn test_citizen_advances_to_cultural_with_entertainment() {
     let mut city = city_with_powered_citizen();
-    inject_heating(&mut city, 11, 11);
 
     use crate::happiness::*;
-    inject_coverage(
-        &mut city,
-        11,
-        11,
-        COVERAGE_EDUCATION | COVERAGE_HEALTH | COVERAGE_PARK | COVERAGE_ENTERTAINMENT,
-    );
+    let flags = COVERAGE_EDUCATION | COVERAGE_HEALTH | COVERAGE_PARK | COVERAGE_ENTERTAINMENT;
 
-    tick_slow(&mut city);
+    // Citizens advance one tier per slow tick cycle:
+    // Basic -> Comfort (1), Comfort -> Community (2), Community -> Cultural (3)
+    advance_tiers(&mut city, 3, flags, None, None, None);
 
     let tier = first_citizen_tier(&mut city);
     assert!(
@@ -169,19 +191,15 @@ fn test_citizen_advances_to_cultural_with_entertainment() {
 #[test]
 fn test_citizen_cannot_reach_aspirational_without_education() {
     let mut city = city_with_powered_citizen();
-    inject_heating(&mut city, 11, 11);
 
     use crate::happiness::*;
-    inject_coverage(
-        &mut city,
-        11,
-        11,
-        COVERAGE_EDUCATION | COVERAGE_HEALTH | COVERAGE_PARK | COVERAGE_ENTERTAINMENT,
-    );
+    let flags = COVERAGE_EDUCATION | COVERAGE_HEALTH | COVERAGE_PARK | COVERAGE_ENTERTAINMENT;
+
     inject_land_value(&mut city, 11, 11, 200);
 
+    // Advance through 4 cycles (enough to reach Cultural)
     // The default test citizen has education=2, needs 3 for Aspirational
-    tick_slow(&mut city);
+    advance_tiers(&mut city, 4, flags, Some(200), None, None);
 
     let tier = first_citizen_tier(&mut city);
     assert!(
