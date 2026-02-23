@@ -64,13 +64,15 @@ fn spawn_citizen_with_age_edu(
         .id()
 }
 
-/// Helper: create a city base with road, utilities (power+water) to prevent
-/// building abandonment, and return it for further customization.
+/// Helper: create a city base with road and utilities on the road so
+/// BFS propagation reaches adjacent buildings.
 fn base_city() -> TestCity {
     TestCity::new()
-        .with_road(50, 50, 60, 50, RoadType::Local)
-        .with_utility(48, 48, UtilityType::PowerPlant)
-        .with_utility(48, 49, UtilityType::WaterTower)
+        // Road from (50,50) to (65,50)
+        .with_road(50, 50, 65, 50, RoadType::Local)
+        // Utilities on the road so they propagate via BFS
+        .with_utility(60, 50, UtilityType::PowerPlant)
+        .with_utility(62, 50, UtilityType::WaterTower)
 }
 
 // ====================================================================
@@ -79,15 +81,12 @@ fn base_city() -> TestCity {
 
 #[test]
 fn test_education_pipeline_enrollment_elementary() {
-    // A 7-year-old with no education near an elementary school should enroll.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::ElementarySchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
-    // Propagate education grid + utilities
     city.tick_slow_cycle();
 
-    // Verify education level reaches our home cell
     let edu_level = city
         .resource::<crate::education::EducationGrid>()
         .get(52, 51);
@@ -100,22 +99,16 @@ fn test_education_pipeline_enrollment_elementary() {
     city.tick_slow_cycle();
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        has_enrollment,
+        world.get::<Enrollment>(citizen).is_some(),
         "7-year-old near elementary school should be enrolled"
     );
-    if let Some(enrollment) = world.get::<Enrollment>(citizen) {
-        assert_eq!(
-            enrollment.stage_index, 0,
-            "should be enrolled in elementary (stage 0)"
-        );
-    }
+    let enrollment = world.get::<Enrollment>(citizen).unwrap();
+    assert_eq!(enrollment.stage_index, 0, "should be in elementary (stage 0)");
 }
 
 #[test]
 fn test_education_pipeline_enrollment_requires_prerequisite() {
-    // A 14-year-old with no education near a high school should NOT enroll.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::HighSchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -125,16 +118,14 @@ fn test_education_pipeline_enrollment_requires_prerequisite() {
     city.tick_slow_cycle();
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        !has_enrollment,
-        "14-year-old without elementary education should NOT enroll in high school"
+        world.get::<Enrollment>(citizen).is_none(),
+        "14-year-old without elementary should NOT enroll in high school"
     );
 }
 
 #[test]
 fn test_education_pipeline_enrollment_high_school_with_prerequisite() {
-    // A 14-year-old WITH elementary education near a high school should enroll.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::HighSchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -144,22 +135,19 @@ fn test_education_pipeline_enrollment_high_school_with_prerequisite() {
     city.tick_slow_cycle();
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        has_enrollment,
+        world.get::<Enrollment>(citizen).is_some(),
         "14-year-old with elementary education near HS should enroll"
     );
-    if let Some(enrollment) = world.get::<Enrollment>(citizen) {
-        assert_eq!(
-            enrollment.stage_index, 1,
-            "should be enrolled in high school (stage 1)"
-        );
-    }
+    let enrollment = world.get::<Enrollment>(citizen).unwrap();
+    assert_eq!(
+        enrollment.stage_index, 1,
+        "should be in high school (stage 1)"
+    );
 }
 
 #[test]
 fn test_education_pipeline_no_enrollment_without_school() {
-    // A 7-year-old with no nearby school should NOT enroll.
     let mut city = base_city()
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
@@ -168,17 +156,14 @@ fn test_education_pipeline_no_enrollment_without_school() {
     city.tick_slow_cycle();
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        !has_enrollment,
+        world.get::<Enrollment>(citizen).is_none(),
         "child without nearby school should NOT be enrolled"
     );
 }
 
 #[test]
 fn test_education_pipeline_too_old_for_elementary() {
-    // A 30-year-old with no education near an elementary school
-    // should NOT enroll (over max age 11 for elementary).
     let mut city = base_city()
         .with_service(50, 50, ServiceType::ElementarySchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -188,9 +173,8 @@ fn test_education_pipeline_too_old_for_elementary() {
     city.tick_slow_cycle();
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        !has_enrollment,
+        world.get::<Enrollment>(citizen).is_none(),
         "30-year-old should be too old for elementary enrollment"
     );
 }
@@ -201,7 +185,6 @@ fn test_education_pipeline_too_old_for_elementary() {
 
 #[test]
 fn test_education_pipeline_graduation_elementary() {
-    // A 7-year-old enrolled in elementary should graduate after enough ticks.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::ElementarySchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -209,15 +192,13 @@ fn test_education_pipeline_graduation_elementary() {
     city.tick_slow_cycle();
     let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 7, 0);
 
-    // Run enough slow cycles for enrollment + graduation
-    // MIN_ENROLLMENT_TICKS = 3, plus extra for enrollment itself
+    // MIN_ENROLLMENT_TICKS = 3, plus enrollment cycle
     city.tick_slow_cycles(6);
 
     let world = city.world_mut();
     let details = world
         .get::<CitizenDetails>(citizen)
         .expect("citizen should still exist after 6 slow cycles");
-    // With high base rate (95%) and within capacity, should graduate
     assert_eq!(
         details.education, 1,
         "child should graduate with elementary education (level 1)"
@@ -226,7 +207,6 @@ fn test_education_pipeline_graduation_elementary() {
 
 #[test]
 fn test_education_pipeline_stats_update() {
-    // After graduation, stats should reflect the graduate.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::ElementarySchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -245,14 +225,12 @@ fn test_education_pipeline_stats_update() {
 
 #[test]
 fn test_education_pipeline_university_enrollment() {
-    // An 18-year-old with high school education near a university should enroll.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::University)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
 
-    // Verify education grid reaches home
     let edu_level = city
         .resource::<crate::education::EducationGrid>()
         .get(52, 51);
@@ -265,22 +243,19 @@ fn test_education_pipeline_university_enrollment() {
     city.tick_slow_cycle();
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        has_enrollment,
+        world.get::<Enrollment>(citizen).is_some(),
         "18-year-old with HS education near university should enroll"
     );
-    if let Some(enrollment) = world.get::<Enrollment>(citizen) {
-        assert_eq!(
-            enrollment.stage_index, 2,
-            "should be enrolled in university (stage 2)"
-        );
-    }
+    let enrollment = world.get::<Enrollment>(citizen).unwrap();
+    assert_eq!(
+        enrollment.stage_index, 2,
+        "should be in university (stage 2)"
+    );
 }
 
 #[test]
 fn test_education_pipeline_dropout_on_school_removal() {
-    // An enrolled citizen whose school is bulldozed should drop out.
     let mut city = base_city()
         .with_service(52, 50, ServiceType::ElementarySchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -289,7 +264,6 @@ fn test_education_pipeline_dropout_on_school_removal() {
     let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 7, 0);
     city.tick_slow_cycle();
 
-    // Verify enrollment
     {
         let world = city.world_mut();
         assert!(
@@ -298,17 +272,14 @@ fn test_education_pipeline_dropout_on_school_removal() {
         );
     }
 
-    // Remove the school
     city.bulldoze_service_at(52, 50);
     city.tick_slow_cycles(2);
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        !has_enrollment,
+        world.get::<Enrollment>(citizen).is_none(),
         "citizen should drop out after school is removed"
     );
-
     let details = world
         .get::<CitizenDetails>(citizen)
         .expect("citizen should still exist");
@@ -320,8 +291,6 @@ fn test_education_pipeline_dropout_on_school_removal() {
 
 #[test]
 fn test_education_pipeline_capacity_modifier_affects_stats() {
-    // With many students and few schools, the pipeline should still process
-    // students.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::ElementarySchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -336,7 +305,7 @@ fn test_education_pipeline_capacity_modifier_affects_stats() {
     let total = stats.graduates[0] + stats.dropouts[0];
     assert!(
         total > 0,
-        "pipeline should process some elementary students, got graduates={} dropouts={}",
+        "pipeline should process students, got grads={} drops={}",
         stats.graduates[0],
         stats.dropouts[0],
     );
@@ -344,7 +313,6 @@ fn test_education_pipeline_capacity_modifier_affects_stats() {
 
 #[test]
 fn test_education_pipeline_already_educated_no_reenroll() {
-    // A citizen with university education should not re-enroll anywhere.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::University)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
@@ -354,9 +322,8 @@ fn test_education_pipeline_already_educated_no_reenroll() {
     city.tick_slow_cycle();
 
     let world = city.world_mut();
-    let has_enrollment = world.get::<Enrollment>(citizen).is_some();
     assert!(
-        !has_enrollment,
+        world.get::<Enrollment>(citizen).is_none(),
         "citizen with university education should not re-enroll"
     );
 }
@@ -376,7 +343,6 @@ fn test_education_level_enum_consistency() {
 
 #[test]
 fn test_education_pipeline_child_too_young() {
-    // A 3-year-old should not be enrolled in anything.
     let mut city = base_city()
         .with_service(50, 50, ServiceType::ElementarySchool)
         .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
