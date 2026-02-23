@@ -338,9 +338,9 @@ fn test_fire_grid_updated_when_buildings_burn() {
 fn test_fire_station_coverage_radius_verification() {
     let mut city = TestCity::new()
         .with_service(50, 50, ServiceType::FireStation)
-        .with_building(55, 50, ZoneType::Residential, 1)  // 5 cells away — covered
-        .with_building(65, 50, ZoneType::Residential, 1)  // 15 cells away — covered
-        .with_building(80, 50, ZoneType::Residential, 1); // 30 cells away — NOT covered
+        .with_building(55, 50, ZoneType::ResidentialLow, 1)  // 5 cells away — covered
+        .with_building(65, 50, ZoneType::ResidentialLow, 1)  // 15 cells away — covered
+        .with_building(80, 50, ZoneType::ResidentialLow, 1); // 30 cells away — NOT covered
 
     city.tick_slow_cycles(1);
 
