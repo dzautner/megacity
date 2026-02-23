@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use simulation::config::CELL_SIZE;
 use simulation::grid::{RoadType, ZoneType};
-use simulation::services::{self, ServiceBuilding, ServiceType};
+use simulation::services::{self, ServiceType};
 use simulation::utilities::UtilityType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Resource)]
