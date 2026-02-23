@@ -82,8 +82,8 @@ pub fn air_pollution_health_modifier(concentration: u8) -> f32 {
 
 /// Returns a land-value multiplier based on pollution concentration.
 ///
-/// Clean air increases land value; polluted areas decrease it.
-/// - Good:                     1.05 (+5%)
+/// Clean air is neutral (baseline); polluted areas decrease land value.
+/// - Good:                     1.00 (neutral, clean air is baseline)
 /// - Moderate:                 1.00 (neutral)
 /// - Unhealthy for Sensitive:  0.95 (-5%)
 /// - Unhealthy:                0.85 (-15%)
@@ -91,7 +91,7 @@ pub fn air_pollution_health_modifier(concentration: u8) -> f32 {
 /// - Hazardous:                0.50 (-50%)
 pub fn pollution_land_value_multiplier(concentration: u8) -> f32 {
     match AqiTier::from_concentration(concentration) {
-        AqiTier::Good => 1.05,
+        AqiTier::Good => 1.00,
         AqiTier::Moderate => 1.00,
         AqiTier::UnhealthyForSensitive => 0.95,
         AqiTier::Unhealthy => 0.85,
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_land_value_multiplier_values() {
-        assert!((pollution_land_value_multiplier(25) - 1.05).abs() < f32::EPSILON);
+        assert!((pollution_land_value_multiplier(25) - 1.00).abs() < f32::EPSILON);
         assert!((pollution_land_value_multiplier(75) - 1.00).abs() < f32::EPSILON);
         assert!((pollution_land_value_multiplier(125) - 0.95).abs() < f32::EPSILON);
         assert!((pollution_land_value_multiplier(175) - 0.85).abs() < f32::EPSILON);
