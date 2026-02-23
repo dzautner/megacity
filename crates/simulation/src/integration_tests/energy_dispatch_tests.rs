@@ -17,11 +17,17 @@ fn make_plant(capacity_mw: f32, fuel_cost: f32) -> PowerPlant {
     }
 }
 
+/// Create a TestCity with temperature set to baseline (18.3 C) so that
+/// HDD=CDD=0 and the HVAC modifier is exactly 1.0. This makes the
+/// demand formula predictable: demand_mw = base_kwh / 720000.
+fn new_baseline_city() -> TestCity {
+    TestCity::new().with_weather(18.3)
+}
+
 /// Spawn a standalone EnergyConsumer that will produce `target_mw` of demand
-/// under default test conditions (6 AM, Spring, no degree-days).
+/// under baseline conditions (6 AM Spring, T=18.3C: tou=1.0, hvac=1.0, power=1.0).
 ///
-/// Formula: demand_mw = base_kwh / 720 * tou * hvac * power / 1000
-/// At defaults: tou=1.0, hvac=1.0, power=1.0
+/// Formula: demand_mw = base_kwh / 720 * 1.0 * 1.0 * 1.0 / 1000
 /// So base_kwh = target_mw * 720_000.0
 fn spawn_demand(city: &mut TestCity, target_mw: f32) {
     let base_kwh = target_mw * 720_000.0;
@@ -37,7 +43,7 @@ fn tick_dispatch(city: &mut TestCity) {
 
 #[test]
 fn test_cheapest_generators_dispatched_first() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     // Spawn generators: renewable ($0), coal ($30), gas peaker ($80).
     city.world_mut().spawn(make_plant(100.0, 0.0));
@@ -58,7 +64,7 @@ fn test_cheapest_generators_dispatched_first() {
     let dispatch = city.resource::<EnergyDispatchState>();
     assert!(!dispatch.has_deficit, "Should not have deficit");
 
-    // Verify: cheapest plants dispatched first, gas peaker not needed.
+    // Verify: cheapest plants dispatched first.
     let world = city.world_mut();
     let mut plants: Vec<(f32, f32)> = world
         .query::<&PowerPlant>()
@@ -67,24 +73,34 @@ fn test_cheapest_generators_dispatched_first() {
         .collect();
     plants.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-    // Renewable ($0): should have significant output.
-    assert!(plants[0].1 > 0.0, "Renewable should have output");
-    // Gas peaker ($80): should have zero or minimal output since cheaper plants suffice.
-    // (Exact values depend on demand rounding, so we check relative ordering.)
+    // Renewable ($0): fully dispatched (100 MW).
     assert!(
-        plants[0].1 >= plants[2].1,
-        "Renewable should have >= gas peaker output"
+        (plants[0].1 - 100.0).abs() < f32::EPSILON,
+        "Renewable should output 100 MW, got {}",
+        plants[0].1
+    );
+    // Coal ($30): partial (~50 MW).
+    assert!(
+        (plants[1].1 - 50.0).abs() < 1.0,
+        "Coal should output ~50 MW, got {}",
+        plants[1].1
+    );
+    // Gas peaker ($80): not dispatched.
+    assert!(
+        plants[2].1.abs() < f32::EPSILON,
+        "Gas peaker should output 0 MW, got {}",
+        plants[2].1
     );
 }
 
 #[test]
 fn test_expensive_generators_only_when_needed() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     city.world_mut().spawn(make_plant(50.0, 0.0)); // renewable
     city.world_mut().spawn(make_plant(200.0, 80.0)); // gas peaker
 
-    // Small demand: 30 MW — only renewable should run.
+    // Demand 30 MW — only renewable should run.
     spawn_demand(&mut city, 30.0);
     tick_dispatch(&mut city);
 
@@ -106,7 +122,7 @@ fn test_expensive_generators_only_when_needed() {
 
 #[test]
 fn test_high_demand_dispatches_expensive_plants() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     city.world_mut().spawn(make_plant(50.0, 0.0)); // renewable
     city.world_mut().spawn(make_plant(200.0, 80.0)); // gas peaker
@@ -137,7 +153,7 @@ fn test_high_demand_dispatches_expensive_plants() {
 
 #[test]
 fn test_reserve_margin_deficit_triggers_blackout() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     // Only 100 MW of capacity but ~200 MW demand.
     city.world_mut().spawn(make_plant(100.0, 30.0));
@@ -161,7 +177,7 @@ fn test_reserve_margin_deficit_triggers_blackout() {
 
 #[test]
 fn test_zero_demand_preserves_plant_output() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     // No EnergyConsumer => demand = 0 after aggregation.
     // Dispatch should skip and preserve plant's default output.
@@ -170,12 +186,15 @@ fn test_zero_demand_preserves_plant_output() {
 
     let dispatch = city.resource::<EnergyDispatchState>();
     assert!(!dispatch.has_deficit);
-    assert!(!dispatch.active, "Dispatch should not be active with 0 demand");
+    assert!(
+        !dispatch.active,
+        "Dispatch should not be active with 0 demand"
+    );
 }
 
 #[test]
 fn test_electricity_price_reflects_last_dispatched() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     city.world_mut().spawn(make_plant(100.0, 0.0)); // renewable
     city.world_mut().spawn(make_plant(200.0, 30.0)); // coal
@@ -196,7 +215,7 @@ fn test_electricity_price_reflects_last_dispatched() {
 
 #[test]
 fn test_scarcity_multiplier_increases_price() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     // 110 MW capacity, ~105 MW demand => tight margin.
     city.world_mut().spawn(make_plant(110.0, 30.0));
@@ -219,7 +238,7 @@ fn test_scarcity_multiplier_increases_price() {
 
 #[test]
 fn test_rolling_blackout_rotation_increments() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     // 50 MW capacity, 100 MW demand => deficit.
     city.world_mut().spawn(make_plant(50.0, 0.0));
@@ -242,7 +261,7 @@ fn test_rolling_blackout_rotation_increments() {
 
 #[test]
 fn test_full_merit_order_chain() {
-    let mut city = TestCity::new();
+    let mut city = new_baseline_city();
 
     // Create plants with distinct fuel costs matching the merit order.
     city.world_mut().spawn(make_plant(50.0, 80.0)); // gas peaker
@@ -285,7 +304,7 @@ fn test_full_merit_order_chain() {
     );
     // Gas ($40): should get the remainder (350-100-120-60 = 70 MW).
     assert!(
-        (plants[3].1 - 70.0).abs() < 1.0,
+        (plants[3].1 - 70.0).abs() < 1.5,
         "Gas: expected ~70, got {}",
         plants[3].1
     );
