@@ -30,6 +30,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "historic_preservation",
     "inclusionary_zoning",
     "keybindings",
+    "land_value",
     "landfill_state",
     "localization",
     "metro_transit",

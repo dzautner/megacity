@@ -35,6 +35,7 @@ mod job_capacity;
 mod job_capacity_invariant;
 mod keybindings;
 mod land_value;
+mod land_value_persistence;
 mod market_system;
 mod marriage_reciprocity;
 mod mode_choice;
