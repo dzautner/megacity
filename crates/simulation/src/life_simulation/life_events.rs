@@ -4,7 +4,7 @@ use rand::Rng;
 use crate::buildings::Building;
 use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
-    PathCache, Personality, Position, Velocity, WorkLocation,
+    PathCache, Personality, Position, Velocity,
 };
 use crate::grid::WorldGrid;
 use crate::mode_choice::ChosenTransportMode;
