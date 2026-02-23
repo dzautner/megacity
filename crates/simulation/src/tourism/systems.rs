@@ -4,7 +4,6 @@ use bevy::prelude::*;
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::crime::CrimeGrid;
-use crate::grid::ZoneType;
 use crate::hotel_demand::HotelDemandState;
 use crate::services::ServiceBuilding;
 use crate::stats::CityStats;
