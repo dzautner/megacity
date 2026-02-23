@@ -164,11 +164,10 @@ pub fn update_land_value(
 
     // ---- Phase 2: exponential smoothing toward targets ----------------------
     // new = alpha * target + (1 - alpha) * previous
-    for i in 0..total {
-        let prev = land_value.values[i] as f32;
-        let tgt = target[i] as f32;
-        let smoothed = SMOOTHING_ALPHA * tgt + (1.0 - SMOOTHING_ALPHA) * prev;
-        land_value.values[i] = smoothed.round().clamp(0.0, 255.0) as u8;
+    for (cell, &tgt) in land_value.values.iter_mut().zip(target.iter()) {
+        let prev = *cell as f32;
+        let smoothed = SMOOTHING_ALPHA * tgt as f32 + (1.0 - SMOOTHING_ALPHA) * prev;
+        *cell = smoothed.round().clamp(0.0, 255.0) as u8;
     }
 
     // ---- Phase 3: neighbourhood diffusion -----------------------------------
