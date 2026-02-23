@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 bevy = { workspace = true }
 simulation = { path = "../simulation" }
+automod_dir = { path = "../automod_dir" }
 
 [lints]
 workspace = true
