@@ -6,6 +6,7 @@ use crate::citizen::{Citizen, CitizenDetails, Family, HomeLocation, WorkLocation
 use crate::death_care::{DeathCareGrid, DeathCareStats};
 use crate::time_of_day::GameClock;
 use crate::virtual_population::VirtualPopulation;
+use crate::TestSafetyNet;
 
 const AGING_INTERVAL_DAYS: u32 = 365;
 const MAX_AGE: u8 = 100;
@@ -35,7 +36,11 @@ pub fn age_citizens(
     mut virtual_pop: ResMut<VirtualPopulation>,
     mut death_grid: ResMut<DeathCareGrid>,
     mut death_stats: ResMut<DeathCareStats>,
+    safety_net: Option<Res<TestSafetyNet>>,
 ) {
+    if safety_net.is_some() {
+        return;
+    }
     if clock.day < timer.last_aging_day + AGING_INTERVAL_DAYS {
         return;
     }
@@ -130,7 +135,11 @@ pub fn emigration(
     >,
     mut buildings: Query<&mut Building>,
     mut virtual_pop: ResMut<VirtualPopulation>,
+    safety_net: Option<Res<TestSafetyNet>>,
 ) {
+    if safety_net.is_some() {
+        return;
+    }
     timer.last_emigration_tick += 1;
     if timer.last_emigration_tick < 30 {
         return;

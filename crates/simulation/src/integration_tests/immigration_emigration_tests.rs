@@ -143,10 +143,10 @@ fn test_immigration_high_attractiveness_increases_population() {
     );
 }
 
-/// Test that low attractiveness -> emigration.
-/// We create citizens in miserable conditions (low happiness, high
-/// unemployment, high taxes) to produce a low attractiveness score, then
-/// verify that citizens are removed.
+/// Test that low happiness -> emigration.
+/// Citizens with happiness below 20 have a chance to emigrate every 30 ticks
+/// via the lifecycle::emigration system. We remove TestSafetyNet so the
+/// destructive emigration system can actually despawn citizens.
 #[test]
 fn test_emigration_low_attractiveness_decreases_population() {
     let mut city = TestCity::new()
@@ -165,35 +165,28 @@ fn test_emigration_low_attractiveness_decreases_population() {
     let initial_count = city.citizen_count();
     assert_eq!(initial_count, 10, "should start with 10 citizens");
 
-    // Make citizens very unhappy -> low happiness_factor
+    // Remove the safety net so emigration systems can despawn citizens.
+    city.world_mut().remove_resource::<crate::TestSafetyNet>();
+
+    // Make citizens extremely unhappy (happiness=5, well below the
+    // emigration threshold of 20 in lifecycle::emigration).
     make_citizens_miserable(&mut city);
-    // Force high unemployment -> low employment_factor
-    set_high_unemployment(&mut city);
-    // Force high taxes -> tax_factor = 0.0
-    set_high_tax_rate(&mut city);
 
-    // Directly force attractiveness score below 30 to ensure emigration
-    // triggers. The compute_attractiveness system runs every 50 ticks and
-    // might override our conditions, so we re-apply before each wave.
-    force_low_attractiveness(&mut city);
-
-    // Run multiple immigration wave intervals (each 100 ticks), re-applying
-    // low attractiveness before each wave to guarantee emigration fires.
-    for _ in 0..4 {
-        force_low_attractiveness(&mut city);
+    // The lifecycle::emigration system runs every 30 ticks and gives
+    // citizens with happiness < 20 a chance to leave. Run multiple
+    // cycles, re-applying misery each time so that happiness does not
+    // recover via update_happiness.
+    for _ in 0..6 {
         make_citizens_miserable(&mut city);
-        set_high_unemployment(&mut city);
-        set_high_tax_rate(&mut city);
-        city.tick(100);
+        city.tick(30);
     }
 
     let final_count = city.citizen_count();
     assert!(
         final_count < initial_count,
-        "low attractiveness should cause emigration: initial={initial_count}, final={final_count}"
+        "low happiness should cause emigration: initial={initial_count}, final={final_count}"
     );
 }
-
 /// Test that no immigration occurs when no housing is available.
 /// Even with high attractiveness factors, the immigration_wave function
 /// returns early when there are no residential buildings with capacity.

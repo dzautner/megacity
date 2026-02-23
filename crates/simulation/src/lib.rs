@@ -154,6 +154,12 @@ impl SaveableRegistry {
 // Core resources
 // ---------------------------------------------------------------------------
 
+/// When present, destructive simulation systems skip execution.
+/// Used by the test harness to prevent non-deterministic entity despawn.
+/// Tests that specifically test destructive behavior should remove this resource.
+#[derive(Resource)]
+pub struct TestSafetyNet;
+
 /// Global tick counter incremented each FixedUpdate, used for throttling simulation systems.
 #[derive(Resource, Default)]
 pub struct TickCounter(pub u64);
