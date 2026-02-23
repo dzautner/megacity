@@ -6,6 +6,14 @@ use crate::services::ServiceType;
 use crate::stats::CityStats;
 use crate::test_harness::TestCity;
 
+/// Boost average happiness above the building downgrade threshold (30.0)
+/// so buildings don't randomly lose levels during long tick runs.
+fn prevent_downgrade(city: &mut TestCity) {
+    let world = city.world_mut();
+    let mut stats = world.resource_mut::<CityStats>();
+    stats.average_happiness = 60.0;
+}
+
 // ====================================================================
 // Resource existence
 // ====================================================================
@@ -191,6 +199,7 @@ fn test_hotel_demand_no_revenue_without_visitors() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::CommercialHigh, 1);
 
+    prevent_downgrade(&mut city);
     // No services = no tourism = no visitors
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();

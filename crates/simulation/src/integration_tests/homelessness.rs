@@ -1,8 +1,9 @@
 use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails};
 use crate::grid::{WorldGrid, ZoneType};
-use crate::test_harness::TestCity;
 use crate::immigration::CityAttractiveness;
+use crate::stats::CityStats;
+use crate::test_harness::TestCity;
 // ====================================================================
 // Homelessness system tests (TEST-059)
 // ====================================================================
@@ -41,6 +42,15 @@ fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50)]);
+
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
 
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration
@@ -106,6 +116,15 @@ fn test_homelessness_stats_track_total_homeless() {
 
     enable_utilities(&mut city, &[(50, 50), (60, 60)]);
 
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
+
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration
     // threshold (20.0).  Default happiness of 60 is too close to the edge.
@@ -147,6 +166,17 @@ fn test_homelessness_recover_when_housing_available() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50), (70, 70)]);
+
+    // Boost CityAttractiveness to prevent the emigration system from
+    // despawning the citizen during the test window.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
 
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration
@@ -227,6 +257,15 @@ fn test_homelessness_happiness_penalty_applied() {
 
     enable_utilities(&mut city, &[(50, 50)]);
 
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
+
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration
     // threshold (20.0).  Default happiness of 60 is too close to the edge.
@@ -293,6 +332,15 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50), (55, 55)]);
+
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
 
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration
@@ -370,6 +418,15 @@ fn test_homelessness_shelter_capacity_respected() {
 
     enable_utilities(&mut city, &[(50, 50), (55, 55)]);
 
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
+
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration
     // threshold (20.0).  Default happiness of 60 is too close to the edge.
@@ -440,6 +497,15 @@ fn test_homelessness_citizen_placeholder_home_becomes_homeless() {
 
     enable_utilities(&mut city, &[(50, 50)]);
 
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
+
     // Manually spawn a citizen with PLACEHOLDER home building
     {
         let world = city.world_mut();
@@ -503,6 +569,19 @@ fn test_homelessness_rent_unaffordable_becomes_homeless() {
     let mut city = TestCity::new().with_building(50, 50, ZoneType::ResidentialLow, 1);
 
     enable_utilities(&mut city, &[(50, 50)]);
+
+    // Boost CityAttractiveness to prevent the emigration system from
+    // despawning the citizen. With the diminishing-returns happiness formula,
+    // a citizen with negative savings and no job produces very low average
+    // happiness, tanking attractiveness below the emigration threshold.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
 
     let home_entity = city.grid().get(50, 50).building_id.expect("building");
 
@@ -578,6 +657,17 @@ fn test_homelessness_recovery_updates_stats() {
 
     enable_utilities(&mut city, &[(50, 50), (70, 70)]);
 
+    // Boost CityAttractiveness to prevent the emigration system from
+    // despawning the citizen during the test window.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
+
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration
     // threshold (20.0).  Default happiness of 60 is too close to the edge.
@@ -646,6 +736,15 @@ fn test_homelessness_ticks_homeless_increments() {
         .with_citizen((50, 50), (50, 50));
 
     enable_utilities(&mut city, &[(50, 50)]);
+
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 50.0;
+    }
+    {
+        let mut stats = city.world_mut().resource_mut::<CityStats>();
+        stats.average_happiness = 75.0;
+    }
 
     // Boost citizen happiness high enough that HOMELESS_PENALTY (-30) plus
     // needs decay over 50-tick windows cannot push it below the emigration

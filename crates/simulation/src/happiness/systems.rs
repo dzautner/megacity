@@ -16,6 +16,11 @@ use crate::weather::Weather;
 use super::constants::*;
 use super::coverage::ServiceCoverageGrid;
 
+/// The diminishing returns value at satisfaction = 0.5. Used to center the
+/// needs contribution so that 50% satisfaction gives ~0 happiness contribution,
+/// preserving the original formula's behavior while adding diminishing returns.
+const DIMINISHED_MIDPOINT: f32 = 0.7769; // 1 - exp(-3 * 0.5)
+
 /// Bundled secondary resources for update_happiness to stay within the 16-param limit.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct HappinessExtras<'w> {
@@ -59,7 +64,7 @@ pub fn update_happiness(
     let postal_coverage = &extras.postal_coverage;
     let waste_collection = &extras.waste_collection;
     let waste_accumulation = &extras.waste_accumulation;
-    if !tick.0.is_multiple_of(10) {
+    if !tick.0.is_multiple_of(HAPPINESS_UPDATE_INTERVAL) {
         return;
     }
     let tax_penalty = if budget.tax_rate > 0.15 {
@@ -70,180 +75,256 @@ pub fn update_happiness(
 
     // Pre-compute shared values to avoid redundant reads per citizen
     let policy_bonus = policies.happiness_bonus();
-    let weather_mod = weather.happiness_modifier();
+    let raw_weather_mod = weather.happiness_modifier();
+    let weather_bonus = weather_happiness_factor(raw_weather_mod);
     let heat_demand = heating::heating_demand(&weather);
 
     citizens
         .par_iter_mut()
         .for_each(|(mut details, home, work, needs, homeless)| {
-            let mut happiness = BASE_HAPPINESS;
-
-            // Wealth-tier weights: different citizen tiers value different factors differently
-            let weights = WealthTier::from_education(details.education).happiness_weights();
-
-            // Employment (weighted by tier — low income cares most about having a job)
-            if work.is_some() {
-                happiness += EMPLOYED_BONUS * weights.employment;
-            }
-
-            // Commute distance (short = close home to work)
-            if let Some(work_loc) = work {
-                let dx = (home.grid_x as i32 - work_loc.grid_x as i32).abs();
-                let dy = (home.grid_y as i32 - work_loc.grid_y as i32).abs();
-                let dist = dx + dy;
-                if dist < 20 {
-                    happiness += SHORT_COMMUTE_BONUS;
-                }
-            }
-
-            // Utilities at home — no power/water is a major happiness hit
-            let home_cell = grid.get(home.grid_x, home.grid_y);
-            if home_cell.has_power {
-                happiness += POWER_BONUS;
-            } else {
-                happiness -= NO_POWER_PENALTY;
-            }
-            if home_cell.has_water {
-                happiness += WATER_BONUS;
-            } else {
-                happiness -= NO_WATER_PENALTY;
-            }
-
-            // Service coverage (O(1) bitflag lookup from precomputed grid)
-            let idx = ServiceCoverageGrid::idx(home.grid_x, home.grid_y);
-            let cov = coverage.flags[idx];
-            if cov & COVERAGE_HEALTH != 0 {
-                happiness += HEALTH_COVERAGE_BONUS * weights.services;
-            }
-            if cov & COVERAGE_EDUCATION != 0 {
-                happiness += EDUCATION_BONUS * weights.services;
-            }
-            if cov & COVERAGE_POLICE != 0 {
-                happiness += POLICE_BONUS * weights.services;
-            }
-            if cov & COVERAGE_PARK != 0 {
-                happiness += PARK_BONUS * weights.parks;
-            }
-            if cov & COVERAGE_ENTERTAINMENT != 0 {
-                happiness += ENTERTAINMENT_BONUS * weights.entertainment;
-            }
-            if cov & COVERAGE_TELECOM != 0 {
-                happiness += TELECOM_BONUS;
-            }
-            if cov & COVERAGE_TRANSPORT != 0 {
-                happiness += TRANSPORT_BONUS;
-            }
-
-            // Pollution penalty (weighted — high income citizens more sensitive)
-            let pollution = pollution_grid.get(home.grid_x, home.grid_y) as f32;
-            happiness -= (pollution / 25.0) * weights.pollution;
-
-            // Garbage penalty
-            if garbage_grid.get(home.grid_x, home.grid_y) > 10 {
-                happiness -= GARBAGE_PENALTY;
-            }
-
-            // Uncollected waste penalty (WASTE-003): buildings outside waste
-            // collection service areas or with high uncollected waste suffer -5.
-            let uncollected = waste_collection.uncollected(home.grid_x, home.grid_y);
-            if uncollected > 100.0 {
-                happiness -= crate::garbage::UNCOLLECTED_WASTE_HAPPINESS_PENALTY;
-            }
-
-            // Accumulated waste happiness penalty (WASTE-010): -5 if cell has
-            // accumulated waste > 0 lbs.
-            let accumulated = waste_accumulation.get(home.grid_x, home.grid_y);
-            happiness += crate::waste_effects::waste_happiness_penalty(accumulated);
-
-            // Crime penalty (based on crime level at home cell)
-            let crime_level = crime_grid.get(home.grid_x, home.grid_y) as f32;
-            happiness -= (crime_level / 25.0) * CRIME_PENALTY_MAX;
-
-            // Noise penalty (based on noise level at home cell)
-            happiness -= (noise_grid.get(home.grid_x, home.grid_y) as f32) / 20.0;
-
-            // Land value bonus (weighted — high income citizens care more)
-            let land_value = land_value_grid.get(home.grid_x, home.grid_y) as f32;
-            happiness += (land_value / 50.0) * weights.land_value;
-
-            // Traffic congestion near home
-            let congestion = traffic.congestion_level(home.grid_x, home.grid_y);
-            happiness -= congestion * CONGESTION_PENALTY;
-
-            // Tax penalty
-            happiness -= tax_penalty;
-
-            // Policy and weather bonuses (pre-computed)
-            happiness += policy_bonus;
-            happiness += weather_mod;
-
-            // Needs satisfaction (if citizen has needs component)
-            if let Some(needs) = needs {
-                let satisfaction = needs.overall_satisfaction();
-                happiness += (satisfaction - 0.5) * 35.0;
-            }
-
-            // Health affects happiness
-            if details.health < 50.0 {
-                happiness -= (50.0 - details.health) * 0.3;
-            }
-            if details.health > 80.0 {
-                happiness += 3.0;
-            }
-
-            // Homelessness penalty
-            if let Some(h) = homeless {
-                if h.sheltered {
-                    happiness -= SHELTERED_PENALTY;
-                } else {
-                    happiness -= HOMELESS_PENALTY;
-                }
-            }
-
-            // Road condition penalty: poor roads near home reduce happiness
-            let hx = home.grid_x;
-            let hy = home.grid_y;
-            let check_radius: i32 = 3;
-            let mut worst_road_condition: u8 = 255;
-            for dy in -check_radius..=check_radius {
-                for dx in -check_radius..=check_radius {
-                    let nx = hx as i32 + dx;
-                    let ny = hy as i32 + dy;
-                    if nx >= 0
-                        && ny >= 0
-                        && (nx as usize) < crate::config::GRID_WIDTH
-                        && (ny as usize) < crate::config::GRID_HEIGHT
-                    {
-                        let cond = road_condition.get(nx as usize, ny as usize);
-                        // Only consider actual road cells (condition > 0 or was set via sync)
-                        if cond > 0 && cond < worst_road_condition {
-                            worst_road_condition = cond;
-                        }
-                    }
-                }
-            }
-            if worst_road_condition < 50 {
-                happiness -= POOR_ROAD_PENALTY;
-            }
-
-            // Postal coverage bonus (0 to +5)
-            happiness +=
-                crate::postal::postal_happiness_bonus(postal_coverage, home.grid_x, home.grid_y);
-
-            // Death care penalty: unprocessed deaths nearby reduce happiness
-            if death_care_grid.has_nearby_unprocessed(home.grid_x, home.grid_y) {
-                happiness -= death_care::DEATH_CARE_PENALTY;
-            }
-
-            // Heating: in cold weather, unheated buildings suffer a penalty; heated ones get a bonus
-            if heat_demand > 0.0 {
-                if heating_grid.is_heated(home.grid_x, home.grid_y) {
-                    happiness += heating::HEATING_WARM_BONUS;
-                } else {
-                    happiness -= heating::HEATING_COLD_PENALTY * heat_demand;
-                }
-            }
-
+            let happiness = compute_citizen_happiness(
+                &details,
+                home,
+                work,
+                needs,
+                homeless,
+                &grid,
+                &coverage,
+                &pollution_grid,
+                &garbage_grid,
+                &land_value_grid,
+                &crime_grid,
+                &noise_grid,
+                &traffic,
+                road_condition,
+                death_care_grid,
+                heating_grid,
+                postal_coverage,
+                waste_collection,
+                waste_accumulation,
+                tax_penalty,
+                policy_bonus,
+                weather_bonus,
+                heat_demand,
+            );
             details.happiness = happiness.clamp(0.0, 100.0);
         });
+}
+
+/// Compute happiness for a single citizen. Extracted for testability.
+#[allow(clippy::too_many_arguments)]
+fn compute_citizen_happiness(
+    details: &CitizenDetails,
+    home: &HomeLocation,
+    work: Option<&WorkLocation>,
+    needs: Option<&Needs>,
+    homeless: Option<&Homeless>,
+    grid: &WorldGrid,
+    coverage: &ServiceCoverageGrid,
+    pollution_grid: &crate::pollution::PollutionGrid,
+    garbage_grid: &crate::garbage::GarbageGrid,
+    land_value_grid: &crate::land_value::LandValueGrid,
+    crime_grid: &CrimeGrid,
+    noise_grid: &crate::noise::NoisePollutionGrid,
+    traffic: &TrafficGrid,
+    road_condition: &crate::road_maintenance::RoadConditionGrid,
+    death_care_grid: &DeathCareGrid,
+    heating_grid: &HeatingGrid,
+    postal_coverage: &PostalCoverage,
+    waste_collection: &crate::garbage::WasteCollectionGrid,
+    waste_accumulation: &crate::waste_effects::WasteAccumulation,
+    tax_penalty: f32,
+    policy_bonus: f32,
+    weather_bonus: f32,
+    heat_demand: f32,
+) -> f32 {
+    let mut happiness = BASE_HAPPINESS;
+
+    // Wealth-tier weights
+    let weights = WealthTier::from_education(details.education).happiness_weights();
+
+    // --- Employment (weighted by tier) ---
+    if work.is_some() {
+        happiness += EMPLOYED_BONUS * weights.employment;
+    }
+
+    // --- Commute distance ---
+    if let Some(work_loc) = work {
+        let dx = (home.grid_x as i32 - work_loc.grid_x as i32).abs();
+        let dy = (home.grid_y as i32 - work_loc.grid_y as i32).abs();
+        let dist = dx + dy;
+        if dist < 20 {
+            happiness += SHORT_COMMUTE_BONUS;
+        }
+    }
+
+    // --- Utilities with critical thresholds ---
+    let home_cell = grid.get(home.grid_x, home.grid_y);
+    if home_cell.has_power {
+        happiness += POWER_BONUS;
+    } else {
+        happiness -= NO_POWER_PENALTY;
+        happiness -= CRITICAL_NO_POWER_PENALTY;
+    }
+    if home_cell.has_water {
+        happiness += WATER_BONUS;
+    } else {
+        happiness -= NO_WATER_PENALTY;
+        happiness -= CRITICAL_NO_WATER_PENALTY;
+    }
+
+    // --- Service coverage (O(1) bitflag lookup from precomputed grid) ---
+    let idx = ServiceCoverageGrid::idx(home.grid_x, home.grid_y);
+    let cov = coverage.flags[idx];
+    if cov & COVERAGE_HEALTH != 0 {
+        happiness += HEALTH_COVERAGE_BONUS * weights.services;
+    }
+    if cov & COVERAGE_EDUCATION != 0 {
+        happiness += EDUCATION_BONUS * weights.services;
+    }
+    if cov & COVERAGE_POLICE != 0 {
+        happiness += POLICE_BONUS * weights.services;
+    }
+    if cov & COVERAGE_PARK != 0 {
+        happiness += PARK_BONUS * weights.parks;
+    }
+    if cov & COVERAGE_ENTERTAINMENT != 0 {
+        happiness += ENTERTAINMENT_BONUS * weights.entertainment;
+    }
+    if cov & COVERAGE_TELECOM != 0 {
+        happiness += TELECOM_BONUS;
+    }
+    if cov & COVERAGE_TRANSPORT != 0 {
+        happiness += TRANSPORT_BONUS;
+    }
+
+    // --- Pollution with diminishing returns ---
+    let pollution = pollution_grid.get(home.grid_x, home.grid_y) as f32;
+    let poll_ratio = (pollution / 255.0).clamp(0.0, 1.0);
+    let poll_diminished = diminishing_returns(poll_ratio, DIMINISHING_K_NEGATIVE);
+    happiness -= poll_diminished * (255.0 / 25.0) * weights.pollution;
+
+    // --- Garbage penalty ---
+    if garbage_grid.get(home.grid_x, home.grid_y) > 10 {
+        happiness -= GARBAGE_PENALTY;
+    }
+
+    // --- Uncollected waste penalty (WASTE-003) ---
+    let uncollected = waste_collection.uncollected(home.grid_x, home.grid_y);
+    if uncollected > 100.0 {
+        happiness -= crate::garbage::UNCOLLECTED_WASTE_HAPPINESS_PENALTY;
+    }
+
+    // --- Accumulated waste happiness penalty (WASTE-010) ---
+    let accumulated = waste_accumulation.get(home.grid_x, home.grid_y);
+    happiness += crate::waste_effects::waste_happiness_penalty(accumulated);
+
+    // --- Crime with diminishing returns + critical threshold ---
+    let crime_level = crime_grid.get(home.grid_x, home.grid_y) as f32;
+    let crime_ratio = (crime_level / 255.0).clamp(0.0, 1.0);
+    let crime_diminished = diminishing_returns(crime_ratio, DIMINISHING_K_NEGATIVE);
+    happiness -= crime_diminished * CRIME_PENALTY_MAX;
+    if crime_level > CRITICAL_CRIME_THRESHOLD {
+        happiness -= CRITICAL_CRIME_PENALTY;
+    }
+
+    // --- Noise penalty ---
+    happiness -= (noise_grid.get(home.grid_x, home.grid_y) as f32) / 20.0;
+
+    // --- Land value with diminishing returns ---
+    let land_value = land_value_grid.get(home.grid_x, home.grid_y) as f32;
+    let lv_ratio = (land_value / 255.0).clamp(0.0, 1.0);
+    let lv_diminished = diminishing_returns(lv_ratio, DIMINISHING_K_DEFAULT);
+    happiness += lv_diminished * (255.0 / 50.0) * weights.land_value;
+
+    // --- Traffic congestion ---
+    let congestion = traffic.congestion_level(home.grid_x, home.grid_y);
+    happiness -= congestion * CONGESTION_PENALTY;
+
+    // --- Tax penalty ---
+    happiness -= tax_penalty;
+
+    // --- Policy bonus ---
+    happiness += policy_bonus;
+
+    // --- Weather happiness factor (with diminishing returns, pre-computed) ---
+    happiness += weather_bonus;
+
+    // --- Needs satisfaction with diminishing returns + critical threshold ---
+    if let Some(needs) = needs {
+        let satisfaction = needs.overall_satisfaction();
+        let needs_diminished = diminishing_returns(satisfaction, DIMINISHING_K_DEFAULT);
+        // Center at the diminished midpoint so 50% satisfaction gives ~0
+        happiness += (needs_diminished - DIMINISHED_MIDPOINT) * 35.0;
+        if satisfaction < CRITICAL_NEEDS_THRESHOLD {
+            happiness -= CRITICAL_NEEDS_PENALTY;
+        }
+    }
+
+    // --- Health with critical threshold ---
+    if details.health < 50.0 {
+        happiness -= (50.0 - details.health) * 0.3;
+    }
+    if details.health > 80.0 {
+        happiness += 3.0;
+    }
+    if details.health < CRITICAL_HEALTH_THRESHOLD {
+        happiness -= CRITICAL_HEALTH_PENALTY;
+    }
+
+    // --- Wealth satisfaction factor (diminishing returns on savings) ---
+    happiness += wealth_satisfaction(details.savings);
+
+    // --- Homelessness penalty ---
+    if let Some(h) = homeless {
+        if h.sheltered {
+            happiness -= SHELTERED_PENALTY;
+        } else {
+            happiness -= HOMELESS_PENALTY;
+        }
+    }
+
+    // --- Road condition penalty ---
+    let hx = home.grid_x;
+    let hy = home.grid_y;
+    let check_radius: i32 = 3;
+    let mut worst_road_condition: u8 = 255;
+    for dy in -check_radius..=check_radius {
+        for dx in -check_radius..=check_radius {
+            let nx = hx as i32 + dx;
+            let ny = hy as i32 + dy;
+            if nx >= 0
+                && ny >= 0
+                && (nx as usize) < crate::config::GRID_WIDTH
+                && (ny as usize) < crate::config::GRID_HEIGHT
+            {
+                let cond = road_condition.get(nx as usize, ny as usize);
+                if cond > 0 && cond < worst_road_condition {
+                    worst_road_condition = cond;
+                }
+            }
+        }
+    }
+    if worst_road_condition < 50 {
+        happiness -= POOR_ROAD_PENALTY;
+    }
+
+    // --- Postal coverage bonus (0 to +5) ---
+    happiness += crate::postal::postal_happiness_bonus(postal_coverage, home.grid_x, home.grid_y);
+
+    // --- Death care penalty ---
+    if death_care_grid.has_nearby_unprocessed(home.grid_x, home.grid_y) {
+        happiness -= death_care::DEATH_CARE_PENALTY;
+    }
+
+    // --- Heating ---
+    if heat_demand > 0.0 {
+        if heating_grid.is_heated(home.grid_x, home.grid_y) {
+            happiness += heating::HEATING_WARM_BONUS;
+        } else {
+            happiness -= heating::HEATING_COLD_PENALTY * heat_demand;
+        }
+    }
+
+    happiness
 }
