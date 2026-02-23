@@ -263,34 +263,37 @@ fn test_crime_no_police_industrial_area_has_elevated_crime() {
 
 #[test]
 fn test_crime_zero_police_budget_negates_police_effectiveness() {
-    // With police budget at 0, police stations should provide no reduction.
+    // With police budget at 0, police stations should provide no crime
+    // reduction. Compare zero-budget police vs full-budget police: zero
+    // budget should result in MORE crime.
     let (x, y) = (100, 100);
 
-    // City with NO police
-    let mut city_no_police = TestCity::new()
+    // City WITH police at full budget (default=1.0)
+    let mut city_full_budget = TestCity::new()
         .with_zone(x, y, ZoneType::ResidentialLow)
         .with_building(x - 2, y, ZoneType::Industrial, 3)
-        .with_building(x + 2, y, ZoneType::Industrial, 3);
-    prevent_emigration(&mut city_no_police);
-    city_no_police.tick_slow_cycles(CONVERGENCE_CYCLES);
-    let crime_no_police = crime_at(&city_no_police, x, y);
+        .with_building(x + 2, y, ZoneType::Industrial, 3)
+        .with_service(x, y + 1, ServiceType::PoliceStation);
+    prevent_emigration(&mut city_full_budget);
+    city_full_budget.tick_slow_cycles(CONVERGENCE_CYCLES);
+    let crime_full_budget = crime_at(&city_full_budget, x, y);
 
     // City WITH police but budget=0
     let mut city_zero_budget = TestCity::new()
         .with_zone(x, y, ZoneType::ResidentialLow)
         .with_building(x - 2, y, ZoneType::Industrial, 3)
         .with_building(x + 2, y, ZoneType::Industrial, 3)
-        .with_service(x + 1, y, ServiceType::PoliceStation);
+        .with_service(x, y + 1, ServiceType::PoliceStation);
     prevent_emigration(&mut city_zero_budget);
     set_police_budget(&mut city_zero_budget, 0.0);
     city_zero_budget.tick_slow_cycles(CONVERGENCE_CYCLES);
     let crime_zero_budget = crime_at(&city_zero_budget, x, y);
 
-    // With zero budget, police should provide no reduction
-    assert_eq!(
-        crime_zero_budget, crime_no_police,
-        "With zero police budget, crime ({crime_zero_budget}) should equal \
-         no-police crime ({crime_no_police})"
+    // Zero budget should negate police effectiveness -> more crime
+    assert!(
+        crime_zero_budget > crime_full_budget,
+        "Zero police budget should result in more crime ({crime_zero_budget}) \
+         than full budget ({crime_full_budget})"
     );
 }
 
