@@ -21,10 +21,8 @@
 
 #![allow(clippy::needless_pass_by_value)]
 
-extern crate proc_macro;
-
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use std::collections::HashSet;
 use std::env;
@@ -32,7 +30,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 use syn::parse::{Parse, ParseStream};
-use syn::{LitStr, Token, Visibility};
+use syn::{Ident, LitStr, Token, Visibility};
 
 struct Arg {
     vis: Visibility,
