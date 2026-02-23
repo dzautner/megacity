@@ -65,6 +65,8 @@ impl ServiceBuilding {
             ServiceType::HeatingBoiler => 15.0 * CELL_SIZE,
             ServiceType::DistrictHeatingPlant => 40.0 * CELL_SIZE,
             ServiceType::GeothermalPlant => 60.0 * CELL_SIZE,
+            ServiceType::Daycare => 20.0 * CELL_SIZE,
+            ServiceType::Eldercare => 15.0 * CELL_SIZE,
         }
     }
 
@@ -120,6 +122,8 @@ impl ServiceBuilding {
             ServiceType::HeatingBoiler => 400.0,
             ServiceType::DistrictHeatingPlant => 2000.0,
             ServiceType::GeothermalPlant => 5000.0,
+            ServiceType::Daycare => 500.0,
+            ServiceType::Eldercare => 600.0,
         }
     }
 
@@ -175,6 +179,8 @@ impl ServiceBuilding {
             ServiceType::HeatingBoiler => 15.0,
             ServiceType::DistrictHeatingPlant => 50.0,
             ServiceType::GeothermalPlant => 80.0,
+            ServiceType::Daycare => 15.0,
+            ServiceType::Eldercare => 20.0,
         }
     }
 

@@ -170,12 +170,12 @@ fn test_utility_type_roundtrip() {
 
 #[test]
 fn test_service_type_roundtrip() {
-    for i in 0..=49u8 {
+    for i in 0..=51u8 {
         let st = u8_to_service_type(i).expect("valid service type");
         let encoded = service_type_to_u8(st);
         assert_eq!(i, encoded);
     }
-    assert!(u8_to_service_type(50).is_none());
+    assert!(u8_to_service_type(52).is_none());
 }
 
 #[test]

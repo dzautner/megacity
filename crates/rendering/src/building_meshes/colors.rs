@@ -68,6 +68,8 @@ pub fn service_base_color(service_type: ServiceType) -> Color {
         ServiceType::GeothermalPlant => Color::srgb(0.55, 0.40, 0.25),
         ServiceType::WaterTreatmentPlant => Color::srgb(0.30, 0.55, 0.70),
         ServiceType::WellPump => Color::srgb(0.40, 0.60, 0.55),
+        ServiceType::Daycare => Color::srgb(0.75, 0.65, 0.85),
+        ServiceType::Eldercare => Color::srgb(0.60, 0.75, 0.65),
     }
 }
 
