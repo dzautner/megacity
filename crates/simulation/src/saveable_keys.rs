@@ -39,6 +39,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "gas_power",
     "groundwater_grid",
     "heat_mitigation",
+    "heating_service",
     "historic_preservation",
     "hotel_demand",
     "inclusionary_zoning",
