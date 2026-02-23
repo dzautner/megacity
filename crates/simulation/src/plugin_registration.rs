@@ -203,4 +203,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Environmental grid save/load (POLL-033)
     app.add_plugins(env_grid_save::EnvGridSavePlugin);
+
+    // Social services building types (SVC-013)
+    app.add_plugins(social_services::SocialServicesPlugin);
 }
