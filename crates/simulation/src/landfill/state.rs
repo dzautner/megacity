@@ -233,3 +233,26 @@ impl crate::Saveable for LandfillState {
         crate::decode_or_warn(Self::SAVE_KEY, bytes)
     }
 }
+
+// =============================================================================
+// Plugin
+// =============================================================================
+
+pub struct LandfillPlugin;
+
+impl Plugin for LandfillPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LandfillState>().add_systems(
+            FixedUpdate,
+            update_landfill_state
+                .after(crate::garbage::update_waste_generation)
+                .in_set(crate::SimulationSet::Simulation),
+        );
+
+        // Register for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<LandfillState>();
+    }
+}
