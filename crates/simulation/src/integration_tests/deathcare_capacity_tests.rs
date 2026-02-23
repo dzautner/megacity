@@ -3,7 +3,6 @@
 //! Tests that cemeteries track finite capacity, crematoriums process queues,
 //! and overflow bodies generate appropriate penalties.
 
-use crate::death_care::{DeathCareGrid, DeathCareStats};
 use crate::deathcare_capacity::{
     CemeteryRecord, CrematoriumRecord, DeathCareCapacityState, CEMETERY_CAPACITY,
     CREMATORIUM_BATCH_SIZE, MAX_OVERFLOW_HAPPINESS_PENALTY, OVERFLOW_HAPPINESS_PENALTY,
@@ -110,8 +109,7 @@ fn test_crematorium_processes_partial_batch() {
 
 #[test]
 fn test_no_overflow_when_capacity_available() {
-    let mut state = DeathCareCapacityState::default();
-    state.overflow_bodies = 0;
+    let state = DeathCareCapacityState::default();
     assert_eq!(state.happiness_penalty(), 0.0);
     assert_eq!(state.health_penalty(), 0.0);
 }

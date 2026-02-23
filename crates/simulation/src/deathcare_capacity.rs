@@ -8,10 +8,11 @@
 //! queue generate happiness and health penalties city-wide.
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::death_care::{DeathCareGrid, DeathCareStats};
+use crate::death_care::DeathCareStats;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::SimulationSet;
 
@@ -42,7 +43,7 @@ pub const MAX_OVERFLOW_HEALTH_PENALTY: f32 = 10.0;
 // ---------------------------------------------------------------------------
 
 /// Tracks how many plots are used in a single cemetery.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct CemeteryRecord {
     pub plots_used: u32,
     pub total_plots: u32,
@@ -76,7 +77,7 @@ impl CemeteryRecord {
 }
 
 /// Tracks the cremation queue for a single crematorium.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct CrematoriumRecord {
     /// Bodies waiting to be cremated.
     pub queue: u32,
@@ -103,11 +104,11 @@ impl CrematoriumRecord {
 // City-wide state resource
 // ---------------------------------------------------------------------------
 
-/// City-wide death care capacity state, keyed by entity index.
+/// City-wide death care capacity state, keyed by grid coordinates.
 ///
 /// Entity IDs are not stable across save/load, so we use grid coordinates as
 /// stable keys (serialized as `(usize, usize)`).
-#[derive(Resource, Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Resource, Debug, Clone, Default)]
 pub struct DeathCareCapacityState {
     /// Cemetery records keyed by `(grid_x, grid_y)`.
     pub cemeteries: HashMap<(usize, usize), CemeteryRecord>,
@@ -155,6 +156,19 @@ impl DeathCareCapacityState {
 }
 
 // ---------------------------------------------------------------------------
+// Serialization helper for bitcode (HashMap not directly supported)
+// ---------------------------------------------------------------------------
+
+#[derive(Encode, Decode, Default)]
+struct DeathCareCapacitySaveData {
+    cemeteries: Vec<((usize, usize), CemeteryRecord)>,
+    crematoriums: Vec<((usize, usize), CrematoriumRecord)>,
+    overflow_bodies: u32,
+    total_interred: u32,
+    total_cremated: u32,
+}
+
+// ---------------------------------------------------------------------------
 // Saveable
 // ---------------------------------------------------------------------------
 
@@ -162,11 +176,33 @@ impl crate::Saveable for DeathCareCapacityState {
     const SAVE_KEY: &'static str = "deathcare_capacity";
 
     fn save_to_bytes(&self) -> Option<Vec<u8>> {
-        Some(bitcode::encode(self))
+        let data = DeathCareCapacitySaveData {
+            cemeteries: self.cemeteries.iter().map(|(&k, v)| (k, v.clone())).collect(),
+            crematoriums: self.crematoriums.iter().map(|(&k, v)| (k, v.clone())).collect(),
+            overflow_bodies: self.overflow_bodies,
+            total_interred: self.total_interred,
+            total_cremated: self.total_cremated,
+        };
+        if data.cemeteries.is_empty()
+            && data.crematoriums.is_empty()
+            && data.overflow_bodies == 0
+            && data.total_interred == 0
+            && data.total_cremated == 0
+        {
+            return None;
+        }
+        Some(bitcode::encode(&data))
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
-        crate::decode_or_warn(Self::SAVE_KEY, bytes)
+        let data: DeathCareCapacitySaveData = crate::decode_or_warn(Self::SAVE_KEY, bytes);
+        Self {
+            cemeteries: data.cemeteries.into_iter().collect(),
+            crematoriums: data.crematoriums.into_iter().collect(),
+            overflow_bodies: data.overflow_bodies,
+            total_interred: data.total_interred,
+            total_cremated: data.total_cremated,
+        }
     }
 }
 
@@ -258,8 +294,8 @@ pub fn process_deathcare_capacity(
     state.total_interred += interred_this_cycle;
 
     // Phase 2: Queue remaining into crematoriums
-    if remaining > 0 {
-        let crematorium_count = state.crematoriums.len().max(1) as u32;
+    if remaining > 0 && !state.crematoriums.is_empty() {
+        let crematorium_count = state.crematoriums.len() as u32;
         let per_crematorium = remaining / crematorium_count;
         let mut extra = remaining % crematorium_count;
 
@@ -272,11 +308,7 @@ pub fn process_deathcare_capacity(
                 record.enqueue();
             }
         }
-
-        // If there are crematoriums, bodies are queued (not overflow yet)
-        if !state.crematoriums.is_empty() {
-            remaining = 0;
-        }
+        remaining = 0;
     }
 
     state.overflow_bodies = remaining;
@@ -374,7 +406,9 @@ mod tests {
     fn test_overflow_happiness_penalty_capped() {
         let mut state = DeathCareCapacityState::default();
         state.overflow_bodies = 1000;
-        assert!((state.happiness_penalty() - MAX_OVERFLOW_HAPPINESS_PENALTY).abs() < f32::EPSILON);
+        assert!(
+            (state.happiness_penalty() - MAX_OVERFLOW_HAPPINESS_PENALTY).abs() < f32::EPSILON
+        );
     }
 
     #[test]
