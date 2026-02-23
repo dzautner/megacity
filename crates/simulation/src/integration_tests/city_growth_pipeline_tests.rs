@@ -34,19 +34,14 @@ fn build_cross_city() -> TestCity {
 }
 
 /// Helper: boost city attractiveness so immigration fires during tests.
+/// The attractiveness system recalculates every 50 ticks, so we set a
+/// high score that should persist even after recalculation since the
+/// city has buildings and zones.
 fn boost_attractiveness(city: &mut TestCity) {
     let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
     attr.overall_score = 90.0;
     attr.housing_factor = 1.0;
     attr.employment_factor = 1.0;
-}
-
-/// Helper: advance the game clock day so tax collection can trigger.
-/// Tax collection fires every 30 days, so we set day to 30 to ensure
-/// it triggers during the 500-tick run (which advances ~8 more hours).
-fn advance_clock_for_taxes(city: &mut TestCity) {
-    let mut clock = city.world_mut().resource_mut::<GameClock>();
-    clock.day = 30;
 }
 
 /// Core acceptance test: empty world -> cross roads -> zone R + C ->
@@ -88,13 +83,23 @@ fn test_full_growth_pipeline_mixed_zones_produce_buildings() {
     );
 }
 
-/// Verify citizens appear after 500 ticks (via immigration or spawning).
+/// Verify citizens appear after buildings are completed. We run enough
+/// ticks for buildings to spawn and complete construction, then
+/// re-boost attractiveness and run more ticks for immigration.
 #[test]
 fn test_full_growth_pipeline_citizens_appear() {
     let mut city = build_cross_city();
     boost_attractiveness(&mut city);
 
-    city.tick(500);
+    // Phase 1: Let buildings spawn and complete construction (~300 ticks)
+    city.tick(300);
+
+    // Re-boost attractiveness (system may have recalculated to a lower
+    // value since the city is small)
+    boost_attractiveness(&mut city);
+
+    // Phase 2: Immigration should fire now that completed buildings exist
+    city.tick(200);
 
     let citizen_count = city.citizen_count();
     assert!(
@@ -106,20 +111,25 @@ fn test_full_growth_pipeline_citizens_appear() {
 
 /// Verify that the economy is functioning: either monthly_income > 0 or
 /// last_collection_day > 0 (taxes have been collected at least once).
-/// We advance the game clock to day 30 first so that the tax collection
-/// interval (30 days) is reached within the 500-tick simulation window.
+/// We advance the game clock to day 32 so that the tax collection
+/// interval (30 days) is reached within the remaining tick window.
 #[test]
 fn test_full_growth_pipeline_economy_active() {
     let mut city = build_cross_city();
     boost_attractiveness(&mut city);
 
-    // Run 300 ticks first to let buildings spawn and citizens arrive
+    // Phase 1: Let buildings spawn and complete construction
     city.tick(300);
 
-    // Advance clock so tax collection can fire during remaining ticks
-    advance_clock_for_taxes(&mut city);
+    // Re-boost attractiveness and advance clock past tax collection threshold
+    boost_attractiveness(&mut city);
+    {
+        let mut clock = city.world_mut().resource_mut::<GameClock>();
+        // Set day to 32 so collect_taxes fires (checks clock.day > last_collection_day + 30)
+        clock.day = 32;
+    }
 
-    // Run 200 more ticks; tax collection should trigger
+    // Phase 2: Immigration + tax collection
     city.tick(200);
 
     let budget = city.resource::<CityBudget>();
@@ -143,7 +153,9 @@ fn test_full_growth_pipeline_population_stats_consistent() {
     let mut city = build_cross_city();
     boost_attractiveness(&mut city);
 
-    city.tick(500);
+    city.tick(300);
+    boost_attractiveness(&mut city);
+    city.tick(200);
 
     let citizen_count = city.citizen_count();
     let stats_pop = city.resource::<CityStats>().population;
@@ -201,11 +213,15 @@ fn test_full_growth_pipeline_all_criteria() {
     assert_eq!(city.building_count(), 0, "No buildings at start");
     assert_eq!(city.citizen_count(), 0, "No citizens at start");
 
-    // Phase 1: Let buildings spawn and citizens arrive (300 ticks)
+    // Phase 1: Let buildings spawn and complete construction (300 ticks)
     city.tick(300);
 
-    // Phase 2: Advance clock for tax collection and run 200 more ticks
-    advance_clock_for_taxes(&mut city);
+    // Phase 2: Re-boost attractiveness and advance clock for tax collection
+    boost_attractiveness(&mut city);
+    {
+        let mut clock = city.world_mut().resource_mut::<GameClock>();
+        clock.day = 32;
+    }
     city.tick(200);
 
     // AC1: Cross-shaped road network placed
