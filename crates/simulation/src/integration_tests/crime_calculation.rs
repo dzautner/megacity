@@ -67,8 +67,8 @@ fn prevent_emigration(city: &mut TestCity) {
 fn test_crime_low_land_value_produces_higher_crime_than_high_land_value() {
     // Create two zoned cells: one with low land value, one with high.
     let mut city = TestCity::new()
-        .with_zone(100, 100, ZoneType::Residential)
-        .with_zone(120, 120, ZoneType::Residential);
+        .with_zone(100, 100, ZoneType::ResidentialLow)
+        .with_zone(120, 120, ZoneType::ResidentialLow);
 
     prevent_emigration(&mut city);
 
@@ -91,7 +91,7 @@ fn test_crime_low_land_value_produces_higher_crime_than_high_land_value() {
 #[test]
 fn test_crime_zero_land_value_produces_maximum_base_crime() {
     // A zoned cell with land value 0 should get the maximum base crime of 25.
-    let mut city = TestCity::new().with_zone(100, 100, ZoneType::Commercial);
+    let mut city = TestCity::new().with_zone(100, 100, ZoneType::CommercialLow);
 
     prevent_emigration(&mut city);
     set_land_value(&mut city, 100, 100, 0);
@@ -109,7 +109,7 @@ fn test_crime_zero_land_value_produces_maximum_base_crime() {
 #[test]
 fn test_crime_max_land_value_produces_zero_base_crime() {
     // A zoned cell with land value >= 100 should get zero base crime.
-    let mut city = TestCity::new().with_zone(100, 100, ZoneType::Residential);
+    let mut city = TestCity::new().with_zone(100, 100, ZoneType::ResidentialLow);
 
     prevent_emigration(&mut city);
     set_land_value(&mut city, 100, 100, 100);
@@ -134,7 +134,7 @@ fn test_crime_police_station_reduces_nearby_crime() {
     let (x, y) = (100, 100);
 
     // City WITHOUT police
-    let mut city_no_police = TestCity::new().with_zone(x, y, ZoneType::Residential);
+    let mut city_no_police = TestCity::new().with_zone(x, y, ZoneType::ResidentialLow);
     prevent_emigration(&mut city_no_police);
     set_land_value(&mut city_no_police, x, y, 10);
     city_no_police.tick_slow_cycle();
@@ -142,7 +142,7 @@ fn test_crime_police_station_reduces_nearby_crime() {
 
     // City WITH police station near the cell
     let mut city_with_police = TestCity::new()
-        .with_zone(x, y, ZoneType::Residential)
+        .with_zone(x, y, ZoneType::ResidentialLow)
         .with_service(x + 2, y, ServiceType::PoliceStation);
     prevent_emigration(&mut city_with_police);
     set_land_value(&mut city_with_police, x, y, 10);
@@ -164,7 +164,7 @@ fn test_crime_police_hq_reduces_crime_more_than_kiosk() {
 
     // City with PoliceKiosk
     let mut city_kiosk = TestCity::new()
-        .with_zone(x, y, ZoneType::Residential)
+        .with_zone(x, y, ZoneType::ResidentialLow)
         .with_service(x, y + 2, ServiceType::PoliceKiosk);
     prevent_emigration(&mut city_kiosk);
     set_land_value(&mut city_kiosk, x, y, 0);
@@ -173,7 +173,7 @@ fn test_crime_police_hq_reduces_crime_more_than_kiosk() {
 
     // City with PoliceHQ
     let mut city_hq = TestCity::new()
-        .with_zone(x, y, ZoneType::Residential)
+        .with_zone(x, y, ZoneType::ResidentialLow)
         .with_service(x, y + 2, ServiceType::PoliceHQ);
     prevent_emigration(&mut city_hq);
     set_land_value(&mut city_hq, x, y, 0);
@@ -196,8 +196,8 @@ fn test_crime_values_always_within_valid_u8_range() {
     // Set up a city with a mix of zones and land values, run several slow
     // cycles, and verify all crime values are within expected bounds.
     let mut city = TestCity::new()
-        .with_zone_rect(50, 50, 70, 70, ZoneType::Residential)
-        .with_zone_rect(80, 80, 100, 100, ZoneType::Commercial)
+        .with_zone_rect(50, 50, 70, 70, ZoneType::ResidentialLow)
+        .with_zone_rect(80, 80, 100, 100, ZoneType::CommercialLow)
         .with_zone_rect(110, 110, 130, 130, ZoneType::Industrial)
         .with_service(60, 60, ServiceType::PoliceStation);
 
@@ -232,7 +232,7 @@ fn test_crime_values_always_within_valid_u8_range() {
 fn test_crime_no_police_low_land_value_area_has_high_crime() {
     // A low-value zoned area with NO police should have crime at the
     // maximum base level (25 for land value 0).
-    let mut city = TestCity::new().with_zone_rect(90, 90, 110, 110, ZoneType::Residential);
+    let mut city = TestCity::new().with_zone_rect(90, 90, 110, 110, ZoneType::ResidentialLow);
 
     prevent_emigration(&mut city);
     set_land_value_rect(&mut city, 90, 90, 110, 110, 0);
@@ -266,7 +266,7 @@ fn test_crime_zero_police_budget_negates_police_coverage() {
     let (x, y) = (100, 100);
 
     let mut city = TestCity::new()
-        .with_zone(x, y, ZoneType::Residential)
+        .with_zone(x, y, ZoneType::ResidentialLow)
         .with_service(x + 1, y, ServiceType::PoliceStation);
 
     prevent_emigration(&mut city);
