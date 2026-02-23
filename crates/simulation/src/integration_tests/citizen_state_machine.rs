@@ -23,6 +23,9 @@ use bevy::prelude::*;
 
 /// Spawn a citizen at a given state with specified home/work grid positions.
 /// Buildings at those positions must already exist.
+///
+/// Citizens are spawned with high happiness, health, and savings to prevent
+/// despawn from lifecycle emigration or disease systems during multi-tick tests.
 fn spawn_citizen_in_state(
     city: &mut TestCity,
     home: (usize, usize),
@@ -62,13 +65,13 @@ fn spawn_citizen_in_state(
             CitizenStateComp(state),
             PathCache::new(Vec::new()),
             CitizenDetails {
-                age: 30,
+                age: 25,
                 gender: Gender::Male,
                 education: 2,
-                happiness: 60.0,
-                health: 90.0,
+                happiness: 95.0,
+                health: 100.0,
                 salary: 3500.0,
-                savings: 7000.0,
+                savings: 50_000.0,
             },
             Personality {
                 ambition: 0.5,
@@ -94,6 +97,31 @@ fn spawn_citizen_in_state(
     citizen_entity
 }
 
+/// Prevent the emigration system from despawning citizens.
+///
+/// Sets CityAttractiveness high to prevent the immigration_wave system from
+/// triggering emigration (which fires when overall_score < 30.0).
+/// Also boosts all existing citizens' stats to prevent lifecycle emigration
+/// (which fires when happiness < 20.0).
+fn prevent_emigration(city: &mut TestCity) {
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
+    let world = city.world_mut();
+    for mut details in world
+        .query_filtered::<&mut CitizenDetails, With<Citizen>>()
+        .iter_mut(world)
+    {
+        // Only boost if low — avoid overwriting happiness in tests that check it
+        if details.happiness < 30.0 {
+            details.happiness = 95.0;
+        }
+        details.health = 100.0;
+        details.savings = 50_000.0;
+    }
+}
+
 // ====================================================================
 // Test: AtHome transitions to CommutingToWork at morning commute hour
 // ====================================================================
@@ -111,6 +139,8 @@ fn test_at_home_transitions_to_commuting_to_work_at_work_hour() {
         .with_citizen((100, 100), (100, 115))
         .with_time(7.0)
         .rebuild_csr();
+
+    prevent_emigration(&mut city);
 
     // Run enough ticks to cover the jitter window (entity index % 120 minutes)
     // and for pathfinding to complete. 200 ticks should be plenty.
@@ -186,6 +216,7 @@ fn test_working_transitions_to_commuting_home_at_end_of_day() {
         CitizenState::Working,
     );
 
+    prevent_emigration(&mut city);
     city.tick(5);
 
     let world = city.world_mut();
@@ -246,6 +277,8 @@ fn test_citizen_without_job_stays_at_home() {
         .with_time(7.5)
         .rebuild_csr();
 
+    prevent_emigration(&mut city);
+
     // Tick through the entire morning commute window
     city.tick(200);
 
@@ -272,11 +305,14 @@ fn test_citizen_without_valid_home_becomes_homeless() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
+    prevent_emigration(&mut city);
+
     // Despawn the home building
     let building_entity = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(building_entity);
 
     // Tick past the homelessness CHECK_INTERVAL (50 ticks)
+    prevent_emigration(&mut city);
     city.tick(50);
 
     let homeless_count = {
@@ -321,10 +357,7 @@ fn test_full_daily_commute_cycle_morning_departure() {
     // Prevent emigration from despawning the citizen during the long tick run.
     // In a near-empty test city, CityAttractiveness can drop below 30, which
     // triggers the emigration system to despawn the unhappiest citizens.
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 80.0;
-    }
+    prevent_emigration(&mut city);
 
     // Advance past the morning commute window (7-8 AM).
     // 2.5 hours = 150 ticks from 6 AM should reach ~8:30 AM.
@@ -366,10 +399,7 @@ fn test_full_daily_commute_cycle_evening_departure() {
     );
 
     // Prevent emigration from despawning the citizen during the long tick run.
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 80.0;
-    }
+    prevent_emigration(&mut city);
 
     // Tick enough to enter the evening commute window (17-18)
     // 1.5 hours = 90 ticks from 16:30
@@ -421,10 +451,7 @@ fn test_paused_clock_prevents_state_transitions() {
     // Prevent emigration from despawning the citizen during the long tick run.
     // Even with the clock paused, immigration_wave runs on tick count (not
     // game-clock time), so it can still trigger emigration in an empty city.
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 80.0;
-    }
+    prevent_emigration(&mut city);
 
     city.tick(200);
 
@@ -465,6 +492,8 @@ fn test_citizen_stays_at_home_outside_commute_hours() {
             .expect("citizen should exist")
     };
 
+    prevent_emigration(&mut city);
+
     // Only tick a few times (not enough to advance the clock to commute hour)
     city.tick(50);
 
@@ -498,6 +527,8 @@ fn test_working_citizen_stays_at_work_before_evening() {
         Some((100, 115)),
         CitizenState::Working,
     );
+
+    prevent_emigration(&mut city);
 
     // Run a few ticks (not enough to reach evening commute at 17:00)
     city.tick(30);
@@ -763,6 +794,8 @@ fn test_citizen_with_placeholder_home_becomes_homeless() {
 
     // Spawn citizen with no valid building at home position
     spawn_citizen_in_state(&mut city, (50, 50), None, CitizenState::AtHome);
+
+    prevent_emigration(&mut city);
 
     // Tick past the homelessness CHECK_INTERVAL
     city.tick(50);
