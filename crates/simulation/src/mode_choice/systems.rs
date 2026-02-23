@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use crate::citizen::{Citizen, CitizenStateComp, PathRequest};
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, RoadType, WorldGrid};
-use crate::services::{ServiceBuilding, ServiceType};
+use crate::services::ServiceBuilding;
 use crate::SlowTickTimer;
 
 use super::evaluation::{
