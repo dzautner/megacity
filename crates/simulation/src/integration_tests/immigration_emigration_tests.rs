@@ -10,7 +10,7 @@ use crate::citizen::{Citizen, CitizenDetails};
 use crate::economy::CityBudget;
 use crate::education_jobs::EmploymentStats;
 use crate::grid::ZoneType;
-use crate::immigration::ImmigrationStats;
+use crate::immigration::{CityAttractiveness, ImmigrationStats};
 use crate::test_harness::TestCity;
 
 use bevy::prelude::*;
@@ -67,6 +67,19 @@ fn set_high_tax_rate(city: &mut TestCity) {
     let world = city.world_mut();
     if let Some(mut budget) = world.get_resource_mut::<CityBudget>() {
         budget.tax_rate = 0.30; // 30% -- drives tax_factor to 0.0
+    }
+}
+
+/// Force the attractiveness score very low so emigration triggers immediately.
+fn force_low_attractiveness(city: &mut TestCity) {
+    let world = city.world_mut();
+    if let Some(mut attr) = world.get_resource_mut::<CityAttractiveness>() {
+        attr.overall_score = 10.0;
+        attr.employment_factor = 0.0;
+        attr.happiness_factor = 0.0;
+        attr.services_factor = 0.0;
+        attr.housing_factor = 0.0;
+        attr.tax_factor = 0.0;
     }
 }
 
@@ -159,21 +172,20 @@ fn test_emigration_low_attractiveness_decreases_population() {
     // Force high taxes -> tax_factor = 0.0
     set_high_tax_rate(&mut city);
 
-    // With these factors:
-    //   employment: (1.0 - 0.5*5) = 0.0 * 25 = 0
-    //   happiness: 5/100 = 0.05 * 25 = 1.25
-    //   services: 0 * 20 = 0
-    //   housing: some * 15 = ~small (fully occupied building)
-    //   tax: (0.5 - 0.2*5) = -0.5 clamped to 0.0 * 15 = 0
-    // Score ~ 1.25 -> well under 30, triggers emigration
+    // Directly force attractiveness score below 30 to ensure emigration
+    // triggers. The compute_attractiveness system runs every 50 ticks and
+    // might override our conditions, so we re-apply before each wave.
+    force_low_attractiveness(&mut city);
 
-    // Tick past the immigration interval
-    city.tick(100);
-    // Re-apply conditions in case systems reset them
-    make_citizens_miserable(&mut city);
-    set_high_unemployment(&mut city);
-    set_high_tax_rate(&mut city);
-    city.tick(100);
+    // Run multiple immigration wave intervals (each 100 ticks), re-applying
+    // low attractiveness before each wave to guarantee emigration fires.
+    for _ in 0..4 {
+        force_low_attractiveness(&mut city);
+        make_citizens_miserable(&mut city);
+        set_high_unemployment(&mut city);
+        set_high_tax_rate(&mut city);
+        city.tick(100);
+    }
 
     let final_count = city.citizen_count();
     assert!(
