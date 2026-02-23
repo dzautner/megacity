@@ -2,13 +2,14 @@
 //!
 //! Tests cover:
 //! - Fire spreads to adjacent cells (forest fire)
-//! - Fire spread rate proportional to building density
-//! - Fire station coverage reduces spread
-//! - Fire extinguishes with adequate coverage
-//! - Rain/storm weather suppresses fire
+//! - Fire does not spread across water cells
+//! - Building fire spreads between adjacent buildings
+//! - Fire station coverage reduces/extinguishes building fires
+//! - Buildings without coverage stay on fire
+//! - Rain/storm weather suppresses forest fire
 
-use crate::fire::{FireGrid, OnFire};
-use crate::forest_fire::{ForestFireGrid, ForestFireStats};
+use crate::fire::OnFire;
+use crate::forest_fire::ForestFireGrid;
 use crate::buildings::Building;
 use crate::grid::{WorldGrid, ZoneType};
 use crate::happiness::ServiceCoverageGrid;
@@ -67,13 +68,6 @@ fn set_weather(city: &mut TestCity, condition: WeatherCondition, temperature: f3
     let mut weather = world.resource_mut::<Weather>();
     weather.current_event = condition;
     weather.temperature = temperature;
-}
-
-/// Set TickCounter to a specific value (for alignment with FIRE_UPDATE_INTERVAL).
-fn set_tick(city: &mut TestCity, tick: u64) {
-    let world = city.world_mut();
-    let mut counter = world.resource_mut::<TickCounter>();
-    counter.0 = tick;
 }
 
 // ====================================================================
@@ -139,23 +133,28 @@ fn test_fire_does_not_spread_across_water() {
 
     let mut city = TestCity::new();
 
-    // Plant trees on two sides separated by a water column
-    // Left side: trees at x=125..127, y=127..129
-    // Right side: trees at x=129..131, y=127..129
-    // Water barrier at x=128, y=126..130
+    // Plant trees on two sides separated by a water column.
+    // Need to avoid double mutable borrow by doing tree_grid first, then grid.
     {
         let world = city.world_mut();
         let mut tree_grid = world.resource_mut::<TreeGrid>();
-        let mut grid = world.resource_mut::<WorldGrid>();
         for y in 126..=130 {
+            // Left side: trees at x=125..127
             for x in 125..=127 {
                 tree_grid.set(x, y, true);
             }
-            // Water barrier
-            grid.get_mut(128, y).cell_type = CellType::Water;
+            // Right side: trees at x=129..131
             for x in 129..=131 {
                 tree_grid.set(x, y, true);
             }
+        }
+    }
+    {
+        // Water barrier at x=128, y=126..130
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        for y in 126..=130 {
+            grid.get_mut(128, y).cell_type = CellType::Water;
         }
     }
 
@@ -378,11 +377,11 @@ fn test_building_without_fire_coverage_stays_on_fire() {
 }
 
 // ====================================================================
-// Test 6: Rain/storm weather suppresses forest fire intensity
+// Test 6: Rain weather suppresses forest fire intensity
 // ====================================================================
 
-/// Forest fire intensity should decrease faster during rain and storm
-/// conditions due to RAIN_REDUCTION and STORM_REDUCTION constants.
+/// Forest fire intensity should decrease faster during rain conditions
+/// due to the RAIN_REDUCTION constant (8 per fire update).
 #[test]
 fn test_rain_suppresses_forest_fire_intensity() {
     let mut city = TestCity::new();
@@ -415,7 +414,12 @@ fn test_rain_suppresses_forest_fire_intensity() {
     );
 }
 
+// ====================================================================
+// Test 7: Storm weather extinguishes forest fire quickly
+// ====================================================================
+
 /// Storm weather should suppress fire even more aggressively than rain.
+/// Both RAIN_REDUCTION and STORM_REDUCTION apply since storm is_precipitation.
 #[test]
 fn test_storm_extinguishes_forest_fire_quickly() {
     let mut city = TestCity::new();
