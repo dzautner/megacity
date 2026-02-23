@@ -29,6 +29,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(utilities::UtilitiesPlugin);
     app.add_plugins(network_viz::NetworkVizPlugin);
     app.add_plugins(education::EducationPlugin);
+    app.add_plugins(education_pipeline::EducationPipelinePlugin);
 
     // Pollution, land value, garbage, districts
     app.add_plugins(pollution::PollutionPlugin);
