@@ -51,39 +51,39 @@ fn build_random_city(seed: u64) -> TestCity {
     let mut rng = StdRng::seed_from_u64(seed);
 
     // Start with roads forming a grid pattern
-    let road_type = ROAD_TYPES[rng.random_range(0..ROAD_TYPES.len())];
+    let road_type = ROAD_TYPES[rng.gen_range(0..ROAD_TYPES.len())];
     let mut city = TestCity::new()
         .with_road(10, 10, 50, 10, road_type)
         .with_road(10, 10, 10, 50, RoadType::Local);
 
     // Add some random cross-roads
-    let num_extra_roads = rng.random_range(0..4);
+    let num_extra_roads = rng.gen_range(0..4);
     for i in 0..num_extra_roads {
         let y = 15 + i * 8;
-        let rt = ROAD_TYPES[rng.random_range(0..ROAD_TYPES.len())];
+        let rt = ROAD_TYPES[rng.gen_range(0..ROAD_TYPES.len())];
         city = city.with_road(10, y, 50, y, rt);
     }
 
     // Place random buildings along the roads
-    let num_buildings = rng.random_range(2..8);
+    let num_buildings = rng.gen_range(2..8);
     for i in 0..num_buildings {
         let x = 12 + (i * 4) % 36;
         let y = 11 + (i * 3) % 10;
-        let zone = ZONE_TYPES[rng.random_range(0..ZONE_TYPES.len())];
+        let zone = ZONE_TYPES[rng.gen_range(0..ZONE_TYPES.len())];
         let max_level = match zone {
             ZoneType::ResidentialLow | ZoneType::CommercialLow => 3,
             _ => 5,
         };
-        let level = rng.random_range(1..=max_level);
+        let level = rng.gen_range(1..=max_level);
         city = city.with_building(x, y, zone, level);
     }
 
     // Place 0-2 service buildings
-    let num_services = rng.random_range(0..3);
+    let num_services = rng.gen_range(0..3);
     for i in 0..num_services {
         let x = 20 + i * 10;
         let y = 12;
-        let stype = SERVICE_TYPES[rng.random_range(0..SERVICE_TYPES.len())];
+        let stype = SERVICE_TYPES[rng.gen_range(0..SERVICE_TYPES.len())];
         city = city.with_service(x, y, stype);
     }
 
@@ -95,13 +95,13 @@ fn build_random_city(seed: u64) -> TestCity {
         .with_building(52, 11, ZoneType::ResidentialLow, 1)
         .with_building(54, 11, ZoneType::CommercialLow, 1);
 
-    let num_citizens = rng.random_range(1..6);
+    let num_citizens = rng.gen_range(1..6);
     for _ in 0..num_citizens {
         city = city.with_citizen((52, 11), (54, 11));
     }
 
     // Randomize the starting budget
-    let treasury = rng.random_range(1000.0..100_000.0);
+    let treasury = rng.gen_range(1000.0..100_000.0);
     city = city.with_budget(treasury);
 
     city
@@ -430,9 +430,9 @@ fn test_property_tax_formula_non_negative_for_random_inputs() {
 
     let mut rng = StdRng::seed_from_u64(42);
     for _ in 0..100 {
-        let land_value = rng.random_range(0.0..1000.0);
-        let level = rng.random_range(1..=5);
-        let rate = rng.random_range(0.0..0.5);
+        let land_value = rng.gen_range(0.0..1000.0);
+        let level = rng.gen_range(1..=5);
+        let rate = rng.gen_range(0.0..0.5);
 
         let tax = property_tax_for_building(land_value, level, rate);
         assert!(
