@@ -2,10 +2,8 @@
 
 use super::*;
 
-use simulation::budget::{ExtendedBudget, ServiceBudgets, ZoneTaxRates};
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
-use simulation::loans::{self, LoanBook};
 use simulation::policies::{Policies, Policy};
 use simulation::roads::RoadNetwork;
 use simulation::time_of_day::GameClock;
