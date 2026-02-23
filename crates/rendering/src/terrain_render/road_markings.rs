@@ -190,6 +190,7 @@ pub(super) fn add_road_markings(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_intersection_asphalt(
     positions: &mut Vec<[f32; 3]>,
     normals: &mut Vec<[f32; 3]>,
