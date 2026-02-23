@@ -8,7 +8,6 @@ use crate::coal_power::PowerPlant;
 use crate::energy_demand::EnergyGrid;
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
-use crate::wind::WindState;
 use crate::wind_power::{wind_power_output, WindPowerState, WIND_FARM_NAMEPLATE_MW};
 
 #[test]
