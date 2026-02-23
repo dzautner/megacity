@@ -1,11 +1,7 @@
-use std::collections::BTreeMap;
-
 use super::StringTable;
-
 // =============================================================================
 // German string table
 // =============================================================================
-
 pub(crate) fn build_german_table() -> StringTable {
     let entries: &[(&str, &str)] = &[
         ("ui.day", "Tag"),
@@ -72,17 +68,14 @@ pub(crate) fn build_german_table() -> StringTable {
         ("season.autumn", "Herbst"),
         ("season.winter", "Winter"),
     ];
-
     entries
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }
-
 // =============================================================================
 // Spanish string table
 // =============================================================================
-
 pub(crate) fn build_spanish_table() -> StringTable {
     let entries: &[(&str, &str)] = &[
         ("ui.day", "Dia"),
@@ -143,17 +136,14 @@ pub(crate) fn build_spanish_table() -> StringTable {
         ("season.autumn", "Otono"),
         ("season.winter", "Invierno"),
     ];
-
     entries
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }
-
 // =============================================================================
 // French string table
 // =============================================================================
-
 pub(crate) fn build_french_table() -> StringTable {
     let entries: &[(&str, &str)] = &[
         ("ui.day", "Jour"),
@@ -214,17 +204,14 @@ pub(crate) fn build_french_table() -> StringTable {
         ("season.autumn", "Automne"),
         ("season.winter", "Hiver"),
     ];
-
     entries
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }
-
 // =============================================================================
 // Japanese string table
 // =============================================================================
-
 pub(crate) fn build_japanese_table() -> StringTable {
     let entries: &[(&str, &str)] = &[
         ("ui.day", "\u{65e5}"),
@@ -264,17 +251,14 @@ pub(crate) fn build_japanese_table() -> StringTable {
         ("season.autumn", "\u{79cb}"),
         ("season.winter", "\u{51ac}"),
     ];
-
     entries
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }
-
 // =============================================================================
 // Chinese string table
 // =============================================================================
-
 pub(crate) fn build_chinese_table() -> StringTable {
     let entries: &[(&str, &str)] = &[
         ("ui.day", "\u{5929}"),
@@ -308,7 +292,6 @@ pub(crate) fn build_chinese_table() -> StringTable {
         ("season.autumn", "\u{79cb}"),
         ("season.winter", "\u{51ac}"),
     ];
-
     entries
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))

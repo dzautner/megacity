@@ -1,11 +1,7 @@
-use std::collections::BTreeMap;
-
 use super::StringTable;
-
 // =============================================================================
 // English string table (complete)
 // =============================================================================
-
 pub(crate) fn build_english_table() -> StringTable {
     let entries: &[(&str, &str)] = &[
         // General UI
@@ -175,7 +171,6 @@ pub(crate) fn build_english_table() -> StringTable {
         ("season.autumn", "Autumn"),
         ("season.winter", "Winter"),
     ];
-
     entries
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
