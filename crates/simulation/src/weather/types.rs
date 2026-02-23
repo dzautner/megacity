@@ -77,11 +77,11 @@ pub struct WeatherChangeEvent {
 }
 
 /// Temperature thresholds for extreme weather classification.
-pub(crate) const EXTREME_HEAT_THRESHOLD: f32 = 35.0;
-pub(crate) const EXTREME_COLD_THRESHOLD: f32 = -5.0;
+pub const EXTREME_HEAT_THRESHOLD: f32 = 35.0;
+pub const EXTREME_COLD_THRESHOLD: f32 = -5.0;
 
 /// Returns `true` if the weather condition or temperature qualifies as extreme.
-pub(crate) fn is_extreme_weather(condition: WeatherCondition, temperature: f32) -> bool {
+pub fn is_extreme_weather(condition: WeatherCondition, temperature: f32) -> bool {
     matches!(condition, WeatherCondition::Storm)
         || !(EXTREME_COLD_THRESHOLD..=EXTREME_HEAT_THRESHOLD).contains(&temperature)
 }
