@@ -61,6 +61,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "seasonal_effects_config",
     "seasonal_rendering",
     "solar_power",
+    "service_budget",
     "service_capacity",
     "stormwater_grid",
     "superblock_state",
