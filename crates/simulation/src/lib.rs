@@ -39,6 +39,7 @@ pub mod drought;
 pub mod economy;
 pub mod education;
 pub mod education_jobs;
+pub mod energy_demand;
 pub mod events;
 pub mod far_transfer;
 pub mod fire;
