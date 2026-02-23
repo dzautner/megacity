@@ -133,17 +133,24 @@ fn test_hotel_demand_no_services_low_attractiveness() {
 // Occupancy and revenue
 // ====================================================================
 
+/// Helper: inject tourism visitors into the Tourism resource while
+/// preventing update_tourism from overwriting the injected values by
+/// setting last_update_day far into the future.
+fn inject_visitors(city: &mut TestCity, visitors: u32) {
+    let world = city.world_mut();
+    let mut tourism = world.resource_mut::<Tourism>();
+    tourism.monthly_visitors = visitors;
+    // Prevent update_tourism from overwriting: set last_update_day far ahead
+    tourism.last_update_day = u32::MAX - 100;
+}
+
 #[test]
 fn test_hotel_demand_occupancy_rate_bounded() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::CommercialHigh, 1); // 50 rooms
 
     // Inject high tourism to get demand > capacity
-    {
-        let world = city.world_mut();
-        let mut tourism = world.resource_mut::<Tourism>();
-        tourism.monthly_visitors = 50_000;
-    }
+    inject_visitors(&mut city, 50_000);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -160,11 +167,7 @@ fn test_hotel_demand_tax_revenue_when_occupied() {
         .with_building(50, 50, ZoneType::CommercialHigh, 3); // 200 rooms
 
     // Inject tourism visitors
-    {
-        let world = city.world_mut();
-        let mut tourism = world.resource_mut::<Tourism>();
-        tourism.monthly_visitors = 5_000;
-    }
+    inject_visitors(&mut city, 5_000);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -180,12 +183,8 @@ fn test_hotel_demand_no_revenue_without_visitors() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::CommercialHigh, 1);
 
-    // Ensure zero visitors
-    {
-        let world = city.world_mut();
-        let mut tourism = world.resource_mut::<Tourism>();
-        tourism.monthly_visitors = 0;
-    }
+    // Ensure zero visitors (and prevent update_tourism from adding any)
+    inject_visitors(&mut city, 0);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -205,11 +204,7 @@ fn test_hotel_demand_lost_revenue_when_over_capacity() {
         .with_building(50, 50, ZoneType::CommercialHigh, 1); // 50 rooms
 
     // Inject very high tourism to exceed 50-room capacity
-    {
-        let world = city.world_mut();
-        let mut tourism = world.resource_mut::<Tourism>();
-        tourism.monthly_visitors = 50_000;
-    }
+    inject_visitors(&mut city, 50_000);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -228,11 +223,7 @@ fn test_hotel_demand_wasted_investment_when_under_capacity() {
         .with_building(52, 52, ZoneType::CommercialHigh, 5); // 500 rooms = 1000 total
 
     // Only a small number of visitors relative to 1000-room capacity
-    {
-        let world = city.world_mut();
-        let mut tourism = world.resource_mut::<Tourism>();
-        tourism.monthly_visitors = 100;
-    }
+    inject_visitors(&mut city, 100);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
