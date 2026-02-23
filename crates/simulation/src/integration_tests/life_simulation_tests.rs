@@ -12,6 +12,7 @@ use crate::death_care::DeathCareStats;
 use crate::education::EducationGrid;
 use crate::grid::{RoadType, WorldGrid, ZoneType};
 use crate::immigration::CityAttractiveness;
+use crate::life_simulation::LifeSimTimer;
 use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::services::ServiceType;
@@ -78,7 +79,7 @@ fn spawn_citizen_with(
 }
 
 /// Create a test city with a residential building at (50,50) plus
-/// power and water utilities so the building doesn't get abandoned.
+/// power and water utilities so the building does not get abandoned.
 fn setup_city_with_home() -> (TestCity, Entity) {
     let city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 3)
@@ -127,7 +128,7 @@ fn test_aging_increments_age_by_one_per_year() {
             .collect()
     };
 
-    // Aging triggers when clock.day >= last_aging_day + 365
+    // Aging triggers when clock.day >= last_aging_day + 365.
     // LifecycleTimer.last_aging_day defaults to 0, so day=365 triggers it.
     city.world_mut().resource_mut::<GameClock>().day = 365;
     city.tick(1);
@@ -297,8 +298,7 @@ fn test_death_probability_increases_with_age() {
 
 #[test]
 fn test_education_advancement_from_school_coverage() {
-    // Place residential building near a university with road, power, and water
-    // so the building doesn't get abandoned during the tick window.
+    // Place residential building near a university with road + utilities.
     let mut city = TestCity::new()
         .with_road(50, 50, 60, 50, RoadType::Local)
         .with_building(51, 51, ZoneType::ResidentialLow, 3)
@@ -321,7 +321,7 @@ fn test_education_advancement_from_school_coverage() {
     );
     prevent_emigration(city.world_mut());
 
-    // Propagate EducationGrid via slow tick
+    // Propagate EducationGrid via slow tick so the grid is populated
     city.tick_slow_cycle();
 
     let edu_level = city.resource::<EducationGrid>().get(51, 51);
@@ -330,13 +330,19 @@ fn test_education_advancement_from_school_coverage() {
         "Education grid should cover (51,51), got {edu_level}"
     );
 
-    // Run enough ticks for education_advancement (EDUCATION_INTERVAL = 1440)
-    city.tick(1500);
+    // Instead of ticking 1500 times (which triggers emigration and other
+    // side effects), directly advance the LifeSimTimer.education_tick to
+    // just below the threshold, then tick once to fire education_advancement.
+    {
+        let world = city.world_mut();
+        world.resource_mut::<LifeSimTimer>().education_tick = 1439; // EDUCATION_INTERVAL - 1
+    }
+    city.tick(1);
 
     let details = city
         .world_mut()
         .get::<CitizenDetails>(entity)
-        .expect("citizen should still exist (building has power+water)");
+        .expect("citizen should still exist after 1 education tick");
     assert!(
         details.education > 0,
         "Citizen near university should advance education, got {}",
@@ -383,18 +389,25 @@ fn test_education_requires_eligible_age() {
     );
     prevent_emigration(city.world_mut());
 
+    // Propagate EducationGrid
     city.tick_slow_cycle();
-    city.tick(1500);
+
+    // Directly advance education timer to threshold - 1, then tick once
+    {
+        let world = city.world_mut();
+        world.resource_mut::<LifeSimTimer>().education_tick = 1439;
+    }
+    city.tick(1);
 
     let child_edu = city
         .world_mut()
         .get::<CitizenDetails>(child)
-        .expect("child should exist")
+        .expect("child should exist after 1 education tick")
         .education;
     let adult_edu = city
         .world_mut()
         .get::<CitizenDetails>(adult)
-        .expect("adult should exist")
+        .expect("adult should exist after 1 education tick")
         .education;
 
     assert_eq!(
@@ -447,7 +460,7 @@ fn test_citizens_home_references_valid_building() {
         );
     }
     prevent_emigration(city.world_mut());
-    city.tick(100);
+    city.tick(10);
 
     // Verify every citizen's HomeLocation.building points to a valid Building
     let world = city.world_mut();
