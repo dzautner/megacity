@@ -5,15 +5,15 @@
 //! handled gracefully.
 //!
 //! The happiness system (`update_happiness`) runs in FixedUpdate when
-//! `TickCounter.is_multiple_of(10)` (i.e., every 10th FixedUpdate tick).
+//! `TickCounter.is_multiple_of(HAPPINESS_UPDATE_INTERVAL)` (every 20 FixedUpdate ticks).
 //! Various simulation sub-systems (utility propagation, service coverage,
 //! traffic density, needs decay) also run during FixedUpdate and can
 //! overwrite manually-set state. The tests use a "late inject" pattern:
 //!   1. `tick(9)` — let initialization and intermediate systems settle
 //!   2. Inject test-specific state (coverage flags, needs, etc.)
-//!   3. `tick(1)` — advance to tick 10 where happiness fires
+//!   3. `tick(1)` — advance to the tick where happiness fires
 //!
-//! Injecting at tick 9 (rather than tick 1) minimizes the window for
+//! Injecting at tick (HAPPINESS_TICKS-1) (rather than tick 1) minimizes the window for
 //! other systems (update_needs, etc.) to overwrite the injected values.
 
 use crate::citizen::{CitizenDetails, Needs};
@@ -27,7 +27,7 @@ use crate::utilities::UtilityType;
 // ---------------------------------------------------------------------------
 
 /// Total ticks needed for the happiness system to fire (counter=10).
-const HAPPINESS_TICKS: u32 = 10;
+const HAPPINESS_TICKS: u32 = crate::happiness::HAPPINESS_UPDATE_INTERVAL;
 
 /// Query the happiness of the first citizen found.
 fn first_citizen_happiness(city: &mut TestCity) -> f32 {
