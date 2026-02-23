@@ -6,6 +6,8 @@
 //! - FireTiersState tracks extinguishment stats
 //! - Coverage grid respects the "highest tier wins" rule
 
+use bevy::prelude::*;
+
 use crate::buildings::Building;
 use crate::fire::{FireGrid, OnFire};
 use crate::fire_tiers::{FireTier, FireTierCoverageGrid, FireTiersState};
@@ -19,8 +21,7 @@ use crate::test_harness::TestCity;
 
 #[test]
 fn test_fire_house_provides_small_tier_coverage() {
-    let mut city = TestCity::new()
-        .with_service(80, 80, ServiceType::FireHouse);
+    let mut city = TestCity::new().with_service(80, 80, ServiceType::FireHouse);
 
     // Tick to let the coverage system run.
     city.tick(2);
@@ -41,8 +42,7 @@ fn test_fire_house_provides_small_tier_coverage() {
 
 #[test]
 fn test_fire_station_provides_standard_tier_coverage() {
-    let mut city = TestCity::new()
-        .with_service(80, 80, ServiceType::FireStation);
+    let mut city = TestCity::new().with_service(80, 80, ServiceType::FireStation);
 
     city.tick(2);
 
@@ -61,8 +61,7 @@ fn test_fire_station_provides_standard_tier_coverage() {
 
 #[test]
 fn test_fire_hq_provides_headquarters_tier_coverage() {
-    let mut city = TestCity::new()
-        .with_service(80, 80, ServiceType::FireHQ);
+    let mut city = TestCity::new().with_service(80, 80, ServiceType::FireHQ);
 
     city.tick(2);
 
@@ -91,7 +90,6 @@ fn test_highest_tier_wins_on_overlap() {
     let world = city.world_mut();
     let tier_grid = world.resource::<FireTierCoverageGrid>();
     // Cell 81,80 should be in range of both. Headquarters should dominate.
-    // (FireHouse radius = 12 cells, FireHQ radius = 35 cells — both cover 81,80.)
     assert_eq!(
         tier_grid.get(81, 80),
         Some(FireTier::Headquarters),
@@ -134,11 +132,13 @@ fn test_tier_based_suppression_reduces_intensity() {
     // Manually ignite the building.
     {
         let world = city.world_mut();
-        let mut q = world.query_filtered::<Entity, &Building>();
-        let entities: Vec<Entity> = q.iter(world).collect();
-        for e in entities {
-            let b = world.get::<Building>(e).unwrap();
-            if b.grid_x == 80 && b.grid_y == 81 {
+        let mut q = world.query::<(Entity, &Building)>();
+        let entities: Vec<(Entity, usize, usize)> = q
+            .iter(world)
+            .map(|(e, b)| (e, b.grid_x, b.grid_y))
+            .collect();
+        for (e, gx, gy) in entities {
+            if gx == 80 && gy == 81 {
                 world.entity_mut(e).insert(OnFire {
                     intensity: 50.0,
                     ticks_burning: 0,
@@ -147,7 +147,7 @@ fn test_tier_based_suppression_reduces_intensity() {
         }
     }
 
-    // Run a few ticks — HQ suppression rate is 4.0/tick.
+    // Run a few ticks -- HQ suppression rate is 4.0/tick.
     city.tick(5);
 
     // Check that fire intensity has decreased.
@@ -157,8 +157,7 @@ fn test_tier_based_suppression_reduces_intensity() {
         let intensity = fire_grid.get(80, 81);
         // After 5 ticks at 4.0/tick = 20.0 reduction from the tier system.
         // Plus the base extinguish_fires also runs at 2.0/tick = 10.0.
-        // But the tier_based_suppression runs before extinguish_fires.
-        // Combined: at least 30.0 reduction from 50.0 = should be <= 20.
+        // Combined: at least 30.0 reduction from 50.0 => should be <= 20.
         assert!(
             intensity <= 20,
             "Fire intensity should be significantly reduced by HQ suppression; got {}",
@@ -202,11 +201,13 @@ fn test_suppression_stats_accumulate() {
     // Ignite the building.
     {
         let world = city.world_mut();
-        let mut q = world.query_filtered::<Entity, &Building>();
-        let entities: Vec<Entity> = q.iter(world).collect();
-        for e in entities {
-            let b = world.get::<Building>(e).unwrap();
-            if b.grid_x == 80 && b.grid_y == 81 {
+        let mut q = world.query::<(Entity, &Building)>();
+        let entities: Vec<(Entity, usize, usize)> = q
+            .iter(world)
+            .map(|(e, b)| (e, b.grid_x, b.grid_y))
+            .collect();
+        for (e, gx, gy) in entities {
+            if gx == 80 && gy == 81 {
                 world.entity_mut(e).insert(OnFire {
                     intensity: 10.0,
                     ticks_burning: 0,
