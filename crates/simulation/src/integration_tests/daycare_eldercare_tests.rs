@@ -145,7 +145,7 @@ fn test_eldercare_smaller_radius_than_daycare() {
 fn test_daycare_happiness_bonus_applied() {
     let mut city = TestCity::new()
         .with_service(50, 50, ServiceType::Daycare)
-        .with_building(51, 50, ZoneType::Residential, 1)
+        .with_building(51, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((51, 50), (51, 50));
     // Get initial happiness before effects
     city.tick(5);
@@ -161,7 +161,7 @@ fn test_daycare_happiness_bonus_applied() {
 fn test_eldercare_happiness_bonus_applied() {
     let mut city = TestCity::new()
         .with_service(80, 80, ServiceType::Eldercare)
-        .with_building(81, 80, ZoneType::Residential, 1)
+        .with_building(81, 80, ZoneType::ResidentialLow, 1)
         .with_citizen((81, 80), (81, 80));
     city.tick(5);
     tick_slow(&mut city);
@@ -176,7 +176,7 @@ fn test_eldercare_happiness_bonus_applied() {
 fn test_no_bonus_outside_coverage() {
     let mut city = TestCity::new()
         .with_service(50, 50, ServiceType::Daycare)
-        .with_building(200, 200, ZoneType::Residential, 1)
+        .with_building(200, 200, ZoneType::ResidentialLow, 1)
         .with_citizen((200, 200), (200, 200));
     city.tick(5);
     tick_slow(&mut city);
