@@ -29,10 +29,6 @@ pub const COAL_CAPACITY_FACTOR: f32 = 0.33;
 /// Fuel cost in dollars per MWh generated.
 pub const COAL_FUEL_COST_PER_MWH: f32 = 30.0;
 
-/// Air pollution source strength.
-
-/// Pollution radiation radius (in grid cells).
-
 /// CO2 emission rate in tons per MWh.
 pub const COAL_CO2_TONS_PER_MWH: f32 = 1.0;
 

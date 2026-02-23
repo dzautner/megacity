@@ -15,13 +15,17 @@ pub use config::WindPollutionConfig;
 pub use system::update_pollution_gaussian_plume;
 
 use bevy::prelude::*;
-use save::SaveableAppExt;
 
 pub struct WindPollutionPlugin;
 
 impl Plugin for WindPollutionPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WindPollutionConfig>()
-            .register_saveable::<WindPollutionConfig>();
+        app.init_resource::<WindPollutionConfig>();
+
+        // Register for save/load
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<WindPollutionConfig>();
     }
 }
