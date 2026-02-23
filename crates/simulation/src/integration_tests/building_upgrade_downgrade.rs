@@ -823,8 +823,8 @@ fn test_mixed_use_downgrade_clamps_subcapacity_occupants() {
             world.resource_mut::<CityStats>().average_happiness = 10.0;
             // Re-set utilities to prevent abandonment
             let mut grid = world.resource_mut::<WorldGrid>();
-            grid.cells[100][100].has_power = true;
-            grid.cells[100][100].has_water = true;
+            grid.get_mut(100, 100).has_power = true;
+            grid.get_mut(100, 100).has_water = true;
         }
         city.tick(1);
 
@@ -903,8 +903,8 @@ fn test_mixed_use_downgrade_updates_subcapacities() {
             world.resource_mut::<CityStats>().average_happiness = 10.0;
             // Re-set utilities each iteration to prevent abandonment
             let mut grid = world.resource_mut::<WorldGrid>();
-            grid.cells[100][100].has_power = true;
-            grid.cells[100][100].has_water = true;
+            grid.get_mut(100, 100).has_power = true;
+            grid.get_mut(100, 100).has_water = true;
         }
         city.tick(1);
 
