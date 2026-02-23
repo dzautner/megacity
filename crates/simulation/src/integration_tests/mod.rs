@@ -22,6 +22,7 @@ mod economy_invariant;
 mod economy_tax;
 mod edge_cases;
 mod education_pipeline;
+mod energy_demand_tests;
 mod extension_map_roundtrip;
 mod freehand_road;
 mod freight_traffic;
