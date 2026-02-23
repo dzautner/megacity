@@ -25,6 +25,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "dismissed_advisor_tips",
     "disease_state",
     "district_policies",
+    "education_pipeline",
     "energy_dispatch",
     "energy_grid",
     "far_transfer",
