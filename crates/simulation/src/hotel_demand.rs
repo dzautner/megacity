@@ -12,6 +12,7 @@
 //! - Under-capacity (capacity >> demand) = wasted investment
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::buildings::Building;
@@ -87,7 +88,7 @@ pub fn attractiveness_from_services(service_type: ServiceType) -> f32 {
 // ---------------------------------------------------------------------------
 
 /// Tracks hotel demand, capacity, occupancy, and tax revenue across the city.
-#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct HotelDemandState {
     /// Total hotel room capacity in the city.
     pub total_capacity: u32,
