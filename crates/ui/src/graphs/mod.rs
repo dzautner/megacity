@@ -14,9 +14,6 @@ use simulation::chart_data::ChartHistory;
 use simulation::stats::CityStats;
 use simulation::time_of_day::GameClock;
 
-pub(crate) use drawing::{congestion_color, draw_multi_line_chart, draw_sparkline, legend_item};
-pub(crate) use drawing::{draw_stacked_area, tail_slice};
-
 use population_budget::{draw_budget_chart, draw_population_chart};
 use traffic_services_happiness::{
     draw_happiness_breakdown, draw_service_radar, draw_traffic_chart,
