@@ -15,7 +15,7 @@ use simulation::citizen::{
 };
 use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
-use simulation::grid::{WorldGrid, ZoneType};
+use simulation::grid::WorldGrid;
 use simulation::land_value::LandValueGrid;
 use simulation::noise::NoisePollutionGrid;
 use simulation::pollution::PollutionGrid;
