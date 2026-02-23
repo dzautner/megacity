@@ -182,13 +182,13 @@ impl crate::Saveable for HotelDemandState {
 // ---------------------------------------------------------------------------
 
 /// Calculate hotel capacity from commercial high-density buildings.
-/// Only CommercialHigh buildings are treated as hotels (large enough to
-/// have hotel-style room capacity).
+/// All CommercialHigh buildings contribute hotel room capacity (large enough to
+/// accommodate visitors regardless of current occupancy).
 fn count_hotel_capacity(buildings: &Query<&Building>) -> (u32, u32) {
     let mut total_capacity = 0u32;
     let mut hotel_count = 0u32;
     for building in buildings.iter() {
-        if building.zone_type == ZoneType::CommercialHigh && building.occupants > 0 {
+        if building.zone_type == ZoneType::CommercialHigh {
             total_capacity += hotel_rooms_for_level(building.level);
             hotel_count += 1;
         }

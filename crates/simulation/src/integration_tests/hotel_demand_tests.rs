@@ -1,6 +1,5 @@
 //! Integration tests for hotel demand and capacity system (SVC-019).
 
-use crate::buildings::Building;
 use crate::grid::ZoneType;
 use crate::hotel_demand::HotelDemandState;
 use crate::services::ServiceType;
@@ -48,18 +47,8 @@ fn test_hotel_demand_no_commercial_buildings() {
 
 #[test]
 fn test_hotel_demand_commercial_building_adds_capacity() {
-    let mut city = TestCity::new().with_building(50, 50, ZoneType::CommercialHigh, 1);
-
-    // Manually set occupants > 0 so the building counts as a hotel
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 5;
-            }
-        }
-    }
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::CommercialHigh, 1);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -69,17 +58,8 @@ fn test_hotel_demand_commercial_building_adds_capacity() {
 
 #[test]
 fn test_hotel_demand_higher_level_more_capacity() {
-    let mut city = TestCity::new().with_building(50, 50, ZoneType::CommercialHigh, 3);
-
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 10;
-            }
-        }
-    }
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::CommercialHigh, 3);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -91,16 +71,6 @@ fn test_hotel_demand_multiple_buildings_sum_capacity() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::CommercialHigh, 1)
         .with_building(52, 52, ZoneType::CommercialHigh, 2);
-
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 5;
-            }
-        }
-    }
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -121,9 +91,10 @@ fn test_hotel_demand_non_commercial_not_counted() {
 }
 
 #[test]
-fn test_hotel_demand_empty_commercial_not_counted() {
-    // Commercial building with 0 occupants should not count as a hotel
-    let mut city = TestCity::new().with_building(50, 50, ZoneType::CommercialHigh, 1);
+fn test_hotel_demand_commercial_low_not_counted() {
+    // Only CommercialHigh buildings count as hotels
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::CommercialLow, 2);
 
     city.tick_slow_cycles(2);
     let state = city.resource::<HotelDemandState>();
@@ -164,17 +135,8 @@ fn test_hotel_demand_no_services_low_attractiveness() {
 
 #[test]
 fn test_hotel_demand_occupancy_rate_bounded() {
-    let mut city = TestCity::new().with_building(50, 50, ZoneType::CommercialHigh, 1);
-
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 5;
-            }
-        }
-    }
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::CommercialHigh, 1); // 50 rooms
 
     // Inject high tourism to get demand > capacity
     {
@@ -194,17 +156,8 @@ fn test_hotel_demand_occupancy_rate_bounded() {
 
 #[test]
 fn test_hotel_demand_tax_revenue_when_occupied() {
-    let mut city = TestCity::new().with_building(50, 50, ZoneType::CommercialHigh, 3);
-
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 10;
-            }
-        }
-    }
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::CommercialHigh, 3); // 200 rooms
 
     // Inject tourism visitors
     {
@@ -224,17 +177,8 @@ fn test_hotel_demand_tax_revenue_when_occupied() {
 
 #[test]
 fn test_hotel_demand_no_revenue_without_visitors() {
-    let mut city = TestCity::new().with_building(50, 50, ZoneType::CommercialHigh, 1);
-
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 5;
-            }
-        }
-    }
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::CommercialHigh, 1);
 
     // Ensure zero visitors
     {
@@ -257,17 +201,8 @@ fn test_hotel_demand_no_revenue_without_visitors() {
 
 #[test]
 fn test_hotel_demand_lost_revenue_when_over_capacity() {
-    let mut city = TestCity::new().with_building(50, 50, ZoneType::CommercialHigh, 1); // 50 rooms
-
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 5;
-            }
-        }
-    }
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::CommercialHigh, 1); // 50 rooms
 
     // Inject very high tourism to exceed 50-room capacity
     {
@@ -289,18 +224,8 @@ fn test_hotel_demand_lost_revenue_when_over_capacity() {
 #[test]
 fn test_hotel_demand_wasted_investment_when_under_capacity() {
     let mut city = TestCity::new()
-        .with_building(50, 50, ZoneType::CommercialHigh, 5) // 500 rooms
+        .with_building(50, 50, ZoneType::CommercialHigh, 5)  // 500 rooms
         .with_building(52, 52, ZoneType::CommercialHigh, 5); // 500 rooms = 1000 total
-
-    {
-        let world = city.world_mut();
-        let mut query = world.query::<&mut Building>();
-        for mut b in query.iter_mut(world) {
-            if b.zone_type == ZoneType::CommercialHigh {
-                b.occupants = 10;
-            }
-        }
-    }
 
     // Only a small number of visitors relative to 1000-room capacity
     {
@@ -334,9 +259,7 @@ fn test_hotel_demand_saveable_roundtrip() {
     state.monthly_tax_revenue = 1500.0;
     state.hotel_tax_rate = 0.15;
 
-    let bytes = state
-        .save_to_bytes()
-        .expect("Should serialize non-default state");
+    let bytes = state.save_to_bytes().expect("Should serialize non-default state");
     let restored = HotelDemandState::load_from_bytes(&bytes);
 
     assert_eq!(restored.total_capacity, 300);
