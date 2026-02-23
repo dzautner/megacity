@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use bevy::prelude::*;
 
 use crate::buildings::Building;
@@ -370,7 +368,7 @@ pub fn citizen_state_machine(
 // ---------------------------------------------------------------------------
 
 /// Find the nearest destination within `max_dist` grid cells.
-pub(crate) fn find_nearest(
+pub fn find_nearest(
     spots: &[(usize, usize)],
     from_x: usize,
     from_y: usize,
