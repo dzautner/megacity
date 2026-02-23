@@ -215,8 +215,8 @@ fn test_commercial_productivity_full_coverage() {
 fn test_commercial_stats_tracked() {
     let mut city = TestCity::new()
         .with_service(50, 50, ServiceType::PostOffice)
-        .with_building(51, 50, ZoneType::Commercial, 1)
-        .with_building(200, 200, ZoneType::Commercial, 1);
+        .with_building(51, 50, ZoneType::CommercialLow, 1)
+        .with_building(200, 200, ZoneType::CommercialLow, 1);
     tick_slow(&mut city);
 
     let stats = city.resource::<PostalStats>();

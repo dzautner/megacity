@@ -345,6 +345,7 @@ mod tests {
 
     #[test]
     fn test_saveable_roundtrip() {
+        use crate::Saveable;
         let mut stats = PostalStats::default();
         stats.total_covered_cells = 1000;
         stats.coverage_percentage = 42.5;
