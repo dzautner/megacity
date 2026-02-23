@@ -63,15 +63,6 @@ fn is_building_on_fire(city: &mut TestCity, gx: usize, gy: usize) -> bool {
     query.iter(world).any(|(b, _)| b.grid_x == gx && b.grid_y == gy)
 }
 
-/// Get fire intensity for a building at (gx, gy), or None if not on fire.
-fn building_fire_intensity(city: &mut TestCity, gx: usize, gy: usize) -> Option<f32> {
-    let world = city.world_mut();
-    let mut query = world.query::<(&Building, &OnFire)>();
-    query
-        .iter(world)
-        .find(|(b, _)| b.grid_x == gx && b.grid_y == gy)
-        .map(|(_, f)| f.intensity)
-}
 
 // ====================================================================
 // Test 1: Fire at (50,50) with fire station — contained after 200 ticks
