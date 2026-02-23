@@ -9,6 +9,7 @@ use crate::grid::{RoadType, ZoneType};
 use crate::immigration::CityAttractiveness;
 use crate::stats::CityStats;
 use crate::test_harness::TestCity;
+use crate::time_of_day::GameClock;
 use crate::traffic::TrafficGrid;
 use crate::utilities::UtilityType;
 
@@ -32,24 +33,32 @@ fn build_cross_city() -> TestCity {
         .with_utility(148, 128, UtilityType::WaterTower)
 }
 
+/// Helper: boost city attractiveness so immigration fires during tests.
+fn boost_attractiveness(city: &mut TestCity) {
+    let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+    attr.overall_score = 90.0;
+    attr.housing_factor = 1.0;
+    attr.employment_factor = 1.0;
+}
+
+/// Helper: advance the game clock day so tax collection can trigger.
+/// Tax collection fires every 30 days, so we set day to 30 to ensure
+/// it triggers during the 500-tick run (which advances ~8 more hours).
+fn advance_clock_for_taxes(city: &mut TestCity) {
+    let mut clock = city.world_mut().resource_mut::<GameClock>();
+    clock.day = 30;
+}
+
 /// Core acceptance test: empty world -> cross roads -> zone R + C ->
 /// run 500 ticks -> verify buildings spawned.
 #[test]
 fn test_full_growth_pipeline_buildings_spawn() {
     let mut city = build_cross_city();
 
-    // Verify initial state: no buildings, no citizens
     assert_eq!(city.building_count(), 0, "No buildings before simulation");
     assert_eq!(city.citizen_count(), 0, "No citizens before simulation");
 
-    // Boost attractiveness so immigration can fire
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 90.0;
-        attr.housing_factor = 1.0;
-        attr.employment_factor = 1.0;
-    }
-
+    boost_attractiveness(&mut city);
     city.tick(500);
 
     let building_count = city.building_count();
@@ -64,20 +73,13 @@ fn test_full_growth_pipeline_buildings_spawn() {
 #[test]
 fn test_full_growth_pipeline_mixed_zones_produce_buildings() {
     let mut city = build_cross_city();
-
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 90.0;
-        attr.housing_factor = 1.0;
-        attr.employment_factor = 1.0;
-    }
+    boost_attractiveness(&mut city);
 
     city.tick(500);
 
     let residential = city.buildings_in_zone(ZoneType::ResidentialLow);
     let commercial = city.buildings_in_zone(ZoneType::CommercialLow);
 
-    // At minimum, at least one type should have spawned
     let total = residential + commercial;
     assert!(
         total > 0,
@@ -90,14 +92,7 @@ fn test_full_growth_pipeline_mixed_zones_produce_buildings() {
 #[test]
 fn test_full_growth_pipeline_citizens_appear() {
     let mut city = build_cross_city();
-
-    // Boost attractiveness to encourage immigration
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 90.0;
-        attr.housing_factor = 1.0;
-        attr.employment_factor = 1.0;
-    }
+    boost_attractiveness(&mut city);
 
     city.tick(500);
 
@@ -111,18 +106,21 @@ fn test_full_growth_pipeline_citizens_appear() {
 
 /// Verify that the economy is functioning: either monthly_income > 0 or
 /// last_collection_day > 0 (taxes have been collected at least once).
+/// We advance the game clock to day 30 first so that the tax collection
+/// interval (30 days) is reached within the 500-tick simulation window.
 #[test]
 fn test_full_growth_pipeline_economy_active() {
     let mut city = build_cross_city();
+    boost_attractiveness(&mut city);
 
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 90.0;
-        attr.housing_factor = 1.0;
-        attr.employment_factor = 1.0;
-    }
+    // Run 300 ticks first to let buildings spawn and citizens arrive
+    city.tick(300);
 
-    city.tick(500);
+    // Advance clock so tax collection can fire during remaining ticks
+    advance_clock_for_taxes(&mut city);
+
+    // Run 200 more ticks; tax collection should trigger
+    city.tick(200);
 
     let budget = city.resource::<CityBudget>();
     let income_positive = budget.monthly_income > 0.0;
@@ -130,7 +128,7 @@ fn test_full_growth_pipeline_economy_active() {
 
     assert!(
         income_positive || taxes_collected,
-        "Economy should be active after 500 ticks. \
+        "Economy should be active after tax collection triggers. \
          monthly_income={}, last_collection_day={}",
         budget.monthly_income,
         budget.last_collection_day
@@ -138,26 +136,18 @@ fn test_full_growth_pipeline_economy_active() {
 }
 
 /// Verify CityStats.population matches citizen count after 500 ticks.
-/// Note: CityStats.population includes virtual population, so it should
-/// be >= the actual citizen entity count.
+/// CityStats.population includes virtual population, so it should be
+/// >= the actual citizen entity count.
 #[test]
 fn test_full_growth_pipeline_population_stats_consistent() {
     let mut city = build_cross_city();
-
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 90.0;
-        attr.housing_factor = 1.0;
-        attr.employment_factor = 1.0;
-    }
+    boost_attractiveness(&mut city);
 
     city.tick(500);
 
     let citizen_count = city.citizen_count();
     let stats_pop = city.resource::<CityStats>().population;
 
-    // CityStats.population = citizen entities + virtual population
-    // So stats_pop >= citizen_count
     assert!(
         stats_pop >= citizen_count as u32,
         "CityStats.population ({stats_pop}) should be >= citizen entity count ({citizen_count})"
@@ -169,17 +159,10 @@ fn test_full_growth_pipeline_population_stats_consistent() {
 #[test]
 fn test_full_growth_pipeline_traffic_grid_exists() {
     let mut city = build_cross_city();
-
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 90.0;
-        attr.housing_factor = 1.0;
-        attr.employment_factor = 1.0;
-    }
+    boost_attractiveness(&mut city);
 
     city.tick(500);
 
-    // TrafficGrid should be initialized with correct dimensions
     let traffic = city.resource::<TrafficGrid>();
     assert_eq!(
         traffic.width, 256,
@@ -203,7 +186,7 @@ fn test_full_growth_pipeline_road_network_established() {
         "Cross-shaped roads should produce road cells. Got {road_count}"
     );
 
-    // Check a cell on the horizontal road
+    // Check a cell at the intersection of the cross
     city.assert_has_road(128, 128);
 }
 
@@ -212,21 +195,18 @@ fn test_full_growth_pipeline_road_network_established() {
 #[test]
 fn test_full_growth_pipeline_all_criteria() {
     let mut city = build_cross_city();
-
-    // Boost attractiveness to ensure immigration fires
-    {
-        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-        attr.overall_score = 90.0;
-        attr.housing_factor = 1.0;
-        attr.employment_factor = 1.0;
-    }
+    boost_attractiveness(&mut city);
 
     // Verify empty starting state
     assert_eq!(city.building_count(), 0, "No buildings at start");
     assert_eq!(city.citizen_count(), 0, "No citizens at start");
 
-    // Run the full 500 tick pipeline
-    city.tick(500);
+    // Phase 1: Let buildings spawn and citizens arrive (300 ticks)
+    city.tick(300);
+
+    // Phase 2: Advance clock for tax collection and run 200 more ticks
+    advance_clock_for_taxes(&mut city);
+    city.tick(200);
 
     // AC1: Cross-shaped road network placed
     let road_count = city.road_cell_count();
