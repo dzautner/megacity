@@ -1,3 +1,4 @@
+pub mod attraction_formula;
 mod systems;
 mod types;
 mod weather;
@@ -5,6 +6,7 @@ mod weather;
 #[cfg(test)]
 mod tests;
 
+pub use attraction_formula::AttractionBreakdown;
 pub use systems::update_tourism;
 pub use types::{Tourism, TourismWeatherEvent};
 pub use weather::{
@@ -24,5 +26,11 @@ impl Plugin for TourismPlugin {
                 .after(crate::imports_exports::process_trade)
                 .in_set(crate::SimulationSet::Simulation),
         );
+
+        // Register for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<Tourism>();
     }
 }
