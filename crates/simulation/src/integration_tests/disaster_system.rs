@@ -3,6 +3,7 @@
 //! Tests earthquake damage application, disaster duration bounds,
 //! disaster cleanup after expiry, and building damage capping.
 
+use bevy::prelude::Entity;
 use crate::buildings::Building;
 use crate::disasters::{ActiveDisaster, DisasterInstance, DisasterType, EarthquakeDamaged};
 use crate::grid::{WorldGrid, ZoneType};
