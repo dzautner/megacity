@@ -1,7 +1,5 @@
 //! Integration tests for the service budget framework (SVC-020).
 
-use crate::budget::ExtendedBudget;
-use crate::economy::CityBudget;
 use crate::service_budget::{Department, DepartmentEffects, ServiceBudgetState};
 use crate::services::ServiceType;
 use crate::stats::CityStats;
