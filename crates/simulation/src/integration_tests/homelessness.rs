@@ -6,6 +6,24 @@ use crate::test_harness::TestCity;
 // Homelessness system tests (TEST-059)
 // ====================================================================
 
+/// Enable power and water on a set of grid cells so that `update_happiness`
+/// does not tank citizen happiness below the emigration threshold (< 20).
+///
+/// Without utilities the happiness calculation applies -25 (no power) and
+/// -20 (no water), which combined with the -30 homeless penalty pushes
+/// happiness to 0 and triggers the emigration system during the 50-tick
+/// CHECK_INTERVAL window.
+fn enable_utilities(city: &mut TestCity, cells: &[(usize, usize)]) {
+    let world = city.world_mut();
+    let mut grid = world.resource_mut::<WorldGrid>();
+    for &(x, y) in cells {
+        if grid.in_bounds(x, y) {
+            grid.get_mut(x, y).has_power = true;
+            grid.get_mut(x, y).has_water = true;
+        }
+    }
+}
+
 #[test]
 fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
     // Spawn a citizen with a valid home building, then despawn the building.
@@ -14,6 +32,8 @@ fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
+
+    enable_utilities(&mut city, &[(50, 50)]);
 
     // Verify citizen exists and is not homeless yet
     {
@@ -38,7 +58,7 @@ fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
     // Tick past the homelessness CHECK_INTERVAL (50 ticks)
     city.tick(50);
 
-    // Citizen should now be homeless (or despawned by concurrent systems)
+    // Citizen should now be homeless
     let homeless_count = {
         let world = city.world_mut();
         world
@@ -61,6 +81,8 @@ fn test_homelessness_stats_track_total_homeless() {
         .with_citizen((50, 50), (50, 50))
         .with_building(60, 60, ZoneType::ResidentialLow, 1)
         .with_citizen((60, 60), (60, 60));
+
+    enable_utilities(&mut city, &[(50, 50), (60, 60)]);
 
     // Despawn both home buildings
     let b1 = city.grid().get(50, 50).building_id.expect("building 1");
@@ -86,6 +108,8 @@ fn test_homelessness_recover_when_housing_available() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
+
+    enable_utilities(&mut city, &[(50, 50), (70, 70)]);
 
     // Despawn the home building to make citizen homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
@@ -142,12 +166,19 @@ fn test_homelessness_recover_when_housing_available() {
 
 #[test]
 fn test_homelessness_happiness_penalty_applied() {
-    // When a citizen becomes homeless, their happiness should drop by HOMELESS_PENALTY (30.0).
+    // When a citizen becomes homeless, their happiness should drop due to
+    // the HOMELESS_PENALTY (30.0) applied by check_homelessness and the
+    // ongoing penalty from update_happiness.
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
-    // Record initial happiness
+    enable_utilities(&mut city, &[(50, 50)]);
+
+    // Let happiness stabilize before making citizen homeless
+    city.tick(10);
+
+    // Record stabilized happiness
     let initial_happiness = {
         let world = city.world_mut();
         let details = world
@@ -165,29 +196,25 @@ fn test_homelessness_happiness_penalty_applied() {
     // Tick to make citizen homeless
     city.tick(50);
 
-    // Citizen may have been despawned by concurrent systems (emigration)
-    // if their happiness dropped below 20 during the 50 ticks.
+    // Citizen should still exist (utilities prevent emigration)
     let new_happiness = {
         let world = city.world_mut();
         world
             .query::<&crate::citizen::CitizenDetails>()
             .iter(world)
             .next()
-            .map(|d| d.happiness)
+            .expect("citizen should exist with utilities enabled")
+            .happiness
     };
 
-    if let Some(new_happiness) = new_happiness {
-        assert!(
-            new_happiness < initial_happiness,
-            "happiness should decrease when homeless: was {initial_happiness}, now {new_happiness}"
-        );
-        assert!(
-            initial_happiness - new_happiness >= 20.0,
-            "happiness should drop significantly: was {initial_happiness}, now {new_happiness}"
-        );
-    }
-    // If citizen was despawned, the HOMELESS_PENALTY (30) + other penalties
-    // pushed happiness below 20, triggering emigration. That's consistent behavior.
+    assert!(
+        new_happiness < initial_happiness,
+        "happiness should decrease when homeless: was {initial_happiness}, now {new_happiness}"
+    );
+    assert!(
+        initial_happiness - new_happiness >= 20.0,
+        "happiness should drop significantly: was {initial_happiness}, now {new_happiness}"
+    );
 }
 
 #[test]
@@ -197,6 +224,8 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
+
+    enable_utilities(&mut city, &[(50, 50), (55, 55)]);
 
     // Despawn home to make citizen homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
@@ -219,8 +248,7 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
     // Tick again to trigger seek_shelter
     city.tick(50);
 
-    // Citizen should now be sheltered (if still alive — concurrent systems
-    // like emigration may despawn citizens with low happiness from the penalty).
+    // Citizen should now be sheltered (utilities prevent emigration)
     let (total_homeless, sheltered_count) = {
         let world = city.world_mut();
         let homeless: Vec<&crate::homelessness::Homeless> = world
@@ -231,21 +259,21 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
         (homeless.len(), sheltered)
     };
 
-    if total_homeless > 0 {
-        assert!(
-            sheltered_count > 0,
-            "homeless citizen should become sheltered when shelter has capacity (total_homeless={total_homeless})"
-        );
+    assert!(
+        total_homeless > 0,
+        "citizen should still be homeless (not emigrated), got {total_homeless}"
+    );
+    assert!(
+        sheltered_count > 0,
+        "homeless citizen should become sheltered when shelter has capacity \
+         (total_homeless={total_homeless})"
+    );
 
-        let stats = city.resource::<crate::homelessness::HomelessnessStats>();
-        assert!(
-            stats.sheltered > 0,
-            "sheltered count in stats should be positive"
-        );
-    }
-    // If total_homeless == 0, the citizen was removed by a concurrent system
-    // (emigration, death) — this is acceptable as the test primarily validates
-    // shelter assignment, not citizen survival.
+    let stats = city.resource::<crate::homelessness::HomelessnessStats>();
+    assert!(
+        stats.sheltered > 0,
+        "sheltered count in stats should be positive"
+    );
 }
 
 #[test]
@@ -257,6 +285,8 @@ fn test_homelessness_shelter_capacity_respected() {
         .with_citizen((50, 50), (50, 50))
         .with_citizen((50, 50), (50, 50))
         .with_citizen((50, 50), (50, 50));
+
+    enable_utilities(&mut city, &[(50, 50), (55, 55)]);
 
     // Despawn home building to make all 3 citizens homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
@@ -294,8 +324,6 @@ fn test_homelessness_shelter_capacity_respected() {
         sheltered_count, 1,
         "only 1 citizen should be sheltered (capacity=1), got {sheltered_count}"
     );
-    // At least 2 should remain homeless (one may recover or emigrate due to
-    // low happiness from the HOMELESS_PENALTY applied by check_homelessness).
     assert!(
         total_homeless >= 2,
         "at least 2 citizens should still be homeless, got {total_homeless}"
@@ -312,6 +340,8 @@ fn test_homelessness_citizen_placeholder_home_becomes_homeless() {
     use bevy::prelude::Entity;
 
     let mut city = TestCity::new();
+
+    enable_utilities(&mut city, &[(50, 50)]);
 
     // Manually spawn a citizen with PLACEHOLDER home building
     {
@@ -374,6 +404,8 @@ fn test_homelessness_rent_unaffordable_becomes_homeless() {
     use crate::movement::ActivityTimer;
 
     let mut city = TestCity::new().with_building(50, 50, ZoneType::ResidentialLow, 1);
+
+    enable_utilities(&mut city, &[(50, 50)]);
 
     let home_entity = city.grid().get(50, 50).building_id.expect("building");
 
@@ -447,6 +479,8 @@ fn test_homelessness_recovery_updates_stats() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
+    enable_utilities(&mut city, &[(50, 50), (70, 70)]);
+
     // Despawn home to make citizen homeless
     let b = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(b);
@@ -499,6 +533,8 @@ fn test_homelessness_ticks_homeless_increments() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
 
+    enable_utilities(&mut city, &[(50, 50)]);
+
     // Despawn home
     let b = city.grid().get(50, 50).building_id.expect("building");
     city.world_mut().despawn(b);
@@ -515,6 +551,11 @@ fn test_homelessness_ticks_homeless_increments() {
             .map(|h| h.ticks_homeless)
     };
 
+    assert!(
+        ticks_after_first.is_some(),
+        "citizen should be homeless after first interval"
+    );
+
     // Tick again (second check)
     city.tick(50);
 
@@ -527,12 +568,15 @@ fn test_homelessness_ticks_homeless_increments() {
             .map(|h| h.ticks_homeless)
     };
 
-    // Only check if the citizen survived both intervals (concurrent systems
-    // like emigration may despawn citizens with low happiness).
-    if let (Some(first), Some(second)) = (ticks_after_first, ticks_after_second) {
-        assert!(
-            second > first,
-            "ticks_homeless should increment: first={first}, second={second}"
-        );
-    }
+    assert!(
+        ticks_after_second.is_some(),
+        "citizen should still be homeless after second interval"
+    );
+
+    let first = ticks_after_first.unwrap();
+    let second = ticks_after_second.unwrap();
+    assert!(
+        second > first,
+        "ticks_homeless should increment: first={first}, second={second}"
+    );
 }
