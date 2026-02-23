@@ -4,8 +4,10 @@ on:
   pull_request:
     branches: [main]
   merge_group:
-  push:
-    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
