@@ -1,5 +1,6 @@
 use crate::buildings::Building;
 use crate::grid::{RoadType, ZoneType};
+use crate::stats::CityStats;
 use crate::test_harness::TestCity;
 
 // ---------------------------------------------------------------------------
@@ -38,7 +39,14 @@ fn test_job_capacity_invariant_all_building_types_after_simulation() {
         }
     }
 
-    city.tick(900);
+    // Keep happiness above 30 to prevent building downgrades which can
+    // reduce capacity while workers are still assigned.
+    for _ in 0..9 {
+        city.world_mut()
+            .resource_mut::<CityStats>()
+            .average_happiness = 60.0;
+        city.tick(100);
+    }
 
     let world = city.world_mut();
     let mut query = world.query::<&Building>();
