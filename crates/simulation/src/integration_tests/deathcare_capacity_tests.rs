@@ -8,6 +8,7 @@ use crate::deathcare_capacity::{
     CREMATORIUM_BATCH_SIZE, MAX_OVERFLOW_HAPPINESS_PENALTY, OVERFLOW_HAPPINESS_PENALTY,
 };
 use crate::services::ServiceType;
+use crate::services::ServiceBuilding;
 use crate::test_harness::TestCity;
 
 // ====================================================================
