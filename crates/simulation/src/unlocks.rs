@@ -366,6 +366,10 @@ impl UnlockState {
             ServiceType::Daycare | ServiceType::Eldercare => {
                 self.is_unlocked(UnlockNode::HealthCare)
             }
+            ServiceType::CommunityCenter
+            | ServiceType::SubstanceAbuseTreatmentCenter
+            | ServiceType::SeniorCenter
+            | ServiceType::YouthCenter => self.is_unlocked(UnlockNode::HealthCare),
         }
     }
 
