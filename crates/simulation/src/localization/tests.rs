@@ -269,22 +269,31 @@ mod tests {
 
     #[test]
     fn test_format_with_separator_exact_three_digits() {
-        assert_eq!(super::format_with_separator(100, ','), "100");
+        assert_eq!(crate::localization::format_with_separator(100, ','), "100");
     }
 
     #[test]
     fn test_format_with_separator_four_digits() {
-        assert_eq!(super::format_with_separator(1000, ','), "1,000");
+        assert_eq!(
+            crate::localization::format_with_separator(1000, ','),
+            "1,000"
+        );
     }
 
     #[test]
     fn test_format_with_separator_seven_digits() {
-        assert_eq!(super::format_with_separator(1234567, '.'), "1.234.567");
+        assert_eq!(
+            crate::localization::format_with_separator(1234567, '.'),
+            "1.234.567"
+        );
     }
 
     #[test]
     fn test_format_with_separator_negative_four_digits() {
-        assert_eq!(super::format_with_separator(-1000, ','), "-1,000");
+        assert_eq!(
+            crate::localization::format_with_separator(-1000, ','),
+            "-1,000"
+        );
     }
 
     // -------------------------------------------------------------------------

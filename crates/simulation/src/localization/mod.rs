@@ -191,7 +191,7 @@ impl Saveable for LocalizationState {
 // Number formatting helper
 // =============================================================================
 
-fn format_with_separator(n: i64, sep: char) -> String {
+pub(crate) fn format_with_separator(n: i64, sep: char) -> String {
     let negative = n < 0;
     let s = n.unsigned_abs().to_string();
     let bytes = s.as_bytes();
