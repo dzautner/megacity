@@ -3,6 +3,12 @@ use crate::grid::{RoadType, WorldGrid, ZoneType};
 use crate::test_harness::TestCity;
 use crate::utilities::{UtilitySource, UtilityType};
 use crate::weather::Weather;
+use crate::TestSafetyNet;
+
+/// Helper: remove TestSafetyNet so abandonment systems run in these tests.
+fn enable_destructive_systems(city: &mut TestCity) {
+    city.world_mut().remove_resource::<TestSafetyNet>();
+}
 
 // ====================================================================
 // TEST-055: Utility Loss -> Abandonment Chain
@@ -18,6 +24,7 @@ fn test_utility_loss_building_loses_power_and_water() {
         .with_utility(50, 50, UtilityType::PowerPlant)
         .with_utility(50, 51, UtilityType::WaterTower)
         .with_building(55, 49, ZoneType::ResidentialLow, 1);
+    enable_destructive_systems(&mut city);
 
     city.tick(5);
 
@@ -73,6 +80,7 @@ fn test_utility_loss_triggers_abandonment() {
         .with_utility(50, 50, UtilityType::PowerPlant)
         .with_utility(50, 51, UtilityType::WaterTower)
         .with_building(55, 49, ZoneType::ResidentialLow, 1);
+    enable_destructive_systems(&mut city);
 
     city.tick(5);
 
@@ -135,6 +143,7 @@ fn test_abandoned_building_evicts_occupants() {
         .with_utility(50, 50, UtilityType::PowerPlant)
         .with_utility(50, 51, UtilityType::WaterTower)
         .with_building(55, 49, ZoneType::ResidentialLow, 1);
+    enable_destructive_systems(&mut city);
 
     city.tick(5);
 
@@ -195,6 +204,7 @@ fn test_abandoned_building_recovers_when_utilities_restored() {
         .with_utility(50, 50, UtilityType::PowerPlant)
         .with_utility(50, 51, UtilityType::WaterTower)
         .with_building(55, 49, ZoneType::ResidentialLow, 1);
+    enable_destructive_systems(&mut city);
 
     city.tick(5);
 
@@ -240,6 +250,7 @@ fn test_abandoned_building_demolished_after_threshold() {
     use crate::abandonment::Abandoned;
 
     let mut city = TestCity::new().with_building(55, 55, ZoneType::ResidentialLow, 1);
+    enable_destructive_systems(&mut city);
 
     {
         let world = city.world_mut();
@@ -291,6 +302,7 @@ fn test_utility_loss_abandonment_chain_with_citizens() {
         .with_citizen((55, 49), (60, 49))
         .with_citizen((55, 49), (60, 49))
         .with_citizen((55, 49), (60, 49));
+    enable_destructive_systems(&mut city);
 
     city.tick(5);
 
@@ -364,6 +376,7 @@ fn test_partial_utility_loss_no_abandonment() {
         .with_utility(50, 50, UtilityType::PowerPlant)
         .with_utility(50, 51, UtilityType::WaterTower)
         .with_building(55, 49, ZoneType::ResidentialLow, 1);
+    enable_destructive_systems(&mut city);
 
     city.tick(5);
 

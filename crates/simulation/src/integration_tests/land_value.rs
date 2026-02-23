@@ -203,11 +203,15 @@ fn test_land_value_pollution_from_industrial_building_reduces_value() {
 
 #[test]
 fn test_land_value_more_industrial_buildings_means_lower_value() {
+    // Measure at a nearby grass cell (105, 100) so pollution effects are
+    // visible but the value doesn't clamp to 0 on both scenarios.
+    let probe = (105, 100);
+
     // Single industrial building
     let mut city_one = TestCity::new().with_building(100, 100, ZoneType::Industrial, 2);
     give_utilities(&mut city_one, 100, 100);
     tick_slow_cycles_stable(&mut city_one, CONVERGE_CYCLES);
-    let val_one = land_value_at(&city_one, 100, 100);
+    let val_one = land_value_at(&city_one, probe.0, probe.1);
 
     // Multiple industrial buildings nearby to stack pollution
     let mut city_many = TestCity::new()
@@ -219,11 +223,12 @@ fn test_land_value_more_industrial_buildings_means_lower_value() {
         give_utilities(&mut city_many, x, y);
     }
     tick_slow_cycles_stable(&mut city_many, CONVERGE_CYCLES);
-    let val_many = land_value_at(&city_many, 100, 100);
+    let val_many = land_value_at(&city_many, probe.0, probe.1);
 
     assert!(
         val_one > val_many,
-        "More nearby industrial buildings ({val_many}) should yield lower land value than one ({val_one})"
+        "More nearby industrial buildings ({val_many}) should yield lower land value than one ({val_one}) at {:?}",
+        probe
     );
 }
 

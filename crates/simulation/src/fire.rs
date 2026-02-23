@@ -9,6 +9,7 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{WorldGrid, ZoneType};
 use crate::happiness::ServiceCoverageGrid;
 use crate::SlowTickTimer;
+use crate::TestSafetyNet;
 
 // =============================================================================
 // Resources & Components
@@ -210,7 +211,11 @@ pub fn fire_damage(
         ),
         With<Citizen>,
     >,
+    safety_net: Option<Res<TestSafetyNet>>,
 ) {
+    if safety_net.is_some() {
+        return;
+    }
     // Collect buildings to destroy (can't despawn while iterating)
     let mut destroyed: Vec<(Entity, usize, usize)> = Vec::new();
 

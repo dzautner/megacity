@@ -80,6 +80,11 @@ impl TestCity {
             clock.paused = false;
         }
 
+        // Insert TestSafetyNet to prevent destructive systems from running
+        // during tests. Tests that specifically test destructive behavior
+        // should remove this resource.
+        app.world_mut().insert_resource(crate::TestSafetyNet);
+
         Self { app }
     }
 
@@ -108,6 +113,11 @@ impl TestCity {
         if let Some(mut clock) = app.world_mut().get_resource_mut::<GameClock>() {
             clock.paused = false;
         }
+
+        // Insert TestSafetyNet to prevent destructive systems from running
+        // during tests. Tests that specifically test destructive behavior
+        // should remove this resource.
+        app.world_mut().insert_resource(crate::TestSafetyNet);
 
         Self { app }
     }

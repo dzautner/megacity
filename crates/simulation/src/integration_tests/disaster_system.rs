@@ -8,8 +8,9 @@ use crate::buildings::Building;
 use crate::disasters::{ActiveDisaster, DisasterInstance, DisasterType, EarthquakeDamaged};
 use crate::grid::{WorldGrid, ZoneType};
 use crate::test_harness::TestCity;
-
 fn inject_disaster(city: &mut TestCity, disaster: DisasterInstance) {
+    // Remove TestSafetyNet so the disaster system can process damage
+    city.world_mut().remove_resource::<crate::TestSafetyNet>();
     city.world_mut()
         .resource_mut::<ActiveDisaster>()
         .current = Some(disaster);

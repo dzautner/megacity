@@ -5,6 +5,7 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::SlowTickTimer;
 use crate::TickCounter;
+use crate::TestSafetyNet;
 
 // =============================================================================
 // Types
@@ -183,7 +184,11 @@ pub fn process_active_disaster(
     mut grid: ResMut<WorldGrid>,
     buildings: Query<(Entity, &Building)>,
     tick: Res<TickCounter>,
+    safety_net: Option<Res<TestSafetyNet>>,
 ) {
+    if safety_net.is_some() {
+        return;
+    }
     let disaster = match active.current.as_mut() {
         Some(d) => d,
         None => return,

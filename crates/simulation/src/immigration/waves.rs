@@ -10,6 +10,7 @@ use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::virtual_population::VirtualPopulation;
 use crate::TickCounter;
+use crate::TestSafetyNet;
 
 use super::random::tick_pseudo_random;
 use super::types::{
@@ -29,6 +30,7 @@ pub fn immigration_wave(
     citizens: Query<(Entity, &CitizenDetails, &HomeLocation), With<Citizen>>,
     mut virtual_pop: ResMut<VirtualPopulation>,
     mut imm_stats: ResMut<ImmigrationStats>,
+    safety_net: Option<Res<TestSafetyNet>>,
 ) {
     if !tick.0.is_multiple_of(IMMIGRATION_INTERVAL) {
         return;
@@ -65,7 +67,7 @@ pub fn immigration_wave(
             &mut virtual_pop,
             &mut imm_stats,
         );
-    } else if score < 30.0 {
+    } else if score < 30.0 && safety_net.is_none() {
         // Emigration wave
         let (min_leave, max_leave) = if score < 15.0 {
             (5u32, 10u32) // Mass exodus

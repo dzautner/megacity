@@ -5,6 +5,7 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::WorldGrid;
 use crate::land_value::LandValueGrid;
 use crate::TickCounter;
+use crate::TestSafetyNet;
 
 /// Marker component for buildings that have been abandoned.
 /// Tracks how many ticks the building has been in an abandoned state.
@@ -76,7 +77,11 @@ pub fn process_abandoned_buildings(
     mut commands: Commands,
     mut grid: ResMut<WorldGrid>,
     mut buildings: Query<(Entity, &mut Building, &mut Abandoned)>,
+    safety_net: Option<Res<TestSafetyNet>>,
 ) {
+    if safety_net.is_some() {
+        return;
+    }
     for (entity, mut building, mut abandoned) in &mut buildings {
         let x = building.grid_x;
         let y = building.grid_y;

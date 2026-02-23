@@ -18,6 +18,7 @@ use crate::movement::ActivityTimer;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
 use crate::utilities::UtilityType;
+use crate::TestSafetyNet;
 use crate::virtual_population::VirtualPopulation;
 
 // ---------------------------------------------------------------------------
@@ -78,11 +79,13 @@ fn spawn_citizen_with(
 }
 
 /// Create a test city with a residential building at (50,50) plus utilities.
+/// Removes TestSafetyNet so aging/death systems can run for life simulation tests.
 fn setup_city_with_home() -> (TestCity, Entity) {
-    let city = TestCity::new()
+    let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 3)
         .with_utility(52, 52, UtilityType::PowerPlant)
         .with_utility(54, 54, UtilityType::WaterTower);
+    city.world_mut().remove_resource::<TestSafetyNet>();
     let building = city.grid().get(50, 50).building_id.unwrap();
     (city, building)
 }
