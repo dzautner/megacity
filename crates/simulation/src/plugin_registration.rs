@@ -88,6 +88,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(noise::NoisePlugin);
     app.add_plugins(crime::CrimePlugin);
     app.add_plugins(crime_justice::CrimeJusticePlugin);
+    app.add_plugins(police_tiers::PoliceTiersPlugin);
     app.add_plugins(health::HealthPlugin);
     app.add_plugins(disease_model::DiseaseModelPlugin);
     app.add_plugins(death_care::DeathCarePlugin);
