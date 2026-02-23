@@ -3,8 +3,6 @@
 //! Maps each `OverlayMode` to its legend representation (continuous ramp,
 //! binary swatches, or directional label).
 
-use bevy_egui::egui;
-
 use rendering::color_ramps::{CIVIDIS, GROUNDWATER_LEVEL, GROUNDWATER_QUALITY, INFERNO, VIRIDIS};
 use rendering::colorblind_palette;
 use rendering::overlay::OverlayMode;
