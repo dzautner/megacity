@@ -119,6 +119,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(metro_transit::MetroTransitPlugin);
     app.add_plugins(train_transit::TrainTransitPlugin);
     app.add_plugins(snow::SnowPlugin);
+    app.add_plugins(solar_power::SolarPowerPlugin);
 
     // Transit and connections
     app.add_plugins(tram_transit::TramTransitPlugin);

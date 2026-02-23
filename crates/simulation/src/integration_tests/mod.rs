@@ -62,6 +62,7 @@ mod services_utilities;
 mod simulation_invariants;
 mod simulation_phases;
 mod simulation_progression;
+mod solar_power_tests;
 mod tel_aviv_behavioral;
 mod tel_aviv_smoke;
 mod tourism;

@@ -110,6 +110,7 @@ pub mod services;
 pub mod simulation_invariants;
 pub mod simulation_sets;
 pub mod snow;
+pub mod solar_power;
 pub mod spatial_grid;
 pub mod specialization;
 pub mod stats;
