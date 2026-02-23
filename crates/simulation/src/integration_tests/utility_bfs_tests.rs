@@ -7,7 +7,6 @@
 use crate::grid::{RoadType, ZoneType};
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
-use crate::weather::Weather;
 
 // ====================================================================
 // TEST-039: Utility BFS Coverage
