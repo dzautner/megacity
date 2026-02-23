@@ -6,7 +6,6 @@ mod tests {
     use crate::flood_protection::systems::*;
     use crate::flood_protection::types::*;
     use crate::grid::{CellType, WorldGrid};
-    use crate::Saveable;
 
     // -------------------------------------------------------------------------
     // ProtectionType tests
