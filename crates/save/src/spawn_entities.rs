@@ -15,7 +15,6 @@ use simulation::movement::ActivityTimer;
 use simulation::roads::RoadNode;
 use simulation::services::ServiceBuilding;
 use simulation::utilities::UtilitySource;
-use simulation::water_sources::WaterSource;
 
 /// Spawns all game entities from a parsed SaveData using direct world access.
 pub(crate) fn spawn_entities_from_save(world: &mut World, save: &SaveData) {
