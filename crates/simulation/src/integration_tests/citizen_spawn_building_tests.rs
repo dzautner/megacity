@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 
 use crate::buildings::{Building, UnderConstruction};
-use crate::citizen::{Citizen, CitizenDetails, HomeLocation, WorkLocation};
+use crate::citizen::{Citizen, HomeLocation, WorkLocation};
 use crate::grid::{RoadType, ZoneType};
 use crate::immigration::CityAttractiveness;
 use crate::test_harness::TestCity;
