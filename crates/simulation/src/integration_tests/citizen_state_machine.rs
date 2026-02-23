@@ -9,6 +9,7 @@ use crate::citizen::{
     PathCache, PathRequest, Personality, WorkLocation,
 };
 use crate::grid::{RoadType, WorldGrid, ZoneType};
+use crate::immigration::CityAttractiveness;
 use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::roads::RoadNode;
@@ -317,6 +318,14 @@ fn test_full_daily_commute_cycle_morning_departure() {
             .expect("citizen should exist")
     };
 
+    // Prevent emigration from despawning the citizen during the long tick run.
+    // In a near-empty test city, CityAttractiveness can drop below 30, which
+    // triggers the emigration system to despawn the unhappiest citizens.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
+
     // Advance past the morning commute window (7-8 AM).
     // 2.5 hours = 150 ticks from 6 AM should reach ~8:30 AM.
     city.tick(200);
@@ -355,6 +364,12 @@ fn test_full_daily_commute_cycle_evening_departure() {
         Some((100, 110)),
         CitizenState::Working,
     );
+
+    // Prevent emigration from despawning the citizen during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Tick enough to enter the evening commute window (17-18)
     // 1.5 hours = 90 ticks from 16:30
@@ -401,6 +416,14 @@ fn test_paused_clock_prevents_state_transitions() {
     {
         let mut clock = city.world_mut().resource_mut::<GameClock>();
         clock.paused = true;
+    }
+
+    // Prevent emigration from despawning the citizen during the long tick run.
+    // Even with the clock paused, immigration_wave runs on tick count (not
+    // game-clock time), so it can still trigger emigration in an empty city.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
     }
 
     city.tick(200);
