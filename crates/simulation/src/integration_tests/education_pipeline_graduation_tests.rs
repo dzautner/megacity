@@ -4,7 +4,6 @@ use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity,
 };
-use crate::education::EducationGrid;
 use crate::education_pipeline::{EducationLevel, EducationPipelineStats, Enrollment};
 use crate::grid::RoadType;
 use crate::mode_choice::ChosenTransportMode;
