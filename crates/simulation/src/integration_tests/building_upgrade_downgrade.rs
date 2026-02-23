@@ -13,7 +13,7 @@
 
 use crate::building_upgrade::UpgradeTimer;
 use crate::buildings::{max_level_for_far, Building, MixedUseBuilding};
-use crate::grid::ZoneType;
+use crate::grid::{WorldGrid, ZoneType};
 use crate::policies::{Policies, Policy};
 use crate::stats::CityStats;
 use crate::test_harness::TestCity;
