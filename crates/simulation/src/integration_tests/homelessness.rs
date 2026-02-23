@@ -4,7 +4,6 @@ use crate::grid::{WorldGrid, ZoneType};
 use crate::immigration::CityAttractiveness;
 use crate::stats::CityStats;
 use crate::test_harness::TestCity;
-use crate::immigration::CityAttractiveness;
 // ====================================================================
 // Homelessness system tests (TEST-059)
 // ====================================================================
