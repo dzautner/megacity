@@ -1,3 +1,4 @@
+use crate::immigration::CityAttractiveness;
 use crate::grid::{WorldGrid, ZoneType};
 use crate::test_harness::TestCity;
 
@@ -42,10 +43,10 @@ fn test_marriage_reciprocity_invariant_after_life_simulation() {
                 age: 25 + (i % 10) as u8,
                 gender,
                 education: 2,
-                happiness: 80.0,
-                health: 90.0,
+                happiness: 95.0,
+                health: 100.0,
                 salary: 3500.0,
-                savings: 7000.0,
+                savings: 50000.0,
             },
             Personality {
                 ambition: 0.5,
@@ -59,6 +60,11 @@ fn test_marriage_reciprocity_invariant_after_life_simulation() {
         ));
     }
 
+    // Prevent emigration during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     city.tick(30_000);
 
     let world = city.world_mut();

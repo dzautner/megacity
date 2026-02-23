@@ -116,6 +116,19 @@ fn test_citizen_in_polluted_area_loses_health() {
         .with_building(128, 126, ZoneType::Industrial, 3)
         .with_building(130, 130, ZoneType::CommercialLow, 1)
         .with_citizen((128, 128), (130, 130));
+    // Prevent emigration during the long tick run.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query::<&mut CitizenDetails>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.age = 25;
+        }
+        let mut attr = world.resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Disable wind to keep pollution concentrated
     {
@@ -127,7 +140,7 @@ fn test_citizen_in_polluted_area_loses_health() {
     let initial_health = {
         let world = city.world_mut();
         let mut query = world.query::<&CitizenDetails>();
-        query.iter(world).next().unwrap().health
+        query.iter(world).next().expect("citizen should survive with high happiness and attractiveness").health
     };
 
     // Run several slow cycles to let pollution build and health effects apply
@@ -137,7 +150,7 @@ fn test_citizen_in_polluted_area_loses_health() {
     let final_health = {
         let world = city.world_mut();
         let mut query = world.query::<&CitizenDetails>();
-        query.iter(world).next().unwrap().health
+        query.iter(world).next().expect("citizen should survive with high happiness and attractiveness").health
     };
 
     // Citizen should have lost some health from pollution exposure
@@ -175,29 +188,31 @@ fn test_citizen_in_clean_area_healthier_than_polluted() {
         let world = polluted_city.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
     }
-
-    // Set same initial health in both
+    // Set same initial health and boost happiness/attractiveness to prevent emigration.
     for city in [&mut clean_city, &mut polluted_city] {
         let world = city.world_mut();
         let mut query = world.query::<&mut CitizenDetails>();
         for mut details in query.iter_mut(world) {
             details.health = 80.0;
+            details.happiness = 95.0;
+            details.age = 25;
         }
+        let mut attr = world.resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
     }
-
     clean_city.tick_slow_cycles(5);
     polluted_city.tick_slow_cycles(5);
 
     let clean_health = {
         let world = clean_city.world_mut();
         let mut query = world.query::<&CitizenDetails>();
-        query.iter(world).next().unwrap().health
+        query.iter(world).next().expect("citizen should survive with high happiness and attractiveness").health
     };
 
     let polluted_health = {
         let world = polluted_city.world_mut();
         let mut query = world.query::<&CitizenDetails>();
-        query.iter(world).next().unwrap().health
+        query.iter(world).next().expect("citizen should survive with high happiness and attractiveness").health
     };
 
     // Citizen in clean area should be healthier than one in polluted area

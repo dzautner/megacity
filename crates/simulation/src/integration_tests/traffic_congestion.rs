@@ -3,7 +3,7 @@ use crate::grid::{RoadType, WorldGrid, ZoneType};
 use crate::roads::RoadNode;
 use crate::test_harness::TestCity;
 use crate::traffic_congestion::TrafficCongestion;
-
+use crate::immigration::CityAttractiveness;
 // ====================================================================
 // Traffic congestion tests
 // ====================================================================
@@ -35,6 +35,11 @@ fn test_citizens_move_slower_on_congested_roads() {
         .with_citizen((48, 50), (82, 50))
         .with_time(7.0);
 
+    // Prevent emigration during tick runs.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     // Manually set citizen to commuting state with a path
     {
         let world = city.world_mut();
@@ -133,6 +138,11 @@ fn test_speed_returns_to_normal_when_congestion_clears() {
         .with_citizen((48, 50), (122, 50))
         .with_time(7.0);
 
+    // Prevent emigration during tick runs.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     // Set citizen to commuting with congestion
     {
         let world = city.world_mut();
@@ -284,6 +294,11 @@ fn test_async_pathfinding_citizen_gets_path() {
         .rebuild_csr()
         .with_citizen((5, 9), (25, 9))
         .with_time(7.0); // start of morning commute window
+    // Prevent emigration during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Run 120 ticks (= 2 in-game hours) to cover the full morning commute window
     // (hours 7-8). This guarantees hitting any per-entity departure jitter value.
@@ -318,6 +333,11 @@ fn test_async_pathfinding_no_road_no_crash() {
         .with_building(50, 50, ZoneType::CommercialLow, 1)
         .with_citizen((5, 5), (50, 50))
         .with_time(7.0);
+    // Prevent emigration during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Should not panic even with no roads
     city.tick(120);
@@ -342,6 +362,11 @@ fn test_async_pathfinding_computing_path_prevents_requeue() {
         .rebuild_csr()
         .with_citizen((5, 9), (25, 9))
         .with_time(7.0);
+    // Prevent emigration during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Run enough ticks for the state machine to fire and pathfinding to dispatch.
     city.tick(120);
@@ -377,6 +402,11 @@ fn test_async_pathfinding_multiple_citizens() {
         .with_citizen((5, 9), (30, 9))
         .with_citizen((5, 9), (30, 9))
         .with_time(7.0);
+    // Prevent emigration during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Run 120 ticks to cover the full morning commute window (hours 7-8),
     // ensuring all citizens hit their departure jitter.

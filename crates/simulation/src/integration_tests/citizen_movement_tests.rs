@@ -16,7 +16,7 @@ use crate::movement::ActivityTimer;
 use crate::roads::RoadNode;
 use crate::test_harness::TestCity;
 
-// ====================================================================
+use crate::immigration::CityAttractiveness;// ====================================================================
 // Helper: spawn a citizen in a specific state with an optional path
 // ====================================================================
 
@@ -66,10 +66,10 @@ fn spawn_citizen_with_path(
                 age: 30,
                 gender: Gender::Male,
                 education: 2,
-                happiness: 60.0,
-                health: 90.0,
+                happiness: 95.0,
+                health: 100.0,
                 salary: 3500.0,
-                savings: 7000.0,
+                savings: 50000.0,
             },
             Personality {
                 ambition: 0.5,
@@ -342,6 +342,11 @@ fn test_citizen_movement_path_cache_index_invariant() {
     );
 
     // Tick many times — enough to complete the path and then some
+    // Prevent emigration during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     city.tick(100);
 
     let (index, len) = {
@@ -382,6 +387,11 @@ fn test_citizen_movement_position_within_world_bounds() {
         Some(start_pos),
     );
 
+    // Prevent emigration.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     city.tick(30);
 
     let (px, py) = {

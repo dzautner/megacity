@@ -2,7 +2,7 @@ use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails};
 use crate::grid::{WorldGrid, ZoneType};
 use crate::test_harness::TestCity;
-
+use crate::immigration::CityAttractiveness;
 // ====================================================================
 // Homelessness system tests (TEST-059)
 // ====================================================================
@@ -15,16 +15,22 @@ use crate::test_harness::TestCity;
 /// happiness to 0 and triggers the emigration system during the 50-tick
 /// CHECK_INTERVAL window.
 fn enable_utilities(city: &mut TestCity, cells: &[(usize, usize)]) {
-    let world = city.world_mut();
-    let mut grid = world.resource_mut::<WorldGrid>();
-    for &(x, y) in cells {
-        if grid.in_bounds(x, y) {
-            grid.get_mut(x, y).has_power = true;
-            grid.get_mut(x, y).has_water = true;
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        for &(x, y) in cells {
+            if grid.in_bounds(x, y) {
+                grid.get_mut(x, y).has_power = true;
+                grid.get_mut(x, y).has_water = true;
+            }
         }
     }
+    // Also set CityAttractiveness high to prevent emigration.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 }
-
 #[test]
 fn test_homelessness_citizen_becomes_homeless_when_home_despawned() {
     // Spawn a citizen with a valid home building, then despawn the building.
