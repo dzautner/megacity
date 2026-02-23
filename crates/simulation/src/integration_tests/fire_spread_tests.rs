@@ -17,7 +17,6 @@ use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::trees::TreeGrid;
 use crate::weather::{Weather, WeatherCondition};
-use crate::TickCounter;
 
 // ====================================================================
 // Helper: set up a patch of trees at (cx, cy) with given radius
