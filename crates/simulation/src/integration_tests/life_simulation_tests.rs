@@ -17,6 +17,7 @@ use crate::movement::ActivityTimer;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
+use crate::utilities::UtilityType;
 use crate::virtual_population::VirtualPopulation;
 
 // ---------------------------------------------------------------------------
@@ -76,9 +77,13 @@ fn spawn_citizen_with(
         .id()
 }
 
-/// Create a test city with a residential building at (50,50).
+/// Create a test city with a residential building at (50,50) plus
+/// power and water utilities so the building doesn't get abandoned.
 fn setup_city_with_home() -> (TestCity, Entity) {
-    let city = TestCity::new().with_building(50, 50, ZoneType::ResidentialLow, 3);
+    let city = TestCity::new()
+        .with_building(50, 50, ZoneType::ResidentialLow, 3)
+        .with_utility(52, 52, UtilityType::PowerPlant)
+        .with_utility(54, 54, UtilityType::WaterTower);
     let building = city.grid().get(50, 50).building_id.unwrap();
     (city, building)
 }
@@ -166,7 +171,11 @@ fn test_aging_multiple_years_cumulative() {
         city.tick(1);
     }
 
-    let age = city.world_mut().get::<CitizenDetails>(entity).unwrap().age;
+    let age = city
+        .world_mut()
+        .get::<CitizenDetails>(entity)
+        .unwrap()
+        .age;
     assert_eq!(
         age, 23,
         "Citizen should be 23 after 3 aging cycles from age 20"
@@ -181,7 +190,6 @@ fn test_aging_multiple_years_cumulative() {
 fn test_death_certainty_at_max_age() {
     let (mut city, building) = setup_city_with_home();
 
-    // Spawn 10 citizens at age 99 (will become 100 after aging => guaranteed death)
     let mut entities = Vec::new();
     for _ in 0..10 {
         let e = spawn_citizen_with(
@@ -224,13 +232,12 @@ fn test_death_certainty_at_max_age() {
 
 #[test]
 fn test_death_probability_increases_with_age() {
-    // Statistical test: age-96 citizens should die more than age-70 citizens.
     let mut deaths_old = 0u32;
     let mut deaths_young_old = 0u32;
     let trials = 20;
 
     for _ in 0..trials {
-        // Test age 95 -> 96 (high death chance: age_factor = 26/60 = 0.433)
+        // Age 95 -> 96: age_factor = (96-70)/60 = 0.433
         let (mut city, building) = setup_city_with_home();
         let e = spawn_citizen_with(
             city.world_mut(),
@@ -252,7 +259,7 @@ fn test_death_probability_increases_with_age() {
             deaths_old += 1;
         }
 
-        // Test age 69 -> 70 (low death chance: age_factor = 0/60 = 0.0)
+        // Age 69 -> 70: age_factor = (70-70)/60 = 0.0
         let (mut city2, building2) = setup_city_with_home();
         let e2 = spawn_citizen_with(
             city2.world_mut(),
@@ -277,7 +284,6 @@ fn test_death_probability_increases_with_age() {
     }
 
     // Age 70 has death_chance = 0.0, so deaths_young_old should be 0
-    // Age 96 has death_chance = 0.433, so deaths_old should be > 0
     assert!(
         deaths_old > deaths_young_old,
         "Citizens aged 96 should die more often than those aged 70: \
@@ -291,14 +297,18 @@ fn test_death_probability_increases_with_age() {
 
 #[test]
 fn test_education_advancement_from_school_coverage() {
+    // Place residential building near a university with road, power, and water
+    // so the building doesn't get abandoned during the tick window.
     let mut city = TestCity::new()
         .with_road(50, 50, 60, 50, RoadType::Local)
         .with_building(51, 51, ZoneType::ResidentialLow, 3)
-        .with_service(50, 50, ServiceType::University);
+        .with_service(50, 50, ServiceType::University)
+        .with_utility(52, 52, UtilityType::PowerPlant)
+        .with_utility(54, 54, UtilityType::WaterTower);
 
     let building = city.grid().get(51, 51).building_id.unwrap();
 
-    // Spawn citizen aged 20 with education=0 (eligible for university: age >= 18)
+    // Citizen aged 20 with education=0: eligible for university (age >= 18)
     let entity = spawn_citizen_with(
         city.world_mut(),
         building,
@@ -326,7 +336,7 @@ fn test_education_advancement_from_school_coverage() {
     let details = city
         .world_mut()
         .get::<CitizenDetails>(entity)
-        .expect("citizen should still exist");
+        .expect("citizen should still exist (building has power+water)");
     assert!(
         details.education > 0,
         "Citizen near university should advance education, got {}",
@@ -343,7 +353,9 @@ fn test_education_requires_eligible_age() {
     let mut city = TestCity::new()
         .with_road(50, 50, 60, 50, RoadType::Local)
         .with_building(51, 51, ZoneType::ResidentialLow, 3)
-        .with_service(50, 50, ServiceType::University);
+        .with_service(50, 50, ServiceType::University)
+        .with_utility(52, 52, UtilityType::PowerPlant)
+        .with_utility(54, 54, UtilityType::WaterTower);
 
     let building = city.grid().get(51, 51).building_id.unwrap();
 
@@ -403,7 +415,9 @@ fn test_education_requires_eligible_age() {
 fn test_citizens_home_references_valid_building() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 3)
-        .with_building(60, 60, ZoneType::ResidentialLow, 2);
+        .with_building(60, 60, ZoneType::ResidentialLow, 2)
+        .with_utility(55, 55, UtilityType::PowerPlant)
+        .with_utility(57, 57, UtilityType::WaterTower);
 
     let building_50 = city.grid().get(50, 50).building_id.unwrap();
     let building_60 = city.grid().get(60, 60).building_id.unwrap();
