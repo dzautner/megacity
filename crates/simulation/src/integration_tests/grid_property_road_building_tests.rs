@@ -79,7 +79,7 @@ fn test_prop_building_ids_are_valid_entities() {
         for x in 0..GRID_WIDTH {
             if let Some(entity) = grid.get(x, y).building_id {
                 assert!(
-                    world.get_entity(entity).is_some(),
+                    world.get_entity(entity).is_ok(),
                     "Cell ({x},{y}) building_id {entity:?} does not exist"
                 );
             }
@@ -99,7 +99,7 @@ fn test_prop_building_ids_valid_after_ticks_on_tel_aviv() {
         for x in 0..GRID_WIDTH {
             if let Some(entity) = grid.get(x, y).building_id {
                 assert!(
-                    world.get_entity(entity).is_some(),
+                    world.get_entity(entity).is_ok(),
                     "Tel Aviv cell ({x},{y}): building_id {entity:?} is dangling"
                 );
                 checked += 1;
