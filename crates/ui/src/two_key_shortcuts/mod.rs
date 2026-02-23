@@ -11,7 +11,6 @@ mod popup_ui;
 
 use bevy::prelude::*;
 
-pub use self::categories::{ShortcutCategory, ShortcutItem};
 pub use self::input::TwoKeyShortcutState;
 
 /// Plugin that registers the two-key shortcut system.
