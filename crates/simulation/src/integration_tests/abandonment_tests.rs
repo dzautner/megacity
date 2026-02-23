@@ -12,14 +12,17 @@ use crate::buildings::Building;
 use crate::grid::{RoadType, WorldGrid, ZoneType};
 use crate::immigration::CityAttractiveness;
 use crate::test_harness::TestCity;
+use crate::TestSafetyNet;
 use crate::utilities::{UtilitySource, UtilityType};
 
-/// Helper: set CityAttractiveness high to prevent emigration side-effects.
+/// Helper: set CityAttractiveness high to prevent emigration side-effects,
+/// and remove TestSafetyNet so abandonment systems can run.
 fn suppress_emigration(city: &mut TestCity) {
     let world = city.world_mut();
     if let Some(mut attractiveness) = world.get_resource_mut::<CityAttractiveness>() {
         attractiveness.overall_score = 80.0;
     }
+    world.remove_resource::<TestSafetyNet>();
 }
 
 // ====================================================================
