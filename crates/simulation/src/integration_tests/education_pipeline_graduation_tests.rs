@@ -70,16 +70,26 @@ fn spawn_citizen_with_age_edu(
 #[test]
 fn test_education_pipeline_enrollment_elementary() {
     // A 7-year-old with no education near an elementary school should enroll.
+    // Place school and home on the same road so BFS coverage reaches the home.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::ElementarySchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
-    // First propagate education grid
+    // Propagate education grid
     city.tick_slow_cycle();
 
+    // Verify education level reaches our home cell
+    let edu_level = city
+        .resource::<crate::education::EducationGrid>()
+        .get(52, 51);
+    assert!(
+        edu_level >= 1,
+        "education grid should reach (52,51), got level {edu_level}"
+    );
+
     // Spawn a 7-year-old with no education
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 7, 0);
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 7, 0);
 
     // Run another slow cycle to trigger enrollment
     city.tick_slow_cycle();
@@ -103,12 +113,12 @@ fn test_education_pipeline_enrollment_requires_prerequisite() {
     // A 14-year-old with no education near a high school should NOT enroll
     // (needs elementary first).
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::HighSchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 14, 0);
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 14, 0);
     city.tick_slow_cycle();
 
     let world = city.world_mut();
@@ -123,12 +133,22 @@ fn test_education_pipeline_enrollment_requires_prerequisite() {
 fn test_education_pipeline_enrollment_high_school_with_prerequisite() {
     // A 14-year-old WITH elementary education near a high school should enroll.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::HighSchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 14, 1);
+
+    // Verify education grid reaches home
+    let edu_level = city
+        .resource::<crate::education::EducationGrid>()
+        .get(52, 51);
+    assert!(
+        edu_level >= 2,
+        "HS education should reach (52,51), got level {edu_level}"
+    );
+
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 14, 1);
     city.tick_slow_cycle();
 
     let world = city.world_mut();
@@ -150,10 +170,10 @@ fn test_education_pipeline_no_enrollment_without_school() {
     // A 7-year-old with no nearby school should NOT enroll.
     let mut city = TestCity::new()
         .with_road(50, 50, 55, 50, RoadType::Local)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 7, 0);
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 7, 0);
     city.tick_slow_cycle();
 
     let world = city.world_mut();
@@ -167,14 +187,14 @@ fn test_education_pipeline_no_enrollment_without_school() {
 #[test]
 fn test_education_pipeline_too_old_for_elementary() {
     // A 30-year-old with no education near an elementary school
-    // should NOT enroll (over max age for elementary).
+    // should NOT enroll (over max age 11 for elementary).
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::ElementarySchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 30, 0);
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 30, 0);
     city.tick_slow_cycle();
 
     let world = city.world_mut();
@@ -193,16 +213,16 @@ fn test_education_pipeline_too_old_for_elementary() {
 fn test_education_pipeline_graduation_elementary() {
     // A 7-year-old enrolled in elementary should graduate after enough ticks.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::ElementarySchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 7, 0);
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 7, 0);
 
     // Run enough slow cycles for enrollment + graduation
-    // (MIN_ENROLLMENT_TICKS = 3, plus 1 for enrollment)
-    city.tick_slow_cycles(5);
+    // MIN_ENROLLMENT_TICKS = 3, plus extra for enrollment itself
+    city.tick_slow_cycles(6);
 
     let world = city.world_mut();
     let details = world.get::<CitizenDetails>(citizen).unwrap();
@@ -217,14 +237,14 @@ fn test_education_pipeline_graduation_elementary() {
 fn test_education_pipeline_stats_update() {
     // After graduation, stats should reflect the graduate.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::ElementarySchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    spawn_citizen_with_age_edu(&mut city, (51, 51), 7, 0);
+    spawn_citizen_with_age_edu(&mut city, (52, 51), 7, 0);
 
-    city.tick_slow_cycles(5);
+    city.tick_slow_cycles(6);
 
     let stats = city.resource::<EducationPipelineStats>();
     let total_processed = stats.graduates[0] + stats.dropouts[0];
@@ -238,12 +258,22 @@ fn test_education_pipeline_stats_update() {
 fn test_education_pipeline_university_enrollment() {
     // An 18-year-old with high school education near a university should enroll.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::University)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 18, 2);
+
+    // Verify education grid reaches home
+    let edu_level = city
+        .resource::<crate::education::EducationGrid>()
+        .get(52, 51);
+    assert!(
+        edu_level >= 3,
+        "university education should reach (52,51), got level {edu_level}"
+    );
+
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 18, 2);
     city.tick_slow_cycle();
 
     let world = city.world_mut();
@@ -264,12 +294,22 @@ fn test_education_pipeline_university_enrollment() {
 fn test_education_pipeline_dropout_on_school_removal() {
     // An enrolled citizen whose school is bulldozed should drop out.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
-        .with_service(50, 50, ServiceType::ElementarySchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_road(50, 50, 60, 50, RoadType::Local)
+        .with_service(52, 50, ServiceType::ElementarySchool)
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 7, 0);
+
+    // Verify education grid reaches home before spawning citizen
+    let edu_level = city
+        .resource::<crate::education::EducationGrid>()
+        .get(52, 51);
+    assert!(
+        edu_level >= 1,
+        "elementary education should reach (52,51), got level {edu_level}"
+    );
+
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 7, 0);
     city.tick_slow_cycle();
 
     // Verify enrollment
@@ -282,7 +322,7 @@ fn test_education_pipeline_dropout_on_school_removal() {
     }
 
     // Remove the school
-    city.bulldoze_service_at(50, 50);
+    city.bulldoze_service_at(52, 50);
     // Run enough ticks for education grid to recalculate and dropout to process
     city.tick_slow_cycles(2);
 
@@ -302,25 +342,23 @@ fn test_education_pipeline_dropout_on_school_removal() {
 
 #[test]
 fn test_education_pipeline_capacity_modifier_affects_stats() {
-    // With many students and few schools, the effective graduation rate
-    // should be lower than the base rate. We test this indirectly by
-    // verifying the pipeline stats resource tracks data.
+    // With many students and few schools, the pipeline should still process
+    // students. We verify the stats resource tracks data.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::ElementarySchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
 
     // Spawn many children
     for _ in 0..10 {
-        spawn_citizen_with_age_edu(&mut city, (51, 51), 8, 0);
+        spawn_citizen_with_age_edu(&mut city, (52, 51), 8, 0);
     }
 
-    city.tick_slow_cycles(6);
+    city.tick_slow_cycles(7);
 
     let stats = city.resource::<EducationPipelineStats>();
-    // The pipeline should have processed some students
     let total = stats.graduates[0] + stats.dropouts[0];
     assert!(
         total > 0,
@@ -334,12 +372,12 @@ fn test_education_pipeline_capacity_modifier_affects_stats() {
 fn test_education_pipeline_already_educated_no_reenroll() {
     // A citizen with university education should not re-enroll anywhere.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::University)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 20, 3);
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 20, 3);
     city.tick_slow_cycle();
 
     let world = city.world_mut();
@@ -368,12 +406,12 @@ fn test_education_level_enum_consistency() {
 fn test_education_pipeline_child_too_young() {
     // A 3-year-old should not be enrolled in anything.
     let mut city = TestCity::new()
-        .with_road(50, 50, 55, 50, RoadType::Local)
+        .with_road(50, 50, 60, 50, RoadType::Local)
         .with_service(50, 50, ServiceType::ElementarySchool)
-        .with_building(51, 51, crate::grid::ZoneType::ResidentialLow, 1);
+        .with_building(52, 51, crate::grid::ZoneType::ResidentialLow, 1);
 
     city.tick_slow_cycle();
-    let citizen = spawn_citizen_with_age_edu(&mut city, (51, 51), 3, 0);
+    let citizen = spawn_citizen_with_age_edu(&mut city, (52, 51), 3, 0);
     city.tick_slow_cycle();
 
     let world = city.world_mut();
