@@ -47,11 +47,12 @@ pub const COAL_FOOTPRINT: (usize, usize) = (3, 3);
 // PowerPlantType enum
 // =============================================================================
 
-/// The type of power plant (coal, natural gas, etc.).
+/// The type of power plant (coal, natural gas, wind turbine, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Encode, Decode)]
 pub enum PowerPlantType {
     Coal,
     NaturalGas,
+    WindTurbine,
 }
 
 // =============================================================================
