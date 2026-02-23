@@ -152,6 +152,7 @@ pub mod weather;
 pub mod welfare;
 pub mod wind;
 pub mod wind_damage;
+pub mod wind_drift;
 pub mod world_init;
 pub mod zones;
 
