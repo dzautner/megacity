@@ -6,6 +6,7 @@
 //! level) and capacity pressure (ratio of students to available school slots).
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
@@ -18,7 +19,10 @@ use crate::SlowTickTimer;
 // ---------------------------------------------------------------------------
 
 /// The discrete education levels a citizen can hold.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode,
+    Decode,
+)]
 pub enum EducationLevel {
     None = 0,
     Elementary = 1,
@@ -105,7 +109,7 @@ pub struct Enrollment {
 // ---------------------------------------------------------------------------
 
 /// City-wide education pipeline statistics, updated each slow tick.
-#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct EducationPipelineStats {
     /// Number of citizens currently enrolled per stage.
     pub enrolled: [u32; 3],
@@ -308,7 +312,7 @@ impl crate::Saveable for EducationPipelineStats {
     const SAVE_KEY: &'static str = "education_pipeline";
 
     fn save_to_bytes(&self) -> Option<Vec<u8>> {
-        bitcode::encode(self).ok()
+        Some(bitcode::encode(self))
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
@@ -324,17 +328,18 @@ pub struct EducationPipelinePlugin;
 
 impl Plugin for EducationPipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<EducationPipelineStats>().add_systems(
-            FixedUpdate,
-            (
-                enroll_citizens,
-                process_graduations,
-                update_enrollment_counts,
-            )
-                .chain()
-                .after(crate::education::propagate_education)
-                .in_set(crate::SimulationSet::Simulation),
-        );
+        app.init_resource::<EducationPipelineStats>()
+            .add_systems(
+                FixedUpdate,
+                (
+                    enroll_citizens,
+                    process_graduations,
+                    update_enrollment_counts,
+                )
+                    .chain()
+                    .after(crate::education::propagate_education)
+                    .in_set(crate::SimulationSet::Simulation),
+            );
 
         // Register for save/load
         let mut registry = app
