@@ -154,6 +154,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(homelessness::HomelessnessPlugin);
     app.add_plugins(welfare::WelfarePlugin);
     app.add_plugins(immigration::ImmigrationPlugin);
+    app.add_plugins(population_tiers::PopulationTiersPlugin);
     app.add_plugins(lod::LodPlugin);
     app.add_plugins(virtual_population::VirtualPopulationPlugin);
     app.add_plugins(urban_growth_boundary::UrbanGrowthBoundaryPlugin);

@@ -49,6 +49,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "oneway_direction_map",
     "parking_policy",
     "pollution_grid",
+    "population_tier_stats",
     "road_hierarchy",
     "roundabout_registry",
     "seasonal_effects_config",
