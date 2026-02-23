@@ -1,7 +1,6 @@
 //! Unit tests for UHI mitigation.
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-use crate::trees::TreeGrid;
 
 use super::reductions::*;
 use super::state::UhiMitigationState;
