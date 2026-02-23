@@ -805,8 +805,8 @@ fn test_mixed_use_downgrade_clamps_subcapacity_occupants() {
         ));
         // Provide utilities to prevent building abandonment
         let mut grid = world.resource_mut::<WorldGrid>();
-        grid.cells[100][100].has_power = true;
-        grid.cells[100][100].has_water = true;
+        grid.get_mut(100, 100).has_power = true;
+        grid.get_mut(100, 100).has_water = true;
     }
 
     // Set up downgrade conditions
@@ -886,8 +886,8 @@ fn test_mixed_use_downgrade_updates_subcapacities() {
         ));
         // Provide utilities to prevent building abandonment during the long tick loop
         let mut grid = world.resource_mut::<WorldGrid>();
-        grid.cells[100][100].has_power = true;
-        grid.cells[100][100].has_water = true;
+        grid.get_mut(100, 100).has_power = true;
+        grid.get_mut(100, 100).has_water = true;
     }
 
     {
