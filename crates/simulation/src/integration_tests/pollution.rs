@@ -2,8 +2,18 @@ use crate::grid::ZoneType;
 use crate::policies::{Policies, Policy};
 use crate::pollution::PollutionGrid;
 use crate::services::ServiceType;
+use crate::stats::CityStats;
 use crate::test_harness::TestCity;
 use crate::wind::WindState;
+
+/// Set happiness above the downgrade threshold (30) so that
+/// `downgrade_buildings` does not randomly reduce building levels
+/// during the tick cycle. Must be called before each slow cycle
+/// because `update_stats` resets happiness to 0 when there are no citizens.
+fn prevent_downgrade(city: &mut TestCity) {
+    let world = city.world_mut();
+    world.resource_mut::<CityStats>().average_happiness = 50.0;
+}
 
 // ====================================================================
 // PollutionGrid resource tests
@@ -107,6 +117,9 @@ fn test_pollution_higher_level_industrial_produces_more() {
     let mut city_low = TestCity::new().with_building(128, 128, ZoneType::Industrial, 1);
     let mut city_high = TestCity::new().with_building(128, 128, ZoneType::Industrial, 3);
 
+    // Prevent downgrade_buildings from reducing the level-3 building
+    prevent_downgrade(&mut city_low);
+    prevent_downgrade(&mut city_high);
     city_low.tick_slow_cycle();
     city_high.tick_slow_cycle();
 
@@ -134,6 +147,8 @@ fn test_pollution_saturates_without_wrapping() {
         .with_building(128, 130, ZoneType::Industrial, 3)
         .with_building(130, 130, ZoneType::Industrial, 3);
 
+    // Prevent downgrade_buildings from reducing building levels
+    prevent_downgrade(&mut city);
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
@@ -214,6 +229,8 @@ fn test_pollution_large_park_also_reduces_pollution() {
         .with_building(128, 128, ZoneType::Industrial, 2)
         .with_service(128, 132, ServiceType::LargePark);
 
+    // Prevent downgrade_buildings from reducing the level-2 building
+    prevent_downgrade(&mut city);
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
@@ -244,6 +261,9 @@ fn test_pollution_air_filters_policy_reduces_industrial_pollution() {
             .toggle(Policy::IndustrialAirFilters);
     }
 
+    // Prevent downgrade_buildings from reducing level-2 buildings
+    prevent_downgrade(&mut city_no_policy);
+    prevent_downgrade(&mut city_with_policy);
     city_no_policy.tick_slow_cycle();
     city_with_policy.tick_slow_cycle();
 
@@ -273,6 +293,8 @@ fn test_pollution_wind_drift_shifts_pollution_downwind() {
         wind.speed = 0.8; // strong wind
     }
 
+    // Prevent downgrade_buildings from reducing the level-2 building
+    prevent_downgrade(&mut city);
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
@@ -298,6 +320,8 @@ fn test_pollution_no_wind_drift_when_calm() {
         wind.speed = 0.0; // no wind
     }
 
+    // Prevent downgrade_buildings from reducing the level-2 building
+    prevent_downgrade(&mut city);
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
@@ -322,6 +346,8 @@ fn test_pollution_wind_northward_shifts_pollution_north() {
         wind.speed = 0.8;
     }
 
+    // Prevent downgrade_buildings from reducing the level-2 building
+    prevent_downgrade(&mut city);
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();

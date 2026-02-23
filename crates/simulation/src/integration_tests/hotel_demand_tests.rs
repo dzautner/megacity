@@ -3,6 +3,7 @@
 use crate::grid::ZoneType;
 use crate::hotel_demand::HotelDemandState;
 use crate::services::ServiceType;
+use crate::stats::CityStats;
 use crate::test_harness::TestCity;
 
 // ====================================================================
@@ -60,13 +61,20 @@ fn test_hotel_demand_higher_level_more_capacity() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::CommercialHigh, 3);
 
-    city.tick_slow_cycles(2);
+    // Set happiness above 30 to prevent downgrade_buildings from firing.
+    // Re-set between slow cycles because update_stats resets happiness to 0
+    // when there are no citizens.
+    for _ in 0..2 {
+        {
+            let world = city.world_mut();
+            world.resource_mut::<CityStats>().average_happiness = 50.0;
+        }
+        city.tick_slow_cycle();
+    }
     let state = city.resource::<HotelDemandState>();
-    // Level 3 = 200 rooms, but downgrade_buildings can non-deterministically
-    // reduce level when average_happiness == 0 (empty city). Accept >= 120 (level 2).
-    assert!(
-        state.total_capacity >= 120,
-        "Hotel capacity should be at least 120 (level 2+), got {}",
+    assert_eq!(
+        state.total_capacity, 200,
+        "Level 3 hotel should have 200 rooms capacity, got {}",
         state.total_capacity,
     );
 }
@@ -77,7 +85,16 @@ fn test_hotel_demand_multiple_buildings_sum_capacity() {
         .with_building(50, 50, ZoneType::CommercialHigh, 1)
         .with_building(52, 52, ZoneType::CommercialHigh, 2);
 
-    city.tick_slow_cycles(2);
+    // Set happiness above 30 to prevent downgrade_buildings from firing
+    // on the level-2 building. Re-set between slow cycles because
+    // update_stats resets happiness to 0 when there are no citizens.
+    for _ in 0..2 {
+        {
+            let world = city.world_mut();
+            world.resource_mut::<CityStats>().average_happiness = 50.0;
+        }
+        city.tick_slow_cycle();
+    }
     let state = city.resource::<HotelDemandState>();
     assert_eq!(state.hotel_count, 2);
     assert_eq!(state.total_capacity, 170); // 50 + 120
@@ -148,16 +165,21 @@ fn test_hotel_demand_revenue_with_tourist_attractions() {
         .with_service(75, 75, ServiceType::CityHall)
         .with_service(80, 80, ServiceType::LargePark);
 
-    // Run enough for tourism to update (needs day > 30)
-    city.tick_slow_cycles(5);
+    // Run enough for tourism to update (needs day > 30).
+    // Set happiness above 30 before each slow cycle to prevent
+    // downgrade_buildings from reducing the hotel level.
+    for _ in 0..5 {
+        {
+            let world = city.world_mut();
+            world.resource_mut::<CityStats>().average_happiness = 50.0;
+        }
+        city.tick_slow_cycle();
+    }
 
     let state = city.resource::<HotelDemandState>();
-    // The building starts at level 3 (200 rooms), but the downgrade_buildings
-    // system can non-deterministically reduce the level when average_happiness
-    // is low (0 in an empty city). Accept any capacity from level 2+ (120+).
-    assert!(
-        state.total_capacity >= 120,
-        "Hotel capacity should be at least 120 (level 2), got {}",
+    assert_eq!(
+        state.total_capacity, 200,
+        "Level 3 hotel should have 200 rooms capacity, got {}",
         state.total_capacity
     );
     assert_eq!(state.hotel_count, 1);

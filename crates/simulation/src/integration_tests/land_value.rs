@@ -13,8 +13,37 @@ use crate::garbage::WasteCollectionGrid;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::land_value::LandValueGrid;
 use crate::services::ServiceType;
+use crate::stats::CityStats;
 use crate::test_harness::TestCity;
 use crate::waste_effects::WasteAccumulation;
+
+/// Run slow-tick cycles while keeping average_happiness high enough to
+/// prevent `downgrade_buildings` from firing (threshold is 30). This must
+/// be re-set before each cycle because `update_stats` recomputes happiness
+/// from actual citizens (0 when there are none).
+fn tick_slow_cycles_stable(city: &mut TestCity, cycles: u32) {
+    for _ in 0..cycles {
+        {
+            let world = city.world_mut();
+            world.resource_mut::<CityStats>().average_happiness = 50.0;
+        }
+        city.tick_slow_cycle();
+    }
+}
+
+/// Give a building cell power and water so the abandonment system does not
+/// mark it as abandoned (the "no utilities" condition requires both to be
+/// missing). Call this after `with_building` for any building that must
+/// survive many ticks.
+fn give_utilities(city: &mut TestCity, x: usize, y: usize) {
+    let world = city.world_mut();
+    let mut grid = world.resource_mut::<WorldGrid>();
+    if grid.in_bounds(x, y) {
+        let cell = grid.get_mut(x, y);
+        cell.has_power = true;
+        cell.has_water = true;
+    }
+}
 
 /// Number of slow-tick cycles sufficient for near-full convergence
 /// (with alpha=0.1 and diffusion, 100 cycles reaches near-full convergence).
@@ -153,7 +182,11 @@ fn test_land_value_pollution_from_industrial_building_reduces_value() {
     // Place an industrial building to generate real pollution through the
     // update_pollution system (which runs before update_land_value).
     let mut city = TestCity::new().with_building(100, 100, ZoneType::Industrial, 3);
-    city.tick_slow_cycles(CONVERGE_CYCLES);
+    // Prevent building abandonment (no-utilities condition) and downgrade
+    // (low happiness condition) which would remove or weaken the building
+    // over many tick cycles.
+    give_utilities(&mut city, 100, 100);
+    tick_slow_cycles_stable(&mut city, CONVERGE_CYCLES);
 
     let val = land_value_at(&city, 100, 100);
     // Industrial zone penalty + pollution => value well below 50
@@ -172,7 +205,8 @@ fn test_land_value_pollution_from_industrial_building_reduces_value() {
 fn test_land_value_more_industrial_buildings_means_lower_value() {
     // Single industrial building
     let mut city_one = TestCity::new().with_building(100, 100, ZoneType::Industrial, 2);
-    city_one.tick_slow_cycles(CONVERGE_CYCLES);
+    give_utilities(&mut city_one, 100, 100);
+    tick_slow_cycles_stable(&mut city_one, CONVERGE_CYCLES);
     let val_one = land_value_at(&city_one, 100, 100);
 
     // Multiple industrial buildings nearby to stack pollution
@@ -181,7 +215,10 @@ fn test_land_value_more_industrial_buildings_means_lower_value() {
         .with_building(101, 100, ZoneType::Industrial, 2)
         .with_building(100, 101, ZoneType::Industrial, 2)
         .with_building(99, 100, ZoneType::Industrial, 2);
-    city_many.tick_slow_cycles(CONVERGE_CYCLES);
+    for &(x, y) in &[(100, 100), (101, 100), (100, 101), (99, 100)] {
+        give_utilities(&mut city_many, x, y);
+    }
+    tick_slow_cycles_stable(&mut city_many, CONVERGE_CYCLES);
     let val_many = land_value_at(&city_many, 100, 100);
 
     assert!(
@@ -332,14 +369,20 @@ fn test_land_value_clamped_to_zero_minimum() {
     // extreme pollution that drives land value to 0 via the i32 clamp.
     let mut city = TestCity::new();
     // Place a dense cluster of level-5 industrial buildings around (100, 100)
+    let mut positions = Vec::new();
     for dy in -3i32..=3 {
         for dx in -3i32..=3 {
             let x = (100i32 + dx) as usize;
             let y = (100i32 + dy) as usize;
             city = city.with_building(x, y, ZoneType::Industrial, 5);
+            positions.push((x, y));
         }
     }
-    city.tick_slow_cycles(CONVERGE_CYCLES);
+    // Prevent building abandonment and downgrade over many tick cycles
+    for &(x, y) in &positions {
+        give_utilities(&mut city, x, y);
+    }
+    tick_slow_cycles_stable(&mut city, CONVERGE_CYCLES);
 
     let val = land_value_at(&city, 100, 100);
     // With extreme pollution the target at the centre is 0, but diffusion
@@ -390,7 +433,11 @@ fn test_land_value_all_cells_within_valid_range() {
         .with_service(80, 80, ServiceType::SmallPark)
         .with_service(120, 120, ServiceType::Hospital);
 
-    city.tick_slow_cycles(CONVERGE_CYCLES);
+    // Prevent building abandonment and downgrade over many tick cycles
+    for &(x, y) in &[(55, 55), (56, 55), (55, 56)] {
+        give_utilities(&mut city, x, y);
+    }
+    tick_slow_cycles_stable(&mut city, CONVERGE_CYCLES);
 
     // Industrial area with pollution should have lower value than clean area
     let lv = city.resource::<LandValueGrid>();
@@ -410,11 +457,13 @@ fn test_land_value_all_cells_within_valid_range() {
 fn test_land_value_combined_industrial_building_stacks_zone_and_pollution() {
     // An industrial building applies both the zone penalty AND generates pollution
     let mut city_zone_only = TestCity::new().with_zone(100, 100, ZoneType::Industrial);
-    city_zone_only.tick_slow_cycles(CONVERGE_CYCLES);
+    tick_slow_cycles_stable(&mut city_zone_only, CONVERGE_CYCLES);
     let val_zone_only = land_value_at(&city_zone_only, 100, 100);
 
     let mut city_building = TestCity::new().with_building(100, 100, ZoneType::Industrial, 3);
-    city_building.tick_slow_cycles(CONVERGE_CYCLES);
+    // Prevent building abandonment and downgrade over many tick cycles
+    give_utilities(&mut city_building, 100, 100);
+    tick_slow_cycles_stable(&mut city_building, CONVERGE_CYCLES);
     let val_building = land_value_at(&city_building, 100, 100);
 
     // Building should have lower value due to additional pollution

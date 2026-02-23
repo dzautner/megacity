@@ -1,6 +1,7 @@
 use crate::economy::CityBudget;
-use crate::grid::{RoadType, ZoneType};
+use crate::grid::{RoadType, WorldGrid, ZoneType};
 use crate::services::ServiceType;
+use crate::stats::CityStats;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
 
@@ -137,10 +138,27 @@ fn test_budget_recovery_from_negative() {
         .with_zone_rect(11, 10, 14, 50, ZoneType::ResidentialLow)
         .with_zone_rect(8, 10, 9, 50, ZoneType::CommercialLow);
 
+    let mut building_positions = Vec::new();
     for y in (10..50).step_by(2) {
         city = city
             .with_building(12, y, ZoneType::ResidentialLow, 3)
             .with_building(9, y, ZoneType::CommercialLow, 3);
+        building_positions.push((12, y));
+        building_positions.push((9, y));
+    }
+
+    // Prevent building abandonment (no-utilities condition) and downgrade
+    // (low happiness) which would remove buildings over 20 slow cycles.
+    {
+        let world = city.world_mut();
+        let mut grid = world.resource_mut::<WorldGrid>();
+        for &(x, y) in &building_positions {
+            if grid.in_bounds(x, y) {
+                let cell = grid.get_mut(x, y);
+                cell.has_power = true;
+                cell.has_water = true;
+            }
+        }
     }
 
     let initial_treasury = city.budget().treasury;
@@ -152,7 +170,14 @@ fn test_budget_recovery_from_negative() {
         world.resource_mut::<CityBudget>().last_collection_day = 0;
     }
 
-    city.tick_slow_cycles(20);
+    // Run slow cycles while keeping happiness above the downgrade threshold
+    for _ in 0..20 {
+        {
+            let world = city.world_mut();
+            world.resource_mut::<CityStats>().average_happiness = 50.0;
+        }
+        city.tick_slow_cycle();
+    }
 
     let after_treasury = city.budget().treasury;
     assert!(
