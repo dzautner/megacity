@@ -32,6 +32,11 @@ const SCARCITY_THRESHOLD: f32 = 0.1;
 /// Maximum scarcity multiplier applied to the electricity price.
 const MAX_SCARCITY_MULTIPLIER: f32 = 3.0;
 
+/// Minimum demand threshold (MW) to trigger dispatch.
+/// Below this, the system skips dispatch to avoid interfering with
+/// plants' construction-time default output values.
+const MIN_DEMAND_THRESHOLD: f32 = 0.01;
+
 // ---------------------------------------------------------------------------
 // Resources
 // ---------------------------------------------------------------------------
@@ -58,6 +63,8 @@ pub struct EnergyDispatchState {
     pub load_shed_fraction: f32,
     /// Number of generators that were dispatched this cycle.
     pub dispatched_count: u32,
+    /// Whether the dispatch system has been activated (demand > threshold).
+    pub active: bool,
 }
 
 impl Default for EnergyDispatchState {
@@ -70,6 +77,7 @@ impl Default for EnergyDispatchState {
             blackout_rotation: 0,
             load_shed_fraction: 0.0,
             dispatched_count: 0,
+            active: false,
         }
     }
 }
@@ -103,6 +111,9 @@ struct DispatchEntry {
 /// 2. Dispatch cheapest first until demand is met.
 /// 3. Set each generator's `current_output_mw`.
 /// 4. Calculate reserve margin, electricity price, and deficit state.
+///
+/// When demand is below `MIN_DEMAND_THRESHOLD`, the system skips dispatch
+/// entirely to preserve plants' default output values set at construction.
 pub fn dispatch_energy(
     tick: Res<TickCounter>,
     mut energy_grid: ResMut<EnergyGrid>,
@@ -112,6 +123,23 @@ pub fn dispatch_energy(
     if !tick.0.is_multiple_of(DISPATCH_INTERVAL) {
         return;
     }
+
+    let demand = energy_grid.total_demand_mwh;
+
+    // Skip dispatch when there is negligible demand.
+    // This preserves plants' construction-time output values for the
+    // aggregate systems (coal_power, gas_power) that read current_output_mw.
+    if demand < MIN_DEMAND_THRESHOLD {
+        if dispatch_state.active {
+            dispatch_state.active = false;
+            dispatch_state.has_deficit = false;
+            dispatch_state.load_shed_fraction = 0.0;
+            dispatch_state.electricity_price = 0.0;
+            dispatch_state.blackout_cells = 0;
+        }
+        return;
+    }
+    dispatch_state.active = true;
 
     // Phase 1: Collect generators and sort by fuel_cost (merit order).
     let mut entries: Vec<DispatchEntry> = Vec::new();
@@ -139,13 +167,12 @@ pub fn dispatch_energy(
     });
 
     // Phase 2: Dispatch generators to meet demand.
-    let demand = energy_grid.total_demand_mwh;
     let mut remaining_demand = demand;
     let mut total_dispatched: f32 = 0.0;
     let mut last_dispatched_cost: f32 = 0.0;
     let mut dispatched_count: u32 = 0;
 
-    // Reset all generators to zero output.
+    // Reset all generators to zero output before redispatching.
     for (_, mut plant) in &mut plants {
         plant.current_output_mw = 0.0;
     }
@@ -171,14 +198,10 @@ pub fn dispatch_energy(
     energy_grid.total_supply_mwh = total_dispatched;
 
     // Phase 4: Update reserve margin.
-    if demand > 0.0 {
-        energy_grid.reserve_margin = (total_capacity - demand) / demand;
-    } else {
-        energy_grid.reserve_margin = if total_capacity > 0.0 { 1.0 } else { 0.0 };
-    }
+    energy_grid.reserve_margin = (total_capacity - demand) / demand;
 
     // Phase 5: Handle deficit.
-    let has_deficit = demand > 0.0 && total_dispatched < demand;
+    let has_deficit = total_dispatched < demand;
     dispatch_state.has_deficit = has_deficit;
     dispatch_state.total_capacity_mw = total_capacity;
     dispatch_state.dispatched_count = dispatched_count;
@@ -194,19 +217,14 @@ pub fn dispatch_energy(
     }
 
     // Phase 6: Calculate electricity price.
-    let base_price = if demand > 0.0 {
-        last_dispatched_cost
-    } else {
-        0.0
-    };
+    let base_price = last_dispatched_cost;
 
-    let scarcity_multiplier =
-        if energy_grid.reserve_margin < SCARCITY_THRESHOLD && demand > 0.0 {
-            let t = (SCARCITY_THRESHOLD - energy_grid.reserve_margin) / SCARCITY_THRESHOLD;
-            1.0 + t * (MAX_SCARCITY_MULTIPLIER - 1.0)
-        } else {
-            1.0
-        };
+    let scarcity_multiplier = if energy_grid.reserve_margin < SCARCITY_THRESHOLD {
+        let t = (SCARCITY_THRESHOLD - energy_grid.reserve_margin) / SCARCITY_THRESHOLD;
+        1.0 + t * (MAX_SCARCITY_MULTIPLIER - 1.0)
+    } else {
+        1.0
+    };
 
     dispatch_state.electricity_price =
         base_price * scarcity_multiplier.min(MAX_SCARCITY_MULTIPLIER);
@@ -277,6 +295,7 @@ mod tests {
         assert_eq!(state.total_capacity_mw, 0.0);
         assert_eq!(state.blackout_cells, 0);
         assert_eq!(state.load_shed_fraction, 0.0);
+        assert!(!state.active);
     }
 
     #[test]
@@ -289,6 +308,7 @@ mod tests {
             blackout_rotation: 7,
             load_shed_fraction: 0.0,
             dispatched_count: 3,
+            active: true,
         };
 
         let bytes = state.save_to_bytes().unwrap();
@@ -299,5 +319,6 @@ mod tests {
         assert!((restored.total_capacity_mw - 500.0).abs() < f32::EPSILON);
         assert_eq!(restored.blackout_rotation, 7);
         assert_eq!(restored.dispatched_count, 3);
+        assert!(restored.active);
     }
 }
