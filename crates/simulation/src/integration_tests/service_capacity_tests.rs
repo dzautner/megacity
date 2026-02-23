@@ -232,7 +232,7 @@ fn test_usage_increases_with_building_occupants() {
     // Place a hospital and a residential building within its radius
     let mut city = TestCity::new()
         .with_service(128, 128, ServiceType::Hospital)
-        .with_building(130, 128, ZoneType::Residential, 1);
+        .with_building(130, 128, ZoneType::ResidentialLow, 1);
 
     // Set occupants on the building
     {
@@ -263,8 +263,8 @@ fn test_usage_sums_multiple_buildings() {
     // Place a hospital and multiple residential buildings within its radius
     let mut city = TestCity::new()
         .with_service(128, 128, ServiceType::Hospital)
-        .with_building(130, 128, ZoneType::Residential, 1)
-        .with_building(126, 128, ZoneType::Residential, 1);
+        .with_building(130, 128, ZoneType::ResidentialLow, 1)
+        .with_building(126, 128, ZoneType::ResidentialLow, 1);
 
     // Set occupants on both buildings
     {
