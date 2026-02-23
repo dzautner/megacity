@@ -57,6 +57,7 @@ mod roundabout_builder;
 mod save_load;
 mod save_load_stress;
 mod saveable_registry;
+mod service_capacity_tests;
 mod service_coverage;
 mod services_utilities;
 mod simulation_invariants;
