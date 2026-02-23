@@ -317,6 +317,7 @@ impl Plugin for HotelDemandPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Saveable;
 
     #[test]
     fn test_hotel_rooms_for_level() {
