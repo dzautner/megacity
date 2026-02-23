@@ -31,6 +31,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "game_params",
     "heat_mitigation",
     "historic_preservation",
+    "hotel_demand",
     "inclusionary_zoning",
     "keybindings",
     "land_value",

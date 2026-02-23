@@ -116,6 +116,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(natural_resources::NaturalResourcesPlugin);
     app.add_plugins(wealth::WealthPlugin);
     app.add_plugins(tourism::TourismPlugin);
+    app.add_plugins(hotel_demand::HotelDemandPlugin);
     app.add_plugins(unlocks::UnlocksPlugin);
     app.add_plugins(reservoir::ReservoirPlugin);
     app.add_plugins(flood_simulation::FloodSimulationPlugin);
