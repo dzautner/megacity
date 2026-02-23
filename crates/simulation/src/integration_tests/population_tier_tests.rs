@@ -11,17 +11,26 @@ use crate::land_value::LandValueGrid;
 use crate::population_tiers::{PopulationTier, PopulationTierComp, PopulationTierStats};
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
-
+use crate::immigration::CityAttractiveness;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /// Run enough ticks for the slow tick timer to fire and tier evaluation to run.
+
 fn tick_slow(city: &mut TestCity) {
+    // Prevent emigration during slow tick cycles.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     city.tick_slow_cycle();
     // Extra tick for init_citizen_tiers command flush
     city.tick(1);
 }
+
+
+
 
 /// Query the population tier of the first citizen found.
 fn first_citizen_tier(city: &mut TestCity) -> PopulationTier {
@@ -94,6 +103,11 @@ fn advance_tiers(
 ) {
     for _ in 0..cycles {
         inject_full_services(city, 11, 11, coverage_flags);
+        // Prevent emigration during slow tick cycles.
+        {
+            let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+            attr.overall_score = 80.0;
+        }
         if let Some(lv) = land_val {
             inject_land_value(city, 11, 11, lv);
         }

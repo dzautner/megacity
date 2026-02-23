@@ -1,5 +1,5 @@
 use crate::grid::{RoadType, ZoneType};
-use crate::services::ServiceType;
+use crate::immigration::CityAttractiveness;use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
 
@@ -24,6 +24,11 @@ fn city_with_full_infrastructure_runs() {
     city.assert_budget_above(99_000.0);
 
     city.tick(50);
+    // Prevent emigration during the tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     assert!(city.citizen_count() >= 1, "citizen should still exist");
 }

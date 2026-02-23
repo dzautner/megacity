@@ -238,6 +238,12 @@ fn test_random_events_epidemic_drains_health() {
     let mut city = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_citizen(home, home);
+    // Prevent emigration during slow tick cycles.
+    {
+        let world = city.world_mut();
+        let mut attr = world.resource_mut::<crate::immigration::CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Let systems settle, then set ALL citizens to known health
     city.tick_slow_cycle();
@@ -358,6 +364,12 @@ fn test_random_events_epidemic_health_floor_at_zero() {
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::Industrial, 1)
         .with_citizen(home, work);
+    // Prevent emigration during slow tick cycles.
+    {
+        let world = city.world_mut();
+        let mut attr = world.resource_mut::<crate::immigration::CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     {
         let world = city.world_mut();
@@ -396,6 +408,12 @@ fn test_random_events_festival_happiness_capped_at_100() {
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::Industrial, 1)
         .with_citizen(home, work);
+    // Prevent emigration during slow tick cycles.
+    {
+        let world = city.world_mut();
+        let mut attr = world.resource_mut::<crate::immigration::CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     {
         let world = city.world_mut();

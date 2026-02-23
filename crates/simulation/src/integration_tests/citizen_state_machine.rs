@@ -65,10 +65,10 @@ fn spawn_citizen_in_state(
                 age: 30,
                 gender: Gender::Male,
                 education: 2,
-                happiness: 60.0,
-                health: 90.0,
+                happiness: 95.0,
+                health: 100.0,
                 salary: 3500.0,
-                savings: 7000.0,
+                savings: 50000.0,
             },
             Personality {
                 ambition: 0.5,
@@ -112,6 +112,11 @@ fn test_at_home_transitions_to_commuting_to_work_at_work_hour() {
         .with_time(7.0)
         .rebuild_csr();
 
+    // Prevent emigration from despawning the citizen during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     // Run enough ticks to cover the jitter window (entity index % 120 minutes)
     // and for pathfinding to complete. 200 ticks should be plenty.
     city.tick(200);
@@ -246,6 +251,11 @@ fn test_citizen_without_job_stays_at_home() {
         .with_time(7.5)
         .rebuild_csr();
 
+    // Prevent emigration from despawning the citizen during the long tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     // Tick through the entire morning commute window
     city.tick(200);
 
@@ -271,6 +281,20 @@ fn test_citizen_without_valid_home_becomes_homeless() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((50, 50), (50, 50));
+    // Prevent emigration from despawning the citizen during the tick window.
+    // Homeless citizens lose 30 happiness, so start high to stay above threshold.
+    {
+        let world = city.world_mut();
+        for mut details in world
+            .query_filtered::<&mut CitizenDetails, With<Citizen>>()
+            .iter_mut(world)
+        {
+            details.happiness = 95.0;
+            details.health = 100.0;
+        }
+        let mut attr = world.resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Despawn the home building
     let building_entity = city.grid().get(50, 50).building_id.expect("building");
@@ -465,6 +489,11 @@ fn test_citizen_stays_at_home_outside_commute_hours() {
             .expect("citizen should exist")
     };
 
+    // Prevent emigration from despawning the citizen during the tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
     // Only tick a few times (not enough to advance the clock to commute hour)
     city.tick(50);
 
@@ -498,6 +527,11 @@ fn test_working_citizen_stays_at_work_before_evening() {
         Some((100, 115)),
         CitizenState::Working,
     );
+    // Prevent emigration from despawning the citizen during the tick run.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Run a few ticks (not enough to reach evening commute at 17:00)
     city.tick(30);
@@ -763,6 +797,11 @@ fn test_citizen_with_placeholder_home_becomes_homeless() {
 
     // Spawn citizen with no valid building at home position
     spawn_citizen_in_state(&mut city, (50, 50), None, CitizenState::AtHome);
+    // Prevent emigration from despawning the citizen during the tick window.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
 
     // Tick past the homelessness CHECK_INTERVAL
     city.tick(50);
