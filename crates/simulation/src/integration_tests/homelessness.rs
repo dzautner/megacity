@@ -28,23 +28,37 @@ fn enable_utilities(city: &mut TestCity, cells: &[(usize, usize)]) {
 
 /// Prevent the emigration system from despawning citizens during tests.
 ///
-/// The immigration_wave system triggers emigration when
-/// `CityAttractiveness.overall_score < 30.0`. In a sparse test city with
-/// few buildings and no services, `compute_attractiveness` recalculates
-/// the score to a very low value (often < 30), which causes the unhappiest
-/// citizens to be despawned.
+/// The `immigration_wave` system triggers emigration when
+/// `CityAttractiveness.overall_score < 30.0`, and `compute_attractiveness`
+/// recalculates this every 50 ticks based on city stats (employment,
+/// happiness, services, housing, tax).  Simply setting `overall_score`
+/// high is insufficient because `compute_attractiveness` runs *before*
+/// `immigration_wave` in the same tick, overwriting the manual value.
 ///
-/// This helper sets the score high enough that emigration never fires.
-/// It should be called before each `tick()` window of 50+ ticks, because
-/// `compute_attractiveness` runs every 50 ticks and will overwrite the score.
+/// This helper instead manipulates the *inputs* to the attractiveness
+/// formula so that the recomputed score stays above 30:
+///   - Sets `tax_rate = 0.0`  -> tax_factor = 1.0 -> contributes 15 pts
+///   - Ensures citizen happiness is high -> happiness_factor up to 25 pts
+///   - Employment stays at default (0% unemployment -> 25 pts)
+///
+/// Combined minimum: 15 + 12 + 25 = 52 pts (well above 30).
 fn prevent_emigration(city: &mut TestCity) {
-    let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
-    attr.overall_score = 80.0;
+    // Also set overall_score high in case compute_attractiveness hasn't
+    // run yet this tick window.
+    {
+        let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
+        attr.overall_score = 80.0;
+    }
+    // Set tax rate to 0 so the tax factor contributes 15 points
+    {
+        let mut budget = city.world_mut().resource_mut::<crate::economy::CityBudget>();
+        budget.tax_rate = 0.0;
+    }
 }
 
 /// Boost citizen stats to maximum to prevent despawn from secondary systems
-/// (disease mortality, etc.) AND prevent emigration by setting city
-/// attractiveness high.
+/// (lifecycle emigration at happiness < 20, disease mortality at health < 20,
+/// etc.) AND prevent emigration via `prevent_emigration`.
 fn make_citizens_robust(city: &mut TestCity) {
     prevent_emigration(city);
     let world = city.world_mut();
@@ -292,7 +306,7 @@ fn test_homelessness_shelter_provides_shelter_to_homeless() {
     }
 
     // Tick again to trigger seek_shelter
-    prevent_emigration(&mut city);
+    make_citizens_robust(&mut city);
     city.tick(50);
 
     // Citizen should now be sheltered (attractiveness prevents emigration)
@@ -356,7 +370,7 @@ fn test_homelessness_shelter_capacity_respected() {
     }
 
     // Tick to trigger seek_shelter
-    prevent_emigration(&mut city);
+    make_citizens_robust(&mut city);
     city.tick(50);
 
     let (sheltered_count, total_homeless) = {
@@ -570,7 +584,7 @@ fn test_homelessness_recovery_updates_stats() {
     }
 
     // Tick to recover
-    prevent_emigration(&mut city);
+    make_citizens_robust(&mut city);
     city.tick(50);
 
     let homeless_after = city
@@ -615,12 +629,16 @@ fn test_homelessness_ticks_homeless_increments() {
         "citizen should be homeless after first interval"
     );
 
-    // Re-boost citizen stats and attractiveness before second tick window
-    // to prevent emigration during the second 50-tick window.
+    // Re-boost citizen stats and attractiveness before second tick window.
+    // Also re-set the attractiveness inputs (tax_rate=0) so that when
+    // compute_attractiveness recalculates during the second window, the
+    // score stays above 30 (preventing immigration_wave emigration).
     make_citizens_robust(&mut city);
 
-    // Tick again (second check)
-    city.tick(50);
+    // Tick again (second check) — use tick(51) to avoid the second window
+    // aligning exactly with immigration_wave's 100-tick interval, which
+    // could cause a race with compute_attractiveness on the same tick.
+    city.tick(51);
 
     let ticks_after_second = {
         let world = city.world_mut();

@@ -104,6 +104,12 @@ fn spawn_citizen_in_state(
 /// Also boosts all existing citizens' stats to prevent lifecycle emigration
 /// (which fires when happiness < 20.0).
 fn prevent_emigration(city: &mut TestCity) {
+    // Set tax rate to 0 so the attractiveness tax_factor contributes
+    // the full 15 points when compute_attractiveness recalculates.
+    {
+        let mut budget = city.world_mut().resource_mut::<crate::economy::CityBudget>();
+        budget.tax_rate = 0.0;
+    }
     {
         let mut attr = city.world_mut().resource_mut::<CityAttractiveness>();
         attr.overall_score = 80.0;
