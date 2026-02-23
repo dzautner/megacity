@@ -241,7 +241,7 @@ pub fn sync_deathcare_buildings(
                 state
                     .crematoriums
                     .entry(key)
-                    .or_insert_with(CrematoriumRecord::default);
+                    .or_default();
             }
             _ => {}
         }
@@ -301,9 +301,7 @@ pub fn process_deathcare_capacity(
 
         for record in state.crematoriums.values_mut() {
             let batch = per_crematorium + if extra > 0 { 1 } else { 0 };
-            if extra > 0 {
-                extra -= 1;
-            }
+            extra = extra.saturating_sub(1);
             for _ in 0..batch {
                 record.enqueue();
             }
