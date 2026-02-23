@@ -360,12 +360,12 @@ mod tests {
     #[test]
     fn test_happiness_update_interval() {
         assert!(
-            HAPPINESS_UPDATE_INTERVAL <= 50,
+            HAPPINESS_UPDATE_INTERVAL <= 50u64,
             "Update interval should be <= 50 ticks, got {}",
             HAPPINESS_UPDATE_INTERVAL
         );
         assert!(
-            HAPPINESS_UPDATE_INTERVAL >= 10,
+            HAPPINESS_UPDATE_INTERVAL >= 10u64,
             "Update interval should be >= 10 ticks, got {}",
             HAPPINESS_UPDATE_INTERVAL
         );

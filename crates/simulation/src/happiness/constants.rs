@@ -13,7 +13,7 @@ pub const COVERAGE_FIRE: u8 = 0b1000_0000;
 // ---------------------------------------------------------------------------
 /// How often (in ticks) the happiness system recalculates. Changed from the
 /// original 100 ticks to 20 for faster responsiveness.
-pub const HAPPINESS_UPDATE_INTERVAL: u32 = 20;
+pub const HAPPINESS_UPDATE_INTERVAL: u64 = 20;
 
 // ---------------------------------------------------------------------------
 // Base & linear bonuses / penalties

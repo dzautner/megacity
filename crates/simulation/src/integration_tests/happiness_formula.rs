@@ -27,7 +27,7 @@ use crate::utilities::UtilityType;
 // ---------------------------------------------------------------------------
 
 /// Total ticks needed for the happiness system to fire (counter=10).
-const HAPPINESS_TICKS: u32 = crate::happiness::HAPPINESS_UPDATE_INTERVAL;
+const HAPPINESS_TICKS: u32 = crate::happiness::HAPPINESS_UPDATE_INTERVAL as u32;
 
 /// Query the happiness of the first citizen found.
 fn first_citizen_happiness(city: &mut TestCity) -> f32 {

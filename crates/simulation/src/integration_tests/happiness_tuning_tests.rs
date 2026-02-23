@@ -17,7 +17,7 @@ use crate::utilities::UtilityType;
 // ---------------------------------------------------------------------------
 
 /// Ticks needed for the happiness system to fire.
-const HAPPINESS_TICKS: u32 = HAPPINESS_UPDATE_INTERVAL;
+const HAPPINESS_TICKS: u32 = HAPPINESS_UPDATE_INTERVAL as u32;
 
 /// Query the happiness of the first citizen found.
 fn first_citizen_happiness(city: &mut TestCity) -> f32 {
@@ -288,7 +288,7 @@ fn test_happiness_tuning_critical_health_penalty() {
 #[test]
 fn test_happiness_tuning_update_interval_is_20() {
     assert_eq!(
-        HAPPINESS_UPDATE_INTERVAL, 20,
+        HAPPINESS_UPDATE_INTERVAL, 20u64,
         "Happiness should update every 20 ticks"
     );
 }
