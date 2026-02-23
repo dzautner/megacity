@@ -363,6 +363,9 @@ impl UnlockState {
             ServiceType::DistrictHeatingPlant | ServiceType::GeothermalPlant => {
                 self.is_unlocked(UnlockNode::DistrictHeatingNetwork)
             }
+            ServiceType::Daycare | ServiceType::Eldercare => {
+                self.is_unlocked(UnlockNode::HealthCare)
+            }
         }
     }
 

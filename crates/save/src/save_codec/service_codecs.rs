@@ -86,6 +86,8 @@ pub fn service_type_to_u8(s: ServiceType) -> u8 {
         ServiceType::GeothermalPlant => 47,
         ServiceType::WaterTreatmentPlant => 48,
         ServiceType::WellPump => 49,
+        ServiceType::Daycare => 50,
+        ServiceType::Eldercare => 51,
     }
 }
 
@@ -141,6 +143,8 @@ pub fn u8_to_service_type(v: u8) -> Option<ServiceType> {
         47 => Some(ServiceType::GeothermalPlant),
         48 => Some(ServiceType::WaterTreatmentPlant),
         49 => Some(ServiceType::WellPump),
+        50 => Some(ServiceType::Daycare),
+        51 => Some(ServiceType::Eldercare),
         _ => None,
     }
 }

@@ -53,6 +53,8 @@ pub enum ServiceType {
     GeothermalPlant,
     WaterTreatmentPlant,
     WellPump,
+    Daycare,
+    Eldercare,
 }
 
 impl ServiceType {
@@ -108,6 +110,8 @@ impl ServiceType {
             ServiceType::HeatingBoiler => "Heating Boiler",
             ServiceType::DistrictHeatingPlant => "District Heating Plant",
             ServiceType::GeothermalPlant => "Geothermal Heating Plant",
+            ServiceType::Daycare => "Daycare",
+            ServiceType::Eldercare => "Eldercare",
         }
     }
 }

@@ -147,6 +147,10 @@ pub fn default_capacity(service_type: ServiceType) -> u32 {
         ServiceType::HeatingBoiler => 300,
         ServiceType::DistrictHeatingPlant => 1500,
         ServiceType::GeothermalPlant => 3000,
+
+        // Care services
+        ServiceType::Daycare => 200,
+        ServiceType::Eldercare => 150,
     }
 }
 
