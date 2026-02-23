@@ -11,7 +11,7 @@ use simulation::specialization::{CitySpecialization, SpecializationScore};
 use rendering::overlay::{OverlayMode, OverlayState};
 
 use super::minimap::{build_minimap_pixels, MINIMAP_SIZE};
-use super::types::{format_pop, InfoPanelExtras, MinimapCache};
+use super::types::{InfoPanelExtras, MinimapCache};
 
 /// Render the Economy: Production Chains collapsing section.
 pub fn draw_production_chains(ui: &mut egui::Ui, extras: &InfoPanelExtras) {

@@ -27,8 +27,6 @@ use simulation::weather::Weather;
 use simulation::welfare::WelfareStats;
 use simulation::wind::WindState;
 
-use super::BudgetPanelVisible;
-
 // ---------------------------------------------------------------------------
 // Shared types & resources
 // ---------------------------------------------------------------------------
@@ -111,6 +109,11 @@ pub struct AdvisorVisible(pub bool);
 /// Toggle with 'P' key.
 #[derive(Resource, Default)]
 pub struct PoliciesVisible(pub bool);
+
+/// Resource controlling whether the budget breakdown window is visible.
+/// Toggle with 'B' key.
+#[derive(Resource, Default)]
+pub struct BudgetPanelVisible(pub bool);
 
 /// Bundled secondary resources for info_panel_ui to stay within the 16-param limit.
 #[derive(bevy::ecs::system::SystemParam)]
