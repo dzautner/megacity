@@ -139,12 +139,14 @@ fn test_commercial_demand_low_when_population_small_and_capacity_large() {
 
 #[test]
 fn test_industrial_demand_rises_with_labor_supply() {
-    // Scenario A: low population = scarce labor.
-    let scarce_labor = stats(true, 50, 100, 50, 100, 50, 200, 100, 50, 25);
+    // Keep industrial vacancy within natural range (~5-8%) so the vacancy
+    // signal is near-neutral, isolating the labor supply factor.
+    // Scenario A: low population = scarce labor, industrial ~6% vacancy.
+    let scarce_labor = stats(true, 50, 100, 50, 100, 95, 100, 94, 50, 47);
     let (_, _, i_scarce, _) = compute_market_demand(&scarce_labor);
 
-    // Scenario B: high population = abundant labor.
-    let abundant_labor = stats(true, 2000, 2000, 2000, 100, 50, 200, 100, 50, 25);
+    // Scenario B: high population = abundant labor, same industrial vacancy.
+    let abundant_labor = stats(true, 2000, 2100, 2000, 100, 95, 100, 94, 50, 47);
     let (_, _, i_abundant, _) = compute_market_demand(&abundant_labor);
 
     assert!(
@@ -309,13 +311,15 @@ fn test_all_demand_outputs_clamped_to_unit_interval() {
 
 #[test]
 fn test_office_demand_grows_with_city_scale() {
-    // Small city: office demand should be modest.
-    let small_city = stats(true, 200, 300, 200, 100, 80, 50, 40, 50, 30);
+    // Small city: office near natural vacancy, modest population.
+    // Office at ~10% vacancy (within natural range of 8-12%).
+    let small_city = stats(true, 200, 300, 200, 100, 95, 50, 47, 100, 90);
     let (_, _, _, o_small) = compute_market_demand(&small_city);
 
-    // Large city with same office capacity: demand should rise due to
-    // population scale factor in office_workforce_factor.
-    let big_city = stats(true, 10_000, 12_000, 10_000, 3000, 2500, 1500, 1200, 50, 30);
+    // Large city: same office vacancy rate, much bigger population.
+    // The population scale factor in office_workforce_factor should push
+    // demand higher.
+    let big_city = stats(true, 10_000, 12_000, 10_000, 3000, 2850, 1500, 1410, 100, 90);
     let (_, _, _, o_big) = compute_market_demand(&big_city);
 
     assert!(
