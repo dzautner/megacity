@@ -21,6 +21,7 @@ pub mod chart_data;
 pub mod citizen;
 pub mod citizen_spawner;
 pub mod climate_change;
+pub mod coal_power;
 pub mod cold_snap;
 pub mod colorblind;
 pub mod composting;

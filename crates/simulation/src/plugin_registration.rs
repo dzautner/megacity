@@ -69,6 +69,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(fog::FogPlugin);
     app.add_plugins(degree_days::DegreeDaysPlugin);
     app.add_plugins(energy_demand::EnergyDemandPlugin);
+    app.add_plugins(coal_power::CoalPowerPlugin);
     app.add_plugins(heating::HeatingPlugin);
     app.add_plugins(wind::WindPlugin);
     app.add_plugins(wind_damage::WindDamagePlugin);
