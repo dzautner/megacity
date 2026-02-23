@@ -95,7 +95,7 @@ impl PoliceTier {
 pub struct TierStats {
     /// Number of active buildings of this tier.
     pub building_count: u32,
-    /// Total grid cells covered by this tier's buildings.
+    /// Total grid cells within coverage radius of this tier's buildings.
     pub cells_covered: u32,
     /// Cumulative crime points reduced this tick.
     pub crime_reduced: u32,
@@ -189,7 +189,6 @@ impl Saveable for PoliceTiersState {
 
 /// Gather police service buildings, compute per-tier stats, and apply
 /// differentiated crime reduction to the `CrimeGrid`.
-#[allow(clippy::too_many_arguments)]
 pub fn update_police_tiers(
     slow_timer: Res<crate::SlowTickTimer>,
     services: Query<&ServiceBuilding>,
@@ -239,7 +238,6 @@ pub fn update_police_tiers(
     // Track which cells are covered (for city_coverage stat).
     let total_cells = GRID_WIDTH * GRID_HEIGHT;
     let mut covered = vec![false; total_cells];
-    let mut total_crime_reduced: u32 = 0;
 
     // Apply crime reduction per unit.
     for unit in &units {
@@ -272,8 +270,14 @@ pub fn update_police_tiers(
                 }
                 let ux = nx as usize;
                 let uy = ny as usize;
-                let dist = dx.abs() + dy.abs();
+
+                // Count all cells within radius as covered.
+                let idx = uy * GRID_WIDTH + ux;
+                covered[idx] = true;
+                tier_cells += 1;
+
                 // Falloff: reduction decreases with Manhattan distance.
+                let dist = dx.abs() + dy.abs();
                 let falloff_reduction = effective_reduction.saturating_sub(
                     (dist as f32 / radius as f32 * effective_reduction as f32) as u8,
                 );
@@ -281,23 +285,16 @@ pub fn update_police_tiers(
                     continue;
                 }
 
-                let idx = uy * GRID_WIDTH + ux;
                 let old = crime_grid.levels[idx];
                 crime_grid.levels[idx] = old.saturating_sub(falloff_reduction);
-                let actual = old - crime_grid.levels[idx];
-                tier_reduced += actual as u32;
-                tier_cells += 1;
-                covered[idx] = true;
+                tier_reduced += (old - crime_grid.levels[idx]) as u32;
             }
         }
 
         let ts = state.stats_for_tier_mut(unit.tier);
         ts.cells_covered += tier_cells;
         ts.crime_reduced += tier_reduced;
-        total_crime_reduced += tier_reduced;
     }
-
-    let _ = total_crime_reduced; // used implicitly through tier stats
 
     // Compute city coverage ratio.
     let covered_count = covered.iter().filter(|&&c| c).count();
