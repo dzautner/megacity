@@ -75,6 +75,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(heating::HeatingPlugin);
     app.add_plugins(wind::WindPlugin);
     app.add_plugins(wind_damage::WindDamagePlugin);
+    app.add_plugins(wind_power::WindPowerPlugin);
     app.add_plugins(urban_heat_island::UrbanHeatIslandPlugin);
     app.add_plugins(uhi_mitigation::UhiMitigationPlugin);
     app.add_plugins(drought::DroughtPlugin);
