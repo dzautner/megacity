@@ -3,6 +3,8 @@ use bevy::prelude::*;
 
 use simulation::config::{WORLD_HEIGHT, WORLD_WIDTH};
 
+use crate::camera_smoothing::CameraTarget;
+
 const PAN_SPEED: f32 = 500.0;
 const ZOOM_SPEED: f32 = 0.15;
 const MIN_DISTANCE: f32 = 20.0;
@@ -124,10 +126,10 @@ pub fn apply_orbit_camera(
 pub fn camera_pan_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut orbit: ResMut<OrbitCamera>,
+    mut target: ResMut<CameraTarget>,
     bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
-    let scale = orbit.distance / 1000.0;
+    let scale = target.distance / 1000.0;
 
     let mut dir = Vec2::ZERO;
     if bindings.camera_pan_up.pressed(&keys) || bindings.camera_pan_up_alt.pressed(&keys) {
@@ -147,13 +149,13 @@ pub fn camera_pan_keyboard(
         let dir = dir.normalize();
         let delta = PAN_SPEED * scale * time.delta_secs();
         // Rotate movement direction by current yaw
-        let cos_yaw = orbit.yaw.cos();
-        let sin_yaw = orbit.yaw.sin();
+        let cos_yaw = target.yaw.cos();
+        let sin_yaw = target.yaw.sin();
         let world_x = dir.x * cos_yaw + dir.y * sin_yaw;
         let world_z = -dir.x * sin_yaw + dir.y * cos_yaw;
-        orbit.focus.x += world_x * delta;
-        orbit.focus.z += world_z * delta;
-        clamp_focus(&mut orbit.focus);
+        target.focus.x += world_x * delta;
+        target.focus.z += world_z * delta;
+        clamp_focus(&mut target.focus);
     }
 }
 
@@ -162,12 +164,12 @@ pub fn camera_pan_drag(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut drag: ResMut<CameraDrag>,
-    mut orbit: ResMut<OrbitCamera>,
+    mut target: ResMut<CameraTarget>,
 ) {
     let Ok(window) = windows.get_single() else {
         return;
     };
-    let scale = orbit.distance / 1000.0;
+    let scale = target.distance / 1000.0;
 
     if buttons.just_pressed(MouseButton::Middle) {
         if let Some(pos) = window.cursor_position() {
@@ -184,13 +186,13 @@ pub fn camera_pan_drag(
         if let Some(pos) = window.cursor_position() {
             let delta = pos - drag.last_pos;
             // Rotate pan direction by current yaw
-            let cos_yaw = orbit.yaw.cos();
-            let sin_yaw = orbit.yaw.sin();
+            let cos_yaw = target.yaw.cos();
+            let sin_yaw = target.yaw.sin();
             let world_x = -delta.x * cos_yaw - delta.y * sin_yaw;
             let world_z = delta.x * sin_yaw - delta.y * cos_yaw;
-            orbit.focus.x += world_x * scale;
-            orbit.focus.z += world_z * scale;
-            clamp_focus(&mut orbit.focus);
+            target.focus.x += world_x * scale;
+            target.focus.z += world_z * scale;
+            clamp_focus(&mut target.focus);
             drag.last_pos = pos;
         }
     }
@@ -204,7 +206,7 @@ pub fn camera_orbit_drag(
     windows: Query<&Window>,
     mut drag: ResMut<CameraOrbitDrag>,
     mut right_click: ResMut<RightClickDrag>,
-    mut orbit: ResMut<OrbitCamera>,
+    mut target: ResMut<CameraTarget>,
 ) {
     let Ok(window) = windows.get_single() else {
         return;
@@ -246,9 +248,9 @@ pub fn camera_orbit_drag(
             // Only orbit once we've exceeded the threshold
             if right_click.is_dragging {
                 let delta = pos - drag.last_pos;
-                orbit.yaw += delta.x * ORBIT_SENSITIVITY;
-                orbit.pitch =
-                    (orbit.pitch - delta.y * ORBIT_SENSITIVITY).clamp(MIN_PITCH, MAX_PITCH);
+                target.yaw += delta.x * ORBIT_SENSITIVITY;
+                target.pitch =
+                    (target.pitch - delta.y * ORBIT_SENSITIVITY).clamp(MIN_PITCH, MAX_PITCH);
                 drag.last_pos = pos;
             }
         }
@@ -264,12 +266,12 @@ pub fn camera_left_drag(
     keys: Res<ButtonInput<KeyCode>>,
     windows: Query<&Window>,
     mut left_drag: ResMut<LeftClickDrag>,
-    mut orbit: ResMut<OrbitCamera>,
+    mut target: ResMut<CameraTarget>,
 ) {
     let Ok(window) = windows.get_single() else {
         return;
     };
-    let scale = orbit.distance / 1000.0;
+    let scale = target.distance / 1000.0;
 
     if buttons.just_pressed(MouseButton::Left) {
         if let Some(pos) = window.cursor_position() {
@@ -303,13 +305,13 @@ pub fn camera_left_drag(
 
             if left_drag.is_dragging {
                 let delta = pos - left_drag.last_pos;
-                let cos_yaw = orbit.yaw.cos();
-                let sin_yaw = orbit.yaw.sin();
+                let cos_yaw = target.yaw.cos();
+                let sin_yaw = target.yaw.sin();
                 let world_x = -delta.x * cos_yaw - delta.y * sin_yaw;
                 let world_z = delta.x * sin_yaw - delta.y * cos_yaw;
-                orbit.focus.x += world_x * scale;
-                orbit.focus.z += world_z * scale;
-                clamp_focus(&mut orbit.focus);
+                target.focus.x += world_x * scale;
+                target.focus.z += world_z * scale;
+                clamp_focus(&mut target.focus);
                 left_drag.last_pos = pos;
             }
         }
@@ -320,7 +322,7 @@ pub fn camera_left_drag(
 pub fn camera_rotate_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut orbit: ResMut<OrbitCamera>,
+    mut target: ResMut<CameraTarget>,
     bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
     let mut yaw_delta = 0.0;
@@ -331,26 +333,26 @@ pub fn camera_rotate_keyboard(
         yaw_delta += 1.0;
     }
     if yaw_delta != 0.0 {
-        orbit.yaw += yaw_delta * KEYBOARD_ROTATE_SPEED * time.delta_secs();
+        target.yaw += yaw_delta * KEYBOARD_ROTATE_SPEED * time.delta_secs();
     }
 }
 
 /// Scroll wheel: zoom (change distance).
-pub fn camera_zoom(mut scroll_evts: EventReader<MouseWheel>, mut orbit: ResMut<OrbitCamera>) {
+pub fn camera_zoom(mut scroll_evts: EventReader<MouseWheel>, mut target: ResMut<CameraTarget>) {
     for evt in scroll_evts.read() {
         let dy = match evt.unit {
             MouseScrollUnit::Line => evt.y,
             MouseScrollUnit::Pixel => evt.y / 100.0,
         };
         let factor = 1.0 - dy * ZOOM_SPEED;
-        orbit.distance = (orbit.distance * factor).clamp(MIN_DISTANCE, MAX_DISTANCE);
+        target.distance = (target.distance * factor).clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 }
 
 /// Numpad +/-: zoom in/out (same step as one scroll line).
 pub fn camera_zoom_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
-    mut orbit: ResMut<OrbitCamera>,
+    mut target: ResMut<CameraTarget>,
     bindings: Res<simulation::keybindings::KeyBindings>,
 ) {
     let mut dy = 0.0;
@@ -362,6 +364,6 @@ pub fn camera_zoom_keyboard(
     }
     if dy != 0.0 {
         let factor = 1.0 - dy * ZOOM_SPEED;
-        orbit.distance = (orbit.distance * factor).clamp(MIN_DISTANCE, MAX_DISTANCE);
+        target.distance = (target.distance * factor).clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 }

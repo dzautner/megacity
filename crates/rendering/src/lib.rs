@@ -9,6 +9,7 @@ pub mod building_preview_mesh;
 pub mod building_render;
 pub mod building_status_enhanced;
 pub mod camera;
+pub mod camera_smoothing;
 pub mod citizen_render;
 pub mod color_ramps;
 pub mod colorblind_palette;
@@ -46,6 +47,7 @@ mod plugin_registration;
 
 use angle_snap::AngleSnapState;
 use camera::{CameraDrag, LeftClickDrag, RightClickDrag};
+use camera_smoothing::{CameraSmoothingConfig, CameraTarget, LastSmoothedState};
 use input::{
     ActiveTool, CursorGridPos, GridSnap, IntersectionSnap, RoadDrawState, SelectedBuilding,
     StatusMessage,
@@ -60,6 +62,9 @@ impl Plugin for RenderingPlugin {
         app.init_resource::<CameraDrag>()
             .init_resource::<LeftClickDrag>()
             .init_resource::<RightClickDrag>()
+            .init_resource::<CameraTarget>()
+            .init_resource::<CameraSmoothingConfig>()
+            .init_resource::<LastSmoothedState>()
             .init_resource::<CursorGridPos>()
             .init_resource::<ActiveTool>()
             .init_resource::<OverlayState>()
