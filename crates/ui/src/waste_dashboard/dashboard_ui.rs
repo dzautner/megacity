@@ -1,127 +1,23 @@
-//! Waste Management Dashboard UI Panel (WASTE-011).
+//! Main waste management dashboard UI rendering.
 //!
-//! Displays a comprehensive waste management overview including:
-//! - Total waste generated, collected, and uncollected (tons/day)
-//! - Diversion metrics: recycling rate, composting rate, WTE rate
-//! - Landfill capacity: current fill percentage and years remaining
-//! - Waste stream breakdown (paper, food, yard, plastics, metals, glass, wood, textiles, other)
-//! - Collection coverage: percentage of buildings served
-//! - Monthly waste budget: collection cost, processing cost, recycling revenue, net cost
-//! - Warning indicators for low landfill capacity, uncollected waste, and overflow
+//! Contains the primary `waste_dashboard_ui` system and rendering helpers for
+//! warnings, stat lines, budget lines, and waste stream breakdown bars.
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
 use simulation::composting::CompostingState;
 use simulation::garbage::WasteSystem;
-use simulation::landfill_warning::{LandfillCapacityState, LandfillWarningTier};
+use simulation::landfill_warning::LandfillCapacityState;
 use simulation::recycling::RecyclingState;
 use simulation::waste_composition::WasteComposition;
 
-// =============================================================================
-// Visibility resource
-// =============================================================================
-
-/// Resource controlling whether the waste management dashboard is visible.
-/// Toggle with 'G' key.
-#[derive(Resource, Default)]
-pub struct WasteDashboardVisible(pub bool);
-
-// =============================================================================
-// Keybind system
-// =============================================================================
-
-// =============================================================================
-// Helper: format tons for display
-// =============================================================================
-
-/// Formats a tonnage value for human-readable display.
-fn fmt_tons(tons: f64) -> String {
-    if tons >= 1_000_000.0 {
-        format!("{:.1}M", tons / 1_000_000.0)
-    } else if tons >= 1_000.0 {
-        format!("{:.1}K", tons / 1_000.0)
-    } else if tons >= 1.0 {
-        format!("{:.1}", tons)
-    } else {
-        format!("{:.2}", tons)
-    }
-}
-
-/// Formats a percentage (0.0..1.0) for display as "XX.X%".
-fn fmt_pct(fraction: f64) -> String {
-    format!("{:.1}%", fraction * 100.0)
-}
-
-/// Formats a dollar amount for display.
-fn fmt_dollars(amount: f64) -> String {
-    if amount.abs() >= 1_000_000.0 {
-        format!("${:.1}M", amount / 1_000_000.0)
-    } else if amount.abs() >= 1_000.0 {
-        format!("${:.1}K", amount / 1_000.0)
-    } else {
-        format!("${:.0}", amount)
-    }
-}
-
-// =============================================================================
-// Warning indicator helpers
-// =============================================================================
-
-/// Warning severity level for the dashboard.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WarningSeverity {
-    None,
-    Low,
-    High,
-    Critical,
-}
-
-/// Returns the warning severity for landfill capacity.
-pub fn landfill_warning_severity(landfill: &LandfillCapacityState) -> WarningSeverity {
-    match landfill.current_tier {
-        LandfillWarningTier::Normal => WarningSeverity::None,
-        LandfillWarningTier::Low => WarningSeverity::Low,
-        LandfillWarningTier::Critical => WarningSeverity::High,
-        LandfillWarningTier::VeryLow | LandfillWarningTier::Emergency => WarningSeverity::Critical,
-    }
-}
-
-/// Returns the warning severity for uncollected waste.
-pub fn uncollected_warning_severity(waste: &WasteSystem) -> WarningSeverity {
-    if waste.uncovered_buildings == 0 {
-        WarningSeverity::None
-    } else if waste.uncovered_buildings < 10 {
-        WarningSeverity::Low
-    } else if waste.uncovered_buildings < 50 {
-        WarningSeverity::High
-    } else {
-        WarningSeverity::Critical
-    }
-}
-
-/// Returns the warning severity for collection overflow (capacity < generation).
-pub fn overflow_warning_severity(waste: &WasteSystem) -> WarningSeverity {
-    if waste.collection_rate >= 1.0 {
-        WarningSeverity::None
-    } else if waste.collection_rate >= 0.8 {
-        WarningSeverity::Low
-    } else if waste.collection_rate >= 0.5 {
-        WarningSeverity::High
-    } else {
-        WarningSeverity::Critical
-    }
-}
-
-/// Returns the egui color for a warning severity.
-fn warning_color(severity: WarningSeverity) -> egui::Color32 {
-    match severity {
-        WarningSeverity::None => egui::Color32::from_rgb(80, 200, 80),
-        WarningSeverity::Low => egui::Color32::from_rgb(220, 200, 50),
-        WarningSeverity::High => egui::Color32::from_rgb(240, 140, 40),
-        WarningSeverity::Critical => egui::Color32::from_rgb(255, 60, 60),
-    }
-}
+use super::formatting::{fmt_dollars, fmt_pct, fmt_tons};
+use super::warnings::{
+    landfill_warning_severity, overflow_warning_severity, uncollected_warning_severity,
+    warning_color, WarningSeverity,
+};
+use super::WasteDashboardVisible;
 
 // =============================================================================
 // Dashboard UI system
@@ -468,225 +364,15 @@ fn render_waste_stream(ui: &mut egui::Ui, composition: &WasteComposition) {
 }
 
 // =============================================================================
-// Plugin
-// =============================================================================
-
-pub struct WasteDashboardPlugin;
-
-impl Plugin for WasteDashboardPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<WasteDashboardVisible>()
-            .add_systems(Update, waste_dashboard_ui);
-    }
-}
-
-// =============================================================================
 // Tests
 // =============================================================================
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::formatting::fmt_tons;
 
-    // =========================================================================
-    // Formatting tests
-    // =========================================================================
-
-    #[test]
-    fn test_fmt_tons_small() {
-        assert_eq!(fmt_tons(0.5), "0.50");
-        assert_eq!(fmt_tons(0.99), "0.99");
-    }
-
-    #[test]
-    fn test_fmt_tons_medium() {
-        assert_eq!(fmt_tons(1.0), "1.0");
-        assert_eq!(fmt_tons(42.7), "42.7");
-        assert_eq!(fmt_tons(999.9), "999.9");
-    }
-
-    #[test]
-    fn test_fmt_tons_thousands() {
-        assert_eq!(fmt_tons(1_000.0), "1.0K");
-        assert_eq!(fmt_tons(5_500.0), "5.5K");
-        assert_eq!(fmt_tons(999_999.0), "1000.0K");
-    }
-
-    #[test]
-    fn test_fmt_tons_millions() {
-        assert_eq!(fmt_tons(1_000_000.0), "1.0M");
-        assert_eq!(fmt_tons(2_500_000.0), "2.5M");
-    }
-
-    #[test]
-    fn test_fmt_pct() {
-        assert_eq!(fmt_pct(0.0), "0.0%");
-        assert_eq!(fmt_pct(0.5), "50.0%");
-        assert_eq!(fmt_pct(1.0), "100.0%");
-        assert_eq!(fmt_pct(0.857), "85.7%");
-    }
-
-    #[test]
-    fn test_fmt_dollars_small() {
-        assert_eq!(fmt_dollars(50.0), "$50");
-        assert_eq!(fmt_dollars(999.0), "$999");
-    }
-
-    #[test]
-    fn test_fmt_dollars_thousands() {
-        assert_eq!(fmt_dollars(1_000.0), "$1.0K");
-        assert_eq!(fmt_dollars(5_500.0), "$5.5K");
-    }
-
-    #[test]
-    fn test_fmt_dollars_millions() {
-        assert_eq!(fmt_dollars(1_000_000.0), "$1.0M");
-    }
-
-    #[test]
-    fn test_fmt_dollars_negative() {
-        assert_eq!(fmt_dollars(-5_000.0), "$-5.0K");
-    }
-
-    // =========================================================================
-    // Warning severity tests
-    // =========================================================================
-
-    #[test]
-    fn test_landfill_warning_normal() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::Normal,
-            ..Default::default()
-        };
-        assert_eq!(landfill_warning_severity(&state), WarningSeverity::None);
-    }
-
-    #[test]
-    fn test_landfill_warning_low() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::Low,
-            ..Default::default()
-        };
-        assert_eq!(landfill_warning_severity(&state), WarningSeverity::Low);
-    }
-
-    #[test]
-    fn test_landfill_warning_critical() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::Critical,
-            ..Default::default()
-        };
-        assert_eq!(landfill_warning_severity(&state), WarningSeverity::High);
-    }
-
-    #[test]
-    fn test_landfill_warning_very_low() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::VeryLow,
-            ..Default::default()
-        };
-        assert_eq!(landfill_warning_severity(&state), WarningSeverity::Critical);
-    }
-
-    #[test]
-    fn test_landfill_warning_emergency() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::Emergency,
-            ..Default::default()
-        };
-        assert_eq!(landfill_warning_severity(&state), WarningSeverity::Critical);
-    }
-
-    #[test]
-    fn test_uncollected_warning_none() {
-        let waste = WasteSystem {
-            uncovered_buildings: 0,
-            ..Default::default()
-        };
-        assert_eq!(uncollected_warning_severity(&waste), WarningSeverity::None);
-    }
-
-    #[test]
-    fn test_uncollected_warning_low() {
-        let waste = WasteSystem {
-            uncovered_buildings: 5,
-            ..Default::default()
-        };
-        assert_eq!(uncollected_warning_severity(&waste), WarningSeverity::Low);
-    }
-
-    #[test]
-    fn test_uncollected_warning_high() {
-        let waste = WasteSystem {
-            uncovered_buildings: 25,
-            ..Default::default()
-        };
-        assert_eq!(uncollected_warning_severity(&waste), WarningSeverity::High);
-    }
-
-    #[test]
-    fn test_uncollected_warning_critical() {
-        let waste = WasteSystem {
-            uncovered_buildings: 100,
-            ..Default::default()
-        };
-        assert_eq!(
-            uncollected_warning_severity(&waste),
-            WarningSeverity::Critical
-        );
-    }
-
-    #[test]
-    fn test_overflow_warning_none() {
-        let waste = WasteSystem {
-            collection_rate: 1.0,
-            ..Default::default()
-        };
-        assert_eq!(overflow_warning_severity(&waste), WarningSeverity::None);
-    }
-
-    #[test]
-    fn test_overflow_warning_low() {
-        let waste = WasteSystem {
-            collection_rate: 0.85,
-            ..Default::default()
-        };
-        assert_eq!(overflow_warning_severity(&waste), WarningSeverity::Low);
-    }
-
-    #[test]
-    fn test_overflow_warning_high() {
-        let waste = WasteSystem {
-            collection_rate: 0.6,
-            ..Default::default()
-        };
-        assert_eq!(overflow_warning_severity(&waste), WarningSeverity::High);
-    }
-
-    #[test]
-    fn test_overflow_warning_critical() {
-        let waste = WasteSystem {
-            collection_rate: 0.3,
-            ..Default::default()
-        };
-        assert_eq!(overflow_warning_severity(&waste), WarningSeverity::Critical);
-    }
-
-    // =========================================================================
-    // Warning color tests
-    // =========================================================================
-
-    #[test]
-    fn test_warning_colors_distinct() {
-        let none = warning_color(WarningSeverity::None);
-        let low = warning_color(WarningSeverity::Low);
-        let high = warning_color(WarningSeverity::High);
-        let crit = warning_color(WarningSeverity::Critical);
-        // All colors should be different
-        assert_ne!(none, low);
-        assert_ne!(low, high);
-        assert_ne!(high, crit);
-    }
+    use simulation::garbage::WasteSystem;
+    use simulation::landfill_warning::LandfillCapacityState;
 
     // =========================================================================
     // Dashboard shows correct waste generation rate (test plan item 1)
@@ -751,49 +437,12 @@ mod tests {
     }
 
     // =========================================================================
-    // Warning appears when landfill below 25% (test plan item 3)
-    // =========================================================================
-
-    #[test]
-    fn test_warning_at_25_pct_remaining() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::Low,
-            remaining_pct: 25.0,
-            ..Default::default()
-        };
-        let severity = landfill_warning_severity(&state);
-        assert_ne!(severity, WarningSeverity::None);
-    }
-
-    #[test]
-    fn test_no_warning_above_25_pct() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::Normal,
-            remaining_pct: 50.0,
-            ..Default::default()
-        };
-        let severity = landfill_warning_severity(&state);
-        assert_eq!(severity, WarningSeverity::None);
-    }
-
-    #[test]
-    fn test_warning_at_10_pct_remaining() {
-        let state = LandfillCapacityState {
-            current_tier: LandfillWarningTier::Critical,
-            remaining_pct: 10.0,
-            ..Default::default()
-        };
-        let severity = landfill_warning_severity(&state);
-        assert_eq!(severity, WarningSeverity::High);
-    }
-
-    // =========================================================================
     // Visibility toggle tests
     // =========================================================================
 
     #[test]
     fn test_visibility_default_hidden() {
-        let visible = WasteDashboardVisible::default();
+        let visible = super::super::WasteDashboardVisible::default();
         assert!(!visible.0);
     }
 
