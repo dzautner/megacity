@@ -5,7 +5,17 @@ use crate::services::ServiceBuilding;
 use crate::urban_growth_boundary::UrbanGrowthBoundary;
 use bevy::prelude::*;
 
-#[derive(Resource)]
+/// Exponential smoothing factor: how quickly land values converge to the
+/// computed "target" each slow-tick.  Lower values = more momentum / slower
+/// change.  At 0.1 a value reaches ~87 % of the target after 20 ticks.
+const SMOOTHING_ALPHA: f32 = 0.1;
+
+/// Weight given to each of the 8 neighbours during diffusion.
+/// Total neighbour weight = 8 * DIFFUSION_WEIGHT; self weight = 1 - 8 * DIFFUSION_WEIGHT.
+/// With 0.02 per neighbour, self retains 84 % of its value.
+const DIFFUSION_WEIGHT: f32 = 0.02;
+
+#[derive(Resource, bitcode::Encode, bitcode::Decode)]
 pub struct LandValueGrid {
     pub values: Vec<u8>,
     pub width: usize,
@@ -38,6 +48,28 @@ impl LandValueGrid {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Saveable implementation — persists land values across save / load
+// ---------------------------------------------------------------------------
+
+impl crate::Saveable for LandValueGrid {
+    const SAVE_KEY: &'static str = "land_value";
+
+    fn save_to_bytes(&self) -> Option<Vec<u8>> {
+        // Always save — the grid is large and we can't cheaply detect
+        // "still at default".
+        Some(bitcode::encode(self))
+    }
+
+    fn load_from_bytes(bytes: &[u8]) -> Self {
+        crate::decode_or_warn(Self::SAVE_KEY, bytes)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// System: compute target values, apply exponential smoothing + diffusion
+// ---------------------------------------------------------------------------
+
 #[allow(clippy::too_many_arguments)]
 pub fn update_land_value(
     slow_timer: Res<crate::SlowTickTimer>,
@@ -52,7 +84,12 @@ pub fn update_land_value(
     if !slow_timer.should_run() {
         return;
     }
-    // Reset to base value
+
+    let total = GRID_WIDTH * GRID_HEIGHT;
+
+    // ---- Phase 1: compute raw "target" value per cell -----------------------
+    let mut target = vec![0i32; total];
+
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {
             let cell = grid.get(x, y);
@@ -99,11 +136,11 @@ pub fn update_land_value(
             // Urban Growth Boundary: premium inside, penalty outside (ZONE-009).
             value += ugb.land_value_modifier(x, y);
 
-            land_value.set(x, y, value.clamp(0, 255) as u8);
+            target[y * GRID_WIDTH + x] = value.clamp(0, 255);
         }
     }
 
-    // Parks and services boost land value in radius
+    // Parks and services boost target values in radius
     for service in &services {
         let (boost, radius): (i32, i32) = if ServiceBuilding::is_park(service.service_type) {
             (20, 8)
@@ -118,14 +155,52 @@ pub fn update_land_value(
                 if nx >= 0 && ny >= 0 && (nx as usize) < GRID_WIDTH && (ny as usize) < GRID_HEIGHT {
                     let dist = dx.abs() + dy.abs();
                     let effect = (boost - dist * 2).max(0);
-                    let cur = land_value.get(nx as usize, ny as usize);
-                    land_value.set(
-                        nx as usize,
-                        ny as usize,
-                        (cur as i32 + effect).min(255) as u8,
-                    );
+                    let idx = ny as usize * GRID_WIDTH + nx as usize;
+                    target[idx] = (target[idx] + effect).min(255);
                 }
             }
+        }
+    }
+
+    // ---- Phase 2: exponential smoothing toward targets ----------------------
+    // new = alpha * target + (1 - alpha) * previous
+    for (cell, &tgt) in land_value.values.iter_mut().zip(target.iter()) {
+        let prev = *cell as f32;
+        let smoothed = SMOOTHING_ALPHA * tgt as f32 + (1.0 - SMOOTHING_ALPHA) * prev;
+        *cell = smoothed.round().clamp(0.0, 255.0) as u8;
+    }
+
+    // ---- Phase 3: neighbourhood diffusion -----------------------------------
+    // Each cell blends slightly with its 8 neighbours.
+    // We read from a snapshot so writes don't cascade within one tick.
+    let snapshot = land_value.values.clone();
+    let self_weight = 1.0 - 8.0 * DIFFUSION_WEIGHT;
+
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
+            let idx = y * GRID_WIDTH + x;
+            let mut sum = snapshot[idx] as f32 * self_weight;
+
+            for dy in -1i32..=1 {
+                for dx in -1i32..=1 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+                    let nx = x as i32 + dx;
+                    let ny = y as i32 + dy;
+                    if nx >= 0
+                        && ny >= 0
+                        && (nx as usize) < GRID_WIDTH
+                        && (ny as usize) < GRID_HEIGHT
+                    {
+                        sum += snapshot[ny as usize * GRID_WIDTH + nx as usize] as f32
+                            * DIFFUSION_WEIGHT;
+                    }
+                    // Out-of-bounds neighbours contribute 0 (natural boundary).
+                }
+            }
+
+            land_value.values[idx] = sum.round().clamp(0.0, 255.0) as u8;
         }
     }
 }
@@ -140,5 +215,11 @@ impl Plugin for LandValuePlugin {
                 .after(crate::pollution::update_pollution)
                 .in_set(crate::SimulationSet::Simulation),
         );
+
+        // Register for save/load via the SaveableRegistry
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<LandValueGrid>();
     }
 }
