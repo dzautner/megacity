@@ -13,7 +13,7 @@ use crate::citizen::{
     CitizenDetails, CitizenState, CitizenStateComp, Gender, Needs, Personality, Position, Velocity,
 };
 use crate::economy::CityBudget;
-use crate::grid::{CellType, RoadType, WorldGrid, ZoneType};
+use crate::grid::{CellType, RoadType, ZoneType};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
