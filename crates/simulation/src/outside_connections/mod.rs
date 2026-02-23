@@ -7,7 +7,8 @@ pub mod systems;
 pub mod types;
 
 mod tests_application;
-mod tests_detection;
+mod tests_detection_edge_highway;
+mod tests_detection_services;
 mod tests_effects;
 mod tests_types;
 
