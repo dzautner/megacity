@@ -32,6 +32,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Pollution, land value, garbage, districts
     app.add_plugins(pollution::PollutionPlugin);
+    app.add_plugins(pollution_health::PollutionHealthPlugin);
     app.add_plugins(land_value::LandValuePlugin);
     app.add_plugins(garbage::GarbagePlugin);
     app.add_plugins(districts::DistrictsPlugin);
