@@ -65,6 +65,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "superblock_state",
     "traffic_los",
     "traffic_los_state",
+    "tourism",
     "train_transit",
     "tram_transit",
     "tram_transit_stats",
