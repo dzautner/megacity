@@ -19,6 +19,7 @@ fn tick_slow(city: &mut TestCity) {
 #[test]
 fn test_daycare_eldercare_resources_initialized() {
     let city = TestCity::new();
+    let state = city.resource::<DaycareEldercareState>();
     assert_eq!(state.daycare_count, 0);
     assert_eq!(state.eldercare_count, 0);
     assert_eq!(state.daycare_covered_citizens, 0);
@@ -37,7 +38,6 @@ fn test_daycare_eldercare_resources_initialized() {
 #[test]
 fn test_daycare_coverage_computed_after_placement() {
     let mut city = TestCity::new().with_service(50, 50, ServiceType::Daycare);
-    // Run ticks to trigger coverage update
     city.tick(5);
     let coverage = city.resource::<DaycareEldercareCoverage>();
     assert!(
@@ -56,7 +56,6 @@ fn test_daycare_coverage_radius() {
     city.tick(5);
     let coverage = city.resource::<DaycareEldercareCoverage>();
 
-    // Cell within radius (20 cells) should be covered
     assert!(
         coverage.has_daycare(55, 50),
         "Cell 5 away should be within daycare radius of 20"
@@ -65,8 +64,6 @@ fn test_daycare_coverage_radius() {
         coverage.has_daycare(50, 60),
         "Cell 10 away should be within daycare radius of 20"
     );
-
-    // Cell far outside radius should not be covered
     assert!(
         !coverage.has_daycare(100, 100),
         "Cell 50+ away should not be within daycare radius"
@@ -106,13 +103,10 @@ fn test_eldercare_coverage_radius() {
     city.tick(5);
     let coverage = city.resource::<DaycareEldercareCoverage>();
 
-    // Cell within radius (15 cells) should be covered
     assert!(
         coverage.has_eldercare(85, 80),
         "Cell 5 away should be within eldercare radius of 15"
     );
-
-    // Cell far outside radius should not be covered
     assert!(
         !coverage.has_eldercare(120, 120),
         "Cell 40+ away should not be within eldercare radius"
@@ -146,9 +140,9 @@ fn test_daycare_happiness_bonus_applied() {
         .with_service(50, 50, ServiceType::Daycare)
         .with_building(51, 50, ZoneType::ResidentialLow, 1)
         .with_citizen((51, 50), (51, 50));
-    // Get initial happiness before effects
     city.tick(5);
     tick_slow(&mut city);
+    let state = city.resource::<DaycareEldercareState>();
     assert!(
         state.daycare_covered_citizens > 0,
         "Citizen at (51,50) should be covered by daycare at (50,50)"
@@ -163,6 +157,7 @@ fn test_eldercare_happiness_bonus_applied() {
         .with_citizen((81, 80), (81, 80));
     city.tick(5);
     tick_slow(&mut city);
+    let state = city.resource::<DaycareEldercareState>();
     assert!(
         state.eldercare_covered_citizens > 0,
         "Citizen at (81,80) should be covered by eldercare at (80,80)"
@@ -177,8 +172,6 @@ fn test_no_bonus_outside_coverage() {
         .with_citizen((200, 200), (200, 200));
     city.tick(5);
     tick_slow(&mut city);
-    // The citizen at (200,200) is far from the daycare at (50,50)
-    // but there may be other citizens in the world. Check coverage grid directly.
     let coverage = city.resource::<DaycareEldercareCoverage>();
     assert!(
         !coverage.has_daycare(200, 200),
@@ -197,6 +190,7 @@ fn test_maintenance_cost_tracked() {
         .with_service(80, 80, ServiceType::Eldercare);
     city.tick(5);
     tick_slow(&mut city);
+    let state = city.resource::<DaycareEldercareState>();
     assert_eq!(state.daycare_count, 1);
     assert_eq!(state.eldercare_count, 1);
     assert!(
@@ -210,6 +204,7 @@ fn test_no_maintenance_without_buildings() {
     let mut city = TestCity::new();
     city.tick(5);
     tick_slow(&mut city);
+    let state = city.resource::<DaycareEldercareState>();
     assert_eq!(state.monthly_maintenance, 0.0);
 }
 
@@ -221,6 +216,7 @@ fn test_maintenance_scales_with_count() {
         .with_service(70, 70, ServiceType::Daycare);
     city.tick(5);
     tick_slow(&mut city);
+    let state = city.resource::<DaycareEldercareState>();
     assert_eq!(state.daycare_count, 3);
     assert!(
         (state.monthly_maintenance - 45.0).abs() < 0.01,
