@@ -46,6 +46,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "roundabout_registry",
     "seasonal_effects_config",
     "seasonal_rendering",
+    "service_capacity",
     "superblock_state",
     "traffic_los",
     "traffic_los_state",

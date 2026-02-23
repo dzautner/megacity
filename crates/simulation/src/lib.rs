@@ -108,6 +108,7 @@ pub mod roundabout;
 pub mod save_load_state;
 pub mod saveable_keys;
 pub mod seasonal_rendering;
+pub mod service_capacity;
 pub mod services;
 pub mod simulation_invariants;
 pub mod simulation_sets;
