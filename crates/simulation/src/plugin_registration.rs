@@ -245,6 +245,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Time-of-Use Electricity Pricing (POWER-010)
     app.add_plugins(energy_pricing::EnergyPricingPlugin);
+    app.add_plugins(power_grid_balance::PowerGridBalancePlugin);
 
     // Power line transmission and service radius (POWER-011)
     app.add_plugins(power_lines::PowerLinePlugin);
