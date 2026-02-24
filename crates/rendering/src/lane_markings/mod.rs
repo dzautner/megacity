@@ -6,10 +6,10 @@
 //! | Road type  | Center         | Lane dividers | Edge lines |
 //! |------------|----------------|---------------|------------|
 //! | Path       | none           | none          | none       |
-//! | Local      | none           | none          | none       |
-//! | OneWay     | none           | none          | none       |
-//! | Avenue     | double yellow  | none          | none       |
-//! | Boulevard  | yellow center  | dashed white  | none       |
+//! | Local      | dashed white   | none          | none       |
+//! | OneWay     | dashed white   | none          | none       |
+//! | Avenue     | double yellow  | none          | solid white|
+//! | Boulevard  | yellow center  | dashed white  | solid white|
 //! | Highway    | barrier        | dashed white  | solid white|
 
 mod line_primitives;
@@ -129,11 +129,8 @@ pub fn sync_lane_marking_meshes(
             continue;
         }
 
-        // Only avenue, boulevard, and highway get dedicated lane markings.
-        if matches!(
-            segment.road_type,
-            RoadType::Path | RoadType::Local | RoadType::OneWay
-        ) {
+        // Paths have no lane markings.
+        if segment.road_type == RoadType::Path {
             continue;
         }
 

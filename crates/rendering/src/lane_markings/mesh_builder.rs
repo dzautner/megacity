@@ -36,6 +36,31 @@ pub(crate) fn build_lane_marking_mesh(
     let mut indices: Vec<u32> = Vec::new();
 
     match road_type {
+        RoadType::Local | RoadType::OneWay => {
+            // Dashed white center line for two-lane local/one-way roads.
+            emit_dashed_line(
+                &mut positions,
+                &mut normals,
+                &mut colors,
+                &mut uvs,
+                &mut indices,
+                p0,
+                p1,
+                p2,
+                p3,
+                0.0,
+                LINE_HW,
+                Y_MARKING,
+                arc_length,
+                step,
+                total_steps,
+                DASH_LEN,
+                GAP_LEN,
+                WHITE,
+                trim_start,
+                trim_end,
+            );
+        }
         RoadType::Avenue => {
             // Double yellow center lines (solid).
             let offset = 0.3;
@@ -77,6 +102,28 @@ pub(crate) fn build_lane_marking_mesh(
                 trim_start,
                 trim_end,
             );
+            // Solid white edge lines.
+            for &edge in &[-(road_half_w - 0.5), road_half_w - 0.5] {
+                emit_solid_line(
+                    &mut positions,
+                    &mut normals,
+                    &mut colors,
+                    &mut uvs,
+                    &mut indices,
+                    p0,
+                    p1,
+                    p2,
+                    p3,
+                    edge,
+                    LINE_HW,
+                    Y_MARKING,
+                    arc_length,
+                    total_steps,
+                    [1.0, 1.0, 1.0, 0.45],
+                    trim_start,
+                    trim_end,
+                );
+            }
         }
         RoadType::Boulevard => {
             // Solid yellow center line.
@@ -120,6 +167,28 @@ pub(crate) fn build_lane_marking_mesh(
                     total_steps,
                     DASH_LEN,
                     GAP_LEN,
+                    [1.0, 1.0, 1.0, 0.45],
+                    trim_start,
+                    trim_end,
+                );
+            }
+            // Solid white edge lines.
+            for &edge in &[-(road_half_w - 0.5), road_half_w - 0.5] {
+                emit_solid_line(
+                    &mut positions,
+                    &mut normals,
+                    &mut colors,
+                    &mut uvs,
+                    &mut indices,
+                    p0,
+                    p1,
+                    p2,
+                    p3,
+                    edge,
+                    LINE_HW,
+                    Y_MARKING,
+                    arc_length,
+                    total_steps,
                     [1.0, 1.0, 1.0, 0.45],
                     trim_start,
                     trim_end,
@@ -196,7 +265,7 @@ pub(crate) fn build_lane_marking_mesh(
                 );
             }
         }
-        // Path / Local / OneWay: no markings (filtered earlier).
+        // Path: no markings (filtered earlier).
         _ => {}
     }
 
