@@ -489,7 +489,7 @@ fn test_no_reset_without_pending_flag() {
         .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
-    let entity = spawn_citizen_in_state(
+    let _entity = spawn_citizen_in_state(
         &mut city,
         home,
         work,
