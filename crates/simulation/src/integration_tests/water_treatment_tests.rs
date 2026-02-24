@@ -158,7 +158,7 @@ fn test_overflow_increases_water_pollution() {
     city.tick_slow_cycles(3);
 
     // After overflow, pollution should increase near the plant
-    let after = city.resource::<WaterPollutionGrid>().get(50, 50);
+    let _after = city.resource::<WaterPollutionGrid>().get(50, 50);
     // The treatment plant also reduces pollution, but overflow adds more.
     // Check that the overflow effect is visible somewhere in the radius.
     let max_pollution_after = {
