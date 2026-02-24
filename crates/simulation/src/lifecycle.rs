@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use rand::Rng;
 
 use crate::buildings::Building;
@@ -6,14 +7,30 @@ use crate::citizen::{Citizen, CitizenDetails, Family, HomeLocation, WorkLocation
 use crate::death_care::{DeathCareGrid, DeathCareStats};
 use crate::time_of_day::GameClock;
 use crate::virtual_population::VirtualPopulation;
-use crate::TestSafetyNet;
+use crate::{decode_or_warn, Saveable, TestSafetyNet};
 
 const AGING_INTERVAL_DAYS: u32 = 365;
 const MAX_AGE: u8 = 100;
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Encode, Decode)]
 pub struct LifecycleTimer {
     pub last_aging_day: u32,
     pub last_emigration_tick: u32,
+}
+
+// ---------------------------------------------------------------------------
+// Saveable
+// ---------------------------------------------------------------------------
+
+impl Saveable for LifecycleTimer {
+    const SAVE_KEY: &'static str = "lifecycle_timer";
+
+    fn save_to_bytes(&self) -> Option<Vec<u8>> {
+        Some(bitcode::encode(self))
+    }
+
+    fn load_from_bytes(bytes: &[u8]) -> Self {
+        decode_or_warn(Self::SAVE_KEY, bytes)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -193,7 +210,15 @@ pub struct LifecyclePlugin;
 
 impl Plugin for LifecyclePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LifecycleTimer>().add_systems(
+        app.init_resource::<LifecycleTimer>();
+
+        // Register for save/load.
+        let mut registry = app
+            .world_mut()
+            .get_resource_or_insert_with(crate::SaveableRegistry::default);
+        registry.register::<LifecycleTimer>();
+
+        app.add_systems(
             FixedUpdate,
             (age_citizens, emigration)
                 .chain()
