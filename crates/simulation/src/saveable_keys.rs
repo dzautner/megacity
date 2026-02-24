@@ -125,6 +125,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "play_time",
     "power_lines",
     "hybrid_coverage",
+    "service_building_capacity",
     "cultural_prestige",
 ];
 /// Startup system that validates the `SaveableRegistry` against the expected key
