@@ -7,6 +7,7 @@ use crate::milestones::{MilestoneProgress, MilestoneTier};
 use crate::notifications::NotificationLog;
 use crate::test_harness::TestCity;
 use crate::unlocks::{UnlockNode, UnlockState};
+use crate::virtual_population::VirtualPopulation;
 use crate::Saveable;
 
 // =============================================================================
@@ -70,8 +71,14 @@ fn test_milestone_tier_ordering_is_increasing() {
 
 #[test]
 fn test_milestone_tier_next() {
-    assert_eq!(MilestoneTier::Hamlet.next(), Some(MilestoneTier::SmallSettlement));
-    assert_eq!(MilestoneTier::SmallSettlement.next(), Some(MilestoneTier::Village));
+    assert_eq!(
+        MilestoneTier::Hamlet.next(),
+        Some(MilestoneTier::SmallSettlement)
+    );
+    assert_eq!(
+        MilestoneTier::SmallSettlement.next(),
+        Some(MilestoneTier::Village)
+    );
     assert_eq!(MilestoneTier::Megalopolis.next(), None);
 }
 
@@ -234,8 +241,8 @@ fn test_milestone_progress_resource_exists_in_test_city() {
 fn test_milestone_progression_at_240_pop_unlocks_healthcare() {
     let mut city = TestCity::new();
     city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 240;
+        .resource_mut::<VirtualPopulation>()
+        .total_virtual = 240;
     city.tick_slow_cycle();
 
     let progress = city.resource::<MilestoneProgress>();
@@ -252,8 +259,8 @@ fn test_milestone_progression_at_240_pop_unlocks_healthcare() {
 fn test_milestone_progression_at_1200_pop_unlocks_fire_police() {
     let mut city = TestCity::new();
     city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 1_200;
+        .resource_mut::<VirtualPopulation>()
+        .total_virtual = 1_200;
     city.tick_slow_cycle();
 
     let progress = city.resource::<MilestoneProgress>();
@@ -273,8 +280,8 @@ fn test_milestone_progression_awards_dp() {
     let initial_dp = city.resource::<UnlockState>().development_points;
 
     city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 240;
+        .resource_mut::<VirtualPopulation>()
+        .total_virtual = 240;
     city.tick_slow_cycle();
 
     let dp_after = city.resource::<UnlockState>().development_points;
@@ -292,8 +299,8 @@ fn test_milestone_progression_multiple_tiers() {
 
     // Jump to 2,600 pop — should trigger tiers 1, 2, and 3
     city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 2_600;
+        .resource_mut::<VirtualPopulation>()
+        .total_virtual = 2_600;
     city.tick_slow_cycle();
 
     let progress = city.resource::<MilestoneProgress>();
@@ -312,8 +319,8 @@ fn test_milestone_does_not_retrigger() {
     let mut city = TestCity::new();
 
     city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 240;
+        .resource_mut::<VirtualPopulation>()
+        .total_virtual = 240;
     city.tick_slow_cycle();
     let dp_after_first = city.resource::<UnlockState>().development_points;
 
@@ -331,8 +338,8 @@ fn test_milestone_notification_emitted() {
     let mut city = TestCity::new();
 
     city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 240;
+        .resource_mut::<VirtualPopulation>()
+        .total_virtual = 240;
     city.tick_slow_cycle();
 
     let log = city.resource::<NotificationLog>();
@@ -382,4 +389,3 @@ fn test_milestone_progress_save_skips_default() {
         "Default state should skip save"
     );
 }
-
