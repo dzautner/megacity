@@ -44,6 +44,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "form_transect",
     "game_params",
     "gas_power",
+    "groundwater_depletion",
     "groundwater_grid",
     "heat_mitigation",
     "heating_grid",

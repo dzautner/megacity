@@ -38,7 +38,9 @@ pub const RECHARGE_BASIN_BOOST: f32 = 5.0;
 ///
 /// Updated each slow tick by `update_groundwater_depletion`. Downstream systems
 /// (well pumps, UI overlays, budget) read these metrics to adjust behaviour.
-#[derive(Resource, Clone, Debug, Serialize, Deserialize)]
+#[derive(
+    Resource, Clone, Debug, Serialize, Deserialize, bitcode::Encode, bitcode::Decode,
+)]
 pub struct GroundwaterDepletionState {
     /// Total extraction rate across the grid (sum of level decreases per tick).
     pub extraction_rate: f32,
@@ -92,5 +94,34 @@ impl Default for GroundwaterDepletionState {
             cells_at_risk: 0,
             over_extracted_cells: 0,
         }
+    }
+}
+
+// =============================================================================
+// Saveable implementation
+// =============================================================================
+
+impl crate::Saveable for GroundwaterDepletionState {
+    const SAVE_KEY: &'static str = "groundwater_depletion";
+
+    fn save_to_bytes(&self) -> Option<Vec<u8>> {
+        // Skip saving if at default state (no extraction/recharge activity,
+        // no subsidence tracking, and no previous level snapshot).
+        let default = Self::default();
+        if self.extraction_rate == 0.0
+            && self.recharge_rate == 0.0
+            && self.subsidence_cells == 0
+            && self.previous_levels.is_empty()
+            && self.ticks_below_threshold.iter().all(|&t| t == 0)
+            && self.well_yield_modifier == default.well_yield_modifier
+            && !self.critical_depletion
+        {
+            return None;
+        }
+        Some(bitcode::encode(self))
+    }
+
+    fn load_from_bytes(bytes: &[u8]) -> Self {
+        crate::decode_or_warn(Self::SAVE_KEY, bytes)
     }
 }
