@@ -4,6 +4,7 @@ use crate::buildings::Building;
 use crate::grid::{RoadType, ZoneType};
 use crate::natural_resources::{ResourceDeposit, ResourceGrid, ResourceType};
 use crate::production::{IndustryBuilding, IndustryType};
+use crate::production::IndustryBuilding;
 use crate::production_chain::{Commodity, DeepChainBuilding, DeepProductionChainState};
 use crate::test_harness::TestCity;
 
@@ -61,12 +62,14 @@ fn test_forestry_chain_produces_timber() {
     city.tick(5);
 
     // Now force the IndustryBuilding to Forestry with workers
+    // Assign as Forestry industry with workers
     {
         let world = city.world_mut();
         let mut q = world.query::<(&mut Building, &mut IndustryBuilding)>();
         for (mut building, mut industry) in q.iter_mut(world) {
             building.occupants = 20;
             industry.industry_type = IndustryType::Forestry;
+            industry.industry_type = crate::production::IndustryType::Forestry;
             industry.workers = 20;
             industry.efficiency = 0.8;
         }
@@ -75,6 +78,16 @@ fn test_forestry_chain_produces_timber() {
     // Run enough production cycles for DeepChainBuilding to be assigned and produce
     // CHAIN_INTERVAL=10, so 60 ticks = 6 cycles
     city.tick(60);
+    // Run production cycles
+    city.tick(50);
+
+    let state = city.resource::<DeepProductionChainState>();
+    let timber = state.stock(Commodity::Timber);
+    let prod_rate = state
+        .production_rates
+        .get(&Commodity::Timber)
+        .copied()
+        .unwrap_or(0.0);
 
     // The building should have been assigned a DeepChainBuilding
     let has_chain_building = {
@@ -122,6 +135,7 @@ fn test_processing_disrupted_without_inputs() {
         for (mut building, mut industry) in q.iter_mut(world) {
             building.occupants = 15;
             industry.industry_type = IndustryType::SawMill;
+            industry.industry_type = crate::production::IndustryType::SawMill;
             industry.workers = 15;
             industry.efficiency = 0.7;
         }
@@ -130,6 +144,7 @@ fn test_processing_disrupted_without_inputs() {
     // Run without any Timber in the stockpile
     // Need enough ticks: first cycle assigns DeepChainBuilding, second+ cycles detect disruption
     city.tick(60);
+    city.tick(30);
 
     // The building should become disrupted
     let disrupted = {
@@ -179,6 +194,7 @@ fn test_downstream_stops_when_supply_cut() {
     city.tick(5);
 
     // Assign: first building = Forestry (extraction), second = SawMill (processing)
+    // First building: Forestry (extraction), Second: SawMill (processing)
     {
         let world = city.world_mut();
         let mut q = world.query::<(&mut Building, &mut IndustryBuilding)>();
@@ -188,11 +204,17 @@ fn test_downstream_stops_when_supply_cut() {
         if buildings.len() >= 2 {
             buildings[0].0.occupants = 20;
             buildings[0].1.industry_type = IndustryType::Forestry;
+        if buildings.len() >= 2 {
+            buildings.sort_by_key(|(b, _)| b.grid_y);
+
+            buildings[0].0.occupants = 20;
+            buildings[0].1.industry_type = crate::production::IndustryType::Forestry;
             buildings[0].1.workers = 20;
             buildings[0].1.efficiency = 0.8;
 
             buildings[1].0.occupants = 15;
             buildings[1].1.industry_type = IndustryType::SawMill;
+            buildings[1].1.industry_type = crate::production::IndustryType::SawMill;
             buildings[1].1.workers = 15;
             buildings[1].1.efficiency = 0.7;
         }
@@ -200,6 +222,8 @@ fn test_downstream_stops_when_supply_cut() {
 
     // Run to establish production (DeepChainBuilding assignment + production)
     city.tick(60);
+    // Run to establish production
+    city.tick(30);
 
     // Now remove all Timber from stockpile
     {
@@ -242,6 +266,8 @@ fn test_downstream_stops_when_supply_cut() {
 
     // Run more ticks - SawMill should become disrupted
     city.tick(60);
+    // Run more ticks - SawMill should eventually become disrupted
+    city.tick(30);
 
     let sawmill_disrupted = {
         let world = city.world_mut();
@@ -255,6 +281,7 @@ fn test_downstream_stops_when_supply_cut() {
         "SawMill should be disrupted when Timber supply is cut off; \
          sawmill_disrupted={sawmill_disrupted}, chain_disrupted={}",
         state.chain_disrupted[1]
+        "SawMill should be disrupted when Timber supply is cut off"
     );
 }
 
