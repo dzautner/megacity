@@ -22,7 +22,6 @@ use crate::{decode_or_warn, Saveable, SaveableRegistry, SimulationSet, TickCount
 /// How often (in ticks) the pricing system runs.
 const PRICING_INTERVAL: u64 = 4;
 
-/// Hours per month for converting between energy units.
 
 // ---------------------------------------------------------------------------
 // Time-of-use period
