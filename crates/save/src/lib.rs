@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 mod atomic_write;
 mod despawn;
 mod exclusive_load;
