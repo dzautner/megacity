@@ -7,6 +7,9 @@
 //!
 //! The `CrashRecoveryState` resource indicates whether recovery is needed
 //! and, if so, which autosave file to recover from.
+//!
+//! Only active on native platforms (WASM uses IndexedDB which does not
+//! leave `.tmp` artifacts).
 
 use bevy::prelude::*;
 use std::path::{Path, PathBuf};
@@ -14,7 +17,14 @@ use std::path::{Path, PathBuf};
 use simulation::autosave::{slot_filename, AUTOSAVE_SLOT_COUNT};
 
 use crate::file_header::{unwrap_header, UnwrapResult};
-use crate::save_plugin::save_file_path;
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+/// The main save file name (mirrors `save_plugin::save_file_path()` without
+/// requiring the cfg-gated import).
+const MAIN_SAVE_FILENAME: &str = "megacity_save.bin";
 
 // =============================================================================
 // Resources
@@ -22,7 +32,7 @@ use crate::save_plugin::save_file_path;
 
 /// Indicates whether crash recovery is needed and provides the path to the
 /// most recent valid autosave for recovery.
-#[derive(Resource, Debug, Clone)]
+#[derive(Resource, Debug, Clone, Default)]
 pub struct CrashRecoveryState {
     /// Whether crash artifacts (`.tmp` files) were detected on startup.
     pub detected: bool,
@@ -32,17 +42,6 @@ pub struct CrashRecoveryState {
     pub tmp_files_cleaned: usize,
     /// Number of autosave slots that failed validation.
     pub corrupted_slots: usize,
-}
-
-impl Default for CrashRecoveryState {
-    fn default() -> Self {
-        Self {
-            detected: false,
-            recovery_path: None,
-            tmp_files_cleaned: 0,
-            corrupted_slots: 0,
-        }
-    }
 }
 
 // =============================================================================
@@ -56,7 +55,7 @@ pub(crate) fn find_tmp_files() -> Vec<PathBuf> {
     let mut tmp_files = Vec::new();
 
     // Check main save file .tmp
-    let main_tmp = format!("{}.tmp", save_file_path());
+    let main_tmp = format!("{}.tmp", MAIN_SAVE_FILENAME);
     if Path::new(&main_tmp).exists() {
         tmp_files.push(PathBuf::from(main_tmp));
     }
@@ -340,12 +339,7 @@ mod tests {
     fn test_find_valid_autosave_with_valid_slots() {
         let dir = test_dir("valid_slots");
 
-        // Create valid autosave files in the current directory
-        // (since slot_filename returns just filenames without directory)
-        // We need to work in a temp dir, but slot_filename returns bare names.
-        // For this test we directly test validate_save_file on known paths.
-
-        // Create autosave files at known paths
+        // Create valid autosave files at known paths in a test directory
         let slot0_path = dir.join("megacity_autosave_1.bin");
         let slot1_path = dir.join("megacity_autosave_2.bin");
 
@@ -404,13 +398,7 @@ mod tests {
     }
 
     #[test]
-    fn test_perform_crash_recovery_scan_no_artifacts() {
-        // Run in a clean temp directory where no tmp files exist
-        // Since find_tmp_files checks specific paths in CWD, and we
-        // can't easily change CWD in tests, we test the core logic
-        // by verifying that when no tmp files are found, detected is false.
-        let state = CrashRecoveryState::default();
-        assert!(!state.detected);
-        assert!(state.recovery_path.is_none());
+    fn test_main_save_filename_constant() {
+        assert_eq!(MAIN_SAVE_FILENAME, "megacity_save.bin");
     }
 }
