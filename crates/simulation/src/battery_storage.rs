@@ -25,11 +25,11 @@ use crate::{decode_or_warn, Saveable, SimulationSet, TickCounter};
 const BATTERY_INTERVAL: u64 = 4;
 
 /// Round-trip efficiency: 85% — for every 1 MWh stored, 0.85 MWh is recovered.
-const ROUND_TRIP_EFFICIENCY: f32 = 0.85;
+pub const ROUND_TRIP_EFFICIENCY: f32 = 0.85;
 
 /// Minimum state-of-charge reserve threshold (20%).
 /// Batteries will not discharge below this level under normal operation.
-const RESERVE_THRESHOLD: f32 = 0.20;
+pub const RESERVE_THRESHOLD: f32 = 0.20;
 
 // =============================================================================
 // BatteryTier
@@ -143,8 +143,9 @@ impl BatteryUnit {
     /// Returns the actual AC output in MWh (after round-trip efficiency).
     pub fn discharge(&mut self, requested_mwh: f32) -> f32 {
         let max_discharge = self.available_discharge_mwh().min(self.max_rate());
-        // We need to draw more from storage than what we deliver, due to losses
-        let actual_draw = requested_mwh.min(max_discharge).max(0.0);
+        // Account for efficiency: to deliver X MWh, we need to draw X/efficiency
+        let needed_draw = requested_mwh / ROUND_TRIP_EFFICIENCY;
+        let actual_draw = needed_draw.min(max_discharge).max(0.0);
         self.stored_mwh = (self.stored_mwh - actual_draw).max(0.0);
         // Apply round-trip efficiency: deliver less than drawn
         actual_draw * ROUND_TRIP_EFFICIENCY
@@ -230,8 +231,12 @@ impl BatteryState {
 /// Main battery charge/discharge system.
 ///
 /// Runs every `BATTERY_INTERVAL` ticks after the energy dispatch system.
-/// - If supply > demand: charge batteries with excess energy
-/// - If demand > supply: discharge batteries to cover the deficit
+/// - When total generator capacity > demand: charge batteries with surplus
+/// - When dispatch reports a deficit: discharge batteries to cover the gap
+///
+/// Note: The dispatch system sets `energy_grid.total_supply_mwh` to the actual
+/// dispatched amount (capped at demand), so we use `dispatch_state.total_capacity_mw`
+/// to determine true surplus capacity, and `dispatch_state.has_deficit` for deficits.
 pub fn battery_charge_discharge(
     tick: Res<TickCounter>,
     energy_grid: Res<EnergyGrid>,
@@ -248,26 +253,27 @@ pub fn battery_charge_discharge(
         return;
     }
 
-    let supply = energy_grid.total_supply_mwh;
     let demand = energy_grid.total_demand_mwh;
+    let total_capacity = dispatch_state.total_capacity_mw;
 
     let mut total_charged = 0.0_f32;
     let mut total_discharged = 0.0_f32;
 
-    if supply > demand {
-        // Excess energy — charge batteries
-        let mut excess = supply - demand;
+    if !dispatch_state.has_deficit && total_capacity > demand && demand > 0.0 {
+        // Surplus capacity — charge batteries
+        let mut surplus = total_capacity - demand;
         for unit in &mut battery_state.units {
-            if excess <= 0.0 {
+            if surplus <= 0.0 {
                 break;
             }
-            let charged = unit.charge(excess);
+            let charged = unit.charge(surplus);
             total_charged += charged;
-            excess -= charged;
+            surplus -= charged;
         }
-    } else if demand > supply {
+    } else if dispatch_state.has_deficit && dispatch_state.active {
         // Deficit — discharge batteries to cover gap
-        let mut deficit = demand - supply;
+        let supply = energy_grid.total_supply_mwh;
+        let mut deficit = (demand - supply).max(0.0);
         for unit in &mut battery_state.units {
             if deficit <= 0.0 {
                 break;
@@ -278,8 +284,8 @@ pub fn battery_charge_discharge(
         }
 
         // If batteries covered some of the deficit, reduce load shedding
-        if total_discharged > 0.0 && dispatch_state.active {
-            let original_deficit = demand - supply;
+        if total_discharged > 0.0 {
+            let original_deficit = (demand - supply).max(0.0);
             let remaining_deficit = (original_deficit - total_discharged).max(0.0);
             if demand > 0.0 {
                 dispatch_state.load_shed_fraction =
@@ -354,7 +360,7 @@ mod tests {
     }
 
     #[test]
-    fn test_battery_charge_clamps_to_capacity() {
+    fn test_battery_charge_clamps_to_rate() {
         let mut unit = BatteryUnit::new(BatteryTier::Small, 0, 0);
         // Try to charge 20 MWh into a 10 MWh battery with 5 MW rate
         let charged = unit.charge(20.0);
@@ -367,12 +373,12 @@ mod tests {
     fn test_battery_discharge_respects_reserve() {
         let mut unit = BatteryUnit::new(BatteryTier::Small, 0, 0);
         unit.stored_mwh = 3.0; // 30% SOC
-        // Reserve is 20% = 2 MWh, so only 1 MWh available
+        // Reserve is 20% = 2 MWh, so only 1 MWh available for draw
         let available = unit.available_discharge_mwh();
         assert!((available - 1.0).abs() < f32::EPSILON);
 
         let discharged = unit.discharge(10.0);
-        // Should get 1.0 * 0.85 = 0.85 MWh
+        // Can draw 1 MWh, delivers 1.0 * 0.85 = 0.85 MWh
         assert!((discharged - 0.85).abs() < 0.01);
     }
 
@@ -381,10 +387,11 @@ mod tests {
         let mut unit = BatteryUnit::new(BatteryTier::Large, 0, 0);
         unit.stored_mwh = 100.0; // Full
         // Available = 100 - 20 (reserve) = 80, rate limit = 50 MW
-        let discharged = unit.discharge(50.0);
-        // Should get 50 * 0.85 = 42.5 MWh
+        // Request 42.5 MWh output => need 42.5/0.85 = 50 MWh draw (at rate limit)
+        let discharged = unit.discharge(42.5);
+        // Should get 42.5 MWh output
         assert!((discharged - 42.5).abs() < 0.01);
-        assert!((unit.stored_mwh - 50.0).abs() < f32::EPSILON);
+        assert!((unit.stored_mwh - 50.0).abs() < 0.01);
     }
 
     #[test]
