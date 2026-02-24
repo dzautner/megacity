@@ -45,6 +45,7 @@ pub enum PowerPlantType {
     Coal,
     NaturalGas,
     WindTurbine,
+    WasteToEnergy,
 }
 
 // =============================================================================
