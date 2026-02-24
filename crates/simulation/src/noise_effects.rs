@@ -56,7 +56,7 @@ impl NoiseTier {
 
     /// Land value multiplier for this noise tier.
     ///
-    /// - Quiet:      1.10 (+10% premium for peaceful areas)
+    /// - Quiet:      1.00 (baseline, no penalty)
     /// - Normal:     1.00 (baseline)
     /// - Noticeable: 0.95 (-5%)
     /// - Loud:       0.85 (-15%)
@@ -65,7 +65,7 @@ impl NoiseTier {
     /// - Dangerous:  0.20 (-80%)
     pub fn land_value_multiplier(self) -> f32 {
         match self {
-            Self::Quiet => 1.10,
+            Self::Quiet => 1.00,
             Self::Normal => 1.00,
             Self::Noticeable => 0.95,
             Self::Loud => 0.85,
@@ -84,10 +84,10 @@ impl NoiseTier {
             Self::Quiet => 0.0,
             Self::Normal => 0.0,
             Self::Noticeable => 0.0,
-            Self::Loud => -0.02,       // mild stress
-            Self::VeryLoud => -0.05,   // significant stress
-            Self::Painful => -0.10,    // hearing risk + severe stress
-            Self::Dangerous => -0.20,  // hearing damage + extreme stress
+            Self::Loud => -0.02,      // mild stress
+            Self::VeryLoud => -0.05,  // significant stress
+            Self::Painful => -0.10,   // hearing risk + severe stress
+            Self::Dangerous => -0.20, // hearing damage + extreme stress
         }
     }
 }
@@ -317,17 +317,16 @@ mod tests {
 
     #[test]
     fn test_overflow_level_maps_to_dangerous() {
-        // Noise grid caps at 100, but handle gracefully
         assert_eq!(NoiseTier::from_level(120), NoiseTier::Dangerous);
         assert_eq!(NoiseTier::from_level(255), NoiseTier::Dangerous);
     }
 
     #[test]
-    fn test_land_value_multiplier_quiet_premium() {
+    fn test_land_value_multiplier_quiet_neutral() {
         let mult = NoiseTier::Quiet.land_value_multiplier();
         assert!(
-            (mult - 1.10).abs() < f32::EPSILON,
-            "quiet areas should get +10% land value, got {}",
+            (mult - 1.00).abs() < f32::EPSILON,
+            "quiet areas should have neutral land value, got {}",
             mult
         );
     }
