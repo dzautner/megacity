@@ -123,7 +123,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "milestone_progress",
     "play_time",
     "power_lines",
-    "hybrid_coverage",];
+    "hybrid_coverage",
     "cultural_prestige",
 ];
 /// Startup system that validates the `SaveableRegistry` against the expected key
