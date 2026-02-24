@@ -264,6 +264,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Post-load derived state rebuild (SAVE-026)
     app.add_plugins(post_load_rebuild::PostLoadRebuildPlugin);
+    app.add_plugins(road_segment_save::RoadSegmentSavePlugin);
     // Hybrid service coverage model (SVC-001)
     app.add_plugins(hybrid_service_coverage::HybridServiceCoveragePlugin);
 }
