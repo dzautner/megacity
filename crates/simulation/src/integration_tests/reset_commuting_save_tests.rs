@@ -98,7 +98,7 @@ fn test_commuting_to_work_empty_path_reset_to_at_home() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     // Simulate a loaded citizen stuck mid-road in CommutingToWork with empty path
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
@@ -154,7 +154,7 @@ fn test_commuting_home_empty_path_reset_to_at_home() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
     let entity = spawn_citizen_in_state(
@@ -182,7 +182,7 @@ fn test_commuting_to_shop_empty_path_reset_to_at_home() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
     let entity = spawn_citizen_in_state(
@@ -210,7 +210,7 @@ fn test_commuting_to_leisure_empty_path_reset_to_at_home() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
     let entity = spawn_citizen_in_state(
@@ -238,7 +238,7 @@ fn test_commuting_to_school_empty_path_reset_to_at_home() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
     let entity = spawn_citizen_in_state(
@@ -266,7 +266,7 @@ fn test_at_home_citizen_not_affected_by_reset() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (home_x, home_y) = WorldGrid::grid_to_world(home.0, home.1);
     let entity = spawn_citizen_in_state(
@@ -298,7 +298,7 @@ fn test_working_citizen_not_affected_by_reset() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (work_x, work_y) = WorldGrid::grid_to_world(work.0, work.1);
     let entity = spawn_citizen_in_state(
@@ -330,7 +330,7 @@ fn test_commuting_with_valid_path_not_reset() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
     let valid_path = vec![RoadNode(26, 20), RoadNode(28, 20), RoadNode(30, 20)];
@@ -385,7 +385,7 @@ fn test_multiple_commuting_citizens_all_reset() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
 
@@ -444,7 +444,7 @@ fn test_commuting_with_completed_path_reset() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
 
@@ -486,7 +486,7 @@ fn test_no_reset_without_pending_flag() {
     let mut city = TestCity::new()
         .with_road(18, 20, 35, 20, RoadType::Local)
         .with_building(20, 21, ZoneType::ResidentialLow, 1)
-        .with_building(30, 21, ZoneType::Commercial, 1);
+        .with_building(30, 21, ZoneType::CommercialLow, 1);
 
     let (mid_x, mid_y) = WorldGrid::grid_to_world(25, 20);
     let entity = spawn_citizen_in_state(
