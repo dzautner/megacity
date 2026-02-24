@@ -13,6 +13,7 @@ use crate::SaveableRegistry;
 pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "active_disaster",
     "blueprint_library",
+    "active_city_effects",
     "bicycle_lanes",
     "bus_transit",
     "chart_history",
@@ -33,6 +34,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "education_pipeline",
     "energy_dispatch",
     "energy_grid",
+    "event_journal",
     "far_transfer",
     "fire_tiers",
     "flood_protection",
@@ -54,6 +56,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "landfill_state",
     "localization",
     "metro_transit",
+    "milestone_tracker",
     "mode_share_stats",
     "multi_select",
     "neighborhood_quality",

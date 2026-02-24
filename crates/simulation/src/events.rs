@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use rand::Rng;
 
 use crate::citizen::{Citizen, CitizenDetails};
@@ -12,7 +13,7 @@ use crate::SlowTickTimer;
 // Event Types
 // =============================================================================
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum CityEventType {
     MilestoneReached(String),   // "Reached Town (1,000 pop)"
     BuildingFire(usize, usize), // grid coords
@@ -30,7 +31,7 @@ pub enum CityEventType {
 // City Event
 // =============================================================================
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct CityEvent {
     pub event_type: CityEventType,
     pub day: u32,
@@ -42,7 +43,7 @@ pub struct CityEvent {
 // Event Journal Resource
 // =============================================================================
 
-#[derive(Resource)]
+#[derive(Resource, Encode, Decode)]
 pub struct EventJournal {
     pub events: Vec<CityEvent>,
     pub max_events: usize,
@@ -72,7 +73,7 @@ impl EventJournal {
 // Active City Effects Resource
 // =============================================================================
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Encode, Decode)]
 pub struct ActiveCityEffects {
     pub festival_ticks: u32,
     pub economic_boom_ticks: u32,
@@ -96,7 +97,7 @@ const POPULATION_MILESTONES: &[(u32, &str)] = &[
 ];
 
 /// Tracks which population milestones have already been logged to the journal.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Encode, Decode)]
 pub struct MilestoneTracker {
     pub reached_milestones: Vec<u32>,
 }
