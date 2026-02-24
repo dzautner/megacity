@@ -9,7 +9,6 @@ fn test_park_district_creation_and_level_1_effects() {
     let mut city = TestCity::new()
         .with_service(50, 50, ServiceType::SmallPark);
 
-    // Create a city park district centered at (50, 50)
     {
         let world = city.world_mut();
         let mut state = world.resource_mut::<ParkDistrictState>();
@@ -34,17 +33,19 @@ fn test_park_district_creation_and_level_1_effects() {
 
 #[test]
 fn test_park_district_levels_up_with_attractions_and_visitors() {
+    // Place 5 attractions to meet L3 threshold
     let mut city = TestCity::new()
         .with_service(50, 50, ServiceType::SmallPark)
         .with_service(51, 50, ServiceType::LargePark)
-        .with_service(52, 50, ServiceType::Playground);
+        .with_service(52, 50, ServiceType::Playground)
+        .with_service(53, 50, ServiceType::SportsField)
+        .with_service(54, 50, ServiceType::Plaza);
 
-    // Create district and give it enough visitors to reach L2
     {
         let world = city.world_mut();
         let mut state = world.resource_mut::<ParkDistrictState>();
         let id = state.create_district(ParkType::CityPark, 50, 50);
-        // Manually set visitors to test level thresholds
+        // Manually set visitors to meet L3 threshold (200+)
         if let Some(d) = state.get_district_mut(id) {
             d.total_visitors = 200;
         }
@@ -54,10 +55,10 @@ fn test_park_district_levels_up_with_attractions_and_visitors() {
 
     let state = city.resource::<ParkDistrictState>();
     let district = state.get_district(1).expect("district should exist");
-    // With 3 attractions and 200+ visitors, should be at least L3
+    // With 5 attractions and 200+ visitors, should be at least L3
     assert!(
         district.level >= 3,
-        "District with 3 attractions and 200 visitors should be >= L3, got L{}",
+        "District with 5 attractions and 200 visitors should be >= L3, got L{}",
         district.level
     );
 }
@@ -169,7 +170,6 @@ fn test_amusement_park_higher_tourism() {
     {
         let world = city.world_mut();
         let mut state = world.resource_mut::<ParkDistrictState>();
-        // Both districts start with same attractions, but one is AmusementPark
         let id1 = state.create_district(ParkType::CityPark, 50, 50);
         let id2 = state.create_district(ParkType::AmusementPark, 100, 100);
         // Give both enough visitors to reach at least L2
@@ -197,26 +197,37 @@ fn test_amusement_park_higher_tourism() {
 
 #[test]
 fn test_entry_fee_generates_revenue() {
+    use crate::grid::{RoadType, ZoneType};
+
+    // Need citizens (population) for visitors to be nonzero
     let mut city = TestCity::new()
-        .with_service(50, 50, ServiceType::SmallPark);
+        .with_road(48, 48, 48, 58, RoadType::Local)
+        .with_zone_rect(49, 48, 50, 58, ZoneType::ResidentialLow)
+        .with_building(49, 50, ZoneType::ResidentialLow, 1)
+        .with_building(50, 50, ZoneType::ResidentialLow, 1)
+        .with_citizen((49, 50), (50, 50))
+        .with_citizen((49, 50), (50, 50))
+        .with_citizen((49, 50), (50, 50))
+        .with_citizen((49, 50), (50, 50))
+        .with_service(50, 54, ServiceType::SmallPark);
 
     {
         let world = city.world_mut();
         let mut state = world.resource_mut::<ParkDistrictState>();
-        let id = state.create_district(ParkType::CityPark, 50, 50);
+        let id = state.create_district(ParkType::CityPark, 50, 54);
         if let Some(d) = state.get_district_mut(id) {
             d.entry_fee = 3.0;
-            d.total_visitors = 10; // ensure some base visitors
         }
     }
 
+    // Run slow cycle so stats update (population counted) then park districts update
     city.tick_slow_cycle();
 
     let state = city.resource::<ParkDistrictState>();
     let district = state.get_district(1).unwrap();
     assert!(
         district.total_revenue > 0.0,
-        "District with entry fee should generate revenue, got {}",
+        "District with entry fee and population should generate revenue, got {}",
         district.total_revenue
     );
 }
@@ -237,7 +248,6 @@ fn test_district_removal_clears_effects() {
     let effects = city.resource::<ParkDistrictEffects>();
     assert!(effects.happiness_at(50, 50) > 0.0);
 
-    // Remove the district
     {
         let world = city.world_mut();
         let mut state = world.resource_mut::<ParkDistrictState>();
@@ -270,11 +280,9 @@ fn test_multiple_districts_independent_effects() {
 
     let effects = city.resource::<ParkDistrictEffects>();
 
-    // Each district should affect only its own area
     assert!(effects.happiness_at(30, 30) > 0.0, "District 1 should affect its center");
     assert!(effects.happiness_at(200, 200) > 0.0, "District 2 should affect its center");
 
-    // Zoo should have education bonus at its center, but not at district 1
     let idx_zoo = ParkDistrictEffects::idx(200, 200);
     let idx_city = ParkDistrictEffects::idx(30, 30);
     assert!(
