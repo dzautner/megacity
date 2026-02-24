@@ -61,12 +61,10 @@ fn test_city_hall_understaffed_reduces_construction_speed() {
         .with_budget(100_000.0)
         .with_service(10, 10, ServiceType::CityHall);
 
-    // Set a large population so the single small city hall is understaffed
-    set_population(&mut city, 200_000);
-
-    // Need two slow cycles: first for stats to update, second for city hall
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    // Population 500K at Large tier: required = ceil(5 * 200) = 1000
+    // Single Large hall capacity = 500, efficiency = 0.5
+    set_population(&mut city, 500_000);
+    city.tick_slow_cycles(2);
 
     let state = city.resource::<CityHallState>();
     assert!(
@@ -87,11 +85,9 @@ fn test_city_hall_understaffed_reduces_tax_revenue() {
         .with_budget(100_000.0)
         .with_service(10, 10, ServiceType::CityHall);
 
-    // Large population means understaffed
-    set_population(&mut city, 200_000);
-
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    // Population 500K: heavily understaffed
+    set_population(&mut city, 500_000);
+    city.tick_slow_cycles(2);
 
     let state = city.resource::<CityHallState>();
     assert!(
@@ -149,34 +145,29 @@ fn test_growing_city_without_upgrade_shows_declining_efficiency() {
         .with_budget(100_000.0)
         .with_service(128, 128, ServiceType::CityHall);
 
-    // Small population: high efficiency
-    set_population(&mut city, 1_000);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
-
-    let efficiency_small = city.resource::<CityHallState>().admin_efficiency;
-
-    // Medium population: lower efficiency with same single city hall
-    set_population(&mut city, 50_000);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
-
-    let efficiency_medium = city.resource::<CityHallState>().admin_efficiency;
-
-    // Large population: even lower efficiency
+    // Use populations large enough to produce efficiency < 2.0 (below clamp).
+    // At pop 100K Large tier: required=200, capacity=500, eff=2.0 (clamped).
+    // At pop 200K Large tier: required=400, capacity=500, eff=1.25.
+    // At pop 500K Large tier: required=1000, capacity=500, eff=0.5.
     set_population(&mut city, 200_000);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    city.tick_slow_cycles(2);
+    let efficiency_200k = city.resource::<CityHallState>().admin_efficiency;
 
-    let efficiency_large = city.resource::<CityHallState>().admin_efficiency;
+    set_population(&mut city, 500_000);
+    city.tick_slow_cycles(2);
+    let efficiency_500k = city.resource::<CityHallState>().admin_efficiency;
+
+    set_population(&mut city, 1_000_000);
+    city.tick_slow_cycles(2);
+    let efficiency_1m = city.resource::<CityHallState>().admin_efficiency;
 
     assert!(
-        efficiency_small > efficiency_medium,
-        "Efficiency should decrease as population grows: small={efficiency_small} > medium={efficiency_medium}"
+        efficiency_200k > efficiency_500k,
+        "Efficiency should decrease: 200K={efficiency_200k} > 500K={efficiency_500k}"
     );
     assert!(
-        efficiency_medium > efficiency_large,
-        "Efficiency should decrease further: medium={efficiency_medium} > large={efficiency_large}"
+        efficiency_500k > efficiency_1m,
+        "Efficiency should decrease further: 500K={efficiency_500k} > 1M={efficiency_1m}"
     );
 }
 
@@ -188,8 +179,7 @@ fn test_city_hall_tier_matches_population() {
 
     // Small tier
     set_population(&mut city, 10_000);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    city.tick_slow_cycles(2);
     assert_eq!(
         city.resource::<CityHallState>().current_tier,
         CityHallTier::Small
@@ -197,8 +187,7 @@ fn test_city_hall_tier_matches_population() {
 
     // Medium tier
     set_population(&mut city, 50_000);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    city.tick_slow_cycles(2);
     assert_eq!(
         city.resource::<CityHallState>().current_tier,
         CityHallTier::Medium
@@ -206,8 +195,7 @@ fn test_city_hall_tier_matches_population() {
 
     // Large tier
     set_population(&mut city, 150_000);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    city.tick_slow_cycles(2);
     assert_eq!(
         city.resource::<CityHallState>().current_tier,
         CityHallTier::Large
@@ -219,9 +207,7 @@ fn test_no_city_hall_with_population_shows_corruption() {
     let mut city = TestCity::new().with_budget(100_000.0);
 
     set_population(&mut city, 50_000);
-
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    city.tick_slow_cycles(2);
 
     let state = city.resource::<CityHallState>();
     assert!(
@@ -239,8 +225,7 @@ fn test_well_staffed_city_hall_has_no_corruption() {
 
     // Very small population relative to city hall capacity
     set_population(&mut city, 100);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    city.tick_slow_cycles(2);
 
     let state = city.resource::<CityHallState>();
     assert!(
@@ -258,8 +243,7 @@ fn test_city_hall_high_efficiency_boosts_construction() {
 
     // Very small population => over-staffed
     set_population(&mut city, 100);
-    city.tick_slow_cycle();
-    city.tick_slow_cycle();
+    city.tick_slow_cycles(2);
 
     let state = city.resource::<CityHallState>();
     assert!(
