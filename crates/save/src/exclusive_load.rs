@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use simulation::notifications::{NotificationEvent, NotificationPriority};
+use simulation::post_load_rebuild::PostLoadRebuildPending;
 use simulation::reset_commuting_on_load::PostLoadResetPending;
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
@@ -130,6 +131,9 @@ fn exclusive_load_inner(world: &mut World) -> Result<(), SaveError> {
 
     // -- Stage 6: Signal post-load reset for commuting citizens (SAVE-008) --
     world.insert_resource(PostLoadResetPending);
+
+    // -- Stage 7: Signal post-load derived state rebuild (SAVE-026) --
+    world.insert_resource(PostLoadRebuildPending);
 
     #[cfg(not(target_arch = "wasm32"))]
     info!("Loaded save from {}", crate::save_plugin::save_file_path());
