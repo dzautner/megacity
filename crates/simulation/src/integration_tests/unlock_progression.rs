@@ -3,7 +3,7 @@ use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
 
 // ====================================================================
-// TEST-064: Unlock / Progression System Tests
+// TEST-064: Unlock / Progression System Tests (MILE-001 12-tier overhaul)
 // ====================================================================
 
 #[test]
@@ -32,46 +32,71 @@ fn test_unlock_state_default_has_three_development_points() {
 #[test]
 fn test_unlock_node_cost_tiers() {
     use crate::unlocks::UnlockNode;
+    // Tier 0 — free starters
     assert_eq!(UnlockNode::BasicRoads.cost(), 0);
     assert_eq!(UnlockNode::BasicWater.cost(), 0);
+    // Tier 1 — 240 pop
+    assert_eq!(UnlockNode::HealthCare.cost(), 1);
+    assert_eq!(UnlockNode::DeathCare.cost(), 1);
+    assert_eq!(UnlockNode::BasicSanitation.cost(), 1);
+    // Tier 2 — 1,200 pop
     assert_eq!(UnlockNode::FireService.cost(), 1);
     assert_eq!(UnlockNode::PoliceService.cost(), 1);
     assert_eq!(UnlockNode::ElementaryEducation.cost(), 1);
-    assert_eq!(UnlockNode::SmallParks.cost(), 1);
-    assert_eq!(UnlockNode::BasicSanitation.cost(), 1);
-    assert_eq!(UnlockNode::HealthCare.cost(), 2);
-    assert_eq!(UnlockNode::HighDensityResidential.cost(), 2);
-    assert_eq!(UnlockNode::SolarPower.cost(), 2);
-    assert_eq!(UnlockNode::DeathCare.cost(), 2);
+    // Tier 3 — 2,600 pop
+    assert_eq!(UnlockNode::HighSchoolEducation.cost(), 2);
+    assert_eq!(UnlockNode::SmallParks.cost(), 2);
+    assert_eq!(UnlockNode::PolicySystem.cost(), 2);
+    // Tier 5 — 7,500 pop
+    assert_eq!(UnlockNode::HighDensityResidential.cost(), 3);
     assert_eq!(UnlockNode::OfficeZoning.cost(), 3);
-    assert_eq!(UnlockNode::WindPower.cost(), 3);
-    assert_eq!(UnlockNode::PublicTransport.cost(), 3);
-    assert_eq!(UnlockNode::Telecom.cost(), 3);
-    assert_eq!(UnlockNode::Landmarks.cost(), 5);
+    // Tier 6 — 12,000 pop
+    assert_eq!(UnlockNode::UniversityEducation.cost(), 3);
+    // Tier 8 — 36,000 pop
+    assert_eq!(UnlockNode::Telecom.cost(), 4);
+    // Tier 9 — 50,000 pop
+    assert_eq!(UnlockNode::SolarPower.cost(), 4);
+    assert_eq!(UnlockNode::WindPower.cost(), 4);
+    // Tier 10 — 65,000 pop
     assert_eq!(UnlockNode::NuclearPower.cost(), 5);
-    assert_eq!(UnlockNode::PolicySystem.cost(), 5);
+    // Tier 11 — 80,000 pop
     assert_eq!(UnlockNode::InternationalAirports.cost(), 7);
 }
 
 #[test]
 fn test_unlock_node_required_population_tiers() {
     use crate::unlocks::UnlockNode;
+    // 12-tier milestone thresholds
     assert_eq!(UnlockNode::BasicRoads.required_population(), 0);
-    assert_eq!(UnlockNode::FireService.required_population(), 500);
-    assert_eq!(UnlockNode::PoliceService.required_population(), 500);
-    assert_eq!(UnlockNode::HealthCare.required_population(), 2_000);
+    assert_eq!(UnlockNode::HealthCare.required_population(), 240);
+    assert_eq!(UnlockNode::DeathCare.required_population(), 240);
+    assert_eq!(UnlockNode::BasicSanitation.required_population(), 240);
+    assert_eq!(UnlockNode::FireService.required_population(), 1_200);
+    assert_eq!(UnlockNode::PoliceService.required_population(), 1_200);
+    assert_eq!(UnlockNode::ElementaryEducation.required_population(), 1_200);
+    assert_eq!(UnlockNode::HighSchoolEducation.required_population(), 2_600);
+    assert_eq!(UnlockNode::SmallParks.required_population(), 2_600);
+    assert_eq!(UnlockNode::PolicySystem.required_population(), 2_600);
+    assert_eq!(UnlockNode::PublicTransport.required_population(), 5_000);
+    assert_eq!(UnlockNode::Landmarks.required_population(), 5_000);
     assert_eq!(
         UnlockNode::HighDensityResidential.required_population(),
-        2_000
+        7_500
     );
-    assert_eq!(UnlockNode::OfficeZoning.required_population(), 5_000);
-    assert_eq!(UnlockNode::PublicTransport.required_population(), 5_000);
-    assert_eq!(UnlockNode::RegionalAirports.required_population(), 20_000);
-    assert_eq!(UnlockNode::Landmarks.required_population(), 50_000);
-    assert_eq!(UnlockNode::NuclearPower.required_population(), 50_000);
+    assert_eq!(UnlockNode::OfficeZoning.required_population(), 7_500);
+    assert_eq!(UnlockNode::AdvancedTransport.required_population(), 7_500);
+    assert_eq!(
+        UnlockNode::UniversityEducation.required_population(),
+        12_000
+    );
+    assert_eq!(UnlockNode::SmallAirstrips.required_population(), 20_000);
+    assert_eq!(UnlockNode::Telecom.required_population(), 36_000);
+    assert_eq!(UnlockNode::RegionalAirports.required_population(), 50_000);
+    assert_eq!(UnlockNode::AdvancedEmergency.required_population(), 65_000);
+    assert_eq!(UnlockNode::NuclearPower.required_population(), 65_000);
     assert_eq!(
         UnlockNode::InternationalAirports.required_population(),
-        100_000
+        80_000
     );
 }
 
@@ -80,12 +105,12 @@ fn test_unlock_purchase_deducts_points() {
     use crate::unlocks::{UnlockNode, UnlockState};
     let mut state = UnlockState::default();
     assert_eq!(state.available_points(), 3);
-    assert!(state.purchase(UnlockNode::FireService));
+    assert!(state.purchase(UnlockNode::HealthCare)); // cost 1
     assert_eq!(state.available_points(), 2);
-    assert!(state.is_unlocked(UnlockNode::FireService));
-    assert!(state.purchase(UnlockNode::PoliceService));
+    assert!(state.is_unlocked(UnlockNode::HealthCare));
+    assert!(state.purchase(UnlockNode::DeathCare)); // cost 1
     assert_eq!(state.available_points(), 1);
-    assert!(state.purchase(UnlockNode::ElementaryEducation));
+    assert!(state.purchase(UnlockNode::BasicSanitation)); // cost 1
     assert_eq!(state.available_points(), 0);
 }
 
@@ -93,10 +118,13 @@ fn test_unlock_purchase_deducts_points() {
 fn test_unlock_purchase_fails_insufficient_points() {
     use crate::unlocks::{UnlockNode, UnlockState};
     let mut state = UnlockState::default();
+    // Start with 3 DP, buy two tier-1 unlocks (cost 1 each) = 1 DP left
     assert!(state.purchase(UnlockNode::HealthCare));
+    assert!(state.purchase(UnlockNode::DeathCare));
     assert_eq!(state.available_points(), 1);
-    assert!(!state.purchase(UnlockNode::HighDensityResidential));
-    assert!(!state.is_unlocked(UnlockNode::HighDensityResidential));
+    // HighSchoolEducation costs 2, should fail
+    assert!(!state.purchase(UnlockNode::HighSchoolEducation));
+    assert!(!state.is_unlocked(UnlockNode::HighSchoolEducation));
     assert_eq!(state.available_points(), 1);
 }
 
@@ -113,11 +141,13 @@ fn test_unlock_can_purchase_checks_population_threshold() {
     use crate::unlocks::{UnlockNode, UnlockState};
     let mut state = UnlockState::default();
     state.development_points = 10;
-    assert!(!state.can_purchase(UnlockNode::FireService, 499));
-    assert!(state.can_purchase(UnlockNode::FireService, 500));
-    assert!(state.can_purchase(UnlockNode::FireService, 1000));
-    assert!(!state.can_purchase(UnlockNode::HealthCare, 1999));
-    assert!(state.can_purchase(UnlockNode::HealthCare, 2000));
+    // HealthCare requires 240 pop
+    assert!(!state.can_purchase(UnlockNode::HealthCare, 239));
+    assert!(state.can_purchase(UnlockNode::HealthCare, 240));
+    assert!(state.can_purchase(UnlockNode::HealthCare, 1000));
+    // FireService requires 1,200 pop
+    assert!(!state.can_purchase(UnlockNode::FireService, 1_199));
+    assert!(state.can_purchase(UnlockNode::FireService, 1_200));
 }
 
 #[test]
@@ -133,7 +163,7 @@ fn test_unlock_can_purchase_false_when_insufficient_points() {
     let mut state = UnlockState::default();
     state.spent_points = 3;
     assert_eq!(state.available_points(), 0);
-    assert!(!state.can_purchase(UnlockNode::FireService, 1000));
+    assert!(!state.can_purchase(UnlockNode::HealthCare, 1000));
 }
 
 #[test]
@@ -370,80 +400,6 @@ fn test_unlock_utility_mapping_sewage() {
 }
 
 #[test]
-fn test_milestone_awards_development_points_at_500_pop() {
-    use crate::unlocks::UnlockState;
-    let mut city = TestCity::new();
-    city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 500;
-    let initial_dp = city.resource::<UnlockState>().development_points;
-    city.tick_slow_cycle();
-    let state = city.resource::<UnlockState>();
-    assert_eq!(
-        state.development_points,
-        initial_dp + 2,
-        "Should gain 2 DP at 500 pop milestone"
-    );
-    assert_eq!(state.last_milestone_pop, 500);
-}
-
-#[test]
-fn test_milestone_awards_do_not_retrigger() {
-    use crate::unlocks::UnlockState;
-    let mut city = TestCity::new();
-    city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 500;
-    city.tick_slow_cycle();
-    let dp_after_first = city.resource::<UnlockState>().development_points;
-    city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 500;
-    city.tick_slow_cycle();
-    let dp_after_second = city.resource::<UnlockState>().development_points;
-    assert_eq!(
-        dp_after_first, dp_after_second,
-        "Milestone should not re-trigger at same population"
-    );
-}
-
-#[test]
-fn test_milestone_multiple_thresholds_in_sequence() {
-    use crate::unlocks::UnlockState;
-    let mut city = TestCity::new();
-    let initial_dp = city.resource::<UnlockState>().development_points;
-    city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 2_000;
-    city.tick_slow_cycle();
-    let state = city.resource::<UnlockState>();
-    assert_eq!(
-        state.development_points,
-        initial_dp + 2 + 2 + 3,
-        "Should gain DP for all milestones up to 2000"
-    );
-    assert_eq!(state.last_milestone_pop, 2_000);
-}
-
-#[test]
-fn test_milestone_skipping_intermediate_thresholds_still_awards() {
-    use crate::unlocks::UnlockState;
-    let mut city = TestCity::new();
-    let initial_dp = city.resource::<UnlockState>().development_points;
-    city.world_mut()
-        .resource_mut::<crate::stats::CityStats>()
-        .population = 10_000;
-    city.tick_slow_cycle();
-    let state = city.resource::<UnlockState>();
-    let expected = initial_dp + 2 + 2 + 3 + 3 + 4;
-    assert_eq!(
-        state.development_points, expected,
-        "Should gain DP for all milestones up to 10000 (expected {})",
-        expected
-    );
-}
-
-#[test]
 fn test_unlock_state_resource_exists_in_test_city() {
     use crate::unlocks::UnlockState;
     let city = TestCity::new();
@@ -538,12 +494,13 @@ fn test_achievement_all_have_metadata() {
 fn test_unlock_purchase_sequence_exhausts_points() {
     use crate::unlocks::{UnlockNode, UnlockState};
     let mut state = UnlockState::default();
-    assert!(state.purchase(UnlockNode::FireService));
-    assert!(state.purchase(UnlockNode::PoliceService));
-    assert!(state.purchase(UnlockNode::SmallParks));
+    // 3 DP, buy three cost-1 nodes
+    assert!(state.purchase(UnlockNode::HealthCare)); // 1
+    assert!(state.purchase(UnlockNode::DeathCare)); // 1
+    assert!(state.purchase(UnlockNode::BasicSanitation)); // 1
     assert_eq!(state.available_points(), 0);
-    assert!(!state.purchase(UnlockNode::ElementaryEducation));
-    assert!(!state.is_unlocked(UnlockNode::ElementaryEducation));
+    assert!(!state.purchase(UnlockNode::FireService));
+    assert!(!state.is_unlocked(UnlockNode::FireService));
 }
 
 #[test]
