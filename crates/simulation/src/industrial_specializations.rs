@@ -393,6 +393,7 @@ impl Plugin for IndustrialSpecializationPlugin {
 
 #[cfg(test)]
 mod tests {
+    use crate::Saveable;
     use super::*;
 
     #[test]

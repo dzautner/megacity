@@ -1,6 +1,7 @@
 //! Integration tests for SERV-008: Industrial Specializations
 
 use crate::districts::DistrictMap;
+use crate::buildings::Building;
 use crate::grid::ZoneType;
 use crate::industrial_specializations::{
     suggest_specialization, IndustrialSpecialization, IndustrialSpecializationState,
