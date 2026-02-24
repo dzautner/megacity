@@ -9,6 +9,7 @@ mod file_header;
 mod reset_resources;
 mod restore_resources;
 mod save_codec;
+pub mod save_error;
 mod save_migrate;
 mod save_plugin;
 mod save_restore;
@@ -21,5 +22,6 @@ mod spawn_entities;
 #[cfg(target_arch = "wasm32")]
 mod wasm_idb;
 
+pub use save_error::SaveError;
 pub use save_plugin::{LoadGameEvent, NewGameEvent, SaveGameEvent, SavePlugin};
 pub use saveable_ext::SaveableAppExt;

@@ -2,6 +2,7 @@
 // Save migration logic
 // ---------------------------------------------------------------------------
 
+use crate::save_error::SaveError;
 use crate::save_types::{SaveData, CURRENT_SAVE_VERSION};
 
 /// Migrate a `SaveData` from any older version up to `CURRENT_SAVE_VERSION`.
@@ -15,21 +16,19 @@ use crate::save_types::{SaveData, CURRENT_SAVE_VERSION};
 ///
 /// # Errors
 ///
-/// Returns an error if the save file was created by a newer version of the game
-/// (i.e. `save.version > CURRENT_SAVE_VERSION`).
-pub fn migrate_save(save: &mut SaveData) -> Result<u32, String> {
+/// Returns `SaveError::VersionMismatch` if the save file was created by a newer
+/// version of the game (i.e. `save.version > CURRENT_SAVE_VERSION`).
+pub fn migrate_save(save: &mut SaveData) -> Result<u32, SaveError> {
     let original_version = save.version;
 
     // Reject saves from a newer (future) version of the game.  The debug_assert
     // below only fires in debug builds; this explicit check protects release
     // builds from silently loading incompatible data.
     if save.version > CURRENT_SAVE_VERSION {
-        return Err(format!(
-            "This save file was created by a newer version of the game (save version {}, \
-             but this build only supports up to version {}). Please update the game to \
-             load this save.",
-            save.version, CURRENT_SAVE_VERSION,
-        ));
+        return Err(SaveError::VersionMismatch {
+            expected_max: CURRENT_SAVE_VERSION,
+            found: save.version,
+        });
     }
 
     // v0 -> v1: Legacy unversioned saves. All required fields (grid, roads,
@@ -138,8 +137,6 @@ pub fn migrate_save(save: &mut SaveData) -> Result<u32, String> {
         save.water_treatment_state = None;
         save.version = 17;
     }
-
-    // Ensure version is at the current value (safety net for future additions).
 
     // v17 -> v18: Added groundwater_depletion_state (GroundwaterDepletionState serialization).
     // Uses `#[serde(default)]` so it deserializes as None from a v17 save.
@@ -324,14 +321,15 @@ mod tests {
         let result = migrate_save(&mut save);
         assert!(result.is_err());
 
-        let err_msg = result.unwrap_err();
+        let err = result.unwrap_err();
+        let err_msg = format!("{err}");
         assert!(
-            err_msg.contains("newer version"),
-            "Error message should mention newer version, got: {err_msg}"
+            err_msg.contains("mismatch"),
+            "Error message should mention version mismatch, got: {err_msg}"
         );
         assert!(
-            err_msg.contains(&(CURRENT_SAVE_VERSION + 1).to_string()),
-            "Error message should contain the future version number, got: {err_msg}"
+            matches!(err, SaveError::VersionMismatch { .. }),
+            "Should be VersionMismatch variant"
         );
     }
 
@@ -341,6 +339,10 @@ mod tests {
 
         let result = migrate_save(&mut save);
         assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            SaveError::VersionMismatch { .. }
+        ));
     }
 
     #[test]

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::notifications::{NotificationEvent, NotificationPriority};
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
@@ -134,12 +135,14 @@ fn detect_new_game_event(
 }
 
 /// Native: detects `LoadGameEvent`, reads save file, stores bytes, and
-/// transitions to `Loading` state.
+/// transitions to `Loading` state.  File I/O errors are surfaced as
+/// notifications instead of being silently swallowed.
 #[cfg(not(target_arch = "wasm32"))]
 fn detect_load_event(
     mut events: EventReader<LoadGameEvent>,
     mut next_state: ResMut<NextState<SaveLoadState>>,
     mut pending: ResMut<PendingLoadBytes>,
+    mut notifications: EventWriter<NotificationEvent>,
 ) {
     if events.read().next().is_some() {
         events.read().for_each(drop);
@@ -150,7 +153,14 @@ fn detect_load_event(
                 next_state.set(SaveLoadState::Loading);
             }
             Err(e) => {
-                eprintln!("Failed to load: {}", e);
+                let save_err = crate::save_error::SaveError::from(e);
+                let msg = format!("Load failed: {save_err}");
+                error!("{msg}");
+                notifications.send(NotificationEvent {
+                    text: msg,
+                    priority: NotificationPriority::Warning,
+                    location: None,
+                });
             }
         }
     }
@@ -195,14 +205,14 @@ fn poll_wasm_load(
 #[cfg(target_arch = "wasm32")]
 fn poll_wasm_save_error(
     buffer: Res<WasmSaveErrorBuffer>,
-    mut notifications: EventWriter<simulation::notifications::NotificationEvent>,
+    mut notifications: EventWriter<NotificationEvent>,
 ) {
     let mut slot = buffer.0.lock().unwrap();
     if let Some(error_msg) = slot.take() {
         web_sys::console::error_1(&format!("Save error surfaced to UI: {}", error_msg).into());
-        notifications.send(simulation::notifications::NotificationEvent {
+        notifications.send(NotificationEvent {
             text: error_msg,
-            priority: simulation::notifications::NotificationPriority::Warning,
+            priority: NotificationPriority::Warning,
             location: None,
         });
     }
