@@ -12,8 +12,6 @@
 use crate::fire::OnFire;
 use crate::buildings::Building;
 use crate::grid::{RoadType, ZoneType};
-use crate::road_graph_csr::CsrGraph;
-use crate::roads::RoadNetwork;
 use crate::service_road_dispatch::{EmergencyKind, ServiceDispatchState};
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
@@ -247,7 +245,7 @@ fn test_vehicles_advance_along_path() {
         let state = city.resource::<ServiceDispatchState>();
         if state.vehicles.is_empty() {
             // Dispatch may not have happened yet, run more
-            drop(state);
+            let _ = state;
             city.tick(10);
             let state = city.resource::<ServiceDispatchState>();
             if state.vehicles.is_empty() {
