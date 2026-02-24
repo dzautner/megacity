@@ -4,13 +4,11 @@ use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity,
 };
-use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::flood_simulation::{FloodGrid, FloodState};
 use crate::grid::{CellType, ZoneType};
 use crate::mode_choice::ChosenTransportMode;
 use crate::movement::ActivityTimer;
 use crate::road_maintenance::RoadConditionGrid;
-use crate::storm_drainage::StormDrainageState;
 use crate::stormwater::StormwaterGrid;
 use crate::stormwater_mgmt::{FloodRiskGrid, StormwaterMgmtState};
 use crate::test_harness::TestCity;
