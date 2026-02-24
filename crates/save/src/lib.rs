@@ -11,6 +11,7 @@ mod restore_resources;
 mod save_codec;
 pub mod save_error;
 mod save_migrate;
+mod save_migrate_registry;
 mod save_plugin;
 mod save_restore;
 pub mod save_stages;
