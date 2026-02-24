@@ -233,14 +233,18 @@ pub struct EnvironmentalScorePlugin;
 
 impl Plugin for EnvironmentalScorePlugin {
     fn build(&self, app: &mut App) {
-        use save::SaveableAppExt;
+        app.init_resource::<EnvironmentalScore>();
 
-        app.init_resource::<EnvironmentalScore>()
-            .register_saveable::<EnvironmentalScore>()
-            .add_systems(
-                FixedUpdate,
-                update_environmental_score.in_set(SimulationSet::PostSim),
-            );
+        // Register for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<EnvironmentalScore>();
+
+        app.add_systems(
+            FixedUpdate,
+            update_environmental_score.in_set(SimulationSet::PostSim),
+        );
     }
 }
 
