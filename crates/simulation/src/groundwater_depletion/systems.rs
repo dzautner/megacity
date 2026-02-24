@@ -156,5 +156,11 @@ impl Plugin for GroundwaterDepletionPlugin {
                     .after(crate::imports_exports::process_trade)
                     .in_set(crate::SimulationSet::Simulation),
             );
+
+        // Register for save/load via the SaveableRegistry
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<GroundwaterDepletionState>();
     }
 }
