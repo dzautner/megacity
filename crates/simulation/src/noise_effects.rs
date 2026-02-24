@@ -100,7 +100,7 @@ impl NoiseTier {
 /// when noise effects on residential areas are 50% worse due to sleep
 /// disruption.
 pub fn is_nighttime(hour: f32) -> bool {
-    hour >= 22.0 || hour < 6.0
+    !(6.0..22.0).contains(&hour)
 }
 
 /// Nighttime amplification factor for noise effects in residential cells.
