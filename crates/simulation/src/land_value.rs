@@ -212,7 +212,7 @@ impl Plugin for LandValuePlugin {
         app.init_resource::<LandValueGrid>().add_systems(
             FixedUpdate,
             update_land_value
-                .after(crate::pollution::update_pollution)
+                .after(crate::wind_pollution::update_pollution_gaussian_plume)
                 .in_set(crate::SimulationSet::Simulation),
         );
 

@@ -200,7 +200,7 @@ impl Plugin for PollutionHealthPlugin {
                 apply_pollution_land_value_effects,
                 apply_pollution_immigration_penalty,
             )
-                .after(crate::pollution::update_pollution)
+                .after(crate::wind_pollution::update_pollution_gaussian_plume)
                 .after(crate::land_value::update_land_value)
                 .after(crate::immigration::compute_attractiveness)
                 .in_set(crate::SimulationSet::Simulation),

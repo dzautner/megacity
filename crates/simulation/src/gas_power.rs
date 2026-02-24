@@ -15,9 +15,7 @@ use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::coal_power::{PowerPlant, PowerPlantType};
-use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::energy_demand::EnergyGrid;
-use crate::pollution::PollutionGrid;
 use crate::SlowTickTimer;
 
 // =============================================================================
@@ -32,12 +30,6 @@ pub const GAS_CAPACITY_FACTOR: f32 = 0.45;
 
 /// Fuel cost in dollars per MWh generated.
 pub const GAS_FUEL_COST_PER_MWH: f32 = 40.0;
-
-/// Air pollution source strength (65% less than coal's Q=100).
-pub const GAS_POLLUTION_Q: f32 = 35.0;
-
-/// Pollution radiation radius (in grid cells).
-pub const GAS_POLLUTION_RADIUS: i32 = 8;
 
 /// CO2 emission rate in tons per MWh.
 pub const GAS_CO2_TONS_PER_MWH: f32 = 0.4;
@@ -146,50 +138,6 @@ pub fn aggregate_gas_power(
     // Add gas generation to the energy grid supply
     energy_grid.total_supply_mwh += total_output;
 }
-
-/// Adds air pollution around each gas power plant. Runs every slow tick.
-pub fn gas_pollution(
-    timer: Res<SlowTickTimer>,
-    plants: Query<&PowerPlant>,
-    mut pollution: ResMut<PollutionGrid>,
-) {
-    if !timer.should_run() {
-        return;
-    }
-
-    for plant in &plants {
-        if plant.plant_type != PowerPlantType::NaturalGas {
-            continue;
-        }
-
-        let cx = plant.grid_x as i32;
-        let cy = plant.grid_y as i32;
-        let intensity = GAS_POLLUTION_Q as i32;
-        let radius = GAS_POLLUTION_RADIUS;
-
-        for dy in -radius..=radius {
-            for dx in -radius..=radius {
-                let nx = cx + dx;
-                let ny = cy + dy;
-                if nx >= 0
-                    && ny >= 0
-                    && (nx as usize) < GRID_WIDTH
-                    && (ny as usize) < GRID_HEIGHT
-                {
-                    let dist = dx.abs() + dy.abs();
-                    let decay = (intensity - dist * (intensity / radius)).max(0) as u8;
-                    let cur = pollution.get(nx as usize, ny as usize);
-                    pollution.set(nx as usize, ny as usize, cur.saturating_add(decay));
-                }
-            }
-        }
-    }
-}
-
-// =============================================================================
-// Plugin
-// =============================================================================
-
 /// Plugin that registers natural gas power plant resources and systems.
 pub struct GasPowerPlugin;
 
@@ -197,8 +145,8 @@ impl Plugin for GasPowerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GasPowerState>().add_systems(
             FixedUpdate,
-            (aggregate_gas_power, gas_pollution)
-                .after(crate::pollution::update_pollution)
+            aggregate_gas_power
+                .after(crate::wind_pollution::update_pollution_gaussian_plume)
                 .in_set(crate::SimulationSet::Simulation),
         );
 
