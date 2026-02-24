@@ -83,6 +83,7 @@ pub fn wrap_with_header(data: &[u8]) -> Vec<u8> {
 }
 
 /// Result of unwrapping a save file's bytes.
+#[derive(Debug)]
 pub enum UnwrapResult<'a> {
     /// File has a valid header; the payload bytes follow.
     WithHeader {
