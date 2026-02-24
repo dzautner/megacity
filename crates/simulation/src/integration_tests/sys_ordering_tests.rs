@@ -27,7 +27,6 @@ use crate::happiness::{ServiceCoverageGrid, COVERAGE_HEALTH};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::test_harness::TestCity;
 use crate::traffic::TrafficGrid;
-use crate::utilities::UtilityType;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -74,14 +73,6 @@ fn city_with_unemployed_citizen_no_utils(home: (usize, usize)) -> TestCity {
         .with_unemployed_citizen(home)
 }
 
-/// Build a city with an unemployed citizen and basic utilities (power + water).
-fn city_with_unemployed_citizen_and_utils(home: (usize, usize)) -> TestCity {
-    TestCity::new()
-        .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
-        .with_unemployed_citizen(home)
-        .with_utility(home.0, home.1 + 1, UtilityType::PowerPlant)
-        .with_utility(home.0, home.1 - 1, UtilityType::WaterTower)
-}
 
 // ====================================================================
 // 1. Traffic density is read by happiness system
@@ -134,7 +125,7 @@ fn test_traffic_congestion_penalty_reflected_in_happiness() {
 
     // Now inject traffic and step carefully. We inject after each tick
     // that's a multiple of 5 (when traffic system clears the grid).
-    for i in 0..HAPPINESS_TICKS {
+    for _ in 0..HAPPINESS_TICKS {
         // Inject high traffic density before each tick.
         {
             let world = city_b.world_mut();
