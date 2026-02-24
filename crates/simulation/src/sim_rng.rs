@@ -115,8 +115,10 @@ impl Plugin for SimRngPlugin {
 // Unit tests
 // ---------------------------------------------------------------------------
 
+
 #[cfg(test)]
 mod tests {
+    use crate::Saveable;
     use super::*;
     use rand::Rng;
 
