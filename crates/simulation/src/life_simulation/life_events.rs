@@ -46,9 +46,13 @@ pub fn life_events(
     timer.life_event_tick = 0;
 
 
-    // Collect single adults in the same building for potential marriage
-    let mut singles_by_building: std::collections::HashMap<Entity, Vec<(Entity, Gender, u8, f32)>> =
-        std::collections::HashMap::new();
+    // Collect single adults in the same building for potential marriage.
+    //
+    // **Determinism**: Uses BTreeMap keyed by Entity to ensure buildings are
+    // processed in a deterministic order. HashMap iteration order is
+    // non-deterministic and would cause different marriage pairings across runs.
+    let mut singles_by_building: std::collections::BTreeMap<Entity, Vec<(Entity, Gender, u8, f32)>> =
+        std::collections::BTreeMap::new();
 
     for (entity, details, family, home, _personality) in &citizens {
         if family.partner.is_some() {

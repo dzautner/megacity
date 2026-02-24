@@ -5,14 +5,20 @@ use crate::roads::{RoadNetwork, RoadNode};
 
 /// Compressed Sparse Row graph for cache-friendly traversal.
 /// Stores the road network in a flat array format optimized for iteration.
+///
+/// **Determinism**: Node order is sorted by `(y, x)`. Edge lists per node are
+/// sorted by neighbor index, ensuring identical CSR output for identical input
+/// regardless of insertion order. The source `RoadNetwork` uses `BTreeMap`/`BTreeSet`
+/// for deterministic iteration, and this builder additionally sorts edge indices
+/// to guarantee the CSR layout is fully deterministic.
 #[derive(Resource, Default, Serialize, Deserialize)]
 pub struct CsrGraph {
-    /// Sorted list of all nodes
+    /// Sorted list of all nodes (by (y, x) for spatial locality)
     pub nodes: Vec<RoadNode>,
     /// node_offsets[i] is the start index in `edges` for node i.
     /// node_offsets[i+1] - node_offsets[i] = number of neighbors of node i.
     pub node_offsets: Vec<u32>,
-    /// Flat array of neighbor indices (indices into `nodes`)
+    /// Flat array of neighbor indices (indices into `nodes`), sorted per node
     pub edges: Vec<u32>,
     /// Edge weights (same length as edges)
     pub weights: Vec<u32>,
@@ -36,11 +42,16 @@ impl CsrGraph {
         for node in &nodes {
             node_offsets.push(edges.len() as u32);
             if let Some(neighbors) = network.edges.get(node) {
-                for neighbor in neighbors {
-                    if let Some(&idx) = node_index.get(neighbor) {
-                        edges.push(idx);
-                        weights.push(1); // default weight
-                    }
+                // Collect and sort neighbor indices for deterministic edge order
+                // within each node's adjacency list.
+                let mut neighbor_indices: Vec<u32> = neighbors
+                    .iter()
+                    .filter_map(|neighbor| node_index.get(neighbor).copied())
+                    .collect();
+                neighbor_indices.sort_unstable();
+                for idx in neighbor_indices {
+                    edges.push(idx);
+                    weights.push(1); // default weight
                 }
             }
         }
