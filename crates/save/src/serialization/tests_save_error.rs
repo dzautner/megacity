@@ -93,7 +93,11 @@ fn test_decode_garbage_bytes_returns_error() {
     assert!(result.is_err(), "Decoding garbage should fail");
 
     // Verify the bitcode::Error converts to SaveError::Decode
-    let save_err: SaveError = result.unwrap_err().into();
+    let bitcode_err = match result {
+        Err(e) => e,
+        Ok(_) => panic!("Expected error"),
+    };
+    let save_err: SaveError = bitcode_err.into();
     assert!(
         matches!(save_err, SaveError::Decode(_)),
         "Should be Decode variant, got: {save_err:?}"
@@ -184,8 +188,12 @@ fn test_migrate_old_version_succeeds_and_bumps() {
 fn test_encode_decode_roundtrip_succeeds() {
     let save = minimal_save(CURRENT_SAVE_VERSION);
     let bytes = save.encode();
-    let decoded = SaveData::decode(&bytes).expect("roundtrip should succeed");
-    assert_eq!(decoded.version, CURRENT_SAVE_VERSION);
+    let result = SaveData::decode(&bytes);
+    assert!(result.is_ok(), "Roundtrip should succeed");
+    match result {
+        Ok(decoded) => assert_eq!(decoded.version, CURRENT_SAVE_VERSION),
+        Err(e) => panic!("Decode failed: {e}"),
+    }
 }
 
 // ---------------------------------------------------------------------------
