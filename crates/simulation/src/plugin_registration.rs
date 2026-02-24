@@ -242,6 +242,9 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     // Time-of-Use Electricity Pricing (POWER-010)
     app.add_plugins(energy_pricing::EnergyPricingPlugin);
 
+    // Power line transmission and service radius (POWER-011)
+    app.add_plugins(power_lines::PowerLinePlugin);
+
     // Waste-to-Energy power plant (POWER-014)
     app.add_plugins(waste_to_energy::WtePlugin);
     // Coverage metrics precomputed for UI (PERF-001)
