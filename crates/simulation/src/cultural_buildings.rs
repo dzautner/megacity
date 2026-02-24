@@ -49,7 +49,7 @@ const STADIUM_EVENT_TOURISM_MULTIPLIER: f32 = 1.15;
 const TV_STATION_IMMIGRATION_BONUS: f32 = 5.0;
 
 /// How often (in ticks) the prestige system recalculates.
-const PRESTIGE_UPDATE_INTERVAL: u64 = 100;
+const PRESTIGE_UPDATE_INTERVAL: u64 = 50;
 
 /// Tourism bonus per point of prestige (scaled into cultural_facilities_score).
 const PRESTIGE_TOURISM_FACTOR: f32 = 0.5;
@@ -239,7 +239,6 @@ pub fn cultural_tourism_bonus(
     prestige: Res<CulturalPrestige>,
     mut tourism: ResMut<Tourism>,
 ) {
-    // Runs at the same interval as the prestige system
     if !tick.0.is_multiple_of(PRESTIGE_UPDATE_INTERVAL) {
         return;
     }
@@ -259,7 +258,8 @@ pub fn cultural_tourism_bonus(
 /// Apply TV station immigration visibility boost.
 ///
 /// Each TV station adds a flat bonus to the city's overall attractiveness
-/// score, making the city more visible to potential immigrants.
+/// score, making the city more visible to potential immigrants. Runs after
+/// `compute_attractiveness` so the bonus is additive.
 pub fn tv_station_immigration_boost(
     tick: Res<TickCounter>,
     prestige: Res<CulturalPrestige>,
@@ -295,7 +295,9 @@ impl Plugin for CulturalBuildingsPlugin {
                 cultural_tourism_bonus
                     .after(crate::tourism::update_tourism)
                     .after(update_cultural_prestige),
-                tv_station_immigration_boost.after(update_cultural_prestige),
+                tv_station_immigration_boost
+                    .after(crate::immigration::compute_attractiveness)
+                    .after(update_cultural_prestige),
                 museum_education_boost.after(crate::education::propagate_education),
             )
                 .in_set(crate::SimulationSet::Simulation),

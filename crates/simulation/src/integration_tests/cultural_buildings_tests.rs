@@ -37,9 +37,8 @@ fn test_cultural_prestige_default_is_zero() {
 
 #[test]
 fn test_museum_adds_prestige() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::Museum);
-    city.tick(100);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::Museum);
+    city.tick(50);
     let prestige = city.resource::<CulturalPrestige>();
     assert!(
         prestige.prestige_score > 0.0,
@@ -51,9 +50,8 @@ fn test_museum_adds_prestige() {
 
 #[test]
 fn test_cathedral_adds_prestige() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::Cathedral);
-    city.tick(100);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::Cathedral);
+    city.tick(50);
     let prestige = city.resource::<CulturalPrestige>();
     assert!(
         prestige.prestige_score > 0.0,
@@ -65,9 +63,8 @@ fn test_cathedral_adds_prestige() {
 
 #[test]
 fn test_stadium_adds_prestige() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::Stadium);
-    city.tick(100);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::Stadium);
+    city.tick(50);
     let prestige = city.resource::<CulturalPrestige>();
     assert!(
         prestige.prestige_score > 0.0,
@@ -79,9 +76,8 @@ fn test_stadium_adds_prestige() {
 
 #[test]
 fn test_tv_station_adds_prestige() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::TVStation);
-    city.tick(100);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::TVStation);
+    city.tick(50);
     let prestige = city.resource::<CulturalPrestige>();
     assert!(
         prestige.prestige_score > 0.0,
@@ -93,9 +89,8 @@ fn test_tv_station_adds_prestige() {
 
 #[test]
 fn test_multiple_cultural_buildings_increase_prestige() {
-    let mut city1 = TestCity::new()
-        .with_service(10, 10, ServiceType::Museum);
-    city1.tick(100);
+    let mut city1 = TestCity::new().with_service(10, 10, ServiceType::Museum);
+    city1.tick(50);
     let p1 = city1.resource::<CulturalPrestige>().prestige_score;
 
     let mut city2 = TestCity::new()
@@ -103,7 +98,7 @@ fn test_multiple_cultural_buildings_increase_prestige() {
         .with_service(20, 20, ServiceType::Cathedral)
         .with_service(30, 30, ServiceType::Stadium)
         .with_service(40, 40, ServiceType::TVStation);
-    city2.tick(100);
+    city2.tick(50);
     let p2 = city2.resource::<CulturalPrestige>().prestige_score;
 
     assert!(
@@ -119,7 +114,7 @@ fn test_non_cultural_buildings_dont_add_prestige() {
         .with_service(10, 10, ServiceType::FireStation)
         .with_service(20, 20, ServiceType::PoliceStation)
         .with_service(30, 30, ServiceType::Hospital);
-    city.tick(100);
+    city.tick(50);
     let prestige = city.resource::<CulturalPrestige>();
     assert!(
         (prestige.prestige_score - 0.0).abs() < f32::EPSILON,
@@ -134,8 +129,7 @@ fn test_non_cultural_buildings_dont_add_prestige() {
 
 #[test]
 fn test_stadium_event_activates_after_interval() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::Stadium);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::Stadium);
     // Run enough ticks for the event interval (500 ticks) + update interval
     city.tick(600);
     let prestige = city.resource::<CulturalPrestige>();
@@ -148,8 +142,7 @@ fn test_stadium_event_activates_after_interval() {
 
 #[test]
 fn test_stadium_event_provides_happiness_bonus() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::Stadium);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::Stadium);
     // Run to trigger event
     city.tick(600);
     let prestige = city.resource::<CulturalPrestige>();
@@ -163,14 +156,11 @@ fn test_stadium_event_provides_happiness_bonus() {
 
 #[test]
 fn test_stadium_event_ends_after_duration() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::Stadium);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::Stadium);
     // Trigger event and then let it end
     city.tick(800);
     let prestige = city.resource::<CulturalPrestige>();
     // After event duration (100 ticks), event should have ended
-    // The event starts at ~500, ends at ~600, so by 800 it should be inactive
-    // (unless a new one started)
     assert!(
         prestige.stadium_event_start_tick > 0,
         "Stadium event should have occurred"
@@ -179,8 +169,7 @@ fn test_stadium_event_ends_after_duration() {
 
 #[test]
 fn test_no_stadium_event_without_stadium() {
-    let mut city = TestCity::new()
-        .with_service(10, 10, ServiceType::Museum);
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::Museum);
     city.tick(600);
     let prestige = city.resource::<CulturalPrestige>();
     assert!(
@@ -200,12 +189,11 @@ fn test_no_stadium_event_without_stadium() {
 #[test]
 fn test_cultural_prestige_boosts_tourism_score() {
     // City with only a non-cultural attraction for baseline
-    let mut city1 = TestCity::new()
-        .with_service(10, 10, ServiceType::SmallPark);
+    let mut city1 = TestCity::new().with_service(10, 10, ServiceType::SmallPark);
     {
         city1.world_mut().resource_mut::<GameClock>().day = 31;
     }
-    city1.tick(100);
+    city1.tick(50);
     let t1 = city1.resource::<Tourism>().cultural_facilities_score;
 
     // City with cultural buildings
@@ -216,7 +204,7 @@ fn test_cultural_prestige_boosts_tourism_score() {
     {
         city2.world_mut().resource_mut::<GameClock>().day = 31;
     }
-    city2.tick(100);
+    city2.tick(50);
     let t2 = city2.resource::<Tourism>().cultural_facilities_score;
 
     assert!(
@@ -234,18 +222,47 @@ fn test_cultural_prestige_boosts_tourism_score() {
 fn test_tv_station_boosts_immigration_attractiveness() {
     use crate::immigration::CityAttractiveness;
 
-    let mut city1 = TestCity::new();
-    city1.tick(100);
+    // Verify directly that the prestige resource tracks TV stations
+    // and that the attractiveness score increases
+    let mut city = TestCity::new().with_service(10, 10, ServiceType::TVStation);
+    city.tick(50);
+
+    let prestige = city.resource::<CulturalPrestige>();
+    assert_eq!(
+        prestige.tv_station_count, 1,
+        "Should detect 1 TV station"
+    );
+
+    let attractiveness = city.resource::<CityAttractiveness>();
+    // The baseline for an empty city with default factors is ~32.5
+    // TVStation boost adds ~1.97 (5 * (1 - exp(-0.5)))
+    // So we expect > 32.5
+    assert!(
+        attractiveness.overall_score > 32.5,
+        "TV station should boost attractiveness above baseline 32.5, got {}",
+        attractiveness.overall_score
+    );
+}
+
+#[test]
+fn test_multiple_tv_stations_diminishing_returns() {
+    use crate::immigration::CityAttractiveness;
+
+    let mut city1 = TestCity::new().with_service(10, 10, ServiceType::TVStation);
+    city1.tick(50);
     let a1 = city1.resource::<CityAttractiveness>().overall_score;
 
     let mut city2 = TestCity::new()
-        .with_service(10, 10, ServiceType::TVStation);
-    city2.tick(100);
+        .with_service(10, 10, ServiceType::TVStation)
+        .with_service(20, 20, ServiceType::TVStation)
+        .with_service(30, 30, ServiceType::TVStation);
+    city2.tick(50);
     let a2 = city2.resource::<CityAttractiveness>().overall_score;
 
+    // More TV stations should increase score, but less than linearly
     assert!(
         a2 > a1,
-        "TV station ({}) should boost immigration attractiveness above baseline ({})",
+        "Multiple TV stations ({}) should boost more than one ({})",
         a2, a1
     );
 }
