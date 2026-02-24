@@ -46,83 +46,65 @@ mod tests {
         }
     }
 
+    /// Create a minimal valid SaveData using the staged pipeline with
+    /// default simulation resources. This avoids hardcoding struct fields.
     fn make_valid_save_bytes() -> Vec<u8> {
+        use simulation::economy::CityBudget;
         use simulation::grid::WorldGrid;
+        use simulation::roads::RoadNetwork;
+        use simulation::time_of_day::GameClock;
+        use simulation::zones::ZoneDemand;
 
         let grid = WorldGrid::new(4, 4);
-        let grid_stage = crate::serialization::collect_grid_stage(
+        let roads = RoadNetwork::default();
+        let clock = GameClock::default();
+        let budget = CityBudget::default();
+        let demand = ZoneDemand::default();
+
+        let save = crate::serialization::create_save_data(
             &grid,
-            &simulation::roads::RoadNetwork::default(),
+            &roads,
+            &clock,
+            &budget,
+            &demand,
+            &[],
+            &[],
+            &[],
+            &[], // buildings, citizens, utilities, services
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             None,
         );
-        let save = SaveData {
-            version: 1,
-            grid: grid_stage.grid,
-            roads: grid_stage.roads,
-            clock: crate::serialization::SaveClock {
-                elapsed_secs: 0.0,
-                time_of_day: 0.0,
-                day: 0,
-                speed_multiplier: 1.0,
-            },
-            budget: crate::serialization::SaveBudget {
-                funds: 10000.0,
-                tax_rate: 0.1,
-                income: 0.0,
-                expenses: 0.0,
-            },
-            demand: crate::serialization::SaveDemand {
-                residential: 0.5,
-                commercial: 0.5,
-                industrial: 0.5,
-                residential_high: None,
-                commercial_high: None,
-                office: None,
-                vacancy_residential: None,
-                vacancy_commercial: None,
-                vacancy_industrial: None,
-            },
-            buildings: vec![],
-            citizens: vec![],
-            utility_sources: vec![],
-            service_buildings: vec![],
-            road_segments: None,
-            policies: None,
-            weather: None,
-            unlock_state: None,
-            extended_budget: None,
-            loan_book: None,
-            lifecycle_timer: None,
-            virtual_population: None,
-            life_sim_timer: None,
-            stormwater_grid: None,
-            water_sources: None,
-            degree_days: None,
-            construction_modifiers: None,
-            recycling_state: None,
-            wind_damage_state: None,
-            uhi_grid: None,
-            drought_state: None,
-            heat_wave_state: None,
-            composting_state: None,
-            cold_snap_state: None,
-            water_treatment_state: None,
-            groundwater_depletion_state: None,
-            wastewater_state: None,
-            hazardous_waste_state: None,
-            storm_drainage_state: None,
-            landfill_capacity_state: None,
-            flood_state: None,
-            reservoir_state: None,
-            landfill_gas_state: None,
-            cso_state: None,
-            water_conservation_state: None,
-            fog_state: None,
-            urban_growth_boundary: None,
-            snow_state: None,
-            agriculture_state: None,
-            extensions: Default::default(),
-        };
         save.encode()
     }
 
