@@ -1,7 +1,9 @@
 use bevy::prelude::*;
+use simulation::notifications::{NotificationEvent, NotificationPriority};
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
+use crate::save_error::SaveError;
 use crate::save_stages::{
     assemble_save_data, collect_disaster_stage, collect_economy_stage, collect_entity_stage,
     collect_environment_stage, collect_grid_stage, collect_policy_stage,
@@ -60,6 +62,24 @@ use simulation::zones::ZoneDemand;
 /// access.  Runs on `OnEnter(SaveLoadState::Saving)`, then transitions back
 /// to `Idle`.
 pub(crate) fn exclusive_save(world: &mut World) {
+    if let Err(e) = exclusive_save_inner(world) {
+        let msg = format!("Save failed: {e}");
+        error!("{msg}");
+        world.send_event(NotificationEvent {
+            text: msg,
+            priority: NotificationPriority::Warning,
+            location: None,
+        });
+    }
+
+    // Always transition back to Idle, even on error.
+    world
+        .resource_mut::<NextState<SaveLoadState>>()
+        .set(SaveLoadState::Idle);
+}
+
+/// Inner implementation that returns `Result` for proper error propagation.
+fn exclusive_save_inner(world: &mut World) -> Result<(), SaveError> {
     // -- Stage 1: Collect entity data via queries (needs &mut World) --
     let building_data: Vec<(Building, Option<MixedUseBuilding>)> = {
         let mut q = world.query::<(&Building, Option<&MixedUseBuilding>)>();
@@ -123,140 +143,20 @@ pub(crate) fn exclusive_save(world: &mut World) {
     };
 
     // -- Stage 2: Build SaveData via staged collection pipeline --
-    //
-    // Each stage reads only the resources it needs, keeping the code focused
-    // and avoiding a single function with 40+ parameters.
-    let save = {
-        let grid = world.resource::<WorldGrid>();
-        let roads = world.resource::<RoadNetwork>();
-        let segments = world.resource::<RoadSegmentStore>();
+    let save = collect_all_stages(
+        world,
+        &building_data,
+        &citizen_data,
+        &utility_data,
+        &service_data,
+        &water_source_data,
+    );
 
-        let segment_ref = if segments.segments.is_empty() {
-            None
-        } else {
-            Some(segments)
-        };
-
-        let grid_stage = collect_grid_stage(grid, roads, segment_ref);
-
-        let clock = world.resource::<GameClock>();
-        let budget = world.resource::<CityBudget>();
-        let demand = world.resource::<ZoneDemand>();
-        let extended_budget = world.resource::<ExtendedBudget>();
-        let loan_book = world.resource::<LoanBook>();
-
-        let economy_stage = collect_economy_stage(
-            clock,
-            budget,
-            demand,
-            Some(extended_budget),
-            Some(loan_book),
-        );
-
-        let entity_stage = collect_entity_stage(
-            &building_data,
-            &citizen_data,
-            &utility_data,
-            &service_data,
-            if water_source_data.is_empty() {
-                None
-            } else {
-                Some(&water_source_data)
-            },
-        );
-
-        let weather = world.resource::<Weather>();
-        let climate_zone = world.resource::<ClimateZone>();
-        let uhi_grid = world.resource::<UhiGrid>();
-        let stormwater_grid = world.resource::<StormwaterGrid>();
-        let degree_days = world.resource::<DegreeDays>();
-        let construction_modifiers = world.resource::<ConstructionModifiers>();
-        let snow_grid = world.resource::<SnowGrid>();
-        let snow_plowing_state = world.resource::<SnowPlowingState>();
-        let agriculture_state = world.resource::<AgricultureState>();
-        let fog_state = world.resource::<FogState>();
-        let urban_growth_boundary = world.resource::<UrbanGrowthBoundary>();
-
-        let environment_stage = collect_environment_stage(
-            Some(weather),
-            Some(climate_zone),
-            Some(uhi_grid),
-            Some(stormwater_grid),
-            Some(degree_days),
-            Some(construction_modifiers),
-            Some((snow_grid, snow_plowing_state)),
-            Some(agriculture_state),
-            Some(fog_state),
-            Some(urban_growth_boundary),
-        );
-
-        let drought_state = world.resource::<DroughtState>();
-        let heat_wave_state = world.resource::<HeatWaveState>();
-        let cold_snap_state = world.resource::<ColdSnapState>();
-        let flood_state = world.resource::<FloodState>();
-        let wind_damage_state = world.resource::<WindDamageState>();
-        let reservoir_state = world.resource::<ReservoirState>();
-        let landfill_gas_state = world.resource::<LandfillGasState>();
-        let cso_state = world.resource::<SewerSystemState>();
-        let hazardous_waste_state = world.resource::<HazardousWasteState>();
-        let wastewater_state = world.resource::<WastewaterState>();
-        let storm_drainage_state = world.resource::<StormDrainageState>();
-        let landfill_capacity_state = world.resource::<LandfillCapacityState>();
-        let groundwater_depletion_state = world.resource::<GroundwaterDepletionState>();
-        let water_treatment_state = world.resource::<WaterTreatmentState>();
-        let water_conservation_state = world.resource::<WaterConservationState>();
-
-        let disaster_stage = collect_disaster_stage(
-            Some(drought_state),
-            Some(heat_wave_state),
-            Some(cold_snap_state),
-            Some(flood_state),
-            Some(wind_damage_state),
-            Some(reservoir_state),
-            Some(landfill_gas_state),
-            Some(cso_state),
-            Some(hazardous_waste_state),
-            Some(wastewater_state),
-            Some(storm_drainage_state),
-            Some(landfill_capacity_state),
-            Some(groundwater_depletion_state),
-            Some(water_treatment_state),
-            Some(water_conservation_state),
-        );
-
-        let policies = world.resource::<Policies>();
-        let unlock_state = world.resource::<UnlockState>();
-        let recycling_state = world.resource::<RecyclingState>();
-        let recycling_economics = world.resource::<RecyclingEconomics>();
-        let composting_state = world.resource::<CompostingState>();
-        let lifecycle_timer = world.resource::<LifecycleTimer>();
-        let life_sim_timer = world.resource::<LifeSimTimer>();
-        let virtual_population = world.resource::<VirtualPopulation>();
-
-        let policy_stage = collect_policy_stage(
-            Some(policies),
-            Some(unlock_state),
-            Some((recycling_state, recycling_economics)),
-            Some(composting_state),
-            Some(lifecycle_timer),
-            Some(life_sim_timer),
-            Some(virtual_population),
-        );
-
-        assemble_save_data(
-            grid_stage,
-            economy_stage,
-            entity_stage,
-            environment_stage,
-            disaster_stage,
-            policy_stage,
-        )
-    };
-    // -- Stage 2: Populate extension map from SaveableRegistry --
+    // -- Stage 2b: Populate extension map from SaveableRegistry --
     let mut save = save;
     let registry = world
         .remove_resource::<SaveableRegistry>()
-        .expect("SaveableRegistry must exist");
+        .ok_or_else(|| SaveError::MissingResource("SaveableRegistry".to_string()))?;
     save.extensions = registry.save_all(world);
     world.insert_resource(registry);
 
@@ -267,11 +167,8 @@ pub(crate) fn exclusive_save(world: &mut World) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let path = crate::save_plugin::save_file_path();
-        if let Err(e) = crate::atomic_write::atomic_write(&path, &bytes) {
-            eprintln!("Failed to save: {}", e);
-        } else {
-            println!("Saved {} bytes to {}", bytes.len(), path);
-        }
+        crate::atomic_write::atomic_write(&path, &bytes)?;
+        info!("Saved {} bytes to {}", bytes.len(), path);
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -295,8 +192,141 @@ pub(crate) fn exclusive_save(world: &mut World) {
         });
     }
 
-    // -- Stage 4: Transition back to Idle --
-    world
-        .resource_mut::<NextState<SaveLoadState>>()
-        .set(SaveLoadState::Idle);
+    Ok(())
+}
+
+/// Collect all save stages from world resources.
+#[allow(clippy::too_many_arguments)]
+fn collect_all_stages(
+    world: &mut World,
+    building_data: &[(Building, Option<MixedUseBuilding>)],
+    citizen_data: &[CitizenSaveInput],
+    utility_data: &[UtilitySource],
+    service_data: &[(ServiceBuilding,)],
+    water_source_data: &[WaterSource],
+) -> crate::serialization::SaveData {
+    let grid = world.resource::<WorldGrid>();
+    let roads = world.resource::<RoadNetwork>();
+    let segments = world.resource::<RoadSegmentStore>();
+
+    let segment_ref = if segments.segments.is_empty() {
+        None
+    } else {
+        Some(segments)
+    };
+
+    let grid_stage = collect_grid_stage(grid, roads, segment_ref);
+
+    let clock = world.resource::<GameClock>();
+    let budget = world.resource::<CityBudget>();
+    let demand = world.resource::<ZoneDemand>();
+    let extended_budget = world.resource::<ExtendedBudget>();
+    let loan_book = world.resource::<LoanBook>();
+
+    let economy_stage = collect_economy_stage(
+        clock,
+        budget,
+        demand,
+        Some(extended_budget),
+        Some(loan_book),
+    );
+
+    let entity_stage = collect_entity_stage(
+        building_data,
+        citizen_data,
+        utility_data,
+        service_data,
+        if water_source_data.is_empty() {
+            None
+        } else {
+            Some(water_source_data)
+        },
+    );
+
+    let weather = world.resource::<Weather>();
+    let climate_zone = world.resource::<ClimateZone>();
+    let uhi_grid = world.resource::<UhiGrid>();
+    let stormwater_grid = world.resource::<StormwaterGrid>();
+    let degree_days = world.resource::<DegreeDays>();
+    let construction_modifiers = world.resource::<ConstructionModifiers>();
+    let snow_grid = world.resource::<SnowGrid>();
+    let snow_plowing_state = world.resource::<SnowPlowingState>();
+    let agriculture_state = world.resource::<AgricultureState>();
+    let fog_state = world.resource::<FogState>();
+    let urban_growth_boundary = world.resource::<UrbanGrowthBoundary>();
+
+    let environment_stage = collect_environment_stage(
+        Some(weather),
+        Some(climate_zone),
+        Some(uhi_grid),
+        Some(stormwater_grid),
+        Some(degree_days),
+        Some(construction_modifiers),
+        Some((snow_grid, snow_plowing_state)),
+        Some(agriculture_state),
+        Some(fog_state),
+        Some(urban_growth_boundary),
+    );
+
+    let drought_state = world.resource::<DroughtState>();
+    let heat_wave_state = world.resource::<HeatWaveState>();
+    let cold_snap_state = world.resource::<ColdSnapState>();
+    let flood_state = world.resource::<FloodState>();
+    let wind_damage_state = world.resource::<WindDamageState>();
+    let reservoir_state = world.resource::<ReservoirState>();
+    let landfill_gas_state = world.resource::<LandfillGasState>();
+    let cso_state = world.resource::<SewerSystemState>();
+    let hazardous_waste_state = world.resource::<HazardousWasteState>();
+    let wastewater_state = world.resource::<WastewaterState>();
+    let storm_drainage_state = world.resource::<StormDrainageState>();
+    let landfill_capacity_state = world.resource::<LandfillCapacityState>();
+    let groundwater_depletion_state = world.resource::<GroundwaterDepletionState>();
+    let water_treatment_state = world.resource::<WaterTreatmentState>();
+    let water_conservation_state = world.resource::<WaterConservationState>();
+
+    let disaster_stage = collect_disaster_stage(
+        Some(drought_state),
+        Some(heat_wave_state),
+        Some(cold_snap_state),
+        Some(flood_state),
+        Some(wind_damage_state),
+        Some(reservoir_state),
+        Some(landfill_gas_state),
+        Some(cso_state),
+        Some(hazardous_waste_state),
+        Some(wastewater_state),
+        Some(storm_drainage_state),
+        Some(landfill_capacity_state),
+        Some(groundwater_depletion_state),
+        Some(water_treatment_state),
+        Some(water_conservation_state),
+    );
+
+    let policies = world.resource::<Policies>();
+    let unlock_state = world.resource::<UnlockState>();
+    let recycling_state = world.resource::<RecyclingState>();
+    let recycling_economics = world.resource::<RecyclingEconomics>();
+    let composting_state = world.resource::<CompostingState>();
+    let lifecycle_timer = world.resource::<LifecycleTimer>();
+    let life_sim_timer = world.resource::<LifeSimTimer>();
+    let virtual_population = world.resource::<VirtualPopulation>();
+
+    let policy_stage = collect_policy_stage(
+        Some(policies),
+        Some(unlock_state),
+        Some((recycling_state, recycling_economics)),
+        Some(composting_state),
+        Some(lifecycle_timer),
+        Some(life_sim_timer),
+        Some(virtual_population),
+    );
+
+    assemble_save_data(
+        grid_stage,
+        economy_stage,
+        entity_stage,
+        environment_stage,
+        disaster_stage,
+        policy_stage,
+    )
 }
