@@ -17,7 +17,7 @@ use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-use crate::grid::{WorldGrid, ZoneType};
+use crate::grid::WorldGrid;
 use crate::groundwater::WaterQualityGrid;
 use crate::noise::NoisePollutionGrid;
 use crate::pollution::PollutionGrid;
@@ -370,11 +370,8 @@ pub struct PollutionAlertPlugin;
 
 impl Plugin for PollutionAlertPlugin {
     fn build(&self, app: &mut App) {
-        use save::SaveableAppExt;
-
         app.init_resource::<PollutionAlertLog>()
             .init_resource::<ExceedanceTracker>()
-            .register_saveable::<PollutionAlertLog>()
             .add_systems(
                 FixedUpdate,
                 (
@@ -388,6 +385,12 @@ impl Plugin for PollutionAlertPlugin {
                     .after(crate::water_pollution::update_water_pollution)
                     .in_set(crate::SimulationSet::Simulation),
             );
+
+        // Register for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<PollutionAlertLog>();
     }
 }
 
