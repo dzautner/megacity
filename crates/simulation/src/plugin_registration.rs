@@ -225,6 +225,8 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Social services building types (SVC-013)
     app.add_plugins(social_services::SocialServicesPlugin);
+    // City Hall Administration Efficiency (SVC-012)
+    app.add_plugins(city_hall::CityHallPlugin);
     // Wind-aware Gaussian plume pollution dispersion (SVC-021)
     app.add_plugins(wind_pollution::WindPollutionPlugin);
 
