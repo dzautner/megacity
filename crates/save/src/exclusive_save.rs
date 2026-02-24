@@ -266,7 +266,7 @@ pub(crate) fn exclusive_save(world: &mut World) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let path = crate::save_plugin::save_file_path();
-        if let Err(e) = std::fs::write(&path, &bytes) {
+        if let Err(e) = crate::atomic_write::atomic_write(&path, &bytes) {
             eprintln!("Failed to save: {}", e);
         } else {
             println!("Saved {} bytes to {}", bytes.len(), path);
