@@ -14,7 +14,7 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::fire::{FireGrid, OnFire};
 use crate::road_graph_csr::{csr_find_path, CsrGraph};
 use crate::roads::RoadNode;
-use crate::services::{ServiceBuilding, ServiceType};
+use crate::services::ServiceBuilding;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -283,7 +283,7 @@ fn find_best_route(
     let mut best: Option<((usize, usize), Vec<RoadNode>)> = None;
     for &(sx, sy) in stations {
         if let Some(path) = find_nearby_path(csr, RoadNode(sx, sy), target_node) {
-            let shorter = best.as_ref().map_or(true, |(_, bp)| path.len() < bp.len());
+            let shorter = best.as_ref().is_none_or(|(_, bp)| path.len() < bp.len());
             if shorter {
                 best = Some(((sx, sy), path));
             }
