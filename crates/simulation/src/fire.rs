@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
+use crate::sim_rng::SimRng;
 
 use crate::buildings::Building;
 use crate::citizen::{
@@ -92,12 +93,12 @@ pub fn start_random_fires(
     mut commands: Commands,
     buildings: Query<(Entity, &Building), Without<OnFire>>,
     coverage: Res<ServiceCoverageGrid>,
+    mut rng: ResMut<SimRng>,
 ) {
     if !slow_timer.should_run() {
         return;
     }
 
-    let mut rng = rand::thread_rng();
 
     for (entity, building) in &buildings {
         // Only industrial buildings can spontaneously catch fire
@@ -114,7 +115,7 @@ pub fn start_random_fires(
             BASE_FIRE_CHANCE * NO_COVERAGE_MULTIPLIER
         };
 
-        if rng.gen::<f32>() < chance {
+        if rng.0.gen::<f32>() < chance {
             commands.entity(entity).insert(OnFire {
                 intensity: 1.0,
                 ticks_burning: 0,
@@ -131,8 +132,8 @@ pub fn spread_fire(
     grid: Res<WorldGrid>,
     mut burning: Query<(&Building, &mut OnFire)>,
     not_burning: Query<(Entity, &Building), Without<OnFire>>,
+    mut rng: ResMut<SimRng>,
 ) {
-    let mut rng = rand::thread_rng();
 
     // Collect adjacent building positions from burning buildings for spread candidates
     let mut spread_targets: Vec<(usize, usize)> = Vec::new();
@@ -150,7 +151,7 @@ pub fn spread_fire(
         // Collect neighbors for potential spread
         let (neighbors, count) = grid.neighbors4(building.grid_x, building.grid_y);
         for &(nx, ny) in &neighbors[..count] {
-            if rng.gen::<f32>() < SPREAD_CHANCE {
+            if rng.0.gen::<f32>() < SPREAD_CHANCE {
                 spread_targets.push((nx, ny));
             }
         }

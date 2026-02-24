@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use rand::seq::IteratorRandom;
 use rand::Rng;
+use crate::sim_rng::SimRng;
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::cumulative_zoning::{select_effective_zone, CumulativeZoningState};
@@ -70,6 +71,7 @@ pub fn building_spawner(
     eligible: Res<EligibleCells>,
     cumulative_zoning: Res<CumulativeZoningState>,
     game_params: Res<GameParams>,
+    mut rng: ResMut<SimRng>,
 ) {
     timer.0 += 1;
     if timer.0 < game_params.building.spawn_interval_ticks {
@@ -77,7 +79,6 @@ pub fn building_spawner(
     }
     timer.0 = 0;
 
-    let mut rng = rand::thread_rng();
 
     for (zone, cells) in &eligible.cells {
         if demand.demand_for(*zone) < 0.1 || cells.is_empty() {
@@ -91,7 +92,7 @@ pub fn building_spawner(
         let selected: Vec<(usize, usize)> = cells
             .iter()
             .copied()
-            .choose_multiple(&mut rng, max_per_tick.min(cells.len()));
+            .choose_multiple(&mut rng.0, max_per_tick.min(cells.len()));
 
         for (x, y) in selected {
             // Double-check cell is still eligible (could have changed since rebuild)
@@ -100,7 +101,7 @@ pub fn building_spawner(
                 continue;
             }
 
-            if rng.gen::<f32>() > spawn_chance {
+            if rng.0.gen::<f32>() > spawn_chance {
                 continue;
             }
 

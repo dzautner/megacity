@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
+use crate::sim_rng::SimRng;
 
 use crate::buildings::Building;
 use crate::citizen::{
@@ -33,6 +34,7 @@ pub fn life_events(
         With<Citizen>,
     >,
     mut buildings: Query<&mut Building>,
+    mut rng: ResMut<SimRng>,
 ) {
     if clock.paused {
         return;
@@ -43,7 +45,6 @@ pub fn life_events(
     }
     timer.life_event_tick = 0;
 
-    let mut rng = rand::thread_rng();
 
     // Collect single adults in the same building for potential marriage
     let mut singles_by_building: std::collections::HashMap<Entity, Vec<(Entity, Gender, u8, f32)>> =
@@ -93,7 +94,7 @@ pub fn life_events(
                     continue;
                 }
                 // Marriage probability
-                if rng.gen::<f32>() < 0.05 {
+                if rng.0.gen::<f32>() < 0.05 {
                     matched.insert(m_entity);
                     matched.insert(f_entity);
                     marriages.push((m_entity, f_entity));
@@ -133,7 +134,7 @@ pub fn life_events(
         // Birth probability: influenced by sociability and age
         let age_factor = 1.0 - ((details.age as f32 - 25.0).abs() / 15.0).min(1.0);
         let prob = 0.02 * personality.sociability * age_factor;
-        if rng.gen::<f32>() < prob {
+        if rng.0.gen::<f32>() < prob {
             births.push((entity, home.building, home.grid_x, home.grid_y));
         }
     }
@@ -149,7 +150,7 @@ pub fn life_events(
             continue;
         }
 
-        let gender = if rng.gen::<f32>() < 0.5 {
+        let gender = if rng.0.gen::<f32>() < 0.5 {
             Gender::Male
         } else {
             Gender::Female
@@ -178,7 +179,7 @@ pub fn life_events(
                     salary: 0.0,
                     savings: 0.0,
                 },
-                Personality::random(&mut rng),
+                Personality::random(&mut rng.0),
                 Needs {
                     hunger: 100.0,
                     energy: 100.0,

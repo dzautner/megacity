@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 use rand::Rng;
+use crate::sim_rng::SimRng;
 
 use crate::citizen::{Citizen, CitizenDetails};
 use crate::economy::CityBudget;
@@ -119,12 +120,11 @@ pub fn random_city_events(
     mut effects: ResMut<ActiveCityEffects>,
     mut milestones: ResMut<MilestoneTracker>,
     mut citizens: Query<&mut CitizenDetails, With<Citizen>>,
+    mut rng: ResMut<SimRng>,
 ) {
     if !slow_tick.should_run() {
         return;
     }
-
-    let mut rng = rand::thread_rng();
 
     // --- Decrement active effect timers ---
     if effects.festival_ticks > 0 {
@@ -140,7 +140,7 @@ pub fn random_city_events(
     // --- Random events ---
 
     // 2% chance: Festival (boost happiness by 5 for all citizens for 10 ticks)
-    if rng.gen::<f32>() < 0.02 {
+    if rng.0.gen::<f32>() < 0.02 {
         effects.festival_ticks = 10;
         for mut details in citizens.iter_mut() {
             details.happiness = (details.happiness + 5.0).min(100.0);
@@ -154,7 +154,7 @@ pub fn random_city_events(
     }
 
     // 1% chance: Economic Boom (double trade income for 20 ticks)
-    if rng.gen::<f32>() < 0.01 {
+    if rng.0.gen::<f32>() < 0.01 {
         effects.economic_boom_ticks = 20;
         journal.push(CityEvent {
             event_type: CityEventType::EconomicBoom,
@@ -168,7 +168,7 @@ pub fn random_city_events(
     }
 
     // 0.5% chance: Epidemic (reduce health for citizens by 5)
-    if rng.gen::<f32>() < 0.005 {
+    if rng.0.gen::<f32>() < 0.005 {
         effects.epidemic_ticks = 10;
         for mut details in citizens.iter_mut() {
             details.health = (details.health - 5.0).max(0.0);

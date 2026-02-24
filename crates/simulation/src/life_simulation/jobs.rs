@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
+use crate::sim_rng::SimRng;
 
 use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails, HomeLocation, WorkLocation};
@@ -96,6 +97,7 @@ pub fn job_seeking(
         (With<Citizen>, Without<WorkLocation>),
     >,
     mut buildings: Query<(Entity, &mut Building)>,
+    mut rng: ResMut<SimRng>,
 ) {
     if clock.paused {
         return;
@@ -106,7 +108,6 @@ pub fn job_seeking(
     }
     timer.job_seek_tick = 0;
 
-    let mut rng = rand::thread_rng();
 
     // Collect available workplaces with mutable remaining slot counts.
     // The remaining_slots field is decremented as citizens are assigned
@@ -136,7 +137,7 @@ pub fn job_seeking(
             details.education,
             home.grid_x,
             home.grid_y,
-            &mut rng,
+            &mut rng.0,
         );
 
         if let Some((job_entity, job_gx, job_gy)) = best_job {
