@@ -10,7 +10,7 @@ use crate::file_header::{
 #[test]
 fn test_compressed_roundtrip() {
     let data = b"hello world save data for compression test";
-    let wrapped = wrap_with_header_compressed(data);
+    let wrapped = wrap_with_header_compressed(data, &crate::save_metadata::SaveMetadata::default());
 
     // Should start with MEGA magic.
     assert_eq!(&wrapped[..4], &MAGIC);
@@ -18,7 +18,9 @@ fn test_compressed_roundtrip() {
     // Unwrap the header.
     let result = unwrap_header(&wrapped).expect("unwrap should succeed");
     match result {
-        UnwrapResult::WithHeader { header, payload } => {
+        UnwrapResult::WithHeader {
+            header, payload, ..
+        } => {
             assert_eq!(header.format_version, 1);
             assert!(header.is_compressed());
             assert_eq!(header.flags & FLAG_COMPRESSED, FLAG_COMPRESSED);
@@ -42,7 +44,9 @@ fn test_uncompressed_header_has_no_compressed_flag() {
 
     let result = unwrap_header(&wrapped).expect("unwrap should succeed");
     match result {
-        UnwrapResult::WithHeader { header, payload } => {
+        UnwrapResult::WithHeader {
+            header, payload, ..
+        } => {
             assert!(!header.is_compressed());
             assert_eq!(header.flags & FLAG_COMPRESSED, 0);
             assert_eq!(payload, data.as_slice());
@@ -60,7 +64,9 @@ fn test_backward_compat_uncompressed_saves_still_load() {
     // Load path: unwrap header, check flag, no decompression needed.
     let result = unwrap_header(&wrapped).expect("unwrap should succeed");
     match result {
-        UnwrapResult::WithHeader { header, payload } => {
+        UnwrapResult::WithHeader {
+            header, payload, ..
+        } => {
             assert!(!header.is_compressed());
             // Payload should be the raw data since it's not compressed.
             assert_eq!(payload, data.as_slice());
@@ -87,7 +93,8 @@ fn test_compressed_save_is_smaller_for_repetitive_data() {
     // Repetitive data should compress well.
     let data: Vec<u8> = "ABCDEFGH".repeat(10_000).into_bytes();
     let uncompressed_wrapped = wrap_with_header(&data);
-    let compressed_wrapped = wrap_with_header_compressed(&data);
+    let compressed_wrapped =
+        wrap_with_header_compressed(&data, &crate::save_metadata::SaveMetadata::default());
 
     // Compressed should be significantly smaller.
     assert!(
@@ -101,11 +108,13 @@ fn test_compressed_save_is_smaller_for_repetitive_data() {
 #[test]
 fn test_compressed_empty_payload_roundtrip() {
     let data: &[u8] = b"";
-    let wrapped = wrap_with_header_compressed(data);
+    let wrapped = wrap_with_header_compressed(data, &crate::save_metadata::SaveMetadata::default());
 
     let result = unwrap_header(&wrapped).expect("unwrap should succeed");
     match result {
-        UnwrapResult::WithHeader { header, payload } => {
+        UnwrapResult::WithHeader {
+            header, payload, ..
+        } => {
             assert!(header.is_compressed());
             assert_eq!(header.uncompressed_size, 0);
 
@@ -119,11 +128,14 @@ fn test_compressed_empty_payload_roundtrip() {
 #[test]
 fn test_compressed_large_payload_roundtrip() {
     let data: Vec<u8> = (0..100_000).map(|i| (i % 256) as u8).collect();
-    let wrapped = wrap_with_header_compressed(&data);
+    let wrapped =
+        wrap_with_header_compressed(&data, &crate::save_metadata::SaveMetadata::default());
 
     let result = unwrap_header(&wrapped).expect("unwrap should succeed");
     match result {
-        UnwrapResult::WithHeader { header, payload } => {
+        UnwrapResult::WithHeader {
+            header, payload, ..
+        } => {
             assert!(header.is_compressed());
             assert_eq!(header.uncompressed_size, 100_000);
 
@@ -137,7 +149,8 @@ fn test_compressed_large_payload_roundtrip() {
 #[test]
 fn test_checksum_covers_compressed_payload() {
     let data = b"test data for checksum verification";
-    let mut wrapped = wrap_with_header_compressed(data);
+    let mut wrapped =
+        wrap_with_header_compressed(data, &crate::save_metadata::SaveMetadata::default());
 
     // Corrupt one byte of the compressed payload.
     let last = wrapped.len() - 1;
@@ -155,7 +168,7 @@ fn test_checksum_covers_compressed_payload() {
 #[test]
 fn test_compressed_file_has_correct_header_structure() {
     let data = b"structure test data";
-    let wrapped = wrap_with_header_compressed(data);
+    let wrapped = wrap_with_header_compressed(data, &crate::save_metadata::SaveMetadata::default());
 
     // First 4 bytes: MEGA magic.
     assert_eq!(&wrapped[..4], &MAGIC);
