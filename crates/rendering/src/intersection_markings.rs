@@ -11,7 +11,7 @@ use bevy::render::mesh::Indices;
 use bevy::render::render_asset::RenderAssetUsages;
 
 use simulation::grid::RoadType;
-use simulation::road_segments::{RoadSegmentStore, SegmentId, SegmentNodeId};
+use simulation::road_segments::{RoadSegmentStore, SegmentNodeId};
 
 // ---------------------------------------------------------------------------
 // Components
