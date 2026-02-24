@@ -247,3 +247,61 @@ pub fn estimate_demand_mgd(population: u32) -> f32 {
     const GPCD: f32 = 150.0;
     (population as f32 * GPCD) / 1_000_000.0
 }
+
+// =============================================================================
+// Saveable implementation
+// =============================================================================
+
+/// Saveable aggregate state (excludes per-entity HashMap which is rebuilt from ECS).
+///
+/// This captures the city-wide metrics that should persist across save/load cycles.
+/// The per-entity `plants` HashMap is rebuilt during the next update tick from
+/// the `ServiceBuilding` entities in the world.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, bitcode::Encode, bitcode::Decode)]
+pub struct WaterTreatmentSaveData {
+    pub total_capacity_mgd: f32,
+    pub total_flow_mgd: f32,
+    pub avg_effluent_quality: f32,
+    pub total_period_cost: f64,
+    pub city_demand_mgd: f32,
+    pub treatment_coverage: f32,
+    pub avg_input_quality: f32,
+    pub disease_risk: f32,
+}
+
+impl crate::Saveable for WaterTreatmentState {
+    const SAVE_KEY: &'static str = "water_treatment";
+
+    fn save_to_bytes(&self) -> Option<Vec<u8>> {
+        if self.plants.is_empty() && self.city_demand_mgd == 0.0 {
+            return None;
+        }
+        let save_data = WaterTreatmentSaveData {
+            total_capacity_mgd: self.total_capacity_mgd,
+            total_flow_mgd: self.total_flow_mgd,
+            avg_effluent_quality: self.avg_effluent_quality,
+            total_period_cost: self.total_period_cost,
+            city_demand_mgd: self.city_demand_mgd,
+            treatment_coverage: self.treatment_coverage,
+            avg_input_quality: self.avg_input_quality,
+            disease_risk: self.disease_risk,
+        };
+        Some(bitcode::encode(&save_data))
+    }
+
+    fn load_from_bytes(bytes: &[u8]) -> Self {
+        let data: WaterTreatmentSaveData =
+            crate::decode_or_warn(Self::SAVE_KEY, bytes);
+        Self {
+            plants: HashMap::new(), // Rebuilt from ECS on next update tick
+            total_capacity_mgd: data.total_capacity_mgd,
+            total_flow_mgd: data.total_flow_mgd,
+            avg_effluent_quality: data.avg_effluent_quality,
+            total_period_cost: data.total_period_cost,
+            city_demand_mgd: data.city_demand_mgd,
+            treatment_coverage: data.treatment_coverage,
+            avg_input_quality: data.avg_input_quality,
+            disease_risk: data.disease_risk,
+        }
+    }
+}

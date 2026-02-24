@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use super::effects::{apply_treatment_grid_effects, apply_well_pump_effects};
 use super::{
     calculate_disease_risk, calculate_effluent_quality, TreatmentLevel, WaterTreatmentState,
 };
@@ -141,9 +142,18 @@ pub struct WaterTreatmentPlugin;
 
 impl Plugin for WaterTreatmentPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WaterTreatmentState>().add_systems(
+        app.init_resource::<WaterTreatmentState>();
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<WaterTreatmentState>();
+        app.add_systems(
             FixedUpdate,
-            update_water_treatment
+            (
+                update_water_treatment,
+                (apply_treatment_grid_effects, apply_well_pump_effects)
+                    .after(update_water_treatment),
+            )
                 .after(crate::imports_exports::process_trade)
                 .in_set(crate::SimulationSet::Simulation),
         );
