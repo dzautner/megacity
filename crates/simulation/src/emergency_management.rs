@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::buildings::Building;
 use crate::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
 use crate::disasters::ActiveDisaster;
-use crate::grid::{WorldGrid, ZoneType};
+
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::SlowTickTimer;
 
