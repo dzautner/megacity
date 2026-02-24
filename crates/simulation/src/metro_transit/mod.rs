@@ -40,10 +40,14 @@ impl Plugin for MetroTransitPlugin {
         app.init_resource::<MetroTransitState>().add_systems(
             FixedUpdate,
             (
+                // Order-independent: only writes MetroTransitState (private resource).
                 update_metro_stats,
+                // Order-independent: only writes MetroTransitState (private resource).
                 deduct_metro_costs,
+                // Writes LandValueGrid; must run after base land value is computed.
                 metro_land_value_boost.after(crate::land_value::update_land_value),
-            ),
+            )
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the extension map

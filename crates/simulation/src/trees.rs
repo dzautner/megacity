@@ -127,8 +127,13 @@ impl Plugin for TreesPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TreeGrid>().add_systems(
             FixedUpdate,
+            // Writes PollutionGrid, NoisePollutionGrid, and LandValueGrid;
+            // must run after the primary systems that compute those grids.
             tree_effects
                 .after(crate::imports_exports::process_trade)
+                .after(crate::wind_pollution::update_pollution_gaussian_plume)
+                .after(crate::noise::update_noise_pollution)
+                .after(crate::land_value::update_land_value)
                 .in_set(crate::SimulationSet::Simulation),
         );
     }

@@ -134,6 +134,10 @@ impl Plugin for BlueprintPlugin {
             .add_event::<BlueprintPlaced>()
             .add_systems(
                 FixedUpdate,
+                // Event-driven (user-triggered): handle_place_blueprint writes
+                // WorldGrid, RoadSegmentStore, RoadNetwork but only when a
+                // PlaceBlueprint event fires. Ordering is not critical because
+                // blueprint placement is a rare user action, not a per-tick system.
                 (handle_capture_blueprint, handle_place_blueprint)
                     .in_set(crate::SimulationSet::Simulation),
             );

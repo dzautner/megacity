@@ -175,6 +175,8 @@ impl Plugin for AutosavePlugin {
             .init_resource::<AutosavePending>()
             .add_systems(
                 FixedUpdate,
+                // Order-independent: only reads game state and writes AutosaveState
+                // (private resource); triggers save on timer expiry.
                 autosave_tick_system.in_set(crate::SimulationSet::PostSim),
             )
             .add_systems(Update, autosave_notification_system);

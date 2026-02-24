@@ -45,6 +45,8 @@ impl Plugin for BusTransitPlugin {
                 simulate_waiting_citizens,
             )
                 .chain()
+                // Order-independent from other plugins: internally chained,
+                // only writes BusTransitState (private resource).
                 .in_set(crate::SimulationSet::Simulation),
         );
 

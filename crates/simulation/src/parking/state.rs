@@ -188,6 +188,8 @@ impl Plugin for ParkingPlugin {
             .init_resource::<ParkingEffects>()
             .add_systems(
                 FixedUpdate,
+                // Order-independent: reads WorldGrid and ParkingPolicyState, writes
+                // ParkingEffects (private resource); no shared mutable state.
                 update_parking_effects.in_set(crate::SimulationSet::Simulation),
             );
 

@@ -61,6 +61,8 @@ impl Plugin for FormTransectPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TransectGrid>().add_systems(
             FixedUpdate,
+            // Order-independent: only caps Building levels via Query<&mut Building>;
+            // no shared grid resource writes.
             enforce_transect_constraints.in_set(crate::SimulationSet::Simulation),
         );
 

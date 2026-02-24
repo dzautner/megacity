@@ -345,10 +345,15 @@ impl Plugin for BicycleLanesPlugin {
             .add_systems(
                 FixedUpdate,
                 (
+                    // Order-independent: only writes BicycleLaneState (private resource).
                     prune_stale_bike_lanes,
+                    // Order-independent: only writes BicycleCoverageGrid (private resource).
                     update_bicycle_coverage,
-                    apply_bike_lane_congestion_relief.after(crate::traffic::update_traffic_density),
-                ),
+                    // Writes TrafficGrid; must run after traffic density is computed.
+                    apply_bike_lane_congestion_relief
+                        .after(crate::traffic::update_traffic_density),
+                )
+                    .in_set(crate::SimulationSet::Simulation),
             );
 
         // Register for save/load

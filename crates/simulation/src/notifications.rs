@@ -251,6 +251,8 @@ impl Plugin for NotificationsPlugin {
                 FixedUpdate,
                 (collect_notifications, sweep_expired_notifications)
                     .chain()
+                    // Order-independent from other PostSim systems: internally chained,
+                    // only writes NotificationLog (private resource).
                     .in_set(crate::SimulationSet::PostSim),
             );
     }

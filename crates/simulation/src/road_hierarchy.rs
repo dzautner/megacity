@@ -229,6 +229,9 @@ impl Plugin for RoadHierarchyPlugin {
             FixedUpdate,
             (update_road_hierarchy, advise_road_hierarchy)
                 .chain()
+                // Order-independent from other plugins: internally chained,
+                // only reads RoadSegmentStore and writes RoadHierarchyState /
+                // AdvisorPanel (private resources); no shared grid writes.
                 .in_set(crate::SimulationSet::Simulation),
         );
 

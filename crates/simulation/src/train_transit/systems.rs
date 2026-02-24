@@ -268,10 +268,14 @@ impl Plugin for TrainTransitPlugin {
         app.init_resource::<TrainTransitState>().add_systems(
             FixedUpdate,
             (
+                // Order-independent: only writes TrainTransitState (private resource).
                 update_train_lines,
+                // Writes LandValueGrid; must run after base land value is computed.
                 train_station_land_value.after(crate::land_value::update_land_value),
+                // Order-independent: only writes TrainTransitState (private resource).
                 update_train_costs,
-            ),
+            )
+                .in_set(crate::SimulationSet::Simulation),
         );
 
         // Register for save/load via the extension map

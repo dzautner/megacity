@@ -207,6 +207,8 @@ impl Plugin for CumulativeZoningPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CumulativeZoningState>().add_systems(
             FixedUpdate,
+            // Order-independent: only reads Policies and writes CumulativeZoningState
+            // (private resource); no shared mutable state.
             sync_cumulative_zoning_policy.in_set(crate::SimulationSet::Simulation),
         );
 
