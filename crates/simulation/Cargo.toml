@@ -41,3 +41,7 @@ harness = false
 [[bench]]
 name = "grid_bench"
 harness = false
+
+[[bench]]
+name = "traffic_bench"
+harness = false
