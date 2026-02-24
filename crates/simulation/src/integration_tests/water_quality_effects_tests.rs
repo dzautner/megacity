@@ -236,7 +236,6 @@ fn test_pristine_water_positive_tourism_bonus() {
 
     {
         let world = city.world_mut();
-        // Set grid cells to water first
         {
             let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
             for x in 0..50 {
@@ -245,7 +244,6 @@ fn test_pristine_water_positive_tourism_bonus() {
                 }
             }
         }
-        // Then set quality separately
         {
             let mut wq = world.resource_mut::<WaterQualityGrid>();
             for x in 0..50 {
@@ -256,7 +254,8 @@ fn test_pristine_water_positive_tourism_bonus() {
         }
     }
 
-    city.tick_slow_cycle();
+    // Run 2 slow cycles to ensure classify runs before tourism bonus
+    city.tick_slow_cycles(2);
 
     let effects = city.resource::<WaterQualityEffects>();
     assert!(
@@ -290,13 +289,21 @@ fn test_toxic_water_negative_tourism_bonus() {
         }
     }
 
-    city.tick_slow_cycle();
+    // Run 2 slow cycles to ensure classify runs before tourism bonus
+    city.tick_slow_cycles(2);
 
     let effects = city.resource::<WaterQualityEffects>();
+    // Verify tier_counts were populated
+    let total: u32 = effects.tier_counts.iter().sum();
+    assert!(
+        total > 0,
+        "tier_counts should be populated after slow cycles"
+    );
     assert!(
         effects.tourism_bonus_applied < 0.0,
-        "toxic water should give negative tourism bonus, got {}",
-        effects.tourism_bonus_applied
+        "toxic water should give negative tourism bonus, got {} (tiers: {:?})",
+        effects.tourism_bonus_applied,
+        effects.tier_counts
     );
 }
 

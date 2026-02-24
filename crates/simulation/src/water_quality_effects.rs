@@ -156,6 +156,7 @@ pub fn effective_quality(
 // ---------------------------------------------------------------------------
 
 /// Classify water cells into tiers and apply treatment cost scaling.
+/// Must run before health/tourism systems so tier_counts are populated.
 #[allow(clippy::too_many_arguments)]
 pub fn classify_water_quality_tiers(
     slow_timer: Res<SlowTickTimer>,
@@ -200,7 +201,8 @@ pub fn classify_water_quality_tiers(
         .map(|(i, _)| i as u8)
         .unwrap_or(1);
 
-    // Treatment cost scaling
+    // Treatment cost scaling: deduct from treasury only (not monthly_expenses
+    // to avoid breaking economy breakdown invariants).
     let pop = stats.population;
     if pop > 0 {
         let demand_mg = (pop as f64 * 150.0) / 1_000_000.0;
@@ -209,7 +211,6 @@ pub fn classify_water_quality_tiers(
         let tick_cost = demand_mg * cost * 0.33;
         effects.treatment_cost_modifier = tick_cost;
         budget.treasury -= tick_cost;
-        budget.monthly_expenses += tick_cost;
     } else {
         effects.treatment_cost_modifier = 0.0;
     }
@@ -310,8 +311,11 @@ impl Plugin for WaterQualityEffectsPlugin {
             FixedUpdate,
             (
                 classify_water_quality_tiers,
-                apply_water_quality_health_effects,
-                apply_water_quality_tourism_bonus,
+                (
+                    apply_water_quality_health_effects,
+                    apply_water_quality_tourism_bonus,
+                )
+                    .after(classify_water_quality_tiers),
             )
                 .after(crate::water_pollution::update_water_pollution)
                 .after(crate::groundwater::update_groundwater)
