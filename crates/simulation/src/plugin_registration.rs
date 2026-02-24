@@ -147,6 +147,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(production::ProductionPlugin);
     app.add_plugins(market::MarketPlugin);
     app.add_plugins(events::EventsPlugin);
+    app.add_plugins(event_journal_save::EventJournalSavePlugin);
     app.add_plugins(notifications::NotificationsPlugin);
     app.add_plugins(specialization::SpecializationPlugin);
     app.add_plugins(advisors::AdvisorsPlugin);
