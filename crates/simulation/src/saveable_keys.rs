@@ -107,6 +107,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "walkability",
     "waste_policies",
     "water_pollution_grid",
+    "water_pollution_sources",
     "water_pressure",
     "water_quality_effects",
     "water_quality_grid",

@@ -107,6 +107,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Water systems
     app.add_plugins(water_pollution::WaterPollutionPlugin);
+    app.add_plugins(water_pollution_sources::WaterPollutionSourcesPlugin);
     app.add_plugins(groundwater::GroundwaterPlugin);
     app.add_plugins(stormwater::StormwaterPlugin);
     app.add_plugins(water_demand::WaterDemandPlugin);
