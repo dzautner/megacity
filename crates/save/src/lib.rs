@@ -4,6 +4,7 @@ mod despawn;
 mod exclusive_load;
 mod exclusive_new_game;
 mod exclusive_save;
+mod file_header;
 mod reset_resources;
 mod restore_resources;
 mod save_codec;
