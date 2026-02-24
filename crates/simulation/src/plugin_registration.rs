@@ -48,6 +48,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(policy_effects::PolicyTradeoffsPlugin);
     app.add_plugins(districts_save::DistrictSavePlugin);
     app.add_plugins(superblock::SuperblockPlugin);
+    app.add_plugins(superblock_policy::SuperblockPolicyPlugin);
     app.add_plugins(neighborhood_quality::NeighborhoodQualityPlugin);
     app.add_plugins(lifecycle::LifecyclePlugin);
     app.add_plugins(building_upgrade::BuildingUpgradePlugin);
