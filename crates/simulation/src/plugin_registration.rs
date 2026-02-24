@@ -223,4 +223,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Fire grid save/load (SAVE-037)
     app.add_plugins(fire_grid_save::FireGridSavePlugin);
+
+    // Autosave with configurable interval (SAVE-002)
+    app.add_plugins(autosave::AutosavePlugin);
 }

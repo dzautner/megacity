@@ -100,6 +100,9 @@ impl Plugin for SavePlugin {
             OnEnter(SaveLoadState::NewGame),
             crate::exclusive_new_game::exclusive_new_game,
         );
+
+        // Autosave bridge: converts simulation-side timer triggers into save events.
+        app.add_plugins(crate::autosave_bridge::AutosaveBridgePlugin);
     }
 }
 

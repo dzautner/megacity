@@ -1,5 +1,6 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod atomic_write;
+mod autosave_bridge;
 mod despawn;
 mod exclusive_load;
 mod exclusive_new_game;
