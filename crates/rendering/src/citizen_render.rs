@@ -63,7 +63,6 @@ pub fn spawn_citizen_sprites(
         (Entity, Option<&CitizenStateComp>, &LodTier),
         (With<Citizen>, Without<CitizenSprite>),
     >,
-    grid: Res<WorldGrid>,
     model_cache: Res<BuildingModelCache>,
 ) {
     if query.is_empty() {
