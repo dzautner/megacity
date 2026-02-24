@@ -65,6 +65,8 @@ pub fn update_traffic_density(
     mut traffic: ResMut<TrafficGrid>,
     citizens: Query<(&CitizenStateComp, &PathCache), With<Citizen>>,
 ) {
+    #[cfg(feature = "trace")]
+    let _span = bevy::log::info_span!("update_traffic").entered();
     if !tick.0.is_multiple_of(5) {
         return;
     }

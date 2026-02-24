@@ -217,6 +217,8 @@ pub fn move_citizens(
         With<Citizen>,
     >,
 ) {
+    #[cfg(feature = "trace")]
+    let _span = bevy::log::info_span!("move_citizens").entered();
     if clock.paused {
         return;
     }
