@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::citizen::{Citizen, CitizenDetails};
@@ -16,7 +17,7 @@ use crate::TickCounter;
 // =============================================================================
 
 /// The six possible city specializations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, Serialize, Deserialize)]
 pub enum CitySpecialization {
     Tourism,
     Industry,
@@ -49,7 +50,7 @@ impl CitySpecialization {
 }
 
 /// Score and derived level for a single specialization.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Encode, Decode, Serialize, Deserialize)]
 pub struct SpecializationScore {
     /// Raw score in the range 0.0 to 100.0.
     pub score: f32,
@@ -108,7 +109,7 @@ impl SpecializationScore {
 // =============================================================================
 
 /// Tracks the score and level of each city specialization.
-#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct CitySpecializations {
     pub scores: HashMap<CitySpecialization, SpecializationScore>,
 }
@@ -132,7 +133,7 @@ impl CitySpecializations {
 /// Active bonus multipliers derived from specialization levels.
 /// Each field represents the effective bonus multiplier (0.0 = inactive).
 /// Systems that consume these bonuses multiply their base values accordingly.
-#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
 pub struct SpecializationBonuses {
     // Tourism bonuses
     /// Multiplier for extra commercial income (base +5%)
