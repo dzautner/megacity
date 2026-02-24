@@ -24,6 +24,11 @@ mod spawn_entities;
 #[cfg(target_arch = "wasm32")]
 mod wasm_idb;
 
+#[cfg(test)]
+mod save_fuzz_mutation_tests;
+#[cfg(test)]
+mod save_fuzz_tests;
+
 pub use crash_recovery::CrashRecoveryState;
 pub use save_error::SaveError;
 pub use save_plugin::{LoadGameEvent, NewGameEvent, SaveGameEvent, SavePlugin};
