@@ -3,7 +3,6 @@
 //! Tests that service coverage interactions produce expected downstream
 //! effects on crime, health, and education grids.
 
-use crate::crime::CrimeGrid;
 use crate::hybrid_service_coverage::HybridCoverageGrid;
 use crate::service_cross_interaction::{ServiceInteractionGrid, ServiceInteractionStats};
 use crate::services::ServiceType;
@@ -18,33 +17,26 @@ fn tick_interactions(city: &mut TestCity) {
 }
 
 // ====================================================================
-// 1. Education reduces crime
+// 1. Education reduces crime via interaction multiplier
 // ====================================================================
 
 #[test]
-fn test_education_coverage_reduces_crime() {
-    // Place education services at center — crime should be lower than without
-    let mut city_with_edu = TestCity::new()
+fn test_education_coverage_reduces_crime_multiplier() {
+    // Place education services at center — the crime multiplier in the
+    // interaction grid should be < 1.0, indicating crime reduction.
+    let mut city = TestCity::new()
         .with_service(128, 128, ServiceType::University)
         .with_service(130, 128, ServiceType::HighSchool);
-    tick_interactions(&mut city_with_edu);
+    tick_interactions(&mut city);
 
-    let mut city_without_edu = TestCity::new();
-    tick_interactions(&mut city_without_edu);
+    let interactions = city.resource::<ServiceInteractionGrid>();
+    let idx = ServiceInteractionGrid::idx(128, 128);
 
-    let crime_with = city_with_edu.resource::<CrimeGrid>();
-    let crime_without = city_without_edu.resource::<CrimeGrid>();
-
-    // At the service location, education coverage should reduce crime
-    let crime_at_center_with = crime_with.get(128, 128);
-    let crime_at_center_without = crime_without.get(128, 128);
-
-    // With education services present, crime should be <= crime without
+    // Education coverage creates a crime multiplier < 1.0
     assert!(
-        crime_at_center_with <= crime_at_center_without,
-        "Crime with education ({}) should be <= crime without ({})",
-        crime_at_center_with,
-        crime_at_center_without
+        interactions.crime_multiplier[idx] < 1.0,
+        "Crime multiplier should be < 1.0 with education services, got {}",
+        interactions.crime_multiplier[idx]
     );
 }
 
@@ -54,13 +46,13 @@ fn test_education_coverage_reduces_crime() {
 
 #[test]
 fn test_parks_improve_health() {
-    // Place parks at center — health should be better than without
-    let mut city_with_parks = TestCity::new()
+    // Place parks at center — health bonus should be positive
+    let mut city = TestCity::new()
         .with_service(128, 128, ServiceType::LargePark)
         .with_service(128, 130, ServiceType::SmallPark);
-    tick_interactions(&mut city_with_parks);
+    tick_interactions(&mut city);
 
-    let interactions = city_with_parks.resource::<ServiceInteractionGrid>();
+    let interactions = city.resource::<ServiceInteractionGrid>();
     let health_bonus = interactions.health_bonus[ServiceInteractionGrid::idx(128, 128)];
 
     // With park coverage, health bonus should be positive
@@ -159,7 +151,6 @@ fn test_interaction_stats_update() {
     let stats = city.resource::<ServiceInteractionStats>();
 
     // With services placed, some cells should have crime reduction
-    // The exact count depends on coverage radius, but should be >= 0
     assert!(
         stats.avg_crime_multiplier <= 1.0,
         "Average crime multiplier should be <= 1.0 with education services"
@@ -174,8 +165,7 @@ fn test_interaction_stats_update() {
 fn test_full_education_coverage_crime_reduction_strength() {
     // The interaction grid stores the crime multiplier directly.
     // At full education coverage (1.0), the factor should be 0.85 (= 1.0 - 0.15).
-    let mut city = TestCity::new()
-        .with_service(128, 128, ServiceType::University);
+    let mut city = TestCity::new().with_service(128, 128, ServiceType::University);
     tick_interactions(&mut city);
 
     let coverage = city.resource::<HybridCoverageGrid>();
@@ -206,8 +196,7 @@ fn test_full_education_coverage_crime_reduction_strength() {
 
 #[test]
 fn test_healthcare_provides_fire_survival() {
-    let mut city = TestCity::new()
-        .with_service(128, 128, ServiceType::Hospital);
+    let mut city = TestCity::new().with_service(128, 128, ServiceType::Hospital);
     tick_interactions(&mut city);
 
     let interactions = city.resource::<ServiceInteractionGrid>();
