@@ -156,14 +156,15 @@ fn test_battery_charge_clamped_to_rate() {
     // Small battery: 5 MW rate limit
     add_battery(&mut city, BatteryTier::Small, 0.0);
 
-    tick_battery(&mut city);
+    // Only tick 4 (one battery cycle) to check single-cycle rate limit
+    city.tick(4);
 
     let state = city.resource::<BatteryState>();
-    // Should have charged at most 5 MWh (rate limited)
+    // Per-cycle charge should be at most 5 MWh (rate limited)
     assert!(
-        state.total_stored_mwh <= 5.0 + 0.01,
-        "Charge should be rate-limited to 5 MW, got {}",
-        state.total_stored_mwh
+        state.last_charge_mwh <= 5.0 + 0.01,
+        "Per-cycle charge should be rate-limited to 5 MW, got {}",
+        state.last_charge_mwh
     );
 }
 
