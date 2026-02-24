@@ -240,4 +240,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Time-of-Use Electricity Pricing (POWER-010)
     app.add_plugins(energy_pricing::EnergyPricingPlugin);
+
+    // Coverage metrics precomputed for UI (PERF-001)
+    app.add_plugins(coverage_metrics::CoverageMetricsPlugin);
 }

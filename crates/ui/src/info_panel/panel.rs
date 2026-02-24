@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
+use simulation::coverage_metrics::CoverageMetrics;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::loans::LoanBook;
@@ -15,7 +16,7 @@ use super::city_overview;
 use super::economy_section;
 use super::finance_section;
 use super::services_section;
-use super::types::{CoverageCache, InfoPanelExtras, MinimapCache};
+use super::types::{InfoPanelExtras, MinimapCache};
 
 /// Main info panel system — renders the right-side panel with all city info.
 #[allow(clippy::too_many_arguments)]
@@ -28,7 +29,7 @@ pub fn info_panel_ui(
     overlay: Res<OverlayState>,
     mut minimap_cache: Local<MinimapCache>,
     time: Res<Time>,
-    coverage: Res<CoverageCache>,
+    coverage: Res<CoverageMetrics>,
     mut ext_budget: ResMut<simulation::budget::ExtendedBudget>,
     mut loan_book: ResMut<LoanBook>,
     mut extras: InfoPanelExtras,

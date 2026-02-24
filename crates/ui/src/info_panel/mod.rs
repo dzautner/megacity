@@ -23,6 +23,6 @@ pub use keybinds::{panel_keybinds, quick_save_load_keybinds};
 pub use panel::info_panel_ui;
 pub use policies::policies_ui;
 pub use types::{
-    update_coverage_cache, AdvisorVisible, BudgetPanelVisible, ChartsVisible, CoverageCache,
-    JournalVisible, MinimapCache, PoliciesVisible,
+    AdvisorVisible, BudgetPanelVisible, ChartsVisible, JournalVisible, MinimapCache,
+    PoliciesVisible,
 };

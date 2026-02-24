@@ -3,14 +3,15 @@
 
 use bevy_egui::egui;
 
+use simulation::coverage_metrics::CoverageMetrics;
 use simulation::districts::DistrictMap;
 
-use super::types::{coverage_bar, format_pop, CoverageCache, InfoPanelExtras};
+use super::types::{coverage_bar, format_pop, InfoPanelExtras};
 
 /// Render service coverage bars from cached values.
 pub fn draw_service_coverage(
     ui: &mut egui::Ui,
-    coverage: &CoverageCache,
+    coverage: &CoverageMetrics,
     extras: &InfoPanelExtras,
 ) {
     ui.separator();

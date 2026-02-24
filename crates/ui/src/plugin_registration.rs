@@ -47,7 +47,6 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     app.init_resource::<graphs::ChartsState>();
     app.init_resource::<toolbar::OpenCategory>();
     app.init_resource::<toolbar::ToolCatalog>();
-    app.init_resource::<info_panel::CoverageCache>();
     app.init_resource::<info_panel::JournalVisible>();
     app.init_resource::<info_panel::ChartsVisible>();
     app.init_resource::<info_panel::AdvisorVisible>();
@@ -64,7 +63,6 @@ pub(crate) fn register_ui_systems(app: &mut App) {
             graphs::record_history,
             toolbar::toolbar_ui,
             info_panel::info_panel_ui,
-            info_panel::update_coverage_cache,
         ),
     );
     app.add_systems(

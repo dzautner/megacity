@@ -6,12 +6,10 @@ use bevy_egui::egui;
 use simulation::achievements::{AchievementNotification, AchievementTracker};
 use simulation::advisors::AdvisorPanel;
 use simulation::airport::AirportStats;
-use simulation::config::CELL_SIZE;
 use simulation::death_care::DeathCareStats;
 use simulation::districts::DistrictMap;
 use simulation::education_jobs::EmploymentStats;
 use simulation::forest_fire::ForestFireStats;
-use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::groundwater::GroundwaterStats;
 use simulation::heating::HeatingStats;
 use simulation::homelessness::HomelessnessStats;
@@ -21,7 +19,6 @@ use simulation::natural_resources::ResourceBalance;
 use simulation::outside_connections::OutsideConnections;
 use simulation::postal::PostalStats;
 use simulation::production::CityGoods;
-use simulation::services::ServiceBuilding;
 use simulation::specialization::{CitySpecializations, SpecializationBonuses};
 use simulation::weather::Weather;
 use simulation::welfare::WelfareStats;
@@ -35,59 +32,6 @@ use simulation::wind::WindState;
 pub struct MinimapCache {
     pub texture_handle: Option<egui::TextureHandle>,
     pub dirty_timer: f32,
-}
-
-/// Cached coverage metrics, updated once per second instead of every frame.
-#[derive(Resource)]
-pub struct CoverageCache {
-    pub power: f32,
-    pub water: f32,
-    pub education: f32,
-    pub fire: f32,
-    pub police: f32,
-    pub health: f32,
-    pub telecom: f32,
-    /// Seconds remaining until next refresh.
-    timer: f32,
-}
-
-impl Default for CoverageCache {
-    fn default() -> Self {
-        Self {
-            power: 0.0,
-            water: 0.0,
-            education: 0.0,
-            fire: 0.0,
-            police: 0.0,
-            health: 0.0,
-            telecom: 0.0,
-            timer: 0.0, // refresh immediately on first frame
-        }
-    }
-}
-
-const COVERAGE_REFRESH_INTERVAL: f32 = 1.0;
-
-pub fn update_coverage_cache(
-    mut cache: ResMut<CoverageCache>,
-    time: Res<Time>,
-    grid: Res<WorldGrid>,
-    services: Query<&ServiceBuilding>,
-) {
-    cache.timer -= time.delta_secs();
-    if cache.timer > 0.0 {
-        return;
-    }
-    cache.timer = COVERAGE_REFRESH_INTERVAL;
-
-    let (power, water) = compute_utility_coverage(&grid);
-    cache.power = power;
-    cache.water = water;
-    cache.education = compute_service_coverage(&services, &grid, "edu");
-    cache.fire = compute_service_coverage(&services, &grid, "fire");
-    cache.police = compute_service_coverage(&services, &grid, "police");
-    cache.health = compute_service_coverage(&services, &grid, "health");
-    cache.telecom = compute_service_coverage(&services, &grid, "telecom");
 }
 
 /// Resource controlling whether the event journal window is visible.
@@ -190,58 +134,4 @@ pub fn coverage_bar(ui: &mut egui::Ui, label: &str, value: f32, color: egui::Col
         painter.rect_filled(fill_rect, 2.0, color);
         ui.label(format!("{:.0}%", value * 100.0));
     });
-}
-
-fn compute_utility_coverage(grid: &WorldGrid) -> (f32, f32) {
-    let mut total = 0u32;
-    let mut powered = 0u32;
-    let mut watered = 0u32;
-    for cell in &grid.cells {
-        if cell.cell_type == CellType::Grass && cell.zone != ZoneType::None {
-            total += 1;
-            if cell.has_power {
-                powered += 1;
-            }
-            if cell.has_water {
-                watered += 1;
-            }
-        }
-    }
-    if total == 0 {
-        return (1.0, 1.0);
-    }
-    (powered as f32 / total as f32, watered as f32 / total as f32)
-}
-
-fn compute_service_coverage(
-    services: &Query<&ServiceBuilding>,
-    grid: &WorldGrid,
-    category: &str,
-) -> f32 {
-    let mut covered_cells = 0u32;
-    let total_zoned = grid
-        .cells
-        .iter()
-        .filter(|c| c.zone != ZoneType::None)
-        .count() as f32;
-    if total_zoned == 0.0 {
-        return 0.0;
-    }
-
-    for service in services.iter() {
-        let matches = match category {
-            "edu" => ServiceBuilding::is_education(service.service_type),
-            "fire" => ServiceBuilding::is_fire(service.service_type),
-            "police" => ServiceBuilding::is_police(service.service_type),
-            "health" => ServiceBuilding::is_health(service.service_type),
-            "telecom" => ServiceBuilding::is_telecom(service.service_type),
-            _ => false,
-        };
-        if matches {
-            let radius_cells = service.radius / CELL_SIZE;
-            covered_cells += (std::f32::consts::PI * radius_cells * radius_cells) as u32;
-        }
-    }
-
-    (covered_cells as f32 / total_zoned).min(1.0)
 }
