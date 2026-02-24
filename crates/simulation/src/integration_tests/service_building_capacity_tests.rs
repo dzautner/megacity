@@ -3,7 +3,7 @@
 //! Tests staffing requirements, capacity scaling based on staffing, and
 //! overcrowding penalties when demand exceeds capacity.
 
-use crate::citizen::{Citizen, CitizenDetails};
+
 use crate::grid::ZoneType;
 use crate::service_building_capacity::{
     tier_capacity, ServiceBuildingCapacityState, ServiceBuildingStaffing,
@@ -80,7 +80,7 @@ fn test_hospital_at_full_capacity_provides_full_quality() {
         .query::<(&ServiceBuilding, &ServiceCapacity, &ServiceBuildingStaffing)>()
         .iter(world)
         .filter(|(s, _, _)| s.service_type == ServiceType::Hospital)
-        .map(|(_, c, st)| (c.capacity, c.current_usage, c.effectiveness()))
+        .map(|(_, c, _st)| (c.capacity, c.current_usage, c.effectiveness()))
         .collect();
 
     assert_eq!(caps.len(), 1);
