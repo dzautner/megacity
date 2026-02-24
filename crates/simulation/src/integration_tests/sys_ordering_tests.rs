@@ -17,9 +17,8 @@
 //!
 //! Note: `update_traffic_density` clears and repopulates the `TrafficGrid`
 //! every 5 ticks from actual commuting citizens. Tests that verify the
-//! traffic→happiness dependency use `TrafficGrid` injection on ticks where
-//! the traffic system does NOT run, so the injected values survive until
-//! happiness reads them.
+//! traffic→happiness dependency re-inject traffic density before every tick
+//! to survive the clear cycle.
 
 use crate::citizen::{CitizenDetails, Needs};
 use crate::grid::ZoneType;
@@ -27,6 +26,7 @@ use crate::happiness::{ServiceCoverageGrid, COVERAGE_HEALTH};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::test_harness::TestCity;
 use crate::traffic::TrafficGrid;
+use crate::utilities::UtilityType;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -65,68 +65,44 @@ fn stabilize_needs(city: &mut TestCity) {
     }
 }
 
-/// Build a minimal city with one unemployed citizen at home.
-/// NO utilities — this keeps happiness low enough to avoid the 100 cap.
-fn city_with_unemployed_citizen_no_utils(home: (usize, usize)) -> TestCity {
+/// Build a city with an unemployed citizen and basic utilities (power + water).
+/// This produces a happiness that is well above 0 (has power/water bonuses)
+/// but well below 100 (unemployed, no services), leaving room to measure
+/// both positive (service coverage) and negative (congestion) deltas.
+fn city_with_unemployed_citizen(home: (usize, usize)) -> TestCity {
     TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_unemployed_citizen(home)
+        .with_utility(home.0, home.1 + 1, UtilityType::PowerPlant)
+        .with_utility(home.0, home.1 - 1, UtilityType::WaterTower)
 }
-
 
 // ====================================================================
 // 1. Traffic density is read by happiness system
 // ====================================================================
 
 /// Verify that traffic density at the citizen's home cell causes a
-/// measurable happiness penalty. We inject density right before the
-/// last tick, after the traffic system has already run for this cycle.
-///
-/// The happiness system fires at TickCounter multiples of 20.
-/// The traffic system fires at multiples of 5 and clears all density.
-/// Since 20 is a multiple of 5, both fire on the same tick.
-///
-/// To work around the traffic system clearing our injected values, we
-/// directly manipulate the TrafficGrid after running 19 ticks (so the
-/// traffic system at tick 20 will clear+repopulate, but there are no
-/// commuting citizens so density stays 0). We instead compare two
-/// separate cities: one where we let natural (zero) traffic produce a
-/// baseline, and another where we inject traffic and then prevent the
-/// traffic clear by ticking to a non-multiple-of-5 tick count.
-///
-/// Strategy: tick to counter=18 (not multiple of 5), inject traffic,
-/// then tick 2 more to reach counter=20 where happiness fires. The
-/// traffic system fires at tick 20 (multiple of 5) and clears the grid
-/// before happiness runs. So instead, we verify via two fresh cities
-/// that congestion_level produces different happiness outcomes.
+/// measurable happiness penalty. We inject density before every tick
+/// in the happiness cycle to survive the traffic system's periodic clear.
 #[test]
 fn test_traffic_congestion_penalty_reflected_in_happiness() {
     let home = (100, 100);
 
-    // City A: zero traffic (baseline)
-    let mut city_a = city_with_unemployed_citizen_no_utils(home);
+    // City A: zero traffic (baseline).
+    let mut city_a = city_with_unemployed_citizen(home);
     city_a.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city_a);
     city_a.tick(1);
     let baseline = first_citizen_happiness(&mut city_a);
 
-    // City B: high traffic injected AFTER the traffic clear on tick 20.
-    // The update_traffic_density system runs at the START of tick 20
-    // (it's in SimulationSet::Simulation). Then update_happiness runs
-    // ALSO during tick 20. To ensure traffic is high when happiness reads
-    // it, we re-inject after each tick that might clear it.
-    //
-    // Actually, we run 2 happiness cycles (40 ticks) and inject traffic
-    // between ticks 20-39. The traffic system fires every 5 ticks but
-    // we re-inject each time. At tick 40, happiness fires again with our
-    // injected traffic (if we inject right before).
-    let mut city_b = city_with_unemployed_citizen_no_utils(home);
-    city_b.tick(HAPPINESS_TICKS); // let first happiness fire (baseline)
+    // City B: high traffic injected before every tick for one full
+    // happiness cycle. The traffic system clears every 5 ticks but
+    // we re-inject each time, so the density is high when happiness
+    // finally fires at the end of the cycle.
+    let mut city_b = city_with_unemployed_citizen(home);
+    city_b.tick(HAPPINESS_TICKS); // let first happiness cycle run
 
-    // Now inject traffic and step carefully. We inject after each tick
-    // that's a multiple of 5 (when traffic system clears the grid).
     for _ in 0..HAPPINESS_TICKS {
-        // Inject high traffic density before each tick.
         {
             let world = city_b.world_mut();
             let mut traffic = world.resource_mut::<TrafficGrid>();
@@ -137,8 +113,11 @@ fn test_traffic_congestion_penalty_reflected_in_happiness() {
     }
     let congested = first_citizen_happiness(&mut city_b);
 
-    // The congestion penalty (CONGESTION_PENALTY * congestion_level) should
-    // reduce happiness compared to baseline. CONGESTION_PENALTY = 5.0.
+    // CONGESTION_PENALTY = 5.0, congestion_level = 1.0 → expected ~5 point drop.
+    assert!(
+        baseline > 0.0,
+        "Baseline happiness should be above zero (has utilities). Got {baseline}"
+    );
     assert!(
         congested < baseline,
         "Happiness should decrease with traffic congestion. \
@@ -152,10 +131,10 @@ fn test_traffic_congestion_penalty_reflected_in_happiness() {
 fn test_happiness_recovers_when_congestion_clears() {
     let home = (100, 100);
 
-    // Phase 1: congested — inject traffic every tick for one happiness cycle.
-    let mut city = city_with_unemployed_citizen_no_utils(home);
+    let mut city = city_with_unemployed_citizen(home);
     city.tick(HAPPINESS_TICKS); // let initial systems settle
 
+    // Phase 1: congested — inject traffic every tick for one happiness cycle.
     for _ in 0..HAPPINESS_TICKS {
         {
             let world = city.world_mut();
@@ -167,8 +146,8 @@ fn test_happiness_recovers_when_congestion_clears() {
     }
     let congested = first_citizen_happiness(&mut city);
 
-    // Phase 2: clear congestion — run another happiness cycle with zero traffic.
-    // The traffic system naturally clears, and we don't re-inject.
+    // Phase 2: clear congestion — run another happiness cycle naturally.
+    // The traffic system clears density and no citizens are commuting.
     city.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city);
     city.tick(1);
@@ -193,15 +172,14 @@ fn test_hospital_placement_sets_health_coverage_flag() {
     let pos = (128, 128);
     let mut city = TestCity::new().with_service(pos.0, pos.1, ServiceType::Hospital);
 
-    // The coverage system fires via update_service_coverage which detects
-    // Added<ServiceBuilding>. A slow cycle ensures it has fired.
+    // The coverage system detects Added<ServiceBuilding>.
     city.tick_slow_cycle();
 
     let cov = city.resource::<ServiceCoverageGrid>();
     let idx = ServiceCoverageGrid::idx(pos.0, pos.1);
     assert!(
         cov.flags[idx] & COVERAGE_HEALTH != 0,
-        "Hospital at ({},{}) should set COVERAGE_HEALTH flag in ServiceCoverageGrid",
+        "Hospital at ({},{}) should set COVERAGE_HEALTH flag",
         pos.0,
         pos.1
     );
@@ -218,7 +196,7 @@ fn test_hospital_coverage_extends_to_nearby_cells() {
     let cov = city.resource::<ServiceCoverageGrid>();
 
     // Hospital coverage radius = 25 * CELL_SIZE = 400.0
-    // 10 cells away = 160.0 < 400.0 => should be covered.
+    // 10 cells away = 160.0 < 400.0 => covered.
     let idx_near = ServiceCoverageGrid::idx(138, 128);
     assert!(
         cov.flags[idx_near] & COVERAGE_HEALTH != 0,
@@ -243,7 +221,7 @@ fn test_hospital_coverage_absent_outside_radius() {
 
     let cov = city.resource::<ServiceCoverageGrid>();
 
-    // Hospital radius = 25 cells. 26 cells away = 416.0 > 400.0 => outside.
+    // Hospital radius = 25 cells. 26 cells = 416.0 > 400.0 => outside.
     let idx_outside = ServiceCoverageGrid::idx(154, 128);
     assert!(
         cov.flags[idx_outside] & COVERAGE_HEALTH == 0,
@@ -259,29 +237,29 @@ fn test_hospital_coverage_absent_outside_radius() {
 /// reflect the health coverage bonus without requiring an extra tick.
 /// This verifies update_service_coverage runs before update_happiness
 /// within the same FixedUpdate pass (they are chained).
-///
-/// Uses an unemployed citizen without full utilities to keep happiness
-/// below the 100 cap, ensuring the hospital bonus is measurable.
 #[test]
 fn test_service_coverage_available_to_happiness_same_tick() {
     let home = (100, 100);
 
     // City WITHOUT hospital — baseline happiness.
-    let mut city_no_hosp = city_with_unemployed_citizen_no_utils(home);
+    let mut city_no_hosp = city_with_unemployed_citizen(home);
     city_no_hosp.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city_no_hosp);
     city_no_hosp.tick(1);
     let happiness_no_hospital = first_citizen_happiness(&mut city_no_hosp);
 
     // City WITH hospital placed before any ticks.
-    let mut city_with_hosp = city_with_unemployed_citizen_no_utils(home)
+    let mut city_with_hosp = city_with_unemployed_citizen(home)
         .with_service(home.0, home.1, ServiceType::Hospital);
     city_with_hosp.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city_with_hosp);
     city_with_hosp.tick(1);
     let happiness_with_hospital = first_citizen_happiness(&mut city_with_hosp);
 
-    // The hospital should provide a health coverage bonus.
+    assert!(
+        happiness_no_hospital > 0.0,
+        "Baseline happiness should be positive (has utilities). Got {happiness_no_hospital}"
+    );
     assert!(
         happiness_with_hospital > happiness_no_hospital,
         "Hospital coverage should boost happiness on the same tick. \
@@ -290,12 +268,11 @@ fn test_service_coverage_available_to_happiness_same_tick() {
 }
 
 /// Verify that dynamically spawning a hospital mid-simulation makes its
-/// coverage bonus appear in happiness at the next happiness tick — no
-/// extra tick delay beyond what the happiness interval requires.
+/// coverage bonus appear in happiness at the next happiness tick.
 #[test]
 fn test_dynamic_hospital_spawn_reflected_in_happiness() {
     let home = (100, 100);
-    let mut city = city_with_unemployed_citizen_no_utils(home);
+    let mut city = city_with_unemployed_citizen(home);
 
     // Get baseline happiness (no hospital).
     city.tick(HAPPINESS_TICKS - 1);
@@ -321,8 +298,12 @@ fn test_dynamic_hospital_spawn_reflected_in_happiness() {
     let with_hospital = first_citizen_happiness(&mut city);
 
     assert!(
+        baseline > 0.0,
+        "Baseline should be positive. Got {baseline}"
+    );
+    assert!(
         with_hospital > baseline,
-        "Dynamically spawned hospital should increase happiness at next happiness tick. \
+        "Dynamically spawned hospital should increase happiness. \
          Baseline={baseline}, With hospital={with_hospital}"
     );
 }
@@ -333,11 +314,12 @@ fn test_dynamic_hospital_spawn_reflected_in_happiness() {
 #[test]
 fn test_coverage_and_happiness_chained_within_single_tick() {
     let home = (100, 100);
-    let mut city = city_with_unemployed_citizen_no_utils(home);
+    let mut city = city_with_unemployed_citizen(home);
 
     // Run to tick 19 — one tick before happiness fires.
     city.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city);
+    // Read baseline BEFORE the happiness tick fires.
     let baseline = first_citizen_happiness(&mut city);
 
     // Spawn hospital right before the happiness tick.
@@ -368,7 +350,7 @@ fn test_coverage_and_happiness_chained_within_single_tick() {
     // Verify happiness reflects the coverage bonus in the same tick.
     assert!(
         with_coverage > baseline,
-        "Happiness should reflect hospital coverage bonus within the same tick. \
+        "Happiness should reflect hospital coverage within the same tick. \
          Baseline={baseline}, With coverage={with_coverage}"
     );
 }
@@ -380,22 +362,19 @@ fn test_coverage_and_happiness_chained_within_single_tick() {
 /// Verify that placing multiple service buildings (hospital + police + park)
 /// all contribute to happiness within the same tick window, confirming
 /// that service coverage for all types propagates before happiness reads.
-///
-/// Uses an unemployed citizen WITHOUT utilities to keep happiness well below
-/// the 100 cap so that individual service bonuses are measurable.
 #[test]
 fn test_multiple_services_reflected_in_happiness_same_tick() {
     let home = (100, 100);
 
-    // Baseline: no services, no utilities, unemployed.
-    let mut city_none = city_with_unemployed_citizen_no_utils(home);
+    // Baseline: no services.
+    let mut city_none = city_with_unemployed_citizen(home);
     city_none.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city_none);
     city_none.tick(1);
     let happiness_none = first_citizen_happiness(&mut city_none);
 
     // With just hospital.
-    let mut city_hosp = city_with_unemployed_citizen_no_utils(home)
+    let mut city_hosp = city_with_unemployed_citizen(home)
         .with_service(home.0, home.1, ServiceType::Hospital);
     city_hosp.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city_hosp);
@@ -403,7 +382,7 @@ fn test_multiple_services_reflected_in_happiness_same_tick() {
     let happiness_hosp = first_citizen_happiness(&mut city_hosp);
 
     // With multiple services (hospital + police + park).
-    let mut city_all = city_with_unemployed_citizen_no_utils(home)
+    let mut city_all = city_with_unemployed_citizen(home)
         .with_service(home.0, home.1, ServiceType::Hospital)
         .with_service(home.0, home.1, ServiceType::PoliceStation)
         .with_service(home.0, home.1, ServiceType::SmallPark);
@@ -413,8 +392,12 @@ fn test_multiple_services_reflected_in_happiness_same_tick() {
     let happiness_all = first_citizen_happiness(&mut city_all);
 
     assert!(
+        happiness_none > 0.0,
+        "Baseline should be positive (has utilities). Got {happiness_none}"
+    );
+    assert!(
         happiness_hosp > happiness_none,
-        "Hospital should provide more happiness than no services. \
+        "Hospital should boost happiness over no services. \
          None={happiness_none}, Hospital={happiness_hosp}"
     );
     assert!(
@@ -429,44 +412,42 @@ fn test_multiple_services_reflected_in_happiness_same_tick() {
 // ====================================================================
 
 /// Verify that both traffic congestion penalty AND service coverage bonus
-/// are correctly reflected in the same happiness calculation, proving
-/// that both upstream systems complete before happiness reads their state.
-///
-/// Uses an unemployed citizen without utilities to keep happiness low.
+/// are correctly reflected in the same happiness calculation.
 #[test]
 fn test_traffic_and_coverage_both_reflected_in_happiness() {
     let home = (100, 100);
 
-    // City with hospital, no congestion, no utilities.
-    let mut city_hosp_only = city_with_unemployed_citizen_no_utils(home)
+    // City with hospital, no congestion.
+    let mut city_hosp_only = city_with_unemployed_citizen(home)
         .with_service(home.0, home.1, ServiceType::Hospital);
-    city_hosp_only.tick(HAPPINESS_TICKS); // let first happiness fire
+    city_hosp_only.tick(HAPPINESS_TICKS); // let first happiness cycle run
 
-    // Second happiness cycle — clean run.
     city_hosp_only.tick(HAPPINESS_TICKS - 1);
     stabilize_needs(&mut city_hosp_only);
     city_hosp_only.tick(1);
     let happiness_hosp = first_citizen_happiness(&mut city_hosp_only);
 
     // City with hospital AND congestion.
-    let mut city_both = city_with_unemployed_citizen_no_utils(home)
+    let mut city_both = city_with_unemployed_citizen(home)
         .with_service(home.0, home.1, ServiceType::Hospital);
-    city_both.tick(HAPPINESS_TICKS); // let first happiness fire
+    city_both.tick(HAPPINESS_TICKS); // let first happiness cycle run
 
     // Inject traffic every tick for the second happiness cycle.
     for _ in 0..HAPPINESS_TICKS {
         {
             let world = city_both.world_mut();
             let mut traffic = world.resource_mut::<TrafficGrid>();
-            traffic.set(home.0, home.1, 20); // max congestion
+            traffic.set(home.0, home.1, 20);
         }
         stabilize_needs(&mut city_both);
         city_both.tick(1);
     }
     let happiness_both = first_citizen_happiness(&mut city_both);
 
-    // Hospital gives a bonus, but congestion gives a penalty.
-    // With both, happiness should be lower than hospital-only.
+    assert!(
+        happiness_hosp > 0.0,
+        "Hospital-only happiness should be positive. Got {happiness_hosp}"
+    );
     assert!(
         happiness_both < happiness_hosp,
         "Congestion should reduce happiness even with hospital bonus. \
