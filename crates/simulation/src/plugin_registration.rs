@@ -213,4 +213,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Heating grid save/load (SAVE-040)
     app.add_plugins(heating_save::HeatingSavePlugin);
+
+    // Post-load commuting citizen reset (SAVE-008)
+    app.add_plugins(reset_commuting_on_load::ResetCommutingOnLoadPlugin);
 }
