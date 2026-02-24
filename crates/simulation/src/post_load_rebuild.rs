@@ -42,7 +42,7 @@ impl Plugin for PostLoadRebuildPlugin {
 /// This runs in `PreSim` (before gameplay systems) to ensure derived state
 /// is consistent before any simulation logic reads it.
 #[allow(clippy::too_many_arguments)]
-fn post_load_rebuild_derived_state(
+pub(crate) fn post_load_rebuild_derived_state(
     mut commands: Commands,
     roads: Res<RoadNetwork>,
     segments: Res<RoadSegmentStore>,
