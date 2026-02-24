@@ -422,4 +422,56 @@ mod tests {
             .count();
         assert!(road_cells > 0);
     }
+
+    #[test]
+    fn test_remove_segment_records_and_drains_endpoint_node_ids() {
+        let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        let mut roads = RoadNetwork::default();
+        let mut store = RoadSegmentStore::default();
+
+        let from = Vec2::new(128.0 * CELL_SIZE + 8.0, 128.0 * CELL_SIZE + 8.0);
+        let to = Vec2::new(140.0 * CELL_SIZE + 8.0, 128.0 * CELL_SIZE + 8.0);
+        let (seg_id, _) =
+            store.add_straight_segment(from, to, RoadType::Local, 24.0, &mut grid, &mut roads);
+
+        let start_node = store.segments[0].start_node;
+        let end_node = store.segments[0].end_node;
+
+        assert!(store.removed_segment_endpoints.is_empty());
+        store.remove_segment(seg_id, &mut grid, &mut roads);
+
+        assert_eq!(store.removed_segment_endpoints.len(), 2);
+        assert_eq!(store.removed_segment_endpoints[0], start_node);
+        assert_eq!(store.removed_segment_endpoints[1], end_node);
+
+        let drained = store.drain_removed_endpoints();
+        assert_eq!(drained.len(), 2);
+        assert!(store.removed_segment_endpoints.is_empty());
+    }
+
+    #[test]
+    fn test_remove_segment_records_endpoints_before_stripping_connectivity() {
+        let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        let mut roads = RoadNetwork::default();
+        let mut store = RoadSegmentStore::default();
+
+        // Two segments sharing a node at the midpoint
+        let from_a = Vec2::new(128.0 * CELL_SIZE + 8.0, 128.0 * CELL_SIZE + 8.0);
+        let mid = Vec2::new(140.0 * CELL_SIZE + 8.0, 128.0 * CELL_SIZE + 8.0);
+        let to_b = Vec2::new(152.0 * CELL_SIZE + 8.0, 128.0 * CELL_SIZE + 8.0);
+        let (seg_a, _) =
+            store.add_straight_segment(from_a, mid, RoadType::Local, 24.0, &mut grid, &mut roads);
+        let (_seg_b, _) =
+            store.add_straight_segment(mid, to_b, RoadType::Local, 24.0, &mut grid, &mut roads);
+
+        let shared_node = store.segments[0].end_node;
+        assert_eq!(store.get_node(shared_node).unwrap().connected_segments.len(), 2);
+
+        store.remove_segment(seg_a, &mut grid, &mut roads);
+
+        // Shared node was recorded before connectivity was stripped
+        assert!(store.removed_segment_endpoints.contains(&shared_node));
+        // After removal, connectivity is stripped to 1
+        assert_eq!(store.get_node(shared_node).unwrap().connected_segments.len(), 1);
+    }
 }

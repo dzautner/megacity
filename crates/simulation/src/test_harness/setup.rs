@@ -122,6 +122,21 @@ impl TestCity {
         });
     }
 
+    /// Remove a road segment by its index in the segment store.
+    /// Records endpoint node IDs in `removed_segment_endpoints` before
+    /// stripping connectivity (for intersection mesh invalidation).
+    pub fn remove_segment_by_index(&mut self, segment_index: usize) {
+        let world = self.app.world_mut();
+        world.resource_scope(|world, mut segments: Mut<RoadSegmentStore>| {
+            let seg_id = segments.segments[segment_index].id;
+            world.resource_scope(|world, mut grid: Mut<WorldGrid>| {
+                world.resource_scope(|_world, mut roads: Mut<RoadNetwork>| {
+                    segments.remove_segment(seg_id, &mut grid, &mut roads);
+                });
+            });
+        });
+    }
+
     /// Upgrade a road segment by its index in the segment store.
     /// Returns `Ok(new_road_type)` on success or `Err(reason)` on failure.
     pub fn upgrade_segment_by_index(
