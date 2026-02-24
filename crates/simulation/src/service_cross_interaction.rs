@@ -389,8 +389,7 @@ impl Plugin for ServiceCrossInteractionPlugin {
         app.add_systems(
             FixedUpdate,
             (
-                compute_interaction_grid
-                    .after(crate::hybrid_service_coverage::update_hybrid_coverage),
+                compute_interaction_grid,
                 apply_crime_interactions
                     .after(compute_interaction_grid)
                     .after(crate::crime::update_crime),
