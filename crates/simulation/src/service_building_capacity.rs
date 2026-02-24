@@ -7,7 +7,7 @@
 //!
 //! This module works alongside `service_capacity.rs` (SERV-001) which tracks
 //! `ServiceCapacity` per building. Here we add `ServiceBuildingStaffing` and
-//! a system that scales the effective capacity based on staffing level.
+//! systems that scale effective capacity based on staffing level.
 
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
@@ -19,7 +19,7 @@ use crate::services::{ServiceBuilding, ServiceType};
 use crate::TickCounter;
 
 // ---------------------------------------------------------------------------
-// Per-building tier capacity values (from research doc tables)
+// Per-building tier capacity and staffing values (from research doc tables)
 // ---------------------------------------------------------------------------
 
 /// Returns the tier-specific unit capacity for a service type:
@@ -89,7 +89,6 @@ pub fn staff_required(st: ServiceType) -> u32 {
 // ---------------------------------------------------------------------------
 
 /// Tracks staffing requirements and assignments for a service building.
-/// Effective capacity is scaled by the staffing ratio.
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceBuildingStaffing {
     /// Number of staff needed for full-capacity operation.
@@ -130,6 +129,25 @@ impl ServiceBuildingStaffing {
     pub fn is_unstaffed(&self) -> bool {
         self.staff_assigned == 0
     }
+
+    /// Combined effectiveness: staffing ratio * overcrowding factor.
+    /// This is what external systems should use to get the final quality.
+    pub fn combined_effectiveness(&self, current_usage: u32) -> f32 {
+        let staff_eff = self.staffing_ratio();
+        if staff_eff == 0.0 {
+            return 0.0;
+        }
+        let eff_cap = self.effective_capacity();
+        if eff_cap == 0 {
+            return 0.0;
+        }
+        let utilization = current_usage as f32 / eff_cap as f32;
+        if utilization <= 1.0 {
+            staff_eff
+        } else {
+            (staff_eff / utilization).max(0.1)
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -150,9 +168,9 @@ fn attach_staffing(
 
 /// Assign staff to service buildings from the employed citizen pool.
 ///
-/// Strategy: count total employed citizens, then distribute proportionally
-/// to each building's `staff_required`. This avoids circular dependency
-/// with the employment system.
+/// Strategy: count total employed citizens (salary > 0), then distribute
+/// proportionally to each building's `staff_required`. This avoids circular
+/// dependency with the employment system.
 ///
 /// Runs every 20 ticks to avoid per-frame overhead.
 fn assign_staff(
@@ -179,21 +197,6 @@ fn assign_staff(
         let share =
             total_employed as f64 * (staffing.staff_required as f64 / total_required as f64);
         staffing.staff_assigned = (share as u32).min(staffing.staff_required);
-    }
-}
-
-/// Update `ServiceCapacity` based on staffing levels.
-/// Unstaffed buildings get capacity 0; partially staffed scale proportionally.
-fn apply_staffing_to_capacity(
-    tick: Res<TickCounter>,
-    mut query: Query<(&ServiceBuildingStaffing, &mut ServiceCapacity)>,
-) {
-    if !tick.0.is_multiple_of(20) {
-        return;
-    }
-
-    for (staffing, mut capacity) in &mut query {
-        capacity.capacity = staffing.effective_capacity();
     }
 }
 
@@ -304,12 +307,7 @@ impl Plugin for ServiceBuildingCapacityPlugin {
 
         app.add_systems(
             FixedUpdate,
-            (
-                attach_staffing,
-                assign_staff,
-                apply_staffing_to_capacity,
-                update_staffing_stats,
-            )
+            (attach_staffing, assign_staff, update_staffing_stats)
                 .chain()
                 .in_set(crate::SimulationSet::Simulation),
         );
@@ -413,15 +411,36 @@ mod tests {
     }
 
     #[test]
-    fn test_overcrowding_penalty_at_capacity() {
-        let cap = ServiceCapacity { capacity: 200, current_usage: 200 };
-        assert!((cap.effectiveness() - 1.0).abs() < f32::EPSILON);
+    fn test_combined_effectiveness_fully_staffed_under_capacity() {
+        let s = ServiceBuildingStaffing {
+            staff_required: 40, staff_assigned: 40, max_capacity: 200,
+        };
+        assert!((s.combined_effectiveness(100) - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
-    fn test_overcrowding_penalty_double_demand() {
-        let cap = ServiceCapacity { capacity: 200, current_usage: 400 };
-        assert!((cap.effectiveness() - 0.5).abs() < f32::EPSILON);
+    fn test_combined_effectiveness_fully_staffed_double_demand() {
+        let s = ServiceBuildingStaffing {
+            staff_required: 40, staff_assigned: 40, max_capacity: 200,
+        };
+        assert!((s.combined_effectiveness(400) - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_combined_effectiveness_unstaffed() {
+        let s = ServiceBuildingStaffing {
+            staff_required: 40, staff_assigned: 0, max_capacity: 200,
+        };
+        assert!((s.combined_effectiveness(100)).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_combined_effectiveness_half_staffed() {
+        let s = ServiceBuildingStaffing {
+            staff_required: 40, staff_assigned: 20, max_capacity: 200,
+        };
+        // Half staffed, usage=50 (under effective capacity of 100)
+        assert!((s.combined_effectiveness(50) - 0.5).abs() < f32::EPSILON);
     }
 
     #[test]

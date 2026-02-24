@@ -3,7 +3,6 @@
 //! Tests staffing requirements, capacity scaling based on staffing, and
 //! overcrowding penalties when demand exceeds capacity.
 
-
 use crate::grid::ZoneType;
 use crate::service_building_capacity::{
     tier_capacity, ServiceBuildingCapacityState, ServiceBuildingStaffing,
@@ -58,46 +57,15 @@ fn test_staffing_has_correct_requirements() {
 // ====================================================================
 
 #[test]
-fn test_hospital_at_full_capacity_provides_full_quality() {
-    let mut city = TestCity::new()
-        .with_service(128, 128, ServiceType::Hospital)
-        .with_building(130, 128, ZoneType::ResidentialLow, 1);
-
-    // Spawn enough employed citizens to fully staff the hospital.
-    // Hospital needs 40 staff. We need employed citizens with salary > 0.
-    for i in 0..60 {
-        let x = 125 + (i % 5);
-        let y = 125 + (i / 5);
-        city = city
-            .with_building(x, y, ZoneType::CommercialLow, 1)
-            .with_citizen((130, 128), (x, y));
-    }
-
-    tick_staffing(&mut city);
-
-    let world = city.world_mut();
-    let caps: Vec<(u32, u32, f32)> = world
-        .query::<(&ServiceBuilding, &ServiceCapacity, &ServiceBuildingStaffing)>()
-        .iter(world)
-        .filter(|(s, _, _)| s.service_type == ServiceType::Hospital)
-        .map(|(_, c, _st)| (c.capacity, c.current_usage, c.effectiveness()))
-        .collect();
-
-    assert_eq!(caps.len(), 1);
-    // When fully staffed, capacity should be the max (200)
-    // and with usage <= capacity, effectiveness should be 1.0
-    let (cap, usage, eff) = caps[0];
+fn test_hospital_at_full_capacity_full_quality() {
+    let cap = ServiceCapacity {
+        capacity: 200,
+        current_usage: 200,
+    };
     assert!(
-        cap > 0,
-        "Fully staffed hospital should have positive capacity"
+        (cap.effectiveness() - 1.0).abs() < f32::EPSILON,
+        "Hospital at capacity should have full effectiveness"
     );
-    if usage <= cap {
-        assert!(
-            (eff - 1.0).abs() < f32::EPSILON,
-            "Hospital at or under capacity should have full effectiveness, got {}",
-            eff
-        );
-    }
 }
 
 // ====================================================================
@@ -106,7 +74,6 @@ fn test_hospital_at_full_capacity_provides_full_quality() {
 
 #[test]
 fn test_hospital_overcrowded_reduces_quality() {
-    // Verify the math: when current_usage = 2 * capacity, effectiveness = 0.5
     let cap = ServiceCapacity {
         capacity: 200,
         current_usage: 400,
@@ -118,27 +85,30 @@ fn test_hospital_overcrowded_reduces_quality() {
 }
 
 // ====================================================================
-// 4. Unstaffed school provides 0 education coverage
+// 4. Unstaffed school provides 0 service
 // ====================================================================
 
 #[test]
 fn test_unstaffed_building_provides_zero_service() {
-    // A city with a school but no employed citizens -> unstaffed -> capacity = 0
     let mut city = TestCity::new().with_service(128, 128, ServiceType::ElementarySchool);
     tick_staffing(&mut city);
 
     let world = city.world_mut();
-    let caps: Vec<u32> = world
-        .query::<(&ServiceBuilding, &ServiceCapacity, &ServiceBuildingStaffing)>()
+    let staffing: Vec<(u32, f32)> = world
+        .query::<(&ServiceBuilding, &ServiceBuildingStaffing)>()
         .iter(world)
-        .filter(|(s, _, _)| s.service_type == ServiceType::ElementarySchool)
-        .map(|(_, c, _)| c.capacity)
+        .filter(|(s, _)| s.service_type == ServiceType::ElementarySchool)
+        .map(|(_, s)| (s.effective_capacity(), s.combined_effectiveness(100)))
         .collect();
 
-    assert_eq!(caps.len(), 1);
+    assert_eq!(staffing.len(), 1);
     assert_eq!(
-        caps[0], 0,
+        staffing[0].0, 0,
         "Unstaffed school should have 0 effective capacity"
+    );
+    assert!(
+        staffing[0].1.abs() < f32::EPSILON,
+        "Unstaffed school should have 0 combined effectiveness"
     );
 }
 
@@ -212,14 +182,8 @@ fn test_staffing_stats_populated() {
     let health = state.categories.iter().find(|c| c.category == "Health");
     assert!(health.is_some(), "Should have Health category");
     let health = health.unwrap();
-    assert_eq!(
-        health.total_staff_required, 40,
-        "Hospital needs 40 staff"
-    );
-    assert_eq!(
-        health.total_max_capacity, 200,
-        "Hospital max capacity is 200"
-    );
+    assert_eq!(health.total_staff_required, 40, "Hospital needs 40 staff");
+    assert_eq!(health.total_max_capacity, 200, "Hospital max capacity is 200");
 }
 
 // ====================================================================
@@ -230,7 +194,7 @@ fn test_staffing_stats_populated() {
 fn test_staff_assigned_from_employed_citizens() {
     let mut city = TestCity::new().with_service(128, 128, ServiceType::Hospital);
 
-    // Spawn employed citizens (with salary > 0 via with_citizen)
+    // Spawn employed citizens (with_citizen sets salary=3500)
     for i in 0..50 {
         let x = 120 + (i % 10);
         let y = 120 + (i / 10);
@@ -263,7 +227,7 @@ fn test_staff_assigned_from_employed_citizens() {
 #[test]
 fn test_staff_distributed_proportionally() {
     let mut city = TestCity::new()
-        .with_service(128, 128, ServiceType::Hospital)       // requires 40
+        .with_service(128, 128, ServiceType::Hospital) // requires 40
         .with_service(128, 140, ServiceType::ElementarySchool); // requires 20
 
     // Spawn 30 employed citizens (not enough for both)
@@ -284,8 +248,12 @@ fn test_staff_distributed_proportionally() {
         .map(|(s, st)| (s.service_type, st.staff_required, st.staff_assigned))
         .collect();
 
-    let hospital = staffing.iter().find(|(st, _, _)| *st == ServiceType::Hospital);
-    let school = staffing.iter().find(|(st, _, _)| *st == ServiceType::ElementarySchool);
+    let hospital = staffing
+        .iter()
+        .find(|(st, _, _)| *st == ServiceType::Hospital);
+    let school = staffing
+        .iter()
+        .find(|(st, _, _)| *st == ServiceType::ElementarySchool);
 
     assert!(hospital.is_some());
     assert!(school.is_some());
@@ -334,5 +302,53 @@ fn test_dynamically_spawned_service_gets_staffing() {
 
     assert_eq!(staffing.len(), 1);
     assert_eq!(staffing[0].0, 20, "Police station requires 20 staff");
-    assert_eq!(staffing[0].1, 30, "Police station max capacity is 30 officers");
+    assert_eq!(
+        staffing[0].1, 30,
+        "Police station max capacity is 30 officers"
+    );
+}
+
+// ====================================================================
+// 11. Combined effectiveness tests
+// ====================================================================
+
+#[test]
+fn test_combined_effectiveness_fully_staffed_at_capacity() {
+    let s = ServiceBuildingStaffing {
+        staff_required: 40,
+        staff_assigned: 40,
+        max_capacity: 200,
+    };
+    // Fully staffed, usage at capacity
+    assert!(
+        (s.combined_effectiveness(200) - 1.0).abs() < f32::EPSILON,
+        "Fully staffed at capacity should give 1.0 effectiveness"
+    );
+}
+
+#[test]
+fn test_combined_effectiveness_fully_staffed_overcrowded() {
+    let s = ServiceBuildingStaffing {
+        staff_required: 40,
+        staff_assigned: 40,
+        max_capacity: 200,
+    };
+    // Fully staffed, 200% demand
+    assert!(
+        (s.combined_effectiveness(400) - 0.5).abs() < f32::EPSILON,
+        "Fully staffed at 200% demand should give 0.5 effectiveness"
+    );
+}
+
+#[test]
+fn test_combined_effectiveness_zero_when_unstaffed() {
+    let s = ServiceBuildingStaffing {
+        staff_required: 40,
+        staff_assigned: 0,
+        max_capacity: 200,
+    };
+    assert!(
+        s.combined_effectiveness(100).abs() < f32::EPSILON,
+        "Unstaffed building should give 0 effectiveness"
+    );
 }
