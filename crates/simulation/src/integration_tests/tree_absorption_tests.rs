@@ -1,6 +1,7 @@
 //! Integration tests for POLL-018: Tree and Green Space Pollution Absorption Enhancement.
 
 use crate::districts::DISTRICTS_X;
+use crate::grid::ZoneType;
 use crate::noise::NoisePollutionGrid;
 use crate::pollution::PollutionGrid;
 use crate::test_harness::TestCity;
@@ -15,13 +16,11 @@ use crate::trees::TreeGrid;
 fn test_tree_maturity_grows_over_time() {
     let mut city = TestCity::new();
 
-    // Plant a tree at (128, 128)
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, true);
     }
 
-    // Run several slow cycles to grow maturity
     city.tick_slow_cycles(10);
 
     let maturity = city.resource::<TreeMaturityGrid>();
@@ -42,7 +41,6 @@ fn test_tree_maturity_grows_over_time() {
 fn test_tree_reaches_full_maturity() {
     let mut city = TestCity::new();
 
-    // Plant a tree
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, true);
@@ -64,20 +62,17 @@ fn test_tree_reaches_full_maturity() {
 fn test_removed_tree_resets_maturity() {
     let mut city = TestCity::new();
 
-    // Plant and grow a tree
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, true);
     }
     city.tick_slow_cycles(40);
 
-    // Verify it has maturity
     {
         let mat = city.resource::<TreeMaturityGrid>().get(128, 128);
         assert!(mat > 0.0, "tree should have grown, got {}", mat);
     }
 
-    // Remove the tree
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, false);
@@ -98,10 +93,20 @@ fn test_removed_tree_resets_maturity() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_mature_tree_reduces_pollution_percentage() {
-    let mut city = TestCity::new();
+fn test_mature_tree_reduces_pollution_from_industrial() {
+    // Place industrial building to generate pollution, then check tree effect
+    let mut city = TestCity::new().with_building(128, 128, ZoneType::Industrial, 3);
 
-    // Plant a mature tree and set high pollution nearby
+    // Run one slow cycle without trees to measure baseline pollution
+    city.tick_slow_cycle();
+    let baseline_pol = city.resource::<PollutionGrid>().get(128, 128);
+    assert!(
+        baseline_pol > 0,
+        "industrial building should generate pollution, got {}",
+        baseline_pol
+    );
+
+    // Now plant a mature tree at the same location
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, true);
@@ -109,82 +114,65 @@ fn test_mature_tree_reduces_pollution_percentage() {
             .resource_mut::<TreeMaturityGrid>()
             .set(128, 128, 1.0);
     }
-    {
-        let world = city.world_mut();
-        let mut pol = world.resource_mut::<PollutionGrid>();
-        for dy in -3i32..=3 {
-            for dx in -3i32..=3 {
-                let x = (128 + dx) as usize;
-                let y = (128 + dy) as usize;
-                pol.set(x, y, 200);
-            }
-        }
-    }
 
-    city.tick_slow_cycles(1);
+    // Run another slow cycle; tree absorption should reduce pollution
+    city.tick_slow_cycle();
 
-    // Check that pollution at the tree center is reduced
-    let pol = city.resource::<PollutionGrid>();
-    let center_pol = pol.get(128, 128);
+    let with_tree_pol = city.resource::<PollutionGrid>().get(128, 128);
     assert!(
-        center_pol < 200,
-        "pollution at tree center should be reduced from 200, got {}",
-        center_pol
-    );
-
-    // Check that nearby cells also have reduced pollution
-    let nearby_pol = pol.get(129, 128);
-    assert!(
-        nearby_pol < 200,
-        "pollution near tree should be reduced, got {}",
-        nearby_pol
+        with_tree_pol < baseline_pol,
+        "pollution with tree ({}) should be less than baseline ({})",
+        with_tree_pol,
+        baseline_pol
     );
 }
 
 #[test]
 fn test_immature_tree_has_reduced_effect() {
-    let mut city = TestCity::new();
+    // Place two industrial buildings far apart to generate independent pollution
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::Industrial, 3)
+        .with_building(200, 200, ZoneType::Industrial, 3);
 
-    // Plant two trees: one mature, one immature
+    // Run one cycle to establish pollution
+    city.tick_slow_cycle();
+    let baseline_a = city.resource::<PollutionGrid>().get(50, 50);
+    let baseline_b = city.resource::<PollutionGrid>().get(200, 200);
+    assert!(baseline_a > 0, "should have pollution at A, got {}", baseline_a);
+    assert!(baseline_b > 0, "should have pollution at B, got {}", baseline_b);
+
+    // Plant mature tree at A, immature tree at B
     {
         let world = city.world_mut();
-        world.resource_mut::<TreeGrid>().set(100, 100, true);
+        world.resource_mut::<TreeGrid>().set(50, 50, true);
+        world.resource_mut::<TreeMaturityGrid>().set(50, 50, 1.0);
     }
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(200, 200, true);
-    }
-    {
-        let world = city.world_mut();
-        world
-            .resource_mut::<TreeMaturityGrid>()
-            .set(100, 100, 1.0);
-    }
-    {
-        let world = city.world_mut();
         world
             .resource_mut::<TreeMaturityGrid>()
             .set(200, 200, 0.2);
     }
-    {
-        let world = city.world_mut();
-        let mut pol = world.resource_mut::<PollutionGrid>();
-        pol.set(100, 100, 200);
-        pol.set(200, 200, 200);
-    }
 
-    city.tick_slow_cycles(1);
+    city.tick_slow_cycle();
 
-    let pol = city.resource::<PollutionGrid>();
-    let mature_pol = pol.get(100, 100);
-    let immature_pol = pol.get(200, 200);
+    let pol_a = city.resource::<PollutionGrid>().get(50, 50);
+    let pol_b = city.resource::<PollutionGrid>().get(200, 200);
 
-    // The mature tree should reduce pollution more than the immature one
+    // Both should have pollution reduced from baseline
+    assert!(pol_a < baseline_a, "mature tree should reduce pollution at A");
+    assert!(pol_b < baseline_b || pol_b <= baseline_b, "immature tree should not increase pollution at B");
+
+    // Mature tree should have more reduction than immature
+    // Calculate reduction percentages
+    let reduction_a = (baseline_a as f32 - pol_a as f32) / baseline_a as f32;
+    let reduction_b = (baseline_b as f32 - pol_b as f32) / baseline_b as f32;
     assert!(
-        mature_pol < immature_pol,
-        "mature tree ({}) should filter more than immature tree ({})",
-        mature_pol,
-        immature_pol
+        reduction_a > reduction_b,
+        "mature tree reduction ({:.2}) should be greater than immature ({:.2})",
+        reduction_a,
+        reduction_b
     );
 }
 
@@ -194,7 +182,17 @@ fn test_immature_tree_has_reduced_effect() {
 
 #[test]
 fn test_green_space_cluster_bonus() {
-    let mut city = TestCity::new();
+    // Place identical industrial buildings near two tree groups
+    let mut city = TestCity::new()
+        .with_building(50, 50, ZoneType::Industrial, 3)
+        .with_building(200, 200, ZoneType::Industrial, 3);
+
+    // Run one cycle to establish baseline pollution
+    city.tick_slow_cycle();
+    let baseline_cluster = city.resource::<PollutionGrid>().get(50, 50);
+    let baseline_solo = city.resource::<PollutionGrid>().get(200, 200);
+    assert!(baseline_cluster > 0, "cluster site should have pollution");
+    assert!(baseline_solo > 0, "solo site should have pollution");
 
     // Create a cluster of trees (exceeds threshold of 10) at (50,50)
     {
@@ -209,7 +207,7 @@ fn test_green_space_cluster_bonus() {
         }
     }
 
-    // Solitary tree at (200, 200), mature
+    // Solitary mature tree at (200, 200)
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(200, 200, true);
@@ -218,26 +216,23 @@ fn test_green_space_cluster_bonus() {
             .set(200, 200, 1.0);
     }
 
-    // Set equal pollution at both locations
-    {
-        let world = city.world_mut();
-        let mut pol = world.resource_mut::<PollutionGrid>();
-        pol.set(50, 50, 200);
-        pol.set(200, 200, 200);
-    }
+    city.tick_slow_cycle();
 
-    city.tick_slow_cycles(1);
+    let cluster_pol = city.resource::<PollutionGrid>().get(50, 50);
+    let solo_pol = city.resource::<PollutionGrid>().get(200, 200);
 
-    let pol = city.resource::<PollutionGrid>();
-    let cluster_pol = pol.get(50, 50);
-    let solo_pol = pol.get(200, 200);
+    // Both should reduce pollution
+    assert!(cluster_pol < baseline_cluster, "cluster should reduce pollution");
+    assert!(solo_pol < baseline_solo || solo_pol <= baseline_solo, "solo tree should not increase pollution");
 
-    // Cluster should filter more aggressively
+    // Cluster should have greater reduction percentage
+    let cluster_reduction = (baseline_cluster as f32 - cluster_pol as f32) / baseline_cluster as f32;
+    let solo_reduction = (baseline_solo as f32 - solo_pol as f32) / baseline_solo as f32;
     assert!(
-        cluster_pol < solo_pol,
-        "cluster center ({}) should have less pollution than solo tree ({})",
-        cluster_pol,
-        solo_pol
+        cluster_reduction > solo_reduction,
+        "cluster reduction ({:.2}) should exceed solo reduction ({:.2})",
+        cluster_reduction,
+        solo_reduction
     );
 }
 
@@ -249,6 +244,8 @@ fn test_green_space_cluster_bonus() {
 fn test_tree_reduces_noise_pollution() {
     let mut city = TestCity::new();
 
+    // Set noise pollution manually - noise is not rebuilt from scratch each tick
+    // like air pollution, so manual values persist.
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, true);
@@ -282,7 +279,6 @@ fn test_tree_reduces_noise_pollution() {
 fn test_canopy_percentage_computed() {
     let mut city = TestCity::new();
 
-    // Fill an entire district with mature trees
     let dist_x = 4;
     let dist_y = 4;
     let district_size = crate::districts::DISTRICT_SIZE;
@@ -313,7 +309,6 @@ fn test_canopy_percentage_computed() {
 fn test_co2_absorption_tracks_mature_trees() {
     let mut city = TestCity::new();
 
-    // Plant 100 mature trees
     {
         let world = city.world_mut();
         for i in 0..100usize {
