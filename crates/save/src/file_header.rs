@@ -50,6 +50,7 @@ impl FileHeader {
     }
 
     /// Create a new header for the given data payload.
+    #[cfg(test)]
     pub fn new(data: &[u8]) -> Self {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -66,9 +67,11 @@ impl FileHeader {
     }
 }
 
-/// Wrap encoded save data with a file header.
+/// Wrap encoded save data with a file header (uncompressed).
 ///
 /// Returns bytes: [header (28 bytes)] ++ [data payload].
+/// Only used in tests — production saves use `wrap_with_header_compressed`.
+#[cfg(test)]
 pub fn wrap_with_header(data: &[u8]) -> Vec<u8> {
     let header = FileHeader::new(data);
     let mut out = Vec::with_capacity(HEADER_SIZE + data.len());
