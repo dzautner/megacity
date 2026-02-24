@@ -4,8 +4,6 @@
 //! effects on crime, health, and education grids.
 
 use crate::crime::CrimeGrid;
-use crate::education::EducationGrid;
-use crate::health::HealthGrid;
 use crate::hybrid_service_coverage::HybridCoverageGrid;
 use crate::service_cross_interaction::{ServiceInteractionGrid, ServiceInteractionStats};
 use crate::services::ServiceType;
