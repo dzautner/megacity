@@ -39,7 +39,7 @@ pub fn panel_keybinds(
 /// Keyboard shortcuts for quick save (F5) and quick load (F9) to `quicksave.bin`,
 /// plus new game (Ctrl+N).
 /// Skipped when egui wants keyboard input (e.g. a text field is focused).
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, unused_mut, unused_variables)]
 pub fn quick_save_load_keybinds(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut contexts: EguiContexts,
