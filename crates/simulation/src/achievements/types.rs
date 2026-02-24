@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 // =============================================================================
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 // =============================================================================
 
 /// All achievements a player can unlock in the game.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, Serialize, Deserialize)]
 pub enum Achievement {
     // Population milestones
     Population1K,
@@ -184,7 +185,7 @@ impl AchievementReward {
 // =============================================================================
 
 /// Tracks which achievements the player has unlocked and when.
-#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
 pub struct AchievementTracker {
     /// Maps unlocked achievements to the tick at which they were unlocked.
     pub unlocked: HashMap<Achievement, u64>,
