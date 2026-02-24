@@ -255,6 +255,7 @@ pub fn aggregate_sector_demand(
 }
 
 /// Aggregates supply by source from individual power state resources.
+#[allow(clippy::too_many_arguments)]
 pub fn aggregate_source_supply(
     tick: Res<TickCounter>,
     coal_state: Res<CoalPowerState>,
