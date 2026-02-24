@@ -327,6 +327,7 @@ impl Plugin for WaterQualityEffectsPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Saveable;
 
     #[test]
     fn test_tier_boundaries() {
