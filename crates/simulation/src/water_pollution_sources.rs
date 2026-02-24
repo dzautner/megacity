@@ -187,7 +187,7 @@ impl crate::Saveable for WaterPollutionSourcesState {
         if self.total_emissions == 0 && self.source_counts.iter().all(|&c| c == 0) {
             return None;
         }
-        bitcode::encode(self).ok()
+        Some(bitcode::encode(self))
     }
 
     fn load_from_bytes(bytes: &[u8]) -> Self {
