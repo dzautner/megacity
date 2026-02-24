@@ -101,6 +101,11 @@ fn exclusive_load_inner(world: &mut World) -> Result<(), SaveError> {
     spawn_entities_from_save(world, &save);
 
     // -- Stage 5: Apply extension map via SaveableRegistry --
+    // IMPORTANT: Always call load_all(), even when save.extensions is empty.
+    // load_all() resets every registered Saveable resource to its default when
+    // the corresponding key is absent from the extension map. Skipping this
+    // step when the map is empty would cause stale state from a previous load
+    // to persist across saves (cross-save contamination, see #1603 / #1234).
     let registry = world
         .remove_resource::<SaveableRegistry>()
         .ok_or_else(|| SaveError::MissingResource("SaveableRegistry".to_string()))?;
