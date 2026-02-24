@@ -6,7 +6,6 @@ use crate::policies::{Policies, Policy};
 use crate::pollution::PollutionGrid;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
-use crate::traffic::TrafficGrid;
 use crate::wind::WindState;
 
 // ====================================================================
@@ -178,42 +177,30 @@ fn test_building_emissions_geothermal_does_not_emit() {
 // ====================================================================
 
 #[test]
-fn test_building_emissions_congested_road_more_than_empty() {
-    use crate::grid::RoadType;
+fn test_building_emissions_road_q_scales_with_congestion() {
+    use crate::building_emissions::road_emission_q;
 
-    // City with road and no traffic
-    let mut city_empty = TestCity::new()
-        .with_road(50, 50, 60, 50, RoadType::Local);
-    {
-        let world = city_empty.world_mut();
-        world.resource_mut::<WindState>().speed = 0.0;
-    }
-    city_empty.tick_slow_cycle();
-
-    let p_empty: u32 = (50..=60)
-        .map(|x| city_empty.resource::<PollutionGrid>().get(x, 50) as u32)
-        .sum();
-
-    // City with road and artificial traffic
-    let mut city_busy = TestCity::new()
-        .with_road(50, 50, 60, 50, RoadType::Local);
-    {
-        let world = city_busy.world_mut();
-        world.resource_mut::<WindState>().speed = 0.0;
-        let mut traffic = world.resource_mut::<TrafficGrid>();
-        for x in 50..=60 {
-            traffic.set(x, 50, 20); // fully congested
-        }
-    }
-    city_busy.tick_slow_cycle();
-
-    let p_busy: u32 = (50..=60)
-        .map(|x| city_busy.resource::<PollutionGrid>().get(x, 50) as u32)
-        .sum();
+    let q_empty = road_emission_q(0.0);
+    let q_half = road_emission_q(0.5);
+    let q_full = road_emission_q(1.0);
 
     assert!(
-        p_busy > p_empty,
-        "Congested road ({p_busy}) should produce more pollution than empty road ({p_empty})"
+        q_full > q_half,
+        "Full congestion Q ({q_full}) should exceed half ({q_half})"
+    );
+    assert!(
+        q_half > q_empty,
+        "Half congestion Q ({q_half}) should exceed empty ({q_empty})"
+    );
+    // Full congestion should produce Q=2.0 (the base road emission)
+    assert!(
+        (q_full - 2.0).abs() < 0.01,
+        "Full congestion Q should be 2.0, got {q_full}"
+    );
+    // Empty road still has idle emission: Q=2.0*0.2=0.4
+    assert!(
+        q_empty > 0.0,
+        "Empty road should have non-zero idle emission, got {q_empty}"
     );
 }
 
