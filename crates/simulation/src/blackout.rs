@@ -1,7 +1,7 @@
 //! POWER-016: Blackout and Rolling Blackout System
 //!
 //! Implements blackout mechanics when power demand exceeds supply:
-//! - Detects deficit when `EnergyGrid.reserve_margin < 0`
+//! - Detects deficit via `EnergyDispatchState.has_deficit` (set by dispatch system)
 //! - Sheds load by priority: Low -> Normal -> High -> Critical
 //! - Rolling blackout rotates affected Standard-priority cells every 4 ticks
 //! - Sets `has_power = false` on affected grid cells
@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-use crate::energy_demand::{EnergyConsumer, EnergyGrid, LoadPriority};
+use crate::energy_demand::{EnergyConsumer, LoadPriority};
+use crate::energy_dispatch::EnergyDispatchState;
 use crate::grid::WorldGrid;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
@@ -85,7 +86,7 @@ pub struct BlackoutState {
     /// Number of hospital casualties from power loss this session.
     pub hospital_casualties: u32,
     /// Per-cell blackout flag grid (true = blacked out).
-    /// Recomputed each tick from EnergyGrid state; not persisted.
+    /// Recomputed each tick from dispatch state; not persisted.
     pub blackout_grid: Vec<bool>,
 }
 
@@ -164,14 +165,15 @@ fn cell_priority(grid: &WorldGrid, x: usize, y: usize) -> LoadPriority {
 // Systems
 // ---------------------------------------------------------------------------
 
-/// Collects cells with power grouped by priority tier, then determines which
-/// cells to shed based on the current deficit.
+/// Evaluates blackout conditions based on the dispatch system's deficit state.
 ///
-/// Runs every `BLACKOUT_INTERVAL` ticks.
+/// Only runs when the dispatch system is active and has detected a deficit.
+/// Collects powered cells by priority tier and sheds in reverse priority order.
+/// Rolling blackout rotation is applied to Normal-priority (Standard) cells.
 #[allow(clippy::too_many_arguments)]
 pub fn evaluate_blackout(
     tick: Res<TickCounter>,
-    energy_grid: Res<EnergyGrid>,
+    dispatch_state: Res<EnergyDispatchState>,
     clock: Res<GameClock>,
     mut blackout: ResMut<BlackoutState>,
     mut grid: ResMut<WorldGrid>,
@@ -181,10 +183,6 @@ pub fn evaluate_blackout(
         return;
     }
 
-    let demand = energy_grid.total_demand_mwh;
-    let supply = energy_grid.total_supply_mwh;
-    let deficit = demand - supply;
-
     // Clear the per-cell blackout grid each evaluation.
     for v in blackout.blackout_grid.iter_mut() {
         *v = false;
@@ -192,8 +190,14 @@ pub fn evaluate_blackout(
     blackout.shed_by_tier = [0; 4];
     blackout.affected_cell_count = 0;
 
-    // No deficit — clear blackout state and return.
-    if deficit <= 0.0 || demand <= 0.0 {
+    // Only act when dispatch is active, reports a deficit, and there is
+    // at least some generation capacity in the city. Without this check,
+    // cities that have buildings (which auto-get EnergyConsumer) but no
+    // power plants yet would experience false blackouts.
+    if !dispatch_state.active
+        || !dispatch_state.has_deficit
+        || dispatch_state.total_capacity_mw <= 0.0
+    {
         if blackout.active {
             blackout.active = false;
             blackout.duration_days = 0;
@@ -203,16 +207,20 @@ pub fn evaluate_blackout(
         return;
     }
 
+    let shed_fraction = dispatch_state.load_shed_fraction;
+    if shed_fraction <= 0.0 {
+        return;
+    }
+
     // Blackout is active.
     if !blackout.active {
         blackout.active = true;
         blackout.start_day = clock.day;
     }
     blackout.duration_days = clock.day.saturating_sub(blackout.start_day);
-    blackout.load_shed_fraction = (deficit / demand).clamp(0.0, 1.0);
+    blackout.load_shed_fraction = shed_fraction;
 
-    // Build a set of grid positions occupied by Critical service buildings
-    // so we can promote those cells to Critical priority.
+    // Build a set of grid positions occupied by Critical service buildings.
     let mut critical_cells = std::collections::HashSet::new();
     for service in &service_buildings {
         let prio = EnergyConsumer::priority_for_service(service.service_type);
@@ -247,7 +255,7 @@ pub fn evaluate_blackout(
     if total_powered == 0 {
         return;
     }
-    let cells_to_shed = (total_powered as f32 * blackout.load_shed_fraction).ceil() as usize;
+    let cells_to_shed = (total_powered as f32 * shed_fraction).ceil() as usize;
     let mut remaining_to_shed = cells_to_shed;
 
     // Shed in reverse priority order: Low (0) first, then Normal (1),
@@ -337,8 +345,7 @@ pub fn apply_blackout_happiness_penalty(
 /// Check hospitals without power and apply patient mortality.
 ///
 /// When a hospital's grid cell has no power, 5% of the building's occupants
-/// are lost per game-day. This system runs every `BLACKOUT_INTERVAL` ticks
-/// and applies a fractional per-tick mortality.
+/// are lost per game-day. Runs every `BLACKOUT_INTERVAL` ticks.
 pub fn apply_hospital_mortality(
     tick: Res<TickCounter>,
     mut blackout: ResMut<BlackoutState>,

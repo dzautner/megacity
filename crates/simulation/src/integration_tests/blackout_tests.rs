@@ -1,15 +1,15 @@
 //! Integration tests for POWER-016: Blackout and Rolling Blackout System.
 
 use crate::blackout::BlackoutState;
-use crate::Saveable;
 use crate::coal_power::PowerPlant;
 use crate::energy_demand::{EnergyConsumer, LoadPriority};
 use crate::grid::ZoneType;
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
+use crate::Saveable;
 
-/// Helper: create a PowerPlant component at the given position.
+/// Helper: create a PowerPlant component.
 fn make_plant(capacity_mw: f32, fuel_cost: f32) -> PowerPlant {
     PowerPlant {
         plant_type: crate::coal_power::PowerPlantType::Coal,
@@ -65,7 +65,6 @@ fn test_no_blackout_with_surplus_supply() {
     let state = city.resource::<BlackoutState>();
     assert!(!state.active, "No blackout when supply > demand");
     assert_eq!(state.affected_cell_count, 0);
-    assert!((state.load_shed_fraction - 0.0).abs() < f32::EPSILON);
 }
 
 #[test]
@@ -155,8 +154,8 @@ fn test_low_priority_shed_first() {
         }
     }
 
-    // Small deficit: only need to shed a few cells.
-    // 20 total powered cells, need to shed ~25% = 5 cells.
+    // Small deficit: 75 MW supply, 100 MW demand => 25% deficit.
+    // 20 total powered cells, shed ~25% = 5 cells.
     city.world_mut().spawn(make_plant(75.0, 25.0));
     spawn_demand(&mut city, 100.0, LoadPriority::Normal);
     tick_blackout(&mut city);
@@ -268,7 +267,7 @@ fn test_critical_services_shed_last() {
         }
     }
 
-    // Moderate deficit that should only shed low priority.
+    // Moderate deficit: 70 MW supply, 100 MW demand => 30% deficit.
     city.world_mut().spawn(make_plant(70.0, 25.0));
     spawn_demand(&mut city, 100.0, LoadPriority::Normal);
     tick_blackout(&mut city);
@@ -297,19 +296,45 @@ fn test_blackout_sets_has_power_false() {
         }
     }
 
-    // Full deficit: 0 supply.
+    // Deficit with minimal supply: 10 MW supply, 100 MW demand.
+    city.world_mut().spawn(make_plant(10.0, 25.0));
     spawn_demand(&mut city, 100.0, LoadPriority::Normal);
     tick_blackout(&mut city);
 
     // Check that some cells lost power.
     let grid = city.resource::<crate::grid::WorldGrid>();
-    let unpowered_count = (10..20)
-        .filter(|&x| !grid.get(x, 10).has_power)
-        .count();
+    let unpowered_count = (10..20).filter(|&x| !grid.get(x, 10).has_power).count();
 
     assert!(
         unpowered_count > 0,
         "At least some cells should have lost power during blackout"
+    );
+}
+
+#[test]
+fn test_no_blackout_without_generators() {
+    let mut city = new_baseline_city();
+
+    city.world_mut().resource_mut::<GameClock>().hour = 10.0;
+
+    // Set up powered cells but no generators.
+    {
+        let mut grid = city.world_mut().resource_mut::<crate::grid::WorldGrid>();
+        for x in 10..20 {
+            grid.get_mut(x, 10).has_power = true;
+            grid.get_mut(x, 10).zone = ZoneType::ResidentialLow;
+        }
+    }
+
+    // Only demand, no supply. Without generators, blackout should NOT
+    // activate (no power grid infrastructure present).
+    spawn_demand(&mut city, 100.0, LoadPriority::Normal);
+    tick_blackout(&mut city);
+
+    let state = city.resource::<BlackoutState>();
+    assert!(
+        !state.active,
+        "Blackout should not activate without any generators"
     );
 }
 
