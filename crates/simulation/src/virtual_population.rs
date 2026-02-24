@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 /// Hard ceiling on real (ECS) citizens — never exceed this regardless of FPS.
@@ -9,7 +10,7 @@ pub const MIN_REAL_CITIZENS: u32 = 10_000;
 pub const DEFAULT_REAL_CITIZEN_CAP: u32 = 50_000;
 
 /// Per-district virtual population statistics.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct DistrictStats {
     pub population: u32,
     pub employed: u32,
@@ -25,7 +26,7 @@ pub struct DistrictStats {
     pub service_demand: f32,
 }
 
-#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct VirtualPopulation {
     pub total_virtual: u32,
     pub virtual_employed: u32,

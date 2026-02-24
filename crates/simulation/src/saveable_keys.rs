@@ -90,6 +90,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "tree_grid",
     "tutorial",
     "uhi_mitigation",
+    "virtual_population",
     "walkability",
     "waste_policies",
     "water_pollution_grid",
