@@ -35,6 +35,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "district_policies",
     "district_map",
     "education_pipeline",
+    "emergency_management",
     "energy_dispatch",
     "energy_economics",
     "energy_grid",
