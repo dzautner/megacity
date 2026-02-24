@@ -253,4 +253,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Bevy diagnostics and trace spans (TEST-031)
     app.add_plugins(diagnostics::DiagnosticsPlugin);
+
+    // Post-load derived state rebuild (SAVE-026)
+    app.add_plugins(post_load_rebuild::PostLoadRebuildPlugin);
 }
