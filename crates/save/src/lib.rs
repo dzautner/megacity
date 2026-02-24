@@ -11,6 +11,7 @@ mod reset_resources;
 mod restore_resources;
 mod save_codec;
 pub mod save_error;
+pub mod save_metadata;
 mod save_migrate;
 mod save_migrate_registry;
 mod save_plugin;
@@ -30,6 +31,8 @@ mod save_fuzz_mutation_tests;
 mod save_fuzz_tests;
 
 pub use crash_recovery::CrashRecoveryState;
+pub use file_header::read_metadata_only;
 pub use save_error::SaveError;
+pub use save_metadata::SaveMetadata;
 pub use save_plugin::{LoadGameEvent, NewGameEvent, SaveGameEvent, SavePlugin};
 pub use saveable_ext::SaveableAppExt;

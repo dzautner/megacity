@@ -40,16 +40,32 @@ fn exclusive_load_inner(world: &mut World) -> Result<(), SaveError> {
 
     // -- Stage 0: Validate file header and extract payload --
     let (raw_payload, is_compressed) = match unwrap_header(&bytes) {
-        Ok(UnwrapResult::WithHeader { header, payload }) => {
+        Ok(UnwrapResult::WithHeader {
+            header,
+            metadata,
+            payload,
+        }) => {
             info!(
                 "Save file header: format v{}, flags {:#X}, timestamp {}, \
-                 data size {}, checksum {:#010X}",
+                 data size {}, checksum {:#010X}, metadata size {}",
                 header.format_version,
                 header.flags,
                 header.timestamp,
                 header.uncompressed_size,
                 header.checksum,
+                header.metadata_size,
             );
+            if let Some(ref meta) = metadata {
+                info!(
+                    "Save metadata: city='{}', pop={}, treasury={:.0}, day={}, hour={:.1}, play_time={:.0}s",
+                    meta.city_name,
+                    meta.population,
+                    meta.treasury,
+                    meta.day,
+                    meta.hour,
+                    meta.play_time_seconds,
+                );
+            }
             (payload, header.is_compressed())
         }
         Ok(UnwrapResult::Legacy(payload)) => {

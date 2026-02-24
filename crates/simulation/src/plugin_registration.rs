@@ -244,4 +244,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Coverage metrics precomputed for UI (PERF-001)
     app.add_plugins(coverage_metrics::CoverageMetricsPlugin);
+
+    // Play time tracking for save metadata (SAVE-020)
+    app.add_plugins(play_time::PlayTimePlugin);
 }
