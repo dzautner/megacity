@@ -180,10 +180,11 @@ pub(crate) fn spawn_entities_from_save(world: &mut World, save: &SaveData) {
                     CitizenDetails::base_salary_for_education(sc.education)
                 };
 
-                let savings = if sc.savings != 0.0 {
-                    sc.savings
-                } else {
+                let savings = if sc.savings == crate::save_types::default_savings_sentinel() {
+                    // Old save without savings field – use a reasonable default.
                     salary * 2.0
+                } else {
+                    sc.savings
                 };
 
                 (

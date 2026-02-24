@@ -143,7 +143,7 @@ pub struct SaveCitizen {
     pub health: f32,
     #[serde(default)]
     pub salary: f32,
-    #[serde(default)]
+    #[serde(default = "default_savings_sentinel")]
     pub savings: f32,
     // Personality traits
     #[serde(default = "default_personality_trait")]
@@ -206,6 +206,13 @@ fn default_need_fun() -> f32 {
 
 fn default_need_comfort() -> f32 {
     60.0
+}
+
+/// Sentinel for old saves that lack a savings field.
+/// Any finite value (including 0.0) is a valid savings amount, so we use
+/// f32::MIN as the "missing" marker.
+pub fn default_savings_sentinel() -> f32 {
+    f32::MIN
 }
 
 fn default_no_family_ref() -> u32 {
