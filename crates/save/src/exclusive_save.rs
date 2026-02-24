@@ -261,7 +261,8 @@ pub(crate) fn exclusive_save(world: &mut World) {
     world.insert_resource(registry);
 
     // -- Stage 3: Encode and write to disk/IndexedDB --
-    let bytes = save.encode();
+    let encoded = save.encode();
+    let bytes = crate::file_header::wrap_with_header(&encoded);
 
     #[cfg(not(target_arch = "wasm32"))]
     {
