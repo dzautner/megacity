@@ -31,6 +31,18 @@ pub fn policy_to_u8(p: Policy) -> u8 {
         Policy::EminentDomain => 15,
         Policy::CumulativeZoning => 16,
         Policy::EncourageBiking => 17,
+        // New tradeoff policies (issue #613)
+        Policy::CombustionEngineBan => 18,
+        Policy::SmallBusinessEnthusiast => 19,
+        Policy::HeavyTrafficBan => 20,
+        Policy::SmokeDetectorDistribution => 21,
+        Policy::OldTownHistoric => 22,
+        Policy::IndustrialSpacePlanning => 23,
+        Policy::RentControl => 24,
+        Policy::MinimumWage => 25,
+        Policy::TaxIncentiveZone => 26,
+        Policy::PetBan => 27,
+        Policy::ParksAndRec => 28,
     }
 }
 
@@ -54,6 +66,18 @@ pub fn u8_to_policy(v: u8) -> Option<Policy> {
         15 => Some(Policy::EminentDomain),
         16 => Some(Policy::CumulativeZoning),
         17 => Some(Policy::EncourageBiking),
+        // New tradeoff policies (issue #613)
+        18 => Some(Policy::CombustionEngineBan),
+        19 => Some(Policy::SmallBusinessEnthusiast),
+        20 => Some(Policy::HeavyTrafficBan),
+        21 => Some(Policy::SmokeDetectorDistribution),
+        22 => Some(Policy::OldTownHistoric),
+        23 => Some(Policy::IndustrialSpacePlanning),
+        24 => Some(Policy::RentControl),
+        25 => Some(Policy::MinimumWage),
+        26 => Some(Policy::TaxIncentiveZone),
+        27 => Some(Policy::PetBan),
+        28 => Some(Policy::ParksAndRec),
         _ => None,
     }
 }

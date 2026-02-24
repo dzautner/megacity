@@ -43,6 +43,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(garbage::GarbagePlugin);
     app.add_plugins(districts::DistrictsPlugin);
     app.add_plugins(district_policies::DistrictPoliciesPlugin);
+    app.add_plugins(policy_effects::PolicyTradeoffsPlugin);
     app.add_plugins(districts_save::DistrictSavePlugin);
     app.add_plugins(superblock::SuperblockPlugin);
     app.add_plugins(neighborhood_quality::NeighborhoodQualityPlugin);
