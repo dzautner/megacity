@@ -47,11 +47,12 @@ fn legend_returns_some_for_all_active_overlays() {
 #[test]
 fn legend_works_with_all_colorblind_modes() {
     for cb_mode in ColorblindMode::ALL {
-        // Power and Water are binary and change palette per colorblind mode
+        // Power overlay now uses Tiered legend (POWER-020)
         let (name, kind) = legend_for_mode(OverlayMode::Power, cb_mode).unwrap();
-        assert_eq!(name, "Power");
-        assert!(matches!(kind, LegendKind::Binary { .. }));
+        assert_eq!(name, "Power Grid");
+        assert!(matches!(kind, LegendKind::Tiered { .. }));
 
+        // Water is still binary and changes palette per colorblind mode
         let (name, kind) = legend_for_mode(OverlayMode::Water, cb_mode).unwrap();
         assert_eq!(name, "Water");
         assert!(matches!(kind, LegendKind::Binary { .. }));
@@ -73,7 +74,8 @@ fn wind_overlay_returns_directional_legend() {
 #[test]
 fn binary_overlays_have_distinct_on_off_colors() {
     for cb_mode in ColorblindMode::ALL {
-        for mode in [OverlayMode::Power, OverlayMode::Water] {
+        // Only Water is still binary after POWER-020 enhanced the power legend
+        for mode in [OverlayMode::Water] {
             let (_, kind) = legend_for_mode(mode, cb_mode).unwrap();
             if let LegendKind::Binary {
                 on_color,
@@ -142,6 +144,50 @@ fn pollution_tiered_legend_has_distinct_colors() {
                 assert_ne!(
                     entries[i].color, entries[j].color,
                     "Tiers {} and {} should have distinct colors",
+                    i, j
+                );
+            }
+        }
+    } else {
+        panic!("Expected Tiered legend kind");
+    }
+}
+
+#[test]
+fn power_overlay_returns_tiered_legend() {
+    let (name, kind) = legend_for_mode(OverlayMode::Power, ColorblindMode::Normal).unwrap();
+    assert_eq!(name, "Power Grid");
+    assert!(
+        matches!(kind, LegendKind::Tiered { .. }),
+        "Power overlay should use Tiered legend"
+    );
+}
+
+#[test]
+fn power_tiered_legend_has_four_entries() {
+    let (_, kind) = legend_for_mode(OverlayMode::Power, ColorblindMode::Normal).unwrap();
+    if let LegendKind::Tiered { entries } = kind {
+        assert_eq!(entries.len(), 4, "Power legend should have 4 tiers");
+        for entry in entries {
+            assert!(
+                !entry.label.is_empty(),
+                "Each tier label should be non-empty"
+            );
+        }
+    } else {
+        panic!("Expected Tiered legend kind");
+    }
+}
+
+#[test]
+fn power_tiered_legend_has_distinct_colors() {
+    let (_, kind) = legend_for_mode(OverlayMode::Power, ColorblindMode::Normal).unwrap();
+    if let LegendKind::Tiered { entries } = kind {
+        for i in 0..entries.len() {
+            for j in (i + 1)..entries.len() {
+                assert_ne!(
+                    entries[i].color, entries[j].color,
+                    "Power tiers {} and {} should have distinct colors",
                     i, j
                 );
             }

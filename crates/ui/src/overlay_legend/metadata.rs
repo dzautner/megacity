@@ -39,26 +39,39 @@ static AQI_LEGEND_ENTRIES: [TieredEntry; 6] = [
     },
 ];
 
+/// Power grid overlay legend entries (POWER-020).
+/// Shows enhanced states: powered, low reserve, outage, and no power.
+static POWER_LEGEND_ENTRIES: [TieredEntry; 4] = [
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(204, 199, 51),
+        label: "Powered",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(242, 183, 30),
+        label: "Low Reserve (<20%)",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(242, 60, 25),
+        label: "Rolling Blackout",
+    },
+    TieredEntry {
+        color: bevy_egui::egui::Color32::from_rgb(153, 38, 38),
+        label: "No Power",
+    },
+];
+
 pub(crate) fn legend_for_mode(
     mode: OverlayMode,
     cb_mode: simulation::colorblind::ColorblindMode,
 ) -> Option<(&'static str, LegendKind)> {
     match mode {
         OverlayMode::None => None,
-        OverlayMode::Power => {
-            let palette = colorblind_palette::power_palette(cb_mode);
-            let on = bevy_color_to_egui(palette.on);
-            let off = bevy_color_to_egui(palette.off);
-            Some((
-                "Power",
-                LegendKind::Binary {
-                    on_color: on,
-                    off_color: off,
-                    on_label: "Powered",
-                    off_label: "No Power",
-                },
-            ))
-        }
+        OverlayMode::Power => Some((
+            "Power Grid",
+            LegendKind::Tiered {
+                entries: &POWER_LEGEND_ENTRIES,
+            },
+        )),
         OverlayMode::Water => {
             let palette = colorblind_palette::water_palette(cb_mode);
             let on = bevy_color_to_egui(palette.on);

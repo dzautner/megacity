@@ -211,4 +211,7 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
 
     // Auto-grid road placement (TRAF-010)
     app.add_plugins(auto_grid_draw::AutoGridDrawPlugin);
+
+    // Power grid overlay (POWER-020)
+    app.add_plugins(power_overlay::PowerOverlayPlugin);
 }
