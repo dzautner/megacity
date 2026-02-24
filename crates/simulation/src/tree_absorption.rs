@@ -375,7 +375,9 @@ impl Plugin for TreeAbsorptionPlugin {
                 grow_tree_maturity,
                 tree_absorption_effects
                     .after(grow_tree_maturity)
-                    .after(crate::wind_pollution::update_pollution_gaussian_plume),
+                    .after(crate::wind_pollution::update_pollution_gaussian_plume)
+                    .after(crate::noise::update_noise_pollution)
+                    .after(crate::land_value::update_land_value),
                 update_canopy_stats.after(grow_tree_maturity),
             )
                 .in_set(crate::SimulationSet::Simulation),
