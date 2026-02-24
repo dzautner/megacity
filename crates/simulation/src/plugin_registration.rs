@@ -271,4 +271,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(cultural_buildings::CulturalBuildingsPlugin);
     // Service building capacity limits and staffing (SVC-002)
     app.add_plugins(service_building_capacity::ServiceBuildingCapacityPlugin);
+    // Procedural terrain generation (REND-002)
+    app.add_plugins(terrain_generation::TerrainGenerationPlugin);
 }
