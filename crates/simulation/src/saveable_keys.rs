@@ -135,6 +135,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "production_chain",
     "service_dispatch",
 ];
+    "production_chain",];
 /// Startup system that validates the `SaveableRegistry` against the expected key
 /// list. Panics if any expected key is missing (indicating a `Saveable` type whose
 /// plugin forgot to register it) or if duplicate keys are detected.

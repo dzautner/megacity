@@ -207,8 +207,9 @@ fn test_downstream_stops_when_supply_cut() {
         if buildings.len() >= 2 {
             buildings.sort_by_key(|(b, _)| b.grid_y);
 
+        if buildings.len() >= 2 {
             buildings[0].0.occupants = 20;
-            buildings[0].1.industry_type = crate::production::IndustryType::Forestry;
+            buildings[0].1.industry_type = IndustryType::Forestry;
             buildings[0].1.workers = 20;
             buildings[0].1.efficiency = 0.8;
 
