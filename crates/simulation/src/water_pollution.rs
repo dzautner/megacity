@@ -8,7 +8,7 @@ use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::utilities::UtilitySource;
 
 /// Grid tracking contamination level (0-255) of water cells and cells near water.
-#[derive(Resource)]
+#[derive(Resource, bitcode::Encode, bitcode::Decode)]
 pub struct WaterPollutionGrid {
     pub levels: Vec<u8>,
     pub width: usize,
@@ -44,6 +44,22 @@ impl WaterPollutionGrid {
     fn sub(&mut self, x: usize, y: usize, amount: u8) {
         let idx = y * self.width + x;
         self.levels[idx] = self.levels[idx].saturating_sub(amount);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Saveable implementation — persists water pollution grid across save / load
+// ---------------------------------------------------------------------------
+
+impl crate::Saveable for WaterPollutionGrid {
+    const SAVE_KEY: &'static str = "water_pollution_grid";
+
+    fn save_to_bytes(&self) -> Option<Vec<u8>> {
+        Some(bitcode::encode(self))
+    }
+
+    fn load_from_bytes(bytes: &[u8]) -> Self {
+        crate::decode_or_warn(Self::SAVE_KEY, bytes)
     }
 }
 
@@ -221,5 +237,11 @@ impl Plugin for WaterPollutionPlugin {
                 .after(crate::imports_exports::process_trade)
                 .in_set(crate::SimulationSet::Simulation),
         );
+
+        // Register for save/load via the SaveableRegistry
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<WaterPollutionGrid>();
     }
 }

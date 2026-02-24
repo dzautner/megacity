@@ -1,7 +1,7 @@
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use bevy::prelude::*;
 
-#[derive(Resource)]
+#[derive(Resource, bitcode::Encode, bitcode::Decode)]
 pub struct PollutionGrid {
     pub levels: Vec<u8>,
     pub width: usize,
@@ -27,6 +27,22 @@ impl PollutionGrid {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Saveable implementation — persists air pollution grid across save / load
+// ---------------------------------------------------------------------------
+
+impl crate::Saveable for PollutionGrid {
+    const SAVE_KEY: &'static str = "pollution_grid";
+
+    fn save_to_bytes(&self) -> Option<Vec<u8>> {
+        Some(bitcode::encode(self))
+    }
+
+    fn load_from_bytes(bytes: &[u8]) -> Self {
+        crate::decode_or_warn(Self::SAVE_KEY, bytes)
+    }
+}
+
 pub struct PollutionPlugin;
 
 impl Plugin for PollutionPlugin {
@@ -37,5 +53,11 @@ impl Plugin for PollutionPlugin {
                 .after(crate::education::propagate_education)
                 .in_set(crate::SimulationSet::Simulation),
         );
+
+        // Register for save/load via the SaveableRegistry
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<PollutionGrid>();
     }
 }
