@@ -36,19 +36,14 @@ const ZOO_EDUCATION_BONUS: f32 = 2.0;
 // ---------------------------------------------------------------------------
 
 /// The type of park district, each with unique bonuses.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[derive(bitcode::Encode, bitcode::Decode)]
 pub enum ParkType {
+    #[default]
     CityPark,
     AmusementPark,
     NatureReserve,
     Zoo,
-}
-
-impl Default for ParkType {
-    fn default() -> Self {
-        Self::CityPark
-    }
 }
 
 impl ParkType {
