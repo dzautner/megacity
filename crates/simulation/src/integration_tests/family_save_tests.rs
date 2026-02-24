@@ -12,7 +12,6 @@
 
 use bevy::prelude::*;
 
-use crate::buildings::Building;
 use crate::citizen::{
     Citizen, CitizenDetails, CitizenState, CitizenStateComp, Family, Gender, HomeLocation, Needs,
     PathCache, Personality, Position, Velocity,
