@@ -37,3 +37,7 @@ workspace = true
 [[bench]]
 name = "pathfinding_bench"
 harness = false
+
+[[bench]]
+name = "grid_bench"
+harness = false
