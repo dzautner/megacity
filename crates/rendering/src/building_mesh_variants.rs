@@ -14,6 +14,7 @@
 use bevy::prelude::*;
 
 use simulation::buildings::Building;
+use simulation::SaveLoadState;
 use simulation::grid::ZoneType;
 
 use crate::building_meshes::{building_scale, BuildingModelCache};
@@ -247,6 +248,7 @@ impl Plugin for BuildingMeshVariantsPlugin {
         app.add_systems(
             Update,
             assign_building_variants
+                .run_if(in_state(SaveLoadState::Idle))
                 .after(crate::building_render::spawn_building_meshes)
                 .after(crate::building_render::update_building_meshes),
         );

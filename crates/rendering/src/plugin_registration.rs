@@ -2,13 +2,20 @@ use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 
 use crate::*;
+use simulation::SaveLoadState;
 
 /// Register all rendering plugins and systems.
 ///
 /// Each plugin is registered on its own line for conflict-free parallel additions.
 /// When adding a new rendering plugin, just append a new `app.add_plugins(...)` line
 /// at the end of the appropriate section.
+///
+/// Systems that query game entities (buildings, citizens, etc.) are gated behind
+/// `SaveLoadState::Idle` to prevent races with the exclusive load/new-game systems
+/// that despawn entities with direct world access (issue #1604).
 pub(crate) fn register_rendering_systems(app: &mut App) {
+    let idle = in_state(SaveLoadState::Idle);
+
     app.add_systems(
         Startup,
         (
@@ -53,7 +60,7 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
         ),
     );
 
-    // Input and tool handling
+    // Input and tool handling — gated because tools can mutate/query game entities
     app.add_systems(
         Update,
         (
@@ -80,7 +87,8 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             input::delete_selected_building,
             input::tick_status_message,
             overlay::toggle_overlay_keys,
-        ),
+        )
+            .run_if(idle.clone()),
     );
 
     // Terrain and road rendering
@@ -97,14 +105,15 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             lane_markings::sync_lane_marking_meshes,
             intersection_markings::sync_intersection_markings,
             road_grade::draw_road_grade_indicators,
-        ),
+        )
+            .run_if(idle.clone()),
     );
 
-    // Day/night cycle
+    // Day/night cycle — safe, no game entity queries
     app.add_systems(Update, day_night::update_day_night_cycle);
     app.add_systems(Update, day_night::update_fog_rendering);
 
-    // Building rendering
+    // Building rendering — queries Building, ServiceBuilding, UtilitySource entities
     app.add_systems(
         Update,
         (
@@ -116,10 +125,11 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             props::spawn_tree_props,
             props::spawn_road_props,
             props::spawn_parked_cars,
-        ),
+        )
+            .run_if(idle.clone()),
     );
 
-    // Citizen rendering
+    // Citizen rendering — queries Citizen entities
     app.add_systems(
         Update,
         (
@@ -129,10 +139,11 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             citizen_render::update_lod_fade,
             citizen_render::despawn_abstract_sprites,
         )
-            .chain(),
+            .chain()
+            .run_if(idle.clone()),
     );
 
-    // Status icons and trees
+    // Status icons and trees — queries Building entities
     app.add_systems(
         Update,
         (
@@ -144,10 +155,11 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             building_status_enhanced::update_enhanced_status_icons
                 .run_if(on_timer(std::time::Duration::from_secs(2))),
             building_status_enhanced::lod_enhanced_status_icons,
-        ),
+        )
+            .run_if(idle.clone()),
     );
 
-    // Construction animations
+    // Construction animations — queries Building/UnderConstruction entities
     app.add_systems(
         Update,
         (
@@ -157,21 +169,26 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             construction_anim::cleanup_construction_props,
             construction_anim::cleanup_orphan_construction_props
                 .run_if(on_timer(std::time::Duration::from_secs(1))),
-        ),
+        )
+            .run_if(idle.clone()),
     );
 
-    // Selection highlights
+    // Selection highlights — queries Building, ServiceBuilding, UtilitySource entities
     app.add_systems(
         Update,
         (
             selection_highlight::manage_selection_highlights,
             selection_highlight::animate_selection_highlights,
             selection_highlight::draw_connected_highlights,
-        ),
+        )
+            .run_if(idle.clone()),
     );
 
     // One-way arrows
-    app.add_systems(Update, oneway_arrows::draw_oneway_arrows);
+    app.add_systems(
+        Update,
+        oneway_arrows::draw_oneway_arrows.run_if(idle.clone()),
+    );
 
     // Feature plugins
     app.add_plugins(traffic_los_render::TrafficLosRenderPlugin);

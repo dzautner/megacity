@@ -11,7 +11,12 @@ use simulation::water_sources::WaterSource;
 
 /// Collects all game entities (buildings, citizens, utilities, services,
 /// water sources, meshes, sprites) and despawns them immediately using
-/// direct world access.  This avoids the deferred-Commands race condition.
+/// direct world access.  This avoids the deferred-Commands race condition
+/// (issue #1604).
+///
+/// Each entity is checked for existence before despawning so that entities
+/// already removed (e.g. due to parent-child hierarchies) are silently
+/// skipped instead of panicking.
 pub(crate) fn despawn_all_game_entities(world: &mut World) {
     let mut entities = HashSet::new();
 
@@ -45,7 +50,9 @@ pub(crate) fn despawn_all_game_entities(world: &mut World) {
         entities.insert(e);
     }
 
-    // Despawn each entity immediately.
+    // Despawn each entity immediately, checking existence first to
+    // tolerate entities that were already despawned as children of
+    // a previously despawned parent.
     for entity in entities {
         if world.get_entity(entity).is_ok() {
             world.despawn(entity);

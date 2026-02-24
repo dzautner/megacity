@@ -8,6 +8,7 @@ use simulation::config::{GRID_HEIGHT, GRID_WIDTH};
 use simulation::grid::{WorldGrid, ZoneType};
 use simulation::happiness::ServiceCoverageGrid;
 use simulation::services::ServiceBuilding;
+use simulation::SaveLoadState;
 
 use super::categories::{OtherServiceGroup, ServiceCategory};
 use super::stats::{
@@ -371,7 +372,8 @@ impl Plugin for ServiceCoveragePanelPlugin {
             .init_resource::<ExpandedCategories>()
             .add_systems(
                 Update,
-                (service_coverage_keybind, service_coverage_panel_ui),
+                (service_coverage_keybind, service_coverage_panel_ui)
+                    .run_if(in_state(SaveLoadState::Idle)),
             );
     }
 }

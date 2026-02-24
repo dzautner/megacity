@@ -18,6 +18,7 @@ use rendering::input::CursorGridPos;
 use simulation::buildings::Building;
 use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::services::ServiceBuilding;
+use simulation::SaveLoadState;
 use simulation::traffic::TrafficGrid;
 use simulation::utilities::UtilitySource;
 
@@ -42,7 +43,10 @@ pub struct CellTooltipPlugin;
 impl Plugin for CellTooltipPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CellHoverState>()
-            .add_systems(Update, cell_tooltip_ui);
+            .add_systems(
+                Update,
+                cell_tooltip_ui.run_if(in_state(SaveLoadState::Idle)),
+            );
     }
 }
 

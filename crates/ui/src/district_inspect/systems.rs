@@ -6,6 +6,7 @@ use rendering::input::{ActiveTool, CursorGridPos};
 use simulation::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
 use simulation::districts::{DistrictMap, Districts};
 use simulation::services::ServiceBuilding;
+use simulation::SaveLoadState;
 
 use super::helpers::{resolve_district_index, service_covers_cell};
 use super::resources::{DistrictInspectCache, DistrictPanelOpen, SelectedDistrict};
@@ -195,7 +196,8 @@ impl Plugin for DistrictInspectPlugin {
                     refresh_district_inspect,
                     district_inspect_ui,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(SaveLoadState::Idle)),
             );
     }
 }
