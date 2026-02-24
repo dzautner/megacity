@@ -157,7 +157,7 @@ fn detect_load_event(
 ) {
     if events.read().next().is_some() {
         events.read().for_each(drop);
-        let path = path_override.0.take().unwrap_or_else(|| save_file_path());
+        let path = path_override.0.take().unwrap_or_else(save_file_path);
         match std::fs::read(&path) {
             Ok(bytes) => {
                 pending.0 = Some(bytes);

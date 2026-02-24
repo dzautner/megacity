@@ -4,6 +4,7 @@ use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
 use crate::save_error::SaveError;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::save_plugin::PendingSavePath;
 use crate::save_stages::{
     assemble_save_data, collect_disaster_stage, collect_economy_stage, collect_entity_stage,
