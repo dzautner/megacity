@@ -199,10 +199,10 @@ impl Default for KeyBindings {
             toggle_charts: KeyBinding::simple(KeyCode::KeyC),
             toggle_advisor: KeyBinding::simple(KeyCode::KeyA),
             toggle_policies: KeyBinding::simple(KeyCode::KeyP),
-            toggle_settings: KeyBinding::simple(KeyCode::F9),
+            toggle_settings: KeyBinding::simple(KeyCode::F10),
             toggle_search: KeyBinding::ctrl(KeyCode::KeyF),
-            quick_save: KeyBinding::ctrl(KeyCode::KeyS),
-            quick_load: KeyBinding::ctrl(KeyCode::KeyL),
+            quick_save: KeyBinding::simple(KeyCode::F5),
+            quick_load: KeyBinding::simple(KeyCode::F9),
             new_game: KeyBinding::ctrl(KeyCode::KeyN),
             screenshot: KeyBinding::simple(KeyCode::F12),
         }
