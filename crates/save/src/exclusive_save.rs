@@ -3,6 +3,10 @@ use simulation::notifications::{NotificationEvent, NotificationPriority};
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
+use crate::save_metadata::SaveMetadata;
+use simulation::citizen::Citizen;
+use simulation::play_time::PlayTime;
+
 use crate::save_error::SaveError;
 use crate::save_stages::{
     assemble_save_data, collect_disaster_stage, collect_economy_stage, collect_entity_stage,
@@ -142,6 +146,13 @@ fn exclusive_save_inner(world: &mut World) -> Result<(), SaveError> {
         q.iter(world).cloned().collect()
     };
 
+    // -- Collect metadata snapshot from current game state --
+    let citizen_count = {
+        let mut q = world.query_filtered::<(), With<Citizen>>();
+        q.iter(world).count() as u32
+    };
+    let metadata = collect_metadata(world, citizen_count);
+
     // -- Stage 2: Build SaveData via staged collection pipeline --
     let save = collect_all_stages(
         world,
@@ -162,7 +173,7 @@ fn exclusive_save_inner(world: &mut World) -> Result<(), SaveError> {
 
     // -- Stage 3: Encode and write to disk/IndexedDB --
     let encoded = save.encode();
-    let bytes = crate::file_header::wrap_with_header_compressed(&encoded);
+    let bytes = crate::file_header::wrap_with_header_compressed(&encoded, &metadata);
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -193,6 +204,53 @@ fn exclusive_save_inner(world: &mut World) -> Result<(), SaveError> {
     }
 
     Ok(())
+}
+
+/// Build a `SaveMetadata` snapshot from the current game state.
+fn collect_metadata(world: &World, citizen_count: u32) -> SaveMetadata {
+    let clock = world.resource::<simulation::time_of_day::GameClock>();
+    let budget = world.resource::<simulation::economy::CityBudget>();
+    let virtual_pop = world.resource::<simulation::virtual_population::VirtualPopulation>();
+    let play_time = world
+        .get_resource::<PlayTime>()
+        .map(|pt| pt.total_seconds)
+        .unwrap_or(0.0);
+
+    let total_population = citizen_count + virtual_pop.total_virtual;
+    let city_name = city_name_from_population(total_population).to_string();
+
+    SaveMetadata {
+        city_name,
+        population: total_population,
+        treasury: budget.treasury,
+        day: clock.day,
+        hour: clock.hour,
+        play_time_seconds: play_time,
+    }
+}
+
+/// Derive a city classification name from population (mirrors UI milestones).
+fn city_name_from_population(pop: u32) -> &'static str {
+    const MILESTONES: &[(u32, &str)] = &[
+        (1_000_000, "World Capital"),
+        (500_000, "Megalopolis"),
+        (250_000, "Megacity"),
+        (100_000, "Major Metropolis"),
+        (50_000, "Metropolis"),
+        (25_000, "Large City"),
+        (10_000, "City"),
+        (5_000, "Small City"),
+        (1_000, "Town"),
+        (500, "Hamlet"),
+        (100, "Village"),
+    ];
+
+    for &(threshold, name) in MILESTONES {
+        if pop >= threshold {
+            return name;
+        }
+    }
+    "Settlement"
 }
 
 /// Collect all save stages from world resources.

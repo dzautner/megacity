@@ -47,6 +47,8 @@ mod tests_migration_chain;
 #[cfg(test)]
 mod tests_save_error;
 #[cfg(test)]
+mod tests_save_metadata;
+#[cfg(test)]
 mod tests_savings;
 #[cfg(test)]
 mod tests_stormwater_climate;

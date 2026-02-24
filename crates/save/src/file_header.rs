@@ -2,30 +2,36 @@
 // file_header – Save file header with magic bytes, version, and checksum
 // ---------------------------------------------------------------------------
 //
-// Header format (28 bytes, fixed-size, little-endian):
+// Header format v2 (32 bytes, fixed-size, little-endian):
 //   [0..4]   Magic bytes: "MEGA" (0x4D454741)
 //   [4..8]   Format version (u32)
 //   [8..12]  Flags (u32: bit 0 = compressed, bit 1 = delta save)
 //   [12..20] Timestamp (Unix epoch, u64)
 //   [20..24] Uncompressed data size (u32)
-//   [24..28] xxHash32 checksum of the data payload (everything after the header)
+//   [24..28] xxHash32 checksum of the data payload (after header + metadata)
+//   [28..32] Metadata size (u32): byte count of the SaveMetadata section
 //
-// On save: encode SaveData -> prepend header (with checksum of encoded data)
-// On load: check magic -> validate checksum -> strip header -> decode SaveData
+// Layout: [Header 32B] [Metadata (metadata_size bytes)] [Data payload]
+//
+// On save: encode SaveData -> compress -> encode metadata -> prepend header
+// On load: parse header -> read metadata -> validate checksum -> decompress -> decode
 // Legacy: if first 4 bytes != "MEGA", treat as raw bitcode (headerless save)
+// V1 compat: if format_version == 1, header is 28 bytes with no metadata
 
+use crate::save_metadata::SaveMetadata;
 use xxhash_rust::xxh32::xxh32;
 
 /// Magic bytes identifying a Megacity save file.
 pub const MAGIC: [u8; 4] = [0x4D, 0x45, 0x47, 0x41]; // "MEGA"
 
-/// Size of the file header in bytes.
-pub const HEADER_SIZE: usize = 28;
+/// Size of the V1 file header in bytes (no metadata field).
+pub const HEADER_SIZE_V1: usize = 28;
 
-/// Current file header format version. This is distinct from the SaveData
-/// version (which tracks schema changes). The header format version tracks
-/// changes to the header layout itself.
-pub const HEADER_FORMAT_VERSION: u32 = 1;
+/// Size of the V2 file header in bytes (with metadata_size field).
+pub const HEADER_SIZE: usize = 32;
+
+/// Current file header format version. Bumped to 2 for the metadata section.
+pub const HEADER_FORMAT_VERSION: u32 = 2;
 
 /// Flag bit 0: payload is LZ4-compressed.
 pub const FLAG_COMPRESSED: u32 = 0x1;
@@ -41,6 +47,8 @@ pub struct FileHeader {
     pub timestamp: u64,
     pub uncompressed_size: u32,
     pub checksum: u32,
+    /// Size of the metadata section in bytes. Zero means no metadata.
+    pub metadata_size: u32,
 }
 
 impl FileHeader {
@@ -48,58 +56,14 @@ impl FileHeader {
     pub fn is_compressed(&self) -> bool {
         self.flags & FLAG_COMPRESSED != 0
     }
-
-    /// Create a new header for the given data payload.
-    #[cfg(test)]
-    pub fn new(data: &[u8]) -> Self {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-
-        Self {
-            format_version: HEADER_FORMAT_VERSION,
-            flags: 0,
-            timestamp,
-            uncompressed_size: data.len() as u32,
-            checksum: xxh32(data, XXHASH_SEED),
-        }
-    }
 }
 
-/// Wrap encoded save data with a file header (uncompressed).
+/// Compress, wrap with header and metadata.
 ///
-/// Returns bytes: [header (28 bytes)] ++ [data payload].
-/// Only used in tests — production saves use `wrap_with_header_compressed`.
-#[cfg(test)]
-pub fn wrap_with_header(data: &[u8]) -> Vec<u8> {
-    let header = FileHeader::new(data);
-    let mut out = Vec::with_capacity(HEADER_SIZE + data.len());
-
-    // Magic
-    out.extend_from_slice(&MAGIC);
-    // Format version
-    out.extend_from_slice(&header.format_version.to_le_bytes());
-    // Flags
-    out.extend_from_slice(&header.flags.to_le_bytes());
-    // Timestamp
-    out.extend_from_slice(&header.timestamp.to_le_bytes());
-    // Uncompressed data size
-    out.extend_from_slice(&header.uncompressed_size.to_le_bytes());
-    // Checksum
-    out.extend_from_slice(&header.checksum.to_le_bytes());
-
-    out.extend_from_slice(data);
-    out
-}
-
-/// Compress encoded save data with LZ4, then wrap with a file header.
-///
-/// The header's `uncompressed_size` field stores the original size, and the
-/// `FLAG_COMPRESSED` bit is set in flags. The checksum covers the compressed
-/// payload (the bytes actually on disk).
-pub fn wrap_with_header_compressed(data: &[u8]) -> Vec<u8> {
+/// Layout: [Header 32B] [Metadata] [LZ4-compressed payload]
+pub fn wrap_with_header_compressed(data: &[u8], metadata: &SaveMetadata) -> Vec<u8> {
     let compressed = lz4_flex::compress_prepend_size(data);
+    let metadata_bytes = metadata.encode();
 
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -112,30 +76,60 @@ pub fn wrap_with_header_compressed(data: &[u8]) -> Vec<u8> {
         timestamp,
         uncompressed_size: data.len() as u32,
         checksum: xxh32(&compressed, XXHASH_SEED),
+        metadata_size: metadata_bytes.len() as u32,
     };
 
-    let mut out = Vec::with_capacity(HEADER_SIZE + compressed.len());
-
-    // Magic
-    out.extend_from_slice(&MAGIC);
-    // Format version
-    out.extend_from_slice(&header.format_version.to_le_bytes());
-    // Flags
-    out.extend_from_slice(&header.flags.to_le_bytes());
-    // Timestamp
-    out.extend_from_slice(&header.timestamp.to_le_bytes());
-    // Uncompressed data size
-    out.extend_from_slice(&header.uncompressed_size.to_le_bytes());
-    // Checksum
-    out.extend_from_slice(&header.checksum.to_le_bytes());
-
+    let mut out = Vec::with_capacity(HEADER_SIZE + metadata_bytes.len() + compressed.len());
+    write_header(&mut out, &header);
+    out.extend_from_slice(&metadata_bytes);
     out.extend_from_slice(&compressed);
     out
 }
 
+/// Wrap encoded save data with a header and metadata (uncompressed, test-only).
+#[cfg(test)]
+pub fn wrap_with_header_and_metadata(data: &[u8], metadata: &SaveMetadata) -> Vec<u8> {
+    let metadata_bytes = metadata.encode();
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let header = FileHeader {
+        format_version: HEADER_FORMAT_VERSION,
+        flags: 0,
+        timestamp,
+        uncompressed_size: data.len() as u32,
+        checksum: xxh32(data, XXHASH_SEED),
+        metadata_size: metadata_bytes.len() as u32,
+    };
+
+    let mut out = Vec::with_capacity(HEADER_SIZE + metadata_bytes.len() + data.len());
+    write_header(&mut out, &header);
+    out.extend_from_slice(&metadata_bytes);
+    out.extend_from_slice(data);
+    out
+}
+
+/// Wrap encoded save data with a header (uncompressed, no explicit metadata, test-only).
+#[cfg(test)]
+pub fn wrap_with_header(data: &[u8]) -> Vec<u8> {
+    wrap_with_header_and_metadata(data, &SaveMetadata::default())
+}
+
+/// Write header bytes to buffer.
+fn write_header(out: &mut Vec<u8>, header: &FileHeader) {
+    out.extend_from_slice(&MAGIC);
+    out.extend_from_slice(&header.format_version.to_le_bytes());
+    out.extend_from_slice(&header.flags.to_le_bytes());
+    out.extend_from_slice(&header.timestamp.to_le_bytes());
+    out.extend_from_slice(&header.uncompressed_size.to_le_bytes());
+    out.extend_from_slice(&header.checksum.to_le_bytes());
+    out.extend_from_slice(&header.metadata_size.to_le_bytes());
+}
+
 /// Decompress an LZ4-compressed payload.
-///
-/// Returns the decompressed bytes, or an error if decompression fails.
 pub fn decompress_payload(compressed: &[u8]) -> Result<Vec<u8>, String> {
     lz4_flex::decompress_size_prepended(compressed).map_err(|e| {
         format!("Failed to decompress LZ4 payload: {e}. The save file may be corrupted.")
@@ -148,6 +142,7 @@ pub enum UnwrapResult<'a> {
     /// File has a valid header; the payload bytes follow.
     WithHeader {
         header: FileHeader,
+        metadata: Option<SaveMetadata>,
         payload: &'a [u8],
     },
     /// File has no header (legacy save); the entire buffer is the payload.
@@ -155,35 +150,20 @@ pub enum UnwrapResult<'a> {
 }
 
 /// Parse and validate the file header from raw bytes.
-///
-/// - If the file starts with "MEGA", parse the header, verify the checksum,
-///   and return `UnwrapResult::WithHeader`.
-/// - If the file does NOT start with "MEGA", return `UnwrapResult::Legacy`
-///   so callers can attempt to decode it as a legacy headerless save.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The header is present but the file is too short
-/// - The header format version is from a newer game build
-/// - The checksum does not match (data corruption)
 pub fn unwrap_header(bytes: &[u8]) -> Result<UnwrapResult<'_>, String> {
-    // Legacy detection: if first 4 bytes aren't MEGA, treat as raw bitcode.
     if bytes.len() < 4 || bytes[..4] != MAGIC {
         return Ok(UnwrapResult::Legacy(bytes));
     }
 
-    // We have magic bytes; now we need at least HEADER_SIZE bytes.
-    if bytes.len() < HEADER_SIZE {
+    if bytes.len() < HEADER_SIZE_V1 {
         return Err(format!(
             "Save file has MEGA magic bytes but is too short ({} bytes, \
              need at least {} for header)",
             bytes.len(),
-            HEADER_SIZE
+            HEADER_SIZE_V1
         ));
     }
 
-    // Parse header fields (all little-endian).
     let format_version = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
     let flags = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
     let timestamp = u64::from_le_bytes([
@@ -192,7 +172,6 @@ pub fn unwrap_header(bytes: &[u8]) -> Result<UnwrapResult<'_>, String> {
     let uncompressed_size = u32::from_le_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
     let checksum = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]);
 
-    // Reject saves from a newer header format version.
     if format_version > HEADER_FORMAT_VERSION {
         return Err(format!(
             "Save file uses header format version {}, but this build only supports \
@@ -201,18 +180,75 @@ pub fn unwrap_header(bytes: &[u8]) -> Result<UnwrapResult<'_>, String> {
         ));
     }
 
-    let payload = &bytes[HEADER_SIZE..];
+    // V1 headers: 28 bytes, no metadata
+    if format_version <= 1 {
+        let payload = &bytes[HEADER_SIZE_V1..];
+        let computed = xxh32(payload, XXHASH_SEED);
+        if computed != checksum {
+            return Err(format!(
+                "Save file is corrupted: checksum mismatch \
+                 (expected {:#010X}, got {:#010X}).",
+                checksum, computed,
+            ));
+        }
+        return Ok(UnwrapResult::WithHeader {
+            header: FileHeader {
+                format_version,
+                flags,
+                timestamp,
+                uncompressed_size,
+                checksum,
+                metadata_size: 0,
+            },
+            metadata: None,
+            payload,
+        });
+    }
 
-    // Verify checksum.
+    // V2+ headers: 32 bytes with metadata_size field
+    if bytes.len() < HEADER_SIZE {
+        return Err(format!(
+            "Save file v{} too short ({} bytes, need at least {})",
+            format_version,
+            bytes.len(),
+            HEADER_SIZE
+        ));
+    }
+
+    let metadata_size = u32::from_le_bytes([bytes[28], bytes[29], bytes[30], bytes[31]]);
+    let metadata_end = HEADER_SIZE + metadata_size as usize;
+
+    if bytes.len() < metadata_end {
+        return Err(format!(
+            "Save file claims {} bytes of metadata but only {} bytes remain",
+            metadata_size,
+            bytes.len() - HEADER_SIZE,
+        ));
+    }
+
+    let metadata_bytes = &bytes[HEADER_SIZE..metadata_end];
+    let payload = &bytes[metadata_end..];
+
     let computed = xxh32(payload, XXHASH_SEED);
     if computed != checksum {
         return Err(format!(
             "Save file is corrupted: checksum mismatch \
-             (expected {:#010X}, got {:#010X}). The file may have been \
-             modified or damaged.",
+             (expected {:#010X}, got {:#010X}).",
             checksum, computed,
         ));
     }
+
+    let metadata = if metadata_size > 0 {
+        match SaveMetadata::decode(metadata_bytes) {
+            Ok(m) => Some(m),
+            Err(e) => {
+                eprintln!("Warning: failed to decode save metadata: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     Ok(UnwrapResult::WithHeader {
         header: FileHeader {
@@ -221,157 +257,21 @@ pub fn unwrap_header(bytes: &[u8]) -> Result<UnwrapResult<'_>, String> {
             timestamp,
             uncompressed_size,
             checksum,
+            metadata_size,
         },
+        metadata,
         payload,
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_wrap_and_unwrap_roundtrip() {
-        let data = b"hello world save data";
-        let wrapped = wrap_with_header(data);
-
-        // Should start with MEGA magic.
-        assert_eq!(&wrapped[..4], &MAGIC);
-        assert_eq!(wrapped.len(), HEADER_SIZE + data.len());
-
-        // Unwrap should succeed.
-        let result = unwrap_header(&wrapped).expect("unwrap should succeed");
-        match result {
-            UnwrapResult::WithHeader { header, payload } => {
-                assert_eq!(header.format_version, HEADER_FORMAT_VERSION);
-                assert_eq!(header.flags, 0);
-                assert_eq!(header.uncompressed_size, data.len() as u32);
-                assert_eq!(payload, data);
-            }
-            UnwrapResult::Legacy(_) => panic!("expected WithHeader, got Legacy"),
-        }
-    }
-
-    #[test]
-    fn test_legacy_detection() {
-        // Data that doesn't start with MEGA should be treated as legacy.
-        let data = b"\x00\x01\x02\x03some old save data";
-        let result = unwrap_header(data).expect("unwrap should succeed");
-        match result {
-            UnwrapResult::Legacy(payload) => {
-                assert_eq!(payload, data.as_slice());
-            }
-            UnwrapResult::WithHeader { .. } => panic!("expected Legacy, got WithHeader"),
-        }
-    }
-
-    #[test]
-    fn test_empty_data_is_legacy() {
-        let result = unwrap_header(b"").expect("unwrap should succeed");
-        match result {
-            UnwrapResult::Legacy(payload) => {
-                assert!(payload.is_empty());
-            }
-            UnwrapResult::WithHeader { .. } => panic!("expected Legacy"),
-        }
-    }
-
-    #[test]
-    fn test_corrupted_checksum_detected() {
-        let data = b"test payload";
-        let mut wrapped = wrap_with_header(data);
-
-        // Corrupt one byte of the payload.
-        let last = wrapped.len() - 1;
-        wrapped[last] ^= 0xFF;
-
-        let result = unwrap_header(&wrapped);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(
-            err.contains("corrupted"),
-            "Error should mention corruption: {err}"
-        );
-        assert!(
-            err.contains("checksum mismatch"),
-            "Error should mention checksum: {err}"
-        );
-    }
-
-    #[test]
-    fn test_future_header_version_rejected() {
-        let data = b"test payload";
-        let mut wrapped = wrap_with_header(data);
-
-        // Set format_version to a future value (999).
-        let future_ver = 999u32.to_le_bytes();
-        wrapped[4..8].copy_from_slice(&future_ver);
-
-        let result = unwrap_header(&wrapped);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(
-            err.contains("header format version 999"),
-            "Error should mention the version: {err}"
-        );
-    }
-
-    #[test]
-    fn test_truncated_header_detected() {
-        // Only MEGA + a few bytes (less than HEADER_SIZE).
-        let data = b"MEGA\x01\x00";
-        let result = unwrap_header(data);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(
-            err.contains("too short"),
-            "Error should mention too short: {err}"
-        );
-    }
-
-    #[test]
-    fn test_checksum_deterministic() {
-        let data = b"deterministic test";
-        let c1 = xxh32(data, XXHASH_SEED);
-        let c2 = xxh32(data, XXHASH_SEED);
-        assert_eq!(c1, c2);
-    }
-
-    #[test]
-    fn test_different_data_different_checksum() {
-        let c1 = xxh32(b"data A", XXHASH_SEED);
-        let c2 = xxh32(b"data B", XXHASH_SEED);
-        assert_ne!(c1, c2);
-    }
-
-    #[test]
-    fn test_empty_payload_roundtrip() {
-        let data: &[u8] = b"";
-        let wrapped = wrap_with_header(data);
-        assert_eq!(wrapped.len(), HEADER_SIZE);
-
-        let result = unwrap_header(&wrapped).expect("unwrap should succeed");
-        match result {
-            UnwrapResult::WithHeader { header, payload } => {
-                assert_eq!(header.uncompressed_size, 0);
-                assert!(payload.is_empty());
-            }
-            UnwrapResult::Legacy(_) => panic!("expected WithHeader"),
-        }
-    }
-
-    #[test]
-    fn test_large_payload_roundtrip() {
-        let data: Vec<u8> = (0..100_000).map(|i| (i % 256) as u8).collect();
-        let wrapped = wrap_with_header(&data);
-
-        let result = unwrap_header(&wrapped).expect("unwrap should succeed");
-        match result {
-            UnwrapResult::WithHeader { header, payload } => {
-                assert_eq!(header.uncompressed_size, 100_000);
-                assert_eq!(payload, data.as_slice());
-            }
-            UnwrapResult::Legacy(_) => panic!("expected WithHeader"),
-        }
+/// Read only the metadata from a save file without decoding the full payload.
+pub fn read_metadata_only(bytes: &[u8]) -> Result<Option<SaveMetadata>, String> {
+    match unwrap_header(bytes)? {
+        UnwrapResult::WithHeader { metadata, .. } => Ok(metadata),
+        UnwrapResult::Legacy(_) => Ok(None),
     }
 }
+
+#[cfg(test)]
+#[path = "file_header_tests.rs"]
+mod file_header_tests;
