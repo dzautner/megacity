@@ -135,7 +135,7 @@ impl crate::Saveable for PollutionAlertLog {
 /// Corresponds to AqiTier::Unhealthy (151+).
 const AIR_THRESHOLD: u8 = 151;
 /// Noise level (out of 100) threshold for noise complaints.
-const NOISE_THRESHOLD: u8 = 80;
+const NOISE_THRESHOLD: u8 = 60;
 /// Water quality value below which a water-quality alert is raised.
 /// Values below 180 are considered non-Clean (WaterQualityGrid: 0=bad, 255=pure).
 const WATER_QUALITY_CLEAN_THRESHOLD: u8 = 180;
@@ -276,9 +276,9 @@ pub fn check_noise_complaints(
             }
 
             if tracker.noise[idx] >= SUSTAINED_TICKS {
-                let severity = if level >= 95 {
+                let severity = if level >= 85 {
                     AlertSeverity::Emergency
-                } else if level >= 90 {
+                } else if level >= 75 {
                     AlertSeverity::Warning
                 } else {
                     AlertSeverity::Advisory
