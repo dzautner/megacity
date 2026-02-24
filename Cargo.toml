@@ -47,6 +47,7 @@ serde = { version = "1", features = ["derive"] }
 rand = "0.8"
 rand_chacha = "0.3"
 xxhash-rust = { version = "0.8", features = ["xxh32"] }
+lz4_flex = "0.11"
 
 [profile.dev]
 opt-level = 1

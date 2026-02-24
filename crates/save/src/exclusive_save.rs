@@ -162,7 +162,7 @@ fn exclusive_save_inner(world: &mut World) -> Result<(), SaveError> {
 
     // -- Stage 3: Encode and write to disk/IndexedDB --
     let encoded = save.encode();
-    let bytes = crate::file_header::wrap_with_header(&encoded);
+    let bytes = crate::file_header::wrap_with_header_compressed(&encoded);
 
     #[cfg(not(target_arch = "wasm32"))]
     {

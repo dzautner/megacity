@@ -5,7 +5,7 @@ use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
 use crate::despawn::despawn_all_game_entities;
-use crate::file_header::{unwrap_header, UnwrapResult};
+use crate::file_header::{decompress_payload, unwrap_header, UnwrapResult};
 use crate::restore_resources::restore_resources_from_save;
 use crate::save_error::SaveError;
 use crate::save_plugin::PendingLoadBytes;
@@ -39,7 +39,7 @@ fn exclusive_load_inner(world: &mut World) -> Result<(), SaveError> {
     let bytes = bytes.ok_or(SaveError::NoData)?;
 
     // -- Stage 0: Validate file header and extract payload --
-    let payload = match unwrap_header(&bytes) {
+    let (raw_payload, is_compressed) = match unwrap_header(&bytes) {
         Ok(UnwrapResult::WithHeader { header, payload }) => {
             info!(
                 "Save file header: format v{}, flags {:#X}, timestamp {}, \
@@ -50,19 +50,34 @@ fn exclusive_load_inner(world: &mut World) -> Result<(), SaveError> {
                 header.uncompressed_size,
                 header.checksum,
             );
-            payload
+            (payload, header.is_compressed())
         }
         Ok(UnwrapResult::Legacy(payload)) => {
             info!("Loading legacy save file (no header)");
-            payload
+            (payload, false)
         }
         Err(e) => {
             return Err(SaveError::Decode(format!("Invalid file header: {e}")));
         }
     };
 
+    // -- Stage 0b: Decompress if the compressed flag is set --
+    let decompressed;
+    let decode_input = if is_compressed {
+        decompressed =
+            decompress_payload(raw_payload).map_err(|e| SaveError::Decode(e.to_string()))?;
+        info!(
+            "Decompressed save: {} bytes -> {} bytes",
+            raw_payload.len(),
+            decompressed.len(),
+        );
+        decompressed.as_slice()
+    } else {
+        raw_payload
+    };
+
     // -- Stage 1: Parse and migrate --
-    let mut save = SaveData::decode(payload)?;
+    let mut save = SaveData::decode(decode_input)?;
 
     let report = migrate_save_with_report(&mut save)?;
 

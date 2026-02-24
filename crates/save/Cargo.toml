@@ -9,6 +9,7 @@ bitcode = { workspace = true }
 serde = { workspace = true }
 simulation = { path = "../simulation" }
 xxhash-rust = { workspace = true }
+lz4_flex = { workspace = true }
 rendering = { path = "../rendering" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

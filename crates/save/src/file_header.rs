@@ -27,6 +27,9 @@ pub const HEADER_SIZE: usize = 28;
 /// changes to the header layout itself.
 pub const HEADER_FORMAT_VERSION: u32 = 1;
 
+/// Flag bit 0: payload is LZ4-compressed.
+pub const FLAG_COMPRESSED: u32 = 0x1;
+
 /// Seed for xxHash32 checksum.
 const XXHASH_SEED: u32 = 0;
 
@@ -41,7 +44,13 @@ pub struct FileHeader {
 }
 
 impl FileHeader {
+    /// Returns `true` if the compressed flag (bit 0) is set.
+    pub fn is_compressed(&self) -> bool {
+        self.flags & FLAG_COMPRESSED != 0
+    }
+
     /// Create a new header for the given data payload.
+    #[cfg(test)]
     pub fn new(data: &[u8]) -> Self {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -58,9 +67,11 @@ impl FileHeader {
     }
 }
 
-/// Wrap encoded save data with a file header.
+/// Wrap encoded save data with a file header (uncompressed).
 ///
 /// Returns bytes: [header (28 bytes)] ++ [data payload].
+/// Only used in tests — production saves use `wrap_with_header_compressed`.
+#[cfg(test)]
 pub fn wrap_with_header(data: &[u8]) -> Vec<u8> {
     let header = FileHeader::new(data);
     let mut out = Vec::with_capacity(HEADER_SIZE + data.len());
@@ -80,6 +91,55 @@ pub fn wrap_with_header(data: &[u8]) -> Vec<u8> {
 
     out.extend_from_slice(data);
     out
+}
+
+/// Compress encoded save data with LZ4, then wrap with a file header.
+///
+/// The header's `uncompressed_size` field stores the original size, and the
+/// `FLAG_COMPRESSED` bit is set in flags. The checksum covers the compressed
+/// payload (the bytes actually on disk).
+pub fn wrap_with_header_compressed(data: &[u8]) -> Vec<u8> {
+    let compressed = lz4_flex::compress_prepend_size(data);
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let header = FileHeader {
+        format_version: HEADER_FORMAT_VERSION,
+        flags: FLAG_COMPRESSED,
+        timestamp,
+        uncompressed_size: data.len() as u32,
+        checksum: xxh32(&compressed, XXHASH_SEED),
+    };
+
+    let mut out = Vec::with_capacity(HEADER_SIZE + compressed.len());
+
+    // Magic
+    out.extend_from_slice(&MAGIC);
+    // Format version
+    out.extend_from_slice(&header.format_version.to_le_bytes());
+    // Flags
+    out.extend_from_slice(&header.flags.to_le_bytes());
+    // Timestamp
+    out.extend_from_slice(&header.timestamp.to_le_bytes());
+    // Uncompressed data size
+    out.extend_from_slice(&header.uncompressed_size.to_le_bytes());
+    // Checksum
+    out.extend_from_slice(&header.checksum.to_le_bytes());
+
+    out.extend_from_slice(&compressed);
+    out
+}
+
+/// Decompress an LZ4-compressed payload.
+///
+/// Returns the decompressed bytes, or an error if decompression fails.
+pub fn decompress_payload(compressed: &[u8]) -> Result<Vec<u8>, String> {
+    lz4_flex::decompress_size_prepended(compressed).map_err(|e| {
+        format!("Failed to decompress LZ4 payload: {e}. The save file may be corrupted.")
+    })
 }
 
 /// Result of unwrapping a save file's bytes.
