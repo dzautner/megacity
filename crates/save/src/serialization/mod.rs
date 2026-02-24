@@ -39,6 +39,8 @@ mod tests_family;
 #[cfg(test)]
 mod tests_life_sim;
 #[cfg(test)]
+mod tests_lz4_compression;
+#[cfg(test)]
 mod tests_migration;
 #[cfg(test)]
 mod tests_migration_chain;
