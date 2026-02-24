@@ -19,7 +19,7 @@ impl Default for UnlockState {
             development_points: 3, // Start with 3 DP for basic buildings
             spent_points: 0,
             unlocked_nodes: vec![
-                // Starter unlocks (always available)
+                // Starter unlocks (always available — Hamlet tier)
                 UnlockNode::BasicRoads,
                 UnlockNode::ResidentialZoning,
                 UnlockNode::CommercialZoning,
@@ -34,61 +34,73 @@ impl Default for UnlockState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum UnlockNode {
-    // Starter (free)
+    // Tier 0 — Hamlet (0 pop, starter)
     BasicRoads,
     ResidentialZoning,
     CommercialZoning,
     IndustrialZoning,
-    BasicPower, // PowerPlant
-    BasicWater, // WaterTower
+    BasicPower,
+    BasicWater,
 
-    // Tier 1 (1 DP each, unlock at 500 pop)
+    // Tier 1 — Small Settlement (240 pop)
+    HealthCare,
+    DeathCare,
+    BasicSanitation,
+
+    // Tier 2 — Village (1,200 pop)
     FireService,
     PoliceService,
     ElementaryEducation,
-    SmallParks,
-    BasicSanitation, // Landfill
 
-    // Tier 2 (2 DP each, unlock at 2000 pop)
-    BasicHeating, // HeatingBoiler
-    HealthCare,   // Hospital
+    // Tier 3 — Large Village (2,600 pop)
     HighSchoolEducation,
+    SmallParks,
+    PolicySystem,
+
+    // Tier 4 — Town (5,000 pop)
+    PublicTransport,
+    Landmarks,
+
+    // Tier 5 — Large Town (7,500 pop)
     HighDensityResidential,
     HighDensityCommercial,
-    SolarPower,
-    SewagePlant,
-    AdvancedParks, // Large parks, playground, sports
-    DeathCare,     // Cemetery, Crematorium
-
-    DistrictHeatingNetwork, // DistrictHeatingPlant, GeothermalPlant
-
-    // Tier 3 (3 DP each, unlock at 10000 pop)
+    AdvancedTransport,
     OfficeZoning,
+
+    // Tier 6 — Small City (12,000 pop)
     UniversityEducation,
+    AdvancedSanitation,
+    PostalService,
+
+    // Tier 7 — City (20,000 pop)
+    SmallAirstrips,
+    AdvancedParks,
+    WaterInfrastructure,
+
+    // Tier 8 — Large City (36,000 pop)
+    Telecom,
+    Entertainment,
+    BasicHeating,
+
+    // Tier 9 — Metropolis (50,000 pop)
+    RegionalAirports,
+    SolarPower,
     WindPower,
-    AdvancedSanitation,  // Recycling, Incinerator
-    PublicTransport,     // BusDepot, TrainStation
-    Entertainment,       // Stadium, Plaza
-    AdvancedEmergency,   // FireHQ, PoliceHQ, Prison, MedicalCenter
-    Telecom,             // CellTower, DataCenter
-    AdvancedTransport,   // Subway, Tram, Ferry
-    SmallAirstrips,      // SmallAirstrip (5K pop)
-    PostalService,       // PostOffice, MailSortingCenter
-    WaterInfrastructure, // WaterTreatmentPlant, WellPump
+    SewagePlant,
 
-    // Tier 4 (5 DP each, unlock at 50000 pop)
-    Landmarks,        // CityHall, Museum, Cathedral, TVStation
-    PolicySystem,     // Enables policies
-    NuclearPower,     // NuclearPlant
-    RegionalAirports, // RegionalAirport (20K pop)
+    // Tier 10 — Large Metropolis (65,000 pop)
+    AdvancedEmergency,
+    DistrictHeatingNetwork,
+    NuclearPower,
 
-    // Tier 5 (7 DP, unlock at 100000 pop)
-    InternationalAirports, // InternationalAirport (100K pop)
+    // Tier 11 — Megalopolis (80,000 pop)
+    InternationalAirports,
 }
 
 impl UnlockNode {
     pub fn cost(self) -> u32 {
         match self {
+            // Tier 0 — free starters
             UnlockNode::BasicRoads
             | UnlockNode::ResidentialZoning
             | UnlockNode::CommercialZoning
@@ -96,47 +108,66 @@ impl UnlockNode {
             | UnlockNode::BasicPower
             | UnlockNode::BasicWater => 0,
 
-            UnlockNode::FireService
-            | UnlockNode::PoliceService
-            | UnlockNode::ElementaryEducation
-            | UnlockNode::SmallParks
+            // Tier 1 (240 pop)
+            UnlockNode::HealthCare
+            | UnlockNode::DeathCare
             | UnlockNode::BasicSanitation => 1,
 
-            UnlockNode::BasicHeating
-            | UnlockNode::HealthCare
-            | UnlockNode::HighSchoolEducation
-            | UnlockNode::HighDensityResidential
-            | UnlockNode::HighDensityCommercial
-            | UnlockNode::SolarPower
-            | UnlockNode::SewagePlant
-            | UnlockNode::AdvancedParks
-            | UnlockNode::DeathCare => 2,
+            // Tier 2 (1,200 pop)
+            UnlockNode::FireService
+            | UnlockNode::PoliceService
+            | UnlockNode::ElementaryEducation => 1,
 
-            UnlockNode::DistrictHeatingNetwork
-            | UnlockNode::OfficeZoning
-            | UnlockNode::UniversityEducation
-            | UnlockNode::WindPower
-            | UnlockNode::AdvancedSanitation
-            | UnlockNode::PublicTransport
-            | UnlockNode::Entertainment
-            | UnlockNode::AdvancedEmergency
-            | UnlockNode::Telecom
+            // Tier 3 (2,600 pop)
+            UnlockNode::HighSchoolEducation
+            | UnlockNode::SmallParks
+            | UnlockNode::PolicySystem => 2,
+
+            // Tier 4 (5,000 pop)
+            UnlockNode::PublicTransport
+            | UnlockNode::Landmarks => 2,
+
+            // Tier 5 (7,500 pop)
+            UnlockNode::HighDensityResidential
+            | UnlockNode::HighDensityCommercial
             | UnlockNode::AdvancedTransport
-            | UnlockNode::SmallAirstrips
-            | UnlockNode::PostalService
+            | UnlockNode::OfficeZoning => 3,
+
+            // Tier 6 (12,000 pop)
+            UnlockNode::UniversityEducation
+            | UnlockNode::AdvancedSanitation
+            | UnlockNode::PostalService => 3,
+
+            // Tier 7 (20,000 pop)
+            UnlockNode::SmallAirstrips
+            | UnlockNode::AdvancedParks
             | UnlockNode::WaterInfrastructure => 3,
 
-            UnlockNode::Landmarks
-            | UnlockNode::PolicySystem
-            | UnlockNode::NuclearPower
-            | UnlockNode::RegionalAirports => 5,
+            // Tier 8 (36,000 pop)
+            UnlockNode::Telecom
+            | UnlockNode::Entertainment
+            | UnlockNode::BasicHeating => 4,
 
+            // Tier 9 (50,000 pop)
+            UnlockNode::RegionalAirports
+            | UnlockNode::SolarPower
+            | UnlockNode::WindPower
+            | UnlockNode::SewagePlant => 4,
+
+            // Tier 10 (65,000 pop)
+            UnlockNode::AdvancedEmergency
+            | UnlockNode::DistrictHeatingNetwork
+            | UnlockNode::NuclearPower => 5,
+
+            // Tier 11 (80,000 pop)
             UnlockNode::InternationalAirports => 7,
         }
     }
 
+    /// Population threshold aligned with the 12-tier milestone system.
     pub fn required_population(self) -> u32 {
         match self {
+            // Tier 0 — Hamlet
             UnlockNode::BasicRoads
             | UnlockNode::ResidentialZoning
             | UnlockNode::CommercialZoning
@@ -144,41 +175,59 @@ impl UnlockNode {
             | UnlockNode::BasicPower
             | UnlockNode::BasicWater => 0,
 
+            // Tier 1 — Small Settlement
+            UnlockNode::HealthCare
+            | UnlockNode::DeathCare
+            | UnlockNode::BasicSanitation => 240,
+
+            // Tier 2 — Village
             UnlockNode::FireService
             | UnlockNode::PoliceService
-            | UnlockNode::ElementaryEducation
+            | UnlockNode::ElementaryEducation => 1_200,
+
+            // Tier 3 — Large Village
+            UnlockNode::HighSchoolEducation
             | UnlockNode::SmallParks
-            | UnlockNode::BasicSanitation => 500,
+            | UnlockNode::PolicySystem => 2_600,
 
-            UnlockNode::BasicHeating
-            | UnlockNode::HealthCare
-            | UnlockNode::HighSchoolEducation
-            | UnlockNode::HighDensityResidential
+            // Tier 4 — Town
+            UnlockNode::PublicTransport
+            | UnlockNode::Landmarks => 5_000,
+
+            // Tier 5 — Large Town
+            UnlockNode::HighDensityResidential
             | UnlockNode::HighDensityCommercial
-            | UnlockNode::SolarPower
-            | UnlockNode::SewagePlant
-            | UnlockNode::AdvancedParks
-            | UnlockNode::DeathCare => 2_000,
-
-            UnlockNode::DistrictHeatingNetwork
-            | UnlockNode::OfficeZoning
-            | UnlockNode::UniversityEducation
-            | UnlockNode::WindPower
-            | UnlockNode::AdvancedSanitation
-            | UnlockNode::PublicTransport
-            | UnlockNode::Entertainment
-            | UnlockNode::AdvancedEmergency
-            | UnlockNode::Telecom
             | UnlockNode::AdvancedTransport
-            | UnlockNode::SmallAirstrips
-            | UnlockNode::PostalService
-            | UnlockNode::WaterInfrastructure => 5_000,
+            | UnlockNode::OfficeZoning => 7_500,
 
-            UnlockNode::RegionalAirports => 20_000,
+            // Tier 6 — Small City
+            UnlockNode::UniversityEducation
+            | UnlockNode::AdvancedSanitation
+            | UnlockNode::PostalService => 12_000,
 
-            UnlockNode::Landmarks | UnlockNode::PolicySystem | UnlockNode::NuclearPower => 50_000,
+            // Tier 7 — City
+            UnlockNode::SmallAirstrips
+            | UnlockNode::AdvancedParks
+            | UnlockNode::WaterInfrastructure => 20_000,
 
-            UnlockNode::InternationalAirports => 100_000,
+            // Tier 8 — Large City
+            UnlockNode::Telecom
+            | UnlockNode::Entertainment
+            | UnlockNode::BasicHeating => 36_000,
+
+            // Tier 9 — Metropolis
+            UnlockNode::RegionalAirports
+            | UnlockNode::SolarPower
+            | UnlockNode::WindPower
+            | UnlockNode::SewagePlant => 50_000,
+
+            // Tier 10 — Large Metropolis
+            UnlockNode::AdvancedEmergency
+            | UnlockNode::DistrictHeatingNetwork
+            | UnlockNode::NuclearPower => 65_000,
+
+            // Tier 11 — Megalopolis
+            UnlockNode::InternationalAirports => 80_000,
         }
     }
 
@@ -233,37 +282,37 @@ impl UnlockNode {
             UnlockNode::IndustrialZoning,
             UnlockNode::BasicPower,
             UnlockNode::BasicWater,
+            UnlockNode::HealthCare,
+            UnlockNode::DeathCare,
+            UnlockNode::BasicSanitation,
             UnlockNode::FireService,
             UnlockNode::PoliceService,
             UnlockNode::ElementaryEducation,
-            UnlockNode::SmallParks,
-            UnlockNode::BasicSanitation,
-            UnlockNode::HealthCare,
             UnlockNode::HighSchoolEducation,
+            UnlockNode::SmallParks,
+            UnlockNode::PolicySystem,
+            UnlockNode::PublicTransport,
+            UnlockNode::Landmarks,
             UnlockNode::HighDensityResidential,
             UnlockNode::HighDensityCommercial,
-            UnlockNode::SolarPower,
-            UnlockNode::SewagePlant,
-            UnlockNode::AdvancedParks,
-            UnlockNode::DeathCare,
-            UnlockNode::BasicHeating,
-            UnlockNode::DistrictHeatingNetwork,
+            UnlockNode::AdvancedTransport,
             UnlockNode::OfficeZoning,
             UnlockNode::UniversityEducation,
-            UnlockNode::WindPower,
             UnlockNode::AdvancedSanitation,
-            UnlockNode::PublicTransport,
-            UnlockNode::Entertainment,
-            UnlockNode::AdvancedEmergency,
-            UnlockNode::Telecom,
-            UnlockNode::AdvancedTransport,
-            UnlockNode::SmallAirstrips,
             UnlockNode::PostalService,
+            UnlockNode::SmallAirstrips,
+            UnlockNode::AdvancedParks,
             UnlockNode::WaterInfrastructure,
-            UnlockNode::Landmarks,
-            UnlockNode::PolicySystem,
-            UnlockNode::NuclearPower,
+            UnlockNode::Telecom,
+            UnlockNode::Entertainment,
+            UnlockNode::BasicHeating,
             UnlockNode::RegionalAirports,
+            UnlockNode::SolarPower,
+            UnlockNode::WindPower,
+            UnlockNode::SewagePlant,
+            UnlockNode::AdvancedEmergency,
+            UnlockNode::DistrictHeatingNetwork,
+            UnlockNode::NuclearPower,
             UnlockNode::InternationalAirports,
         ]
     }
@@ -313,9 +362,15 @@ impl UnlockState {
             ServiceType::ElementarySchool | ServiceType::Library => {
                 self.is_unlocked(UnlockNode::ElementaryEducation)
             }
-            ServiceType::Kindergarten => self.is_unlocked(UnlockNode::ElementaryEducation),
-            ServiceType::HighSchool => self.is_unlocked(UnlockNode::HighSchoolEducation),
-            ServiceType::University => self.is_unlocked(UnlockNode::UniversityEducation),
+            ServiceType::Kindergarten => {
+                self.is_unlocked(UnlockNode::ElementaryEducation)
+            }
+            ServiceType::HighSchool => {
+                self.is_unlocked(UnlockNode::HighSchoolEducation)
+            }
+            ServiceType::University => {
+                self.is_unlocked(UnlockNode::UniversityEducation)
+            }
             ServiceType::SmallPark | ServiceType::Playground => {
                 self.is_unlocked(UnlockNode::SmallParks)
             }
@@ -329,7 +384,9 @@ impl UnlockState {
             ServiceType::RecyclingCenter | ServiceType::Incinerator => {
                 self.is_unlocked(UnlockNode::AdvancedSanitation)
             }
-            ServiceType::TransferStation => self.is_unlocked(UnlockNode::BasicSanitation),
+            ServiceType::TransferStation => {
+                self.is_unlocked(UnlockNode::BasicSanitation)
+            }
             ServiceType::Cemetery | ServiceType::Crematorium => {
                 self.is_unlocked(UnlockNode::DeathCare)
             }
@@ -340,27 +397,40 @@ impl UnlockState {
             ServiceType::BusDepot | ServiceType::TrainStation => {
                 self.is_unlocked(UnlockNode::PublicTransport)
             }
-            ServiceType::SubwayStation | ServiceType::TramDepot | ServiceType::FerryPier => {
+            ServiceType::SubwayStation
+            | ServiceType::TramDepot
+            | ServiceType::FerryPier => {
                 self.is_unlocked(UnlockNode::AdvancedTransport)
             }
-            ServiceType::SmallAirstrip => self.is_unlocked(UnlockNode::SmallAirstrips),
-            ServiceType::RegionalAirport => self.is_unlocked(UnlockNode::RegionalAirports),
+            ServiceType::SmallAirstrip => {
+                self.is_unlocked(UnlockNode::SmallAirstrips)
+            }
+            ServiceType::RegionalAirport => {
+                self.is_unlocked(UnlockNode::RegionalAirports)
+            }
             ServiceType::InternationalAirport => {
                 self.is_unlocked(UnlockNode::InternationalAirports)
             }
             ServiceType::CellTower | ServiceType::DataCenter => {
                 self.is_unlocked(UnlockNode::Telecom)
             }
-            ServiceType::HomelessShelter => self.is_unlocked(UnlockNode::HealthCare),
+            ServiceType::HomelessShelter => {
+                self.is_unlocked(UnlockNode::HealthCare)
+            }
             ServiceType::PostOffice | ServiceType::MailSortingCenter => {
                 self.is_unlocked(UnlockNode::PostalService)
             }
             ServiceType::WaterTreatmentPlant | ServiceType::WellPump => {
                 self.is_unlocked(UnlockNode::WaterInfrastructure)
             }
-            ServiceType::WelfareOffice => self.is_unlocked(UnlockNode::HealthCare),
-            ServiceType::HeatingBoiler => self.is_unlocked(UnlockNode::BasicHeating),
-            ServiceType::DistrictHeatingPlant | ServiceType::GeothermalPlant => {
+            ServiceType::WelfareOffice => {
+                self.is_unlocked(UnlockNode::HealthCare)
+            }
+            ServiceType::HeatingBoiler => {
+                self.is_unlocked(UnlockNode::BasicHeating)
+            }
+            ServiceType::DistrictHeatingPlant
+            | ServiceType::GeothermalPlant => {
                 self.is_unlocked(UnlockNode::DistrictHeatingNetwork)
             }
             ServiceType::Daycare | ServiceType::Eldercare => {
@@ -381,37 +451,16 @@ impl UnlockState {
             UtilityType::WindTurbine => self.is_unlocked(UnlockNode::WindPower),
             UtilityType::WaterTower => self.is_unlocked(UnlockNode::BasicWater),
             UtilityType::SewagePlant => self.is_unlocked(UnlockNode::SewagePlant),
-            UtilityType::NuclearPlant => self.is_unlocked(UnlockNode::NuclearPower),
+            UtilityType::NuclearPlant => {
+                self.is_unlocked(UnlockNode::NuclearPower)
+            }
             UtilityType::Geothermal => self.is_unlocked(UnlockNode::WindPower),
-            UtilityType::PumpingStation => self.is_unlocked(UnlockNode::BasicWater),
-            UtilityType::WaterTreatment => self.is_unlocked(UnlockNode::SewagePlant),
-        }
-    }
-}
-
-/// Award development points at population milestones
-pub fn award_development_points(
-    stats: Res<crate::stats::CityStats>,
-    mut unlocks: ResMut<UnlockState>,
-) {
-    const MILESTONES: &[(u32, u32)] = &[
-        (500, 2), // +2 DP at 500 pop
-        (1_000, 2),
-        (2_000, 3),
-        (5_000, 3),
-        (10_000, 4),
-        (25_000, 4),
-        (50_000, 5),
-        (100_000, 5),
-        (250_000, 6),
-        (500_000, 8),
-        (1_000_000, 10),
-    ];
-
-    for &(pop_threshold, points) in MILESTONES {
-        if stats.population >= pop_threshold && unlocks.last_milestone_pop < pop_threshold {
-            unlocks.development_points += points;
-            unlocks.last_milestone_pop = pop_threshold;
+            UtilityType::PumpingStation => {
+                self.is_unlocked(UnlockNode::BasicWater)
+            }
+            UtilityType::WaterTreatment => {
+                self.is_unlocked(UnlockNode::SewagePlant)
+            }
         }
     }
 }
@@ -420,11 +469,9 @@ pub struct UnlocksPlugin;
 
 impl Plugin for UnlocksPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UnlockState>().add_systems(
-            FixedUpdate,
-            award_development_points
-                .after(crate::imports_exports::process_trade)
-                .in_set(crate::SimulationSet::PostSim),
-        );
+        app.init_resource::<UnlockState>();
+        // NOTE: Milestone-based DP awards and auto-unlocks are now handled
+        // by MilestonesPlugin in milestones.rs. The old `award_development_points`
+        // system has been removed.
     }
 }
