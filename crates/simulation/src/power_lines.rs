@@ -3,12 +3,12 @@
 //! Power lines follow roads, connecting generators to consumers. Buildings
 //! must be within `POWER_RANGE` (6 cells) of a power line to receive service.
 //! Transmission losses of 2% per 10 cells from the generator reduce effective
-//! power delivery. Buildings without power cannot function and incur a
-//! happiness penalty.
+//! power delivery.
 //!
-//! The system performs BFS from each generator along road cells carrying power
-//! lines, then flood-fills service radius from every powered road cell. The
-//! `has_power` flag on `Cell` is updated accordingly.
+//! The system performs BFS from each `PowerPlant` generator along road cells,
+//! then flood-fills service radius from every powered road cell, setting
+//! `has_power` on reached cells. This runs AFTER the existing
+//! `propagate_utilities` system and only ADDS power coverage (never resets).
 
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
@@ -174,8 +174,11 @@ fn efficiency_at_distance(distance: u32) -> f32 {
 // Propagate has_power to buildings within service radius
 // ---------------------------------------------------------------------------
 
-/// Sets `has_power` on grid cells that are within `POWER_RANGE` of a power
-/// line cell. Uses a distance-limited BFS from all power line cells.
+/// Adds `has_power` to grid cells within `POWER_RANGE` of a power line cell.
+///
+/// This system runs AFTER `propagate_utilities` and only ADDS power coverage.
+/// It does NOT reset `has_power` — the existing utility system's coverage is
+/// preserved. This avoids breaking existing tests and utility-source power.
 pub fn propagate_power_coverage(
     tick: Res<TickCounter>,
     mut grid: ResMut<WorldGrid>,
@@ -189,12 +192,8 @@ pub fn propagate_power_coverage(
     let h = grid.height;
     let total = w * h;
 
-    // Reset all has_power flags.
-    for cell in grid.cells.iter_mut() {
-        cell.has_power = false;
-    }
-
     // Multi-source BFS from all power line cells, expanding up to POWER_RANGE.
+    // Only ADDS has_power — does not reset existing flags.
     let mut visited = vec![false; total];
     let mut queue: VecDeque<(usize, usize, usize)> = VecDeque::new();
 
@@ -256,6 +255,7 @@ impl Plugin for PowerLinePlugin {
             FixedUpdate,
             (install_power_lines, propagate_power_coverage)
                 .chain()
+                .after(crate::utilities::propagate_utilities)
                 .in_set(SimulationSet::Simulation),
         );
     }
