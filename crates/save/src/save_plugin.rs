@@ -15,6 +15,12 @@ use crate::wasm_idb;
 #[derive(Resource, Default)]
 pub(crate) struct PendingLoadBytes(pub(crate) Option<Vec<u8>>);
 
+/// Optional override for the save/load file path.
+/// When set, the next save or load operation uses this path instead of the
+/// default `megacity_save.bin`. Consumed (reset to `None`) after use.
+#[derive(Resource, Default)]
+pub struct PendingSavePath(pub Option<String>);
+
 /// On WASM, holds bytes arriving from an async IndexedDB read.
 /// The `poll_wasm_load` system checks this each frame and, when data arrives,
 /// stores it in `PendingLoadBytes` and triggers state transition.
@@ -56,7 +62,8 @@ impl Plugin for SavePlugin {
             .add_event::<LoadGameEvent>()
             .add_event::<NewGameEvent>()
             .init_resource::<SaveableRegistry>()
-            .init_resource::<PendingLoadBytes>();
+            .init_resource::<PendingLoadBytes>()
+            .init_resource::<PendingSavePath>();
 
         // On WASM, register IndexedDB async load infrastructure.
         #[cfg(target_arch = "wasm32")]
@@ -146,10 +153,11 @@ fn detect_load_event(
     mut next_state: ResMut<NextState<SaveLoadState>>,
     mut pending: ResMut<PendingLoadBytes>,
     mut notifications: EventWriter<NotificationEvent>,
+    mut path_override: ResMut<PendingSavePath>,
 ) {
     if events.read().next().is_some() {
         events.read().for_each(drop);
-        let path = save_file_path();
+        let path = path_override.0.take().unwrap_or_else(save_file_path);
         match std::fs::read(&path) {
             Ok(bytes) => {
                 pending.0 = Some(bytes);
@@ -228,4 +236,10 @@ fn poll_wasm_save_error(
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn save_file_path() -> String {
     "megacity_save.bin".to_string()
+}
+
+/// The dedicated quicksave file path.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn quicksave_file_path() -> String {
+    "quicksave.bin".to_string()
 }

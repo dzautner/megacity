@@ -34,5 +34,8 @@ pub use crash_recovery::CrashRecoveryState;
 pub use file_header::read_metadata_only;
 pub use save_error::SaveError;
 pub use save_metadata::SaveMetadata;
-pub use save_plugin::{LoadGameEvent, NewGameEvent, SaveGameEvent, SavePlugin};
+pub use save_plugin::{LoadGameEvent, NewGameEvent, PendingSavePath, SaveGameEvent, SavePlugin};
 pub use saveable_ext::SaveableAppExt;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub use save_plugin::quicksave_file_path;
