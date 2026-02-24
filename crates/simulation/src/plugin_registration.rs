@@ -282,4 +282,5 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(save_slots::SaveSlotsPlugin);
     // Service vehicle dispatch on road network (SERV-002)
     app.add_plugins(service_road_dispatch::ServiceRoadDispatchPlugin);
+    app.add_plugins(service_cross_interaction::ServiceCrossInteractionPlugin);
 }
