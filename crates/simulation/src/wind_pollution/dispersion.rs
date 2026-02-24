@@ -23,9 +23,9 @@ pub struct PollutionSource {
 /// 1. Compute the vector from source to cell
 /// 2. Project onto wind direction (downwind distance) and perpendicular
 ///    (crosswind distance)
-/// 3. Only cells with positive downwind distance receive significant pollution
-/// 4. sigma_y grows with downwind distance (lateral spread)
-/// 5. Concentration = Q * crosswind_gaussian * downwind_decay
+/// 3. Cells in the downwind cone receive the bulk of pollution
+/// 4. All cells near the source get some ambient contribution
+/// 5. sigma_y grows with downwind distance (lateral spread)
 pub fn apply_plume_source(
     levels: &mut [f32],
     src: &PollutionSource,
@@ -49,36 +49,51 @@ pub fn apply_plume_source(
         for cx in x_min..=x_max {
             let dx = cx as f32 - sx;
             let dy = cy as f32 - sy;
+            let dist_sq = dx * dx + dy * dy;
 
             // Downwind distance (projection onto wind direction)
             let downwind = dx * wind_dx + dy * wind_dy;
 
-            // Skip upwind cells (only slight ambient pollution leaks upwind)
-            if downwind < -0.5 {
-                let dist_sq = dx * dx + dy * dy;
-                if dist_sq < 4.0 {
-                    let upwind_val = q * 0.05;
-                    levels[cy * GRID_WIDTH + cx] += upwind_val;
-                }
-                continue;
-            }
-
             // Crosswind distance (perpendicular to wind)
             let crosswind = -dx * wind_dy + dy * wind_dx;
 
-            // sigma_y grows with downwind distance (turbulent diffusion)
-            // Simplified Pasquill-Gifford: sigma_y = 1.0 + 0.4 * downwind
-            let sigma_y = (1.0 + 0.4 * downwind.max(0.0)) * (1.0 / speed_factor);
+            // --- Ambient near-source component ---
+            // All cells near the source get some pollution regardless of wind
+            // direction, modeling turbulent mixing in the source's vicinity.
+            let ambient_radius = 6.0f32;
+            let dist = dist_sq.sqrt();
+            let ambient = if dist < ambient_radius {
+                q * 0.3 * (1.0 - dist / ambient_radius)
+            } else {
+                0.0
+            };
 
-            // Gaussian crosswind profile
-            let crosswind_factor = (-0.5 * crosswind * crosswind / (sigma_y * sigma_y)).exp();
+            // --- Directional plume component ---
+            let plume = if downwind >= -0.5 {
+                // sigma_y grows with downwind distance (turbulent diffusion)
+                // Base sigma = 2.0 for near-source spread, growing at 0.3/cell
+                let sigma_y =
+                    (2.0 + 0.3 * downwind.max(0.0)) * (1.0 / speed_factor);
 
-            // Downwind decay: concentration decreases with distance from source
-            let downwind_dist = downwind.max(0.01);
-            let downwind_factor = 1.0 / (1.0 + 0.15 * downwind_dist);
+                // Gaussian crosswind profile
+                let crosswind_factor =
+                    (-0.5 * crosswind * crosswind / (sigma_y * sigma_y)).exp();
 
-            let concentration = q * crosswind_factor * downwind_factor;
-            levels[cy * GRID_WIDTH + cx] += concentration;
+                // Downwind decay: concentration decreases with distance
+                let downwind_dist = downwind.max(0.01);
+                let downwind_factor = 1.0 / (1.0 + 0.12 * downwind_dist);
+
+                q * 0.7 * crosswind_factor * downwind_factor
+            } else {
+                // Upwind: small leakage for very close cells
+                if dist_sq < 4.0 {
+                    q * 0.05
+                } else {
+                    0.0
+                }
+            };
+
+            levels[cy * GRID_WIDTH + cx] += ambient + plume;
         }
     }
 }
