@@ -174,6 +174,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(forest_fire::ForestFirePlugin);
     app.add_plugins(disasters::DisastersPlugin);
     app.add_plugins(disaster_save::DisasterSavePlugin);
+    app.add_plugins(emergency_management::EmergencyManagementPlugin);
 
     // Citizens and population
     app.add_plugins(life_simulation::LifeSimulationPlugin);
