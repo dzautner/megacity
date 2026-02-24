@@ -74,6 +74,8 @@ pub fn building_spawner(
     game_params: Res<GameParams>,
     mut rng: ResMut<SimRng>,
 ) {
+    #[cfg(feature = "trace")]
+    let _span = bevy::log::info_span!("building_spawner").entered();
     timer.0 += 1;
     if timer.0 < game_params.building.spawn_interval_ticks {
         return;

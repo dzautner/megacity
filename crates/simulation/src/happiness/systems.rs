@@ -58,6 +58,8 @@ pub fn update_happiness(
         With<Citizen>,
     >,
 ) {
+    #[cfg(feature = "trace")]
+    let _span = bevy::log::info_span!("update_happiness").entered();
     let road_condition = &extras.road_condition;
     let death_care_grid = &extras.death_care_grid;
     let heating_grid = &extras.heating_grid;

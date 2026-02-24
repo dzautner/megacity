@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 bench = ["simulation/bench"]
+trace = ["simulation/trace"]
 
 [dependencies]
 bevy = { workspace = true }

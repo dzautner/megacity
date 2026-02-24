@@ -16,6 +16,7 @@ futures-lite = "2"
 
 [features]
 bench = []
+trace = []
 
 [dev-dependencies]
 serde_json = "1"

@@ -250,4 +250,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Play time tracking for save metadata (SAVE-020)
     app.add_plugins(play_time::PlayTimePlugin);
+
+    // Bevy diagnostics and trace spans (TEST-031)
+    app.add_plugins(diagnostics::DiagnosticsPlugin);
 }
