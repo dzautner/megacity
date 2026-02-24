@@ -29,7 +29,6 @@ fn round_trip_pollution_grid(grid: &PollutionGrid) -> PollutionGrid {
         registry.register::<PollutionGrid>();
     }
 
-    // Save
     let extensions: BTreeMap<String, Vec<u8>> = {
         let registry = app
             .world_mut()
@@ -76,7 +75,6 @@ fn round_trip_noise_grid(grid: &NoisePollutionGrid) -> NoisePollutionGrid {
         registry.register::<NoisePollutionGrid>();
     }
 
-    // Save
     let extensions: BTreeMap<String, Vec<u8>> = {
         let registry = app
             .world_mut()
@@ -123,7 +121,6 @@ fn round_trip_water_grid(grid: &WaterPollutionGrid) -> WaterPollutionGrid {
         registry.register::<WaterPollutionGrid>();
     }
 
-    // Save
     let extensions: BTreeMap<String, Vec<u8>> = {
         let registry = app
             .world_mut()
@@ -189,12 +186,27 @@ fn test_pollution_save_air_grid_zeros_preserved() {
     assert_eq!(restored.get(128, 128), 0, "Distant cell should remain zero");
 }
 
-/// Default air pollution grid produces Some from save_to_bytes (grids always save).
+/// Default (all-zero) air pollution grid returns None from save_to_bytes.
 #[test]
-fn test_pollution_save_air_default_saves() {
+fn test_pollution_save_air_default_returns_none() {
     use crate::Saveable;
     let grid = PollutionGrid::default();
-    assert!(grid.save_to_bytes().is_some());
+    assert!(
+        grid.save_to_bytes().is_none(),
+        "All-zero grid should return None"
+    );
+}
+
+/// Non-zero air pollution grid returns Some from save_to_bytes.
+#[test]
+fn test_pollution_save_air_nonzero_returns_some() {
+    use crate::Saveable;
+    let mut grid = PollutionGrid::default();
+    grid.set(10, 10, 1);
+    assert!(
+        grid.save_to_bytes().is_some(),
+        "Non-zero grid should return Some"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -220,27 +232,38 @@ fn test_pollution_save_noise_grid_roundtrips() {
 #[test]
 fn test_pollution_save_noise_grid_value_range() {
     let mut grid = NoisePollutionGrid::default();
-    // Set various values across the valid range
-    grid.set(1, 1, 0);
     grid.set(2, 2, 50);
     grid.set(3, 3, 100);
 
     let restored = round_trip_noise_grid(&grid);
 
-    assert_eq!(restored.get(1, 1), 0);
     assert_eq!(restored.get(2, 2), 50);
     assert_eq!(restored.get(3, 3), 100);
+    // Unset cells should be zero
+    assert_eq!(restored.get(1, 1), 0);
 }
 
 /// Noise pollution grid dimensions are preserved across save/load.
 #[test]
 fn test_pollution_save_noise_grid_dimensions_preserved() {
-    let grid = NoisePollutionGrid::default();
+    let mut grid = NoisePollutionGrid::default();
+    grid.set(0, 0, 1); // Ensure non-zero so save_to_bytes returns Some
     let restored = round_trip_noise_grid(&grid);
 
     assert_eq!(restored.width, grid.width);
     assert_eq!(restored.height, grid.height);
     assert_eq!(restored.levels.len(), grid.levels.len());
+}
+
+/// Default (all-zero) noise grid returns None from save_to_bytes.
+#[test]
+fn test_pollution_save_noise_default_returns_none() {
+    use crate::Saveable;
+    let grid = NoisePollutionGrid::default();
+    assert!(
+        grid.save_to_bytes().is_none(),
+        "All-zero noise grid should return None"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -276,12 +299,24 @@ fn test_pollution_save_water_grid_max_value() {
 /// Water pollution grid dimensions are preserved across save/load.
 #[test]
 fn test_pollution_save_water_grid_dimensions_preserved() {
-    let grid = WaterPollutionGrid::default();
+    let mut grid = WaterPollutionGrid::default();
+    grid.set(0, 0, 1); // Ensure non-zero so save_to_bytes returns Some
     let restored = round_trip_water_grid(&grid);
 
     assert_eq!(restored.width, grid.width);
     assert_eq!(restored.height, grid.height);
     assert_eq!(restored.levels.len(), grid.levels.len());
+}
+
+/// Default (all-zero) water pollution grid returns None from save_to_bytes.
+#[test]
+fn test_pollution_save_water_default_returns_none() {
+    use crate::Saveable;
+    let grid = WaterPollutionGrid::default();
+    assert!(
+        grid.save_to_bytes().is_none(),
+        "All-zero water grid should return None"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +330,6 @@ fn test_pollution_save_all_three_grids_coexist() {
     app.add_plugins(bevy::MinimalPlugins);
     app.init_resource::<SaveableRegistry>();
 
-    // Set up non-default pollution values
     let mut air = PollutionGrid::default();
     air.set(10, 10, 42);
     app.insert_resource(air);

@@ -7,7 +7,7 @@ use crate::services::{ServiceBuilding, ServiceType};
 
 /// Noise pollution grid -- higher values = louder area.
 /// Values are capped at 100.
-#[derive(Resource, bitcode::Encode, bitcode::Decode)]
+#[derive(Resource)]
 pub struct NoisePollutionGrid {
     pub levels: Vec<u8>,
     pub width: usize,
@@ -43,22 +43,6 @@ impl NoisePollutionGrid {
     fn sub(&mut self, x: usize, y: usize, amount: u8) {
         let idx = y * self.width + x;
         self.levels[idx] = self.levels[idx].saturating_sub(amount);
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Saveable implementation — persists noise pollution grid across save / load
-// ---------------------------------------------------------------------------
-
-impl crate::Saveable for NoisePollutionGrid {
-    const SAVE_KEY: &'static str = "noise_grid";
-
-    fn save_to_bytes(&self) -> Option<Vec<u8>> {
-        Some(bitcode::encode(self))
-    }
-
-    fn load_from_bytes(bytes: &[u8]) -> Self {
-        crate::decode_or_warn(Self::SAVE_KEY, bytes)
     }
 }
 
@@ -212,11 +196,5 @@ impl Plugin for NoisePlugin {
                 .after(crate::imports_exports::process_trade)
                 .in_set(crate::SimulationSet::Simulation),
         );
-
-        // Register for save/load via the SaveableRegistry
-        app.init_resource::<crate::SaveableRegistry>();
-        app.world_mut()
-            .resource_mut::<crate::SaveableRegistry>()
-            .register::<NoisePollutionGrid>();
     }
 }
