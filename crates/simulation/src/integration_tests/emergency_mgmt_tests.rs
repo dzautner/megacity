@@ -7,8 +7,8 @@
 //! - Without EOC, penalties are applied (+50% response time, +100% casualties)
 
 use crate::emergency_management::{
-    EmergencyManagementState, EOC_PREPAREDNESS_BONUS, MAX_SHELTER_PREPAREDNESS,
-    MAX_SIREN_PREPAREDNESS, NO_EOC_CASUALTY_MULTIPLIER, NO_EOC_RESPONSE_MULTIPLIER,
+    EmergencyManagementState, EOC_PREPAREDNESS_BONUS,
+    NO_EOC_CASUALTY_MULTIPLIER, NO_EOC_RESPONSE_MULTIPLIER,
     SIREN_CASUALTY_REDUCTION, SIREN_PREPAREDNESS_BONUS,
 };
 use crate::grid::{RoadType, ZoneType};
