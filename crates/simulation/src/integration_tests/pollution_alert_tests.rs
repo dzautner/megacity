@@ -157,17 +157,31 @@ fn test_water_quality_no_alert_above_clean() {
 // Noise complaints
 // ---------------------------------------------------------------------------
 
-/// Noise complaint fires from sustained airport + highway noise near residential.
-/// An InternationalAirport generates intensity=45 noise and a Highway adds 25,
-/// exceeding the 60 noise threshold for complaints at adjacent residential cells.
+/// Noise complaint fires from sustained airport noise near residential.
+/// Two InternationalAirports (intensity=45 each) on opposite sides of a
+/// residential area generate combined noise that exceeds the 60 threshold.
+/// Note: roads are NOT placed through the residential area because road
+/// placement clears the zone to None, preventing alert detection.
 #[test]
-fn test_noise_complaint_fires_from_airport_and_highway() {
+fn test_noise_complaint_fires_from_airports() {
     let mut city = TestCity::new()
         .with_zone_rect(50, 48, 55, 52, ZoneType::ResidentialMedium)
-        // Place a highway running through the residential area
-        .with_road(48, 50, 56, 50, RoadType::Highway)
-        // Place an international airport adjacent to the residential area
-        .with_service(50, 53, crate::services::ServiceType::InternationalAirport);
+        // Place airports on both sides of the residential area
+        .with_service(50, 46, crate::services::ServiceType::InternationalAirport)
+        .with_service(50, 54, crate::services::ServiceType::InternationalAirport);
+
+    // Also add industrial buildings adjacent to residential for extra noise
+    let world = city.world_mut();
+    for x in 48..=55 {
+        world.spawn(crate::buildings::Building {
+            zone_type: ZoneType::Industrial,
+            level: 5,
+            grid_x: x,
+            grid_y: 47,
+            capacity: 10,
+            occupants: 0,
+        });
+    }
 
     // Run enough slow cycles for sustained exceedance (3+ slow ticks)
     city.tick_slow_cycles(5);
@@ -176,7 +190,7 @@ fn test_noise_complaint_fires_from_airport_and_highway() {
     let noise_alerts = log.alerts_of_type(PollutionAlertType::NoiseComplaint);
     assert!(
         !noise_alerts.is_empty(),
-        "Expected noise complaints from airport + highway noise near residential"
+        "Expected noise complaints from dual airports near residential"
     );
 }
 
