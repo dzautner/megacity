@@ -6,7 +6,7 @@
 //! with what `job_seeking` (life_simulation) uses for capacity checks.
 
 use crate::buildings::Building;
-use crate::citizen::{Citizen, WorkLocation};
+use crate::citizen::WorkLocation;
 use crate::grid::ZoneType;
 use crate::stats::CityStats;
 use crate::test_harness::TestCity;
