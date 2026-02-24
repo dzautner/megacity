@@ -89,6 +89,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(uhi_mitigation::UhiMitigationPlugin);
     app.add_plugins(drought::DroughtPlugin);
     app.add_plugins(noise::NoisePlugin);
+    app.add_plugins(noise_effects::NoiseEffectsPlugin);
     app.add_plugins(crime::CrimePlugin);
     app.add_plugins(crime_justice::CrimeJusticePlugin);
     app.add_plugins(police_tiers::PoliceTiersPlugin);
