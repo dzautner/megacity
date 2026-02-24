@@ -63,6 +63,7 @@ pub fn rebuild_eligible_cells(grid: Res<WorldGrid>, mut eligible: ResMut<Eligibl
     eligible.cells = result;
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn building_spawner(
     mut commands: Commands,
     mut grid: ResMut<WorldGrid>,
