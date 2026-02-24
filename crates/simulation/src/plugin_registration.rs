@@ -169,6 +169,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(population_tiers::PopulationTiersPlugin);
     app.add_plugins(lod::LodPlugin);
     app.add_plugins(virtual_population::VirtualPopulationPlugin);
+    app.add_plugins(virtual_population_save::VirtualPopulationSavePlugin);
     app.add_plugins(urban_growth_boundary::UrbanGrowthBoundaryPlugin);
     app.add_plugins(nimby::NimbyPlugin);
     app.add_plugins(walkability::WalkabilityPlugin);
