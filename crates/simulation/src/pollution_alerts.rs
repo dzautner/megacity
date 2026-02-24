@@ -401,6 +401,7 @@ impl Plugin for PollutionAlertPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Saveable;
 
     #[test]
     fn test_alert_severity_ordering() {
