@@ -93,11 +93,6 @@ pub enum UnwrapResult<'a> {
     Legacy(&'a [u8]),
 }
 
-/// Check whether raw bytes start with the MEGA magic bytes.
-pub fn has_header(bytes: &[u8]) -> bool {
-    bytes.len() >= HEADER_SIZE && bytes[..4] == MAGIC
-}
-
 /// Parse and validate the file header from raw bytes.
 ///
 /// - If the file starts with "MEGA", parse the header, verify the checksum,
