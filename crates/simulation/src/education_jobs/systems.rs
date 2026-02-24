@@ -144,7 +144,7 @@ pub fn job_matching(
         (With<Citizen>, Without<WorkLocation>),
     >,
     employed: Query<Entity, (With<Citizen>, With<WorkLocation>)>,
-    mut workplaces: Query<(Entity, &Building, &mut WorkplaceDetails)>,
+    mut workplaces: Query<(Entity, &mut Building, &mut WorkplaceDetails)>,
     mut stats: ResMut<EmploymentStats>,
 ) {
     // Always update stats every 20 ticks (even if no matching happens).
@@ -260,11 +260,14 @@ pub fn job_matching(
 
     // --- Apply matches ---
     for (wp_entity, slot_idx, citizen_entity, citizen_edu, salary, job_type) in &claimed {
-        if let Ok((_, building, mut details)) = workplaces.get_mut(*wp_entity) {
+        if let Ok((_, mut building, mut details)) = workplaces.get_mut(*wp_entity) {
             if let Some(slot) = details.job_slots.get_mut(*slot_idx) {
                 slot.filled = true;
                 slot.worker_entity = Some(*citizen_entity);
                 details.filled_slots += 1;
+                // Keep building.occupants in sync so job_seeking (which uses
+                // occupants < capacity) does not overfill across ticks.
+                building.occupants += 1;
             }
 
             commands.entity(*citizen_entity).insert(WorkLocation {
