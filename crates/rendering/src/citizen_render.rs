@@ -48,11 +48,17 @@ const MAX_SPRITES_PER_FRAME: usize = if cfg!(target_arch = "wasm32") {
     500
 };
 
+/// Spawn render components for citizens that have a simulation-assigned LOD tier.
+///
+/// The renderer consumes LOD state from the simulation — it never inserts or
+/// overwrites `LodTier`. Citizens without a `LodTier` component are skipped
+/// until the simulation's LOD assignment system has evaluated them. Abstract-tier
+/// citizens are also skipped since they don't need scene roots.
 #[allow(clippy::type_complexity)]
 pub fn spawn_citizen_sprites(
     mut commands: Commands,
     query: Query<
-        (Entity, Option<&CitizenStateComp>, Option<&LodTier>),
+        (Entity, Option<&CitizenStateComp>, &LodTier),
         (With<Citizen>, Without<CitizenSprite>),
     >,
     model_cache: Res<BuildingModelCache>,
@@ -67,7 +73,7 @@ pub fn spawn_citizen_sprites(
             break;
         }
         // Skip Abstract-tier citizens — they don't need scene roots
-        if lod == Some(&LodTier::Abstract) {
+        if *lod == LodTier::Abstract {
             continue;
         }
         let hash = entity.index() as usize;
