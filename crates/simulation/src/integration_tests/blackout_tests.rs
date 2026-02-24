@@ -1,6 +1,7 @@
 //! Integration tests for POWER-016: Blackout and Rolling Blackout System.
 
 use crate::blackout::BlackoutState;
+use crate::Saveable;
 use crate::coal_power::PowerPlant;
 use crate::energy_demand::{EnergyConsumer, LoadPriority};
 use crate::grid::ZoneType;
