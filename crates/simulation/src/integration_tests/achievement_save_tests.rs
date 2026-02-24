@@ -24,27 +24,26 @@ fn round_trip_tracker(tracker: &AchievementTracker) -> AchievementTracker {
 
     // Save
     let extensions: BTreeMap<String, Vec<u8>> = {
-        let registry = app.world().resource::<SaveableRegistry>();
-        registry.save_all(app.world())
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        let ext = registry.save_all(app.world());
+        app.world_mut().insert_resource(registry);
+        ext
     };
 
     // Reset to default
-    {
-        let registry_entries: Vec<_> = app
-            .world()
-            .resource::<SaveableRegistry>()
-            .entries
-            .iter()
-            .map(|e| e.key.clone())
-            .collect();
-        let _ = registry_entries; // just to prove registry exists
-        app.insert_resource(AchievementTracker::default());
-    }
+    app.insert_resource(AchievementTracker::default());
 
     // Load
     {
-        let registry = app.world().resource::<SaveableRegistry>();
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
         registry.load_all(app.world_mut(), &extensions);
+        app.world_mut().insert_resource(registry);
     }
 
     app.world().resource::<AchievementTracker>().clone()
@@ -175,34 +174,54 @@ fn test_achievement_save_sequential_load_a_b_a() {
         tracker.positive_trade_ticks = 88;
     }
     let save_a = {
-        let registry = app.world().resource::<SaveableRegistry>();
-        registry.save_all(app.world())
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        let ext = registry.save_all(app.world());
+        app.world_mut().insert_resource(registry);
+        ext
     };
 
     // Build save B: empty (default)
-    {
-        app.insert_resource(AchievementTracker::default());
-    }
+    app.insert_resource(AchievementTracker::default());
     let save_b = {
-        let registry = app.world().resource::<SaveableRegistry>();
-        registry.save_all(app.world())
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
+        let ext = registry.save_all(app.world());
+        app.world_mut().insert_resource(registry);
+        ext
     };
 
     // Load save B (empty)
     {
-        let registry = app.world().resource::<SaveableRegistry>();
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
         registry.load_all(app.world_mut(), &save_b);
+        app.world_mut().insert_resource(registry);
     }
     {
         let tracker = app.world().resource::<AchievementTracker>();
-        assert_eq!(tracker.unlocked_count(), 0, "Save B should have no achievements");
+        assert_eq!(
+            tracker.unlocked_count(),
+            0,
+            "Save B should have no achievements"
+        );
         assert_eq!(tracker.positive_trade_ticks, 0);
     }
 
     // Load save A again
     {
-        let registry = app.world().resource::<SaveableRegistry>();
+        let registry = app
+            .world_mut()
+            .remove_resource::<SaveableRegistry>()
+            .unwrap();
         registry.load_all(app.world_mut(), &save_a);
+        app.world_mut().insert_resource(registry);
     }
     {
         let tracker = app.world().resource::<AchievementTracker>();
