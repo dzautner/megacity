@@ -17,6 +17,7 @@ use simulation::multi_select::{
 use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
 use simulation::utilities::UtilitySource;
+use simulation::SaveLoadState;
 
 // =============================================================================
 // Systems
@@ -384,7 +385,8 @@ impl Plugin for MultiSelectUiPlugin {
                 multi_select_panel_ui,
                 execute_batch_bulldoze,
                 execute_batch_road_upgrade,
-            ),
+            )
+                .run_if(in_state(SaveLoadState::Idle)),
         );
     }
 }

@@ -2,13 +2,20 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
 use crate::*;
+use simulation::SaveLoadState;
 
 /// Register all UI plugins and systems.
 ///
 /// Each plugin is registered on its own line for conflict-free parallel additions.
 /// When adding a new UI plugin, just append a new `app.add_plugins(...)` line
 /// at the end of the appropriate section.
+///
+/// Systems that query game entities (buildings, citizens, services) are gated
+/// behind `SaveLoadState::Idle` to prevent races with the exclusive load/new-game
+/// systems that despawn entities with direct world access (issue #1604).
 pub(crate) fn register_ui_systems(app: &mut App) {
+    let idle = in_state(SaveLoadState::Idle);
+
     // Core egui
     app.add_plugins(EguiPlugin);
 
@@ -54,7 +61,9 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     app.init_resource::<info_panel::BudgetPanelVisible>();
     app.init_resource::<water_dashboard::WaterDashboardVisible>();
 
-    // UI systems
+    // UI systems — gated behind SaveLoadState::Idle because they query
+    // game entities (buildings, services, citizens) that are despawned
+    // during load/new-game transitions.
     app.add_systems(Startup, theme::apply_cute_theme);
     app.add_systems(
         Update,
@@ -63,7 +72,8 @@ pub(crate) fn register_ui_systems(app: &mut App) {
             graphs::record_history,
             toolbar::toolbar_ui,
             info_panel::info_panel_ui,
-        ),
+        )
+            .run_if(idle.clone()),
     );
     app.add_systems(
         Update,
@@ -72,16 +82,25 @@ pub(crate) fn register_ui_systems(app: &mut App) {
             graphs::graphs_ui,
             info_panel::policies_ui,
             info_panel::panel_keybinds,
-            info_panel::quick_save_load_keybinds,
             info_panel::event_journal_ui,
             info_panel::advisor_window_ui,
             info_panel::budget_panel_ui,
-            toolbar::speed_keybinds,
             info_panel::groundwater_tooltip_ui,
             water_dashboard::water_dashboard_ui,
             tutorial::tutorial_ui,
             day_night_panel::day_night_panel_ui,
             road_cost_display::road_cost_display_ui,
+        )
+            .run_if(idle.clone()),
+    );
+
+    // Keybinds that must remain active during save/load (they trigger
+    // save/load events or control simulation speed).
+    app.add_systems(
+        Update,
+        (
+            info_panel::quick_save_load_keybinds,
+            toolbar::speed_keybinds,
         ),
     );
 }

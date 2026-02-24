@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 
 use simulation::buildings::Building;
+use simulation::SaveLoadState;
 use simulation::citizen::{Citizen, Position};
 use simulation::config::CELL_SIZE;
 use simulation::grid::WorldGrid;
@@ -311,7 +312,10 @@ pub struct EnhancedSelectPlugin;
 impl Plugin for EnhancedSelectPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectionKind>()
-            .add_systems(Update, enhanced_select_system);
+            .add_systems(
+                Update,
+                enhanced_select_system.run_if(in_state(SaveLoadState::Idle)),
+            );
     }
 }
 
