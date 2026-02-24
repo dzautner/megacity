@@ -14,7 +14,6 @@ use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::citizen::{Citizen, CitizenDetails};
-use crate::service_capacity::ServiceCapacity;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::TickCounter;
 
