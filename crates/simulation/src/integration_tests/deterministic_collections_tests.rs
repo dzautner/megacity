@@ -4,19 +4,17 @@
 //! produce identical results across multiple runs, ensuring simulation
 //! determinism through ordered collection usage.
 
-use crate::grid::{RoadType, ZoneType};
+use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+use crate::grid::WorldGrid;
 use crate::road_graph_csr::CsrGraph;
 use crate::roads::{RoadNetwork, RoadNode};
-use crate::test_harness::TestCity;
 
 /// Build a road network and verify that neighbors are returned in a
 /// deterministic (sorted) order, regardless of insertion order.
 #[test]
 fn test_road_network_neighbors_are_deterministic() {
-    let mut city = TestCity::new();
-    let world = city.world_mut();
-    let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-    let mut roads = world.resource_mut::<RoadNetwork>();
+    let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+    let mut roads = RoadNetwork::default();
 
     // Build a cross intersection at (50, 50)
     roads.place_road(&mut grid, 50, 50);
@@ -44,10 +42,8 @@ fn test_road_network_neighbors_are_deterministic() {
 /// pathfinding traversal.
 #[test]
 fn test_csr_graph_edges_are_sorted() {
-    let mut city = TestCity::new();
-    let world = city.world_mut();
-    let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-    let mut roads = world.resource_mut::<RoadNetwork>();
+    let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+    let mut roads = RoadNetwork::default();
 
     // Create an L-shaped road with an intersection at (50, 50)
     for x in 48..=52 {
@@ -79,9 +75,6 @@ fn test_csr_graph_edges_are_sorted() {
 /// verify the resulting CSR graphs are byte-identical.
 #[test]
 fn test_csr_graph_deterministic_across_insertion_orders() {
-    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-    use crate::grid::WorldGrid;
-
     // Build network A: roads placed left-to-right, then top-to-bottom
     let mut grid_a = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
     let mut roads_a = RoadNetwork::default();
@@ -121,8 +114,6 @@ fn test_csr_graph_deterministic_across_insertion_orders() {
 /// road network is queried multiple times.
 #[test]
 fn test_pathfinding_deterministic_on_same_network() {
-    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-    use crate::grid::WorldGrid;
     use crate::pathfinding_sys::find_path;
 
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
@@ -151,20 +142,11 @@ fn test_pathfinding_deterministic_on_same_network() {
 /// deterministic by checking keys come out sorted.
 #[test]
 fn test_road_network_edge_keys_are_sorted() {
-    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-    use crate::grid::WorldGrid;
-
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
     let mut roads = RoadNetwork::default();
 
     // Add roads in a scattered pattern
-    let positions = [
-        (100, 50),
-        (50, 100),
-        (10, 10),
-        (200, 200),
-        (75, 25),
-    ];
+    let positions = [(100, 50), (50, 100), (10, 10), (200, 200), (75, 25)];
     for &(x, y) in &positions {
         roads.place_road(&mut grid, x, y);
     }
