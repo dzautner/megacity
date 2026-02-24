@@ -17,6 +17,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(citizen_spawner::CitizenSpawnerPlugin);
     app.add_plugins(movement::MovementPlugin);
     app.add_plugins(traffic::TrafficPlugin);
+    app.add_plugins(traffic_grid_save::TrafficGridSavePlugin);
     app.add_plugins(bicycle_lanes::BicycleLanesPlugin);
 
     // Happiness and services

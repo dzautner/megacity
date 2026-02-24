@@ -71,6 +71,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "social_services",
     "stormwater_grid",
     "superblock_state",
+    "traffic_grid",
     "traffic_los",
     "traffic_los_state",
     "telecom",
