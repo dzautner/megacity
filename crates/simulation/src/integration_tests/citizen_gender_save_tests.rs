@@ -62,7 +62,7 @@ fn spawn_citizen_with_gender(
             salary: 3500.0,
             savings: 7000.0,
         },
-        Personality::default(),
+        Personality { ambition: 0.5, sociability: 0.5, materialism: 0.5, resilience: 0.5 },
         Needs::default(),
         Family::default(),
         ActivityTimer::default(),
