@@ -24,9 +24,10 @@ use crate::Saveable;
 // ---------------------------------------------------------------------------
 
 /// The three City Hall tiers, determined by city population.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode, Serialize, Deserialize)]
 pub enum CityHallTier {
     /// Population < 25,000
+    #[default]
     Small,
     /// Population 25,000 - 100,000
     Medium,
@@ -34,11 +35,6 @@ pub enum CityHallTier {
     Large,
 }
 
-impl Default for CityHallTier {
-    fn default() -> Self {
-        Self::Small
-    }
-}
 
 impl CityHallTier {
     /// Determine the appropriate tier for a given population.
