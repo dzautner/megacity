@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::render_asset::RenderAssetUsages;
 
-use simulation::grid::RoadType;
+use simulation::grid::{RoadType, WorldGrid};
 
 use super::line_primitives::{emit_dashed_line, emit_solid_line};
 use super::{BARRIER_COLOR, DASH_LEN, GAP_LEN, LINE_HW, WHITE, YELLOW, Y_MARKING};
@@ -25,6 +25,7 @@ pub(crate) fn build_lane_marking_mesh(
     arc_length: f32,
     trim_start: f32,
     trim_end: f32,
+    grid: &WorldGrid,
 ) -> Mesh {
     let step = 0.5_f32;
     let total_steps = (arc_length / step).ceil() as usize;
@@ -37,7 +38,6 @@ pub(crate) fn build_lane_marking_mesh(
 
     match road_type {
         RoadType::Local | RoadType::OneWay => {
-            // Dashed white center line for two-lane local/one-way roads.
             emit_dashed_line(
                 &mut positions,
                 &mut normals,
@@ -59,10 +59,10 @@ pub(crate) fn build_lane_marking_mesh(
                 WHITE,
                 trim_start,
                 trim_end,
+                grid,
             );
         }
         RoadType::Avenue => {
-            // Double yellow center lines (solid).
             let offset = 0.3;
             emit_solid_line(
                 &mut positions,
@@ -82,6 +82,7 @@ pub(crate) fn build_lane_marking_mesh(
                 YELLOW,
                 trim_start,
                 trim_end,
+                grid,
             );
             emit_solid_line(
                 &mut positions,
@@ -101,8 +102,8 @@ pub(crate) fn build_lane_marking_mesh(
                 YELLOW,
                 trim_start,
                 trim_end,
+                grid,
             );
-            // Solid white edge lines.
             for &edge in &[-(road_half_w - 0.5), road_half_w - 0.5] {
                 emit_solid_line(
                     &mut positions,
@@ -122,11 +123,11 @@ pub(crate) fn build_lane_marking_mesh(
                     [1.0, 1.0, 1.0, 0.45],
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
         }
         RoadType::Boulevard => {
-            // Solid yellow center line.
             emit_solid_line(
                 &mut positions,
                 &mut normals,
@@ -145,8 +146,8 @@ pub(crate) fn build_lane_marking_mesh(
                 YELLOW,
                 trim_start,
                 trim_end,
+                grid,
             );
-            // Dashed white lane dividers at inner lane boundaries.
             let lane_offset = road_half_w * 0.45;
             for &off in &[-lane_offset, lane_offset] {
                 emit_dashed_line(
@@ -170,9 +171,9 @@ pub(crate) fn build_lane_marking_mesh(
                     [1.0, 1.0, 1.0, 0.45],
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
-            // Solid white edge lines.
             for &edge in &[-(road_half_w - 0.5), road_half_w - 0.5] {
                 emit_solid_line(
                     &mut positions,
@@ -192,11 +193,11 @@ pub(crate) fn build_lane_marking_mesh(
                     [1.0, 1.0, 1.0, 0.45],
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
         }
         RoadType::Highway => {
-            // Concrete jersey barrier in centre.
             emit_solid_line(
                 &mut positions,
                 &mut normals,
@@ -215,8 +216,8 @@ pub(crate) fn build_lane_marking_mesh(
                 BARRIER_COLOR,
                 trim_start,
                 trim_end,
+                grid,
             );
-            // Dashed white lane dividers.
             let lane_offset = road_half_w * 0.45;
             for &off in &[-lane_offset, lane_offset] {
                 emit_dashed_line(
@@ -240,9 +241,9 @@ pub(crate) fn build_lane_marking_mesh(
                     WHITE,
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
-            // Solid white edge lines.
             for &edge in &[-(road_half_w - 0.5), road_half_w - 0.5] {
                 emit_solid_line(
                     &mut positions,
@@ -262,10 +263,10 @@ pub(crate) fn build_lane_marking_mesh(
                     [1.0, 1.0, 1.0, 0.65],
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
         }
-        // Path: no markings (filtered earlier).
         _ => {}
     }
 

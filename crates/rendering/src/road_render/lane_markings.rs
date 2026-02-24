@@ -1,10 +1,21 @@
 use bevy::prelude::*;
 
-use simulation::grid::RoadType;
+use simulation::config::CELL_SIZE;
+use simulation::grid::{RoadType, WorldGrid};
 
 use super::bezier::{bezier_tangent, evaluate_bezier};
 
+/// Sample terrain elevation at a world XZ position, returning a Y value.
+fn sample_terrain_y(grid: &WorldGrid, world_x: f32, world_z: f32) -> f32 {
+    let gx = (world_x / CELL_SIZE).floor() as i32;
+    let gy = (world_z / CELL_SIZE).floor() as i32;
+    let gx = (gx as usize).min(grid.width.saturating_sub(1));
+    let gy = (gy as usize).min(grid.height.saturating_sub(1));
+    grid.elevation_y(gx, gy)
+}
+
 /// Add dashed center line and lane markings along the curve.
+/// `y_offset` is a small offset above terrain for z-fighting avoidance.
 #[allow(clippy::too_many_arguments)]
 pub fn add_curve_lane_markings(
     positions: &mut Vec<[f32; 3]>,
@@ -19,10 +30,11 @@ pub fn add_curve_lane_markings(
     road_type: RoadType,
     road_half_w: f32,
     arc_length: f32,
-    y: f32,
+    y_offset: f32,
     _sample_count: usize,
     trim_start: f32,
     trim_end: f32,
+    grid: &WorldGrid,
 ) {
     let line_hw = 0.12; // line half-width
     let dash_len = 3.0;
@@ -35,7 +47,6 @@ pub fn add_curve_lane_markings(
 
     match road_type {
         RoadType::Local | RoadType::OneWay => {
-            // Dashed white center line
             generate_dashed_line_along_curve(
                 positions,
                 normals,
@@ -46,9 +57,9 @@ pub fn add_curve_lane_markings(
                 p1,
                 p2,
                 p3,
-                0.0, // center offset
+                0.0,
                 line_hw,
-                y,
+                y_offset,
                 arc_length,
                 step,
                 total_steps,
@@ -57,10 +68,10 @@ pub fn add_curve_lane_markings(
                 white,
                 trim_start,
                 trim_end,
+                grid,
             );
         }
         RoadType::Avenue => {
-            // Double yellow center lines
             let offset = 0.3;
             generate_solid_line_along_curve(
                 positions,
@@ -74,13 +85,14 @@ pub fn add_curve_lane_markings(
                 p3,
                 -offset,
                 line_hw,
-                y,
+                y_offset,
                 arc_length,
                 step,
                 total_steps,
                 yellow,
                 trim_start,
                 trim_end,
+                grid,
             );
             generate_solid_line_along_curve(
                 positions,
@@ -94,17 +106,17 @@ pub fn add_curve_lane_markings(
                 p3,
                 offset,
                 line_hw,
-                y,
+                y_offset,
                 arc_length,
                 step,
                 total_steps,
                 yellow,
                 trim_start,
                 trim_end,
+                grid,
             );
         }
         RoadType::Boulevard => {
-            // Wide green median strip
             let median_hw = 1.5;
             generate_solid_line_along_curve(
                 positions,
@@ -118,15 +130,15 @@ pub fn add_curve_lane_markings(
                 p3,
                 0.0,
                 median_hw,
-                y - 0.01,
+                y_offset - 0.01,
                 arc_length,
                 step,
                 total_steps,
                 [0.30, 0.42, 0.25, 1.0],
                 trim_start,
                 trim_end,
+                grid,
             );
-            // Dashed white lane lines
             let lane_w = road_half_w * 0.45;
             for &off in &[-lane_w, lane_w] {
                 generate_dashed_line_along_curve(
@@ -141,7 +153,7 @@ pub fn add_curve_lane_markings(
                     p3,
                     off,
                     line_hw,
-                    y,
+                    y_offset,
                     arc_length,
                     step,
                     total_steps,
@@ -150,11 +162,11 @@ pub fn add_curve_lane_markings(
                     [1.0, 1.0, 1.0, 0.35],
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
         }
         RoadType::Highway => {
-            // Concrete jersey barrier in center
             generate_solid_line_along_curve(
                 positions,
                 normals,
@@ -167,15 +179,15 @@ pub fn add_curve_lane_markings(
                 p3,
                 0.0,
                 0.4,
-                y + 0.02,
+                y_offset + 0.02,
                 arc_length,
                 step,
                 total_steps,
                 [0.55, 0.53, 0.50, 1.0],
                 trim_start,
                 trim_end,
+                grid,
             );
-            // Dashed white lane lines
             let lane_w = road_half_w * 0.45;
             for &off in &[-lane_w, lane_w] {
                 generate_dashed_line_along_curve(
@@ -190,7 +202,7 @@ pub fn add_curve_lane_markings(
                     p3,
                     off,
                     line_hw * 1.5,
-                    y,
+                    y_offset,
                     arc_length,
                     step,
                     total_steps,
@@ -199,9 +211,9 @@ pub fn add_curve_lane_markings(
                     [1.0, 1.0, 1.0, 0.55],
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
-            // Solid white edge lines (wider)
             for &edge in &[-road_half_w + 0.5, road_half_w - 0.5] {
                 generate_solid_line_along_curve(
                     positions,
@@ -215,13 +227,14 @@ pub fn add_curve_lane_markings(
                     p3,
                     edge,
                     line_hw * 1.5,
-                    y,
+                    y_offset,
                     arc_length,
                     step,
                     total_steps,
                     [1.0, 1.0, 1.0, 0.65],
                     trim_start,
                     trim_end,
+                    grid,
                 );
             }
         }
@@ -230,6 +243,7 @@ pub fn add_curve_lane_markings(
 }
 
 /// Generate a dashed line along a Bezier curve at a perpendicular offset.
+/// `y_offset` is added to the sampled terrain Y for each quad.
 #[allow(clippy::too_many_arguments)]
 fn generate_dashed_line_along_curve(
     positions: &mut Vec<[f32; 3]>,
@@ -243,7 +257,7 @@ fn generate_dashed_line_along_curve(
     p3: Vec2,
     perp_offset: f32,
     half_width: f32,
-    y: f32,
+    y_offset: f32,
     arc_length: f32,
     step: f32,
     total_steps: usize,
@@ -252,12 +266,13 @@ fn generate_dashed_line_along_curve(
     color: [f32; 4],
     trim_start: f32,
     trim_end: f32,
+    grid: &WorldGrid,
 ) {
     let period = dash_len + gap_len;
     let mut cum_len = 0.0_f32;
     let mut prev_pt = evaluate_bezier(p0, p1, p2, p3, 0.0);
     let mut in_dash = false;
-    let mut dash_start_pts: Option<(Vec2, Vec2)> = None;
+    let mut dash_start_pts: Option<(Vec2, Vec2, f32)> = None;
     let trim_end_dist = arc_length - trim_end;
 
     for i in 0..=total_steps {
@@ -271,7 +286,6 @@ fn generate_dashed_line_along_curve(
         }
         prev_pt = pt;
 
-        // Skip rendering in trimmed zones
         let in_trim_zone = cum_len < trim_start || cum_len > trim_end_dist;
 
         let phase = cum_len % period;
@@ -280,17 +294,19 @@ fn generate_dashed_line_along_curve(
         let center = pt + perp * perp_offset;
         let left = center - perp * half_width;
         let right = center + perp * half_width;
+        let y = sample_terrain_y(grid, pt.x, pt.y) + y_offset;
 
         if should_be_dash && !in_dash {
-            dash_start_pts = Some((left, right));
+            dash_start_pts = Some((left, right, y));
             in_dash = true;
         } else if in_dash && (!should_be_dash || i == total_steps) {
-            if let Some((sl, sr)) = dash_start_pts {
+            if let Some((sl, sr, sy)) = dash_start_pts {
                 let vi = positions.len() as u32;
-                positions.push([sl.x, y, sl.y]);
-                positions.push([sr.x, y, sr.y]);
-                positions.push([right.x, y, right.y]);
-                positions.push([left.x, y, left.y]);
+                let avg_y = (sy + y) * 0.5;
+                positions.push([sl.x, avg_y, sl.y]);
+                positions.push([sr.x, avg_y, sr.y]);
+                positions.push([right.x, avg_y, right.y]);
+                positions.push([left.x, avg_y, left.y]);
                 normals.extend_from_slice(&[[0.0, 1.0, 0.0]; 4]);
                 colors.extend_from_slice(&[color; 4]);
                 uvs.extend_from_slice(&[[0.0, 0.0]; 4]);
@@ -308,6 +324,7 @@ fn generate_dashed_line_along_curve(
 }
 
 /// Generate a solid continuous line along a Bezier curve at a perpendicular offset.
+/// `y_offset` is added to the sampled terrain Y for each vertex.
 #[allow(clippy::too_many_arguments)]
 fn generate_solid_line_along_curve(
     positions: &mut Vec<[f32; 3]>,
@@ -321,13 +338,14 @@ fn generate_solid_line_along_curve(
     p3: Vec2,
     perp_offset: f32,
     half_width: f32,
-    y: f32,
+    y_offset: f32,
     arc_length: f32,
     _step: f32,
     total_steps: usize,
     color: [f32; 4],
     trim_start: f32,
     trim_end: f32,
+    grid: &WorldGrid,
 ) {
     let segments = total_steps.min(64);
     let trim_end_dist = arc_length - trim_end;
@@ -346,7 +364,6 @@ fn generate_solid_line_along_curve(
         }
         prev_pt = pt;
 
-        // Skip rendering in trimmed zones
         if cum_len < trim_start || cum_len > trim_end_dist {
             prev_emitted = false;
             continue;
@@ -355,6 +372,7 @@ fn generate_solid_line_along_curve(
         let center = pt + perp * perp_offset;
         let left = center - perp * half_width;
         let right = center + perp * half_width;
+        let y = sample_terrain_y(grid, pt.x, pt.y) + y_offset;
 
         positions.push([left.x, y, left.y]);
         positions.push([right.x, y, right.y]);

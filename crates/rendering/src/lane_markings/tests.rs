@@ -2,10 +2,16 @@
 
 use bevy::prelude::*;
 
-use simulation::grid::RoadType;
+use simulation::config::{GRID_HEIGHT, GRID_WIDTH};
+use simulation::grid::{RoadType, WorldGrid};
 
 use super::line_primitives::{bezier_tangent, eval_bezier, road_half_width};
 use super::mesh_builder::build_lane_marking_mesh;
+
+/// Create a flat grid for tests (all elevation = 0.5).
+fn test_grid() -> WorldGrid {
+    WorldGrid::new(GRID_WIDTH, GRID_HEIGHT)
+}
 
 #[test]
 fn test_road_half_width_values() {
@@ -38,7 +44,6 @@ fn test_bezier_tangent_straight_line() {
     let p2 = p0 + (p3 - p0) * 2.0 / 3.0;
 
     let tang = bezier_tangent(p0, p1, p2, p3, 0.5);
-    // Tangent of a straight line should point along the x-axis.
     let normalised = tang.normalize();
     assert!((normalised.x - 1.0).abs() < 0.01);
     assert!(normalised.y.abs() < 0.01);
@@ -46,6 +51,7 @@ fn test_bezier_tangent_straight_line() {
 
 #[test]
 fn test_build_avenue_marking_mesh_not_empty() {
+    let grid = test_grid();
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(100.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
@@ -61,9 +67,9 @@ fn test_build_avenue_marking_mesh_not_empty() {
         100.0,
         0.0,
         0.0,
+        &grid,
     );
 
-    // Avenue should produce double yellow center lines + edge lines.
     let positions = mesh
         .attribute(Mesh::ATTRIBUTE_POSITION)
         .expect("mesh should have positions");
@@ -75,6 +81,7 @@ fn test_build_avenue_marking_mesh_not_empty() {
 
 #[test]
 fn test_build_boulevard_marking_mesh_not_empty() {
+    let grid = test_grid();
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(200.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
@@ -90,6 +97,7 @@ fn test_build_boulevard_marking_mesh_not_empty() {
         200.0,
         0.0,
         0.0,
+        &grid,
     );
 
     let positions = mesh
@@ -103,6 +111,7 @@ fn test_build_boulevard_marking_mesh_not_empty() {
 
 #[test]
 fn test_build_highway_marking_mesh_not_empty() {
+    let grid = test_grid();
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(300.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
@@ -118,6 +127,7 @@ fn test_build_highway_marking_mesh_not_empty() {
         300.0,
         0.0,
         0.0,
+        &grid,
     );
 
     let positions = mesh
@@ -131,6 +141,7 @@ fn test_build_highway_marking_mesh_not_empty() {
 
 #[test]
 fn test_local_road_produces_dashed_center_line() {
+    let grid = test_grid();
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(100.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
@@ -146,6 +157,7 @@ fn test_local_road_produces_dashed_center_line() {
         100.0,
         0.0,
         0.0,
+        &grid,
     );
 
     let positions = mesh
@@ -159,6 +171,7 @@ fn test_local_road_produces_dashed_center_line() {
 
 #[test]
 fn test_oneway_road_produces_dashed_center_line() {
+    let grid = test_grid();
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(80.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
@@ -174,6 +187,7 @@ fn test_oneway_road_produces_dashed_center_line() {
         80.0,
         0.0,
         0.0,
+        &grid,
     );
 
     let positions = mesh
@@ -187,6 +201,7 @@ fn test_oneway_road_produces_dashed_center_line() {
 
 #[test]
 fn test_path_produces_no_marking_mesh() {
+    let grid = test_grid();
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(50.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
@@ -202,6 +217,7 @@ fn test_path_produces_no_marking_mesh() {
         50.0,
         0.0,
         0.0,
+        &grid,
     );
 
     let positions = mesh
@@ -212,14 +228,25 @@ fn test_path_produces_no_marking_mesh() {
 
 #[test]
 fn test_trim_reduces_vertex_count() {
+    let grid = test_grid();
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(200.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
     let p2 = p0 + (p3 - p0) * 2.0 / 3.0;
     let hw = road_half_width(RoadType::Highway);
 
-    let mesh_no_trim =
-        build_lane_marking_mesh(p0, p1, p2, p3, RoadType::Highway, hw, 200.0, 0.0, 0.0);
+    let mesh_no_trim = build_lane_marking_mesh(
+        p0,
+        p1,
+        p2,
+        p3,
+        RoadType::Highway,
+        hw,
+        200.0,
+        0.0,
+        0.0,
+        &grid,
+    );
     let mesh_trimmed = build_lane_marking_mesh(
         p0,
         p1,
@@ -230,6 +257,7 @@ fn test_trim_reduces_vertex_count() {
         200.0,
         hw * 1.2,
         hw * 1.2,
+        &grid,
     );
 
     let count_no_trim = mesh_no_trim

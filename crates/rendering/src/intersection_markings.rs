@@ -11,6 +11,8 @@ use bevy::render::mesh::Indices;
 use bevy::render::render_asset::RenderAssetUsages;
 
 use simulation::grid::RoadType;
+use simulation::config::CELL_SIZE;
+use simulation::grid::WorldGrid;
 use simulation::road_segments::{RoadSegmentStore, SegmentNodeId};
 
 // ---------------------------------------------------------------------------
@@ -34,7 +36,8 @@ pub struct IntersectionMarkingSyncState {
 // ---------------------------------------------------------------------------
 
 /// Y-height slightly above the intersection disc surface.
-const Y_MARKING: f32 = 0.065;
+// Offset above terrain surface for marking geometry.
+const Y_MARKING_OFFSET: f32 = 0.065;
 
 /// White colour for crosswalk bars and stop lines.
 const CROSSWALK_WHITE: [f32; 4] = [1.0, 1.0, 1.0, 0.6];
@@ -82,6 +85,7 @@ pub fn sync_intersection_markings(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut local_state: Local<IntersectionMarkingSyncState>,
+    grid: Res<WorldGrid>,
 ) {
     if !store.is_changed() {
         return;
@@ -144,7 +148,7 @@ pub fn sync_intersection_markings(
             continue;
         }
 
-        let mesh = build_intersection_marking_mesh(node.position, &arms);
+        let mesh = build_intersection_marking_mesh(node.position, &arms, &grid);
 
         commands.spawn((
             IntersectionMarkingMesh { node_id: node.id },
@@ -176,7 +180,12 @@ fn approach_direction(
 // ---------------------------------------------------------------------------
 
 /// Build crosswalk bars and stop lines for all arms of a junction.
-fn build_intersection_marking_mesh(center: Vec2, arms: &[(Vec2, f32)]) -> Mesh {
+fn build_intersection_marking_mesh(center: Vec2, arms: &[(Vec2, f32)], grid: &WorldGrid) -> Mesh {
+    let gx = (center.x / CELL_SIZE).floor() as i32;
+    let gy = (center.y / CELL_SIZE).floor() as i32;
+    let gx = (gx.max(0) as usize).min(grid.width.saturating_sub(1));
+    let gy = (gy.max(0) as usize).min(grid.height.saturating_sub(1));
+    let y_marking = grid.elevation_y(gx, gy) + Y_MARKING_OFFSET;
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut normals: Vec<[f32; 3]> = Vec::new();
     let mut colors: Vec<[f32; 4]> = Vec::new();
@@ -201,6 +210,7 @@ fn build_intersection_marking_mesh(center: Vec2, arms: &[(Vec2, f32)]) -> Mesh {
             hw * 0.85,
             STOP_LINE_THICKNESS,
             STOP_LINE_WHITE,
+            y_marking,
         );
 
         // --- Crosswalk bars ---
@@ -224,6 +234,7 @@ fn build_intersection_marking_mesh(center: Vec2, arms: &[(Vec2, f32)]) -> Mesh {
                 hw * 0.75,
                 BAR_WIDTH * 0.5,
                 CROSSWALK_WHITE,
+                y_marking,
             );
         }
     }
@@ -257,6 +268,7 @@ fn emit_quad(
     half_lateral: f32,
     half_longitudinal: f32,
     color: [f32; 4],
+    y: f32,
 ) {
     let vi = positions.len() as u32;
     let tl = center - lateral * half_lateral - longitudinal * half_longitudinal;
@@ -264,10 +276,10 @@ fn emit_quad(
     let br = center + lateral * half_lateral + longitudinal * half_longitudinal;
     let bl = center - lateral * half_lateral + longitudinal * half_longitudinal;
 
-    positions.push([tl.x, Y_MARKING, tl.y]);
-    positions.push([tr.x, Y_MARKING, tr.y]);
-    positions.push([br.x, Y_MARKING, br.y]);
-    positions.push([bl.x, Y_MARKING, bl.y]);
+    positions.push([tl.x, y, tl.y]);
+    positions.push([tr.x, y, tr.y]);
+    positions.push([br.x, y, br.y]);
+    positions.push([bl.x, y, bl.y]);
     normals.extend_from_slice(&[[0.0, 1.0, 0.0]; 4]);
     colors.extend_from_slice(&[color; 4]);
     uvs.extend_from_slice(&[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
@@ -286,6 +298,7 @@ fn emit_quad(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simulation::config::{GRID_HEIGHT, GRID_WIDTH};
 
     #[test]
     fn test_approach_direction_start_node() {
@@ -335,7 +348,8 @@ mod tests {
             (Vec2::new(1.0, 0.0), 4.0),  // east arm, Local width
             (Vec2::new(0.0, 1.0), 4.0),  // north arm, Local width
         ];
-        let mesh = build_intersection_marking_mesh(center, &arms);
+        let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        let mesh = build_intersection_marking_mesh(center, &arms, &grid);
         let positions = mesh
             .attribute(Mesh::ATTRIBUTE_POSITION)
             .expect("should have positions");
@@ -351,7 +365,8 @@ mod tests {
     fn test_empty_arms_produce_empty_mesh() {
         let center = Vec2::new(0.0, 0.0);
         let arms: Vec<(Vec2, f32)> = vec![];
-        let mesh = build_intersection_marking_mesh(center, &arms);
+        let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        let mesh = build_intersection_marking_mesh(center, &arms, &grid);
         let positions = mesh
             .attribute(Mesh::ATTRIBUTE_POSITION)
             .expect("should have positions");

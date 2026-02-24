@@ -21,6 +21,86 @@ pub(super) fn chunk_world_pos(cx: usize, cy: usize) -> (f32, f32) {
     (wx, wz)
 }
 
+/// Compute a per-cell Y height. Each cell quad uses the cell's elevation for
+/// its four corners, interpolated with neighbors to create smooth slopes.
+/// Water cells use a flat water level.
+fn cell_corner_heights(grid: &WorldGrid, gx: usize, gy: usize) -> [f32; 4] {
+    let y = grid.elevation_y(gx, gy);
+    // For a smooth mesh, average with diagonal neighbors at each corner.
+    // Corners: [top-left, top-right, bottom-right, bottom-left]
+    //   tl = avg(cell, left, up, up-left)
+    //   tr = avg(cell, right, up, up-right)
+    //   br = avg(cell, right, down, down-right)
+    //   bl = avg(cell, left, down, down-left)
+    let e = |gx: usize, gy: usize| -> f32 { grid.elevation_y(gx, gy) };
+
+    let has_left = gx > 0;
+    let has_right = gx + 1 < GRID_WIDTH;
+    let has_up = gy > 0;
+    let has_down = gy + 1 < GRID_HEIGHT;
+
+    let el = if has_left { e(gx - 1, gy) } else { y };
+    let er = if has_right { e(gx + 1, gy) } else { y };
+    let eu = if has_up { e(gx, gy - 1) } else { y };
+    let ed = if has_down { e(gx, gy + 1) } else { y };
+
+    let eul = if has_up && has_left {
+        e(gx - 1, gy - 1)
+    } else {
+        y
+    };
+    let eur = if has_up && has_right {
+        e(gx + 1, gy - 1)
+    } else {
+        y
+    };
+    let edl = if has_down && has_left {
+        e(gx - 1, gy + 1)
+    } else {
+        y
+    };
+    let edr = if has_down && has_right {
+        e(gx + 1, gy + 1)
+    } else {
+        y
+    };
+
+    let tl = (y + el + eu + eul) * 0.25;
+    let tr = (y + er + eu + eur) * 0.25;
+    let br = (y + er + ed + edr) * 0.25;
+    let bl = (y + el + ed + edl) * 0.25;
+
+    [tl, tr, br, bl]
+}
+
+/// Compute a face normal from three positions.
+fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+    let u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    let v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    let nx = u[1] * v[2] - u[2] * v[1];
+    let ny = u[2] * v[0] - u[0] * v[2];
+    let nz = u[0] * v[1] - u[1] * v[0];
+    let len = (nx * nx + ny * ny + nz * nz).sqrt();
+    if len < 1e-8 {
+        [0.0, 1.0, 0.0]
+    } else {
+        [nx / len, ny / len, nz / len]
+    }
+}
+
+/// Average normal for a vertex shared by two triangles of a quad.
+fn avg_normal(n1: [f32; 3], n2: [f32; 3]) -> [f32; 3] {
+    let x = n1[0] + n2[0];
+    let y = n1[1] + n2[1];
+    let z = n1[2] + n2[2];
+    let len = (x * x + y * y + z * z).sqrt();
+    if len < 1e-8 {
+        [0.0, 1.0, 0.0]
+    } else {
+        [x / len, y / len, z / len]
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build_chunk_mesh(
     grid: &WorldGrid,
@@ -104,7 +184,9 @@ pub fn build_chunk_mesh(
             let z0 = ly as f32 * CELL_SIZE;
             let x1 = (lx + 1) as f32 * CELL_SIZE;
             let z1 = (ly + 1) as f32 * CELL_SIZE;
-            let y = 0.0;
+
+            // Heightmap: compute per-corner Y from elevation grid
+            let [y_tl, y_tr, y_br, y_bl] = cell_corner_heights(grid, gx, gy);
 
             let c: [f32; 4] = color.to_srgba().to_f32_array();
 
@@ -115,15 +197,33 @@ pub fn build_chunk_mesh(
                 c
             };
 
-            // 4 vertices, 2 triangles per cell
+            // 4 vertices: TL, TR, BR, BL
             let vi = positions.len() as u32;
-            positions.push([x0, y, z0]);
-            positions.push([x1, y, z0]);
-            positions.push([x1, y, z1]);
-            positions.push([x0, y, z1]);
-            normals.extend_from_slice(&[[0.0, 1.0, 0.0]; 4]);
+            let p_tl = [x0, y_tl, z0];
+            let p_tr = [x1, y_tr, z0];
+            let p_br = [x1, y_br, z1];
+            let p_bl = [x0, y_bl, z1];
+
+            positions.push(p_tl);
+            positions.push(p_tr);
+            positions.push(p_br);
+            positions.push(p_bl);
+
+            // Compute normals from the two triangles of the quad
+            let n1 = face_normal(p_tl, p_br, p_tr); // tri 0: TL->BR->TR
+            let n2 = face_normal(p_tl, p_bl, p_br); // tri 1: TL->BL->BR
+
+            // Average normals at shared vertices for smooth shading
+            let n_tl = avg_normal(n1, n2);
+            let n_br = avg_normal(n1, n2);
+            normals.push(n_tl);  // TL (shared by both tris)
+            normals.push(n1);    // TR (only tri 0)
+            normals.push(n_br);  // BR (shared by both tris)
+            normals.push(n2);    // BL (only tri 1)
+
             colors.extend_from_slice(&[c; 4]);
 
+            // Two triangles: TL-BR-TR and TL-BL-BR
             indices.push(vi);
             indices.push(vi + 2);
             indices.push(vi + 1);
@@ -133,6 +233,7 @@ pub fn build_chunk_mesh(
 
             // Road surface and markings
             if cell.cell_type == CellType::Road && *overlay == OverlayMode::None {
+                let road_y = grid.elevation_y(gx, gy);
                 add_road_markings(
                     &mut positions,
                     &mut normals,
@@ -145,6 +246,7 @@ pub fn build_chunk_mesh(
                     lx,
                     ly,
                     cell.road_type,
+                    road_y,
                 );
             }
         }

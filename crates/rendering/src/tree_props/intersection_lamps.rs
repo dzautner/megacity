@@ -125,7 +125,7 @@ pub fn spawn_intersection_lamps(
                 StreetLamp,
                 IntersectionLamp,
                 SceneRoot(scene_handle),
-                Transform::from_xyz(wx + off_x, 0.0, wz + off_z)
+                Transform::from_xyz(wx + off_x, grid.elevation_y(gx, gy), wz + off_z)
                     .with_scale(Vec3::splat(INTERSECTION_LAMP_SCALE)),
                 Visibility::default(),
             ));

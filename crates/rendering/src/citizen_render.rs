@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
 use simulation::citizen::{Citizen, CitizenState, CitizenStateComp, Position, Velocity};
+use simulation::config::CELL_SIZE;
+use simulation::grid::WorldGrid;
 use simulation::lod::LodTier;
 
 use crate::building_meshes::BuildingModelCache;
@@ -137,6 +139,7 @@ pub fn update_citizen_sprites(
             )>,
         ),
     >,
+    grid: Res<WorldGrid>,
     model_cache: Res<BuildingModelCache>,
 ) {
     for (
@@ -222,7 +225,12 @@ pub fn update_citizen_sprites(
         }
 
         transform.translation.x = render_x;
-        transform.translation.y = 0.0;
+        // Sample terrain elevation at citizen position
+        let gx = (render_x / CELL_SIZE).floor() as i32;
+        let gz = (render_z / CELL_SIZE).floor() as i32;
+        let gx = (gx.max(0) as usize).min(grid.width.saturating_sub(1));
+        let gz = (gz.max(0) as usize).min(grid.height.saturating_sub(1));
+        transform.translation.y = grid.elevation_y(gx, gz);
         transform.translation.z = render_z;
 
         // Orientation: face travel direction when commuting

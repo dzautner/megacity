@@ -11,3 +11,10 @@ pub const TERRAIN_LACUNARITY: f32 = 2.0;
 pub const TERRAIN_BASE_FREQUENCY: f32 = 0.008;
 pub const WORLD_WIDTH: f32 = GRID_WIDTH as f32 * CELL_SIZE;
 pub const WORLD_HEIGHT: f32 = GRID_HEIGHT as f32 * CELL_SIZE;
+
+/// Maximum terrain height in world units. Elevation [0,1] maps to [0, TERRAIN_HEIGHT_SCALE].
+pub const TERRAIN_HEIGHT_SCALE: f32 = 40.0;
+
+/// World-space Y level for the water surface. Cells below WATER_THRESHOLD are
+/// rendered at this fixed height so water appears as a flat plane.
+pub const WATER_LEVEL_Y: f32 = WATER_THRESHOLD * TERRAIN_HEIGHT_SCALE;

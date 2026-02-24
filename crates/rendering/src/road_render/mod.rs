@@ -6,7 +6,7 @@ mod tessellation;
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-use simulation::grid::RoadType;
+use simulation::grid::{RoadType, WorldGrid};
 use simulation::road_segments::{RoadSegmentStore, SegmentId, SegmentNodeId};
 
 use intersection::build_intersection_disc;
@@ -35,6 +35,7 @@ pub struct RoadIntersectionMesh {
 #[allow(clippy::too_many_arguments)]
 pub fn sync_road_segment_meshes(
     mut store: ResMut<RoadSegmentStore>,
+    grid: Res<WorldGrid>,
     existing: Query<(Entity, &RoadSegmentMesh)>,
     existing_intersections: Query<(Entity, &RoadIntersectionMesh)>,
     mut commands: Commands,
@@ -57,8 +58,6 @@ pub fn sync_road_segment_meshes(
     let mut dirty_nodes: HashSet<SegmentNodeId> = HashSet::new();
 
     // Collect node IDs recorded during segment removal (fixes #1239).
-    // These are captured *before* the segment is disconnected from nodes,
-    // so they reliably identify affected intersections.
     if !store.removed_segment_endpoints.is_empty() {
         for node_id in store.drain_removed_endpoints() {
             dirty_nodes.insert(node_id);
@@ -86,11 +85,9 @@ pub fn sync_road_segment_meshes(
             continue;
         }
 
-        // This is a new segment — mark its nodes as dirty
         dirty_nodes.insert(segment.start_node);
         dirty_nodes.insert(segment.end_node);
 
-        // Compute trim distances based on junction status
         let road_half_w: f32 = match segment.road_type {
             RoadType::Path => 1.5,
             RoadType::OneWay => 3.0,
@@ -119,6 +116,7 @@ pub fn sync_road_segment_meshes(
             segment.arc_length,
             trim_start,
             trim_end,
+            &grid,
         );
 
         let material = materials.add(StandardMaterial {
@@ -139,14 +137,12 @@ pub fn sync_road_segment_meshes(
 
     // Only rebuild intersection meshes for dirty nodes
     if !dirty_nodes.is_empty() {
-        // Despawn only the intersection meshes for affected nodes
         for (entity, intersection_mesh) in &existing_intersections {
             if dirty_nodes.contains(&intersection_mesh.node_id) {
                 commands.entity(entity).despawn();
             }
         }
 
-        // Regenerate intersection fill discs only for dirty junction nodes
         let intersection_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 0.9,
@@ -162,7 +158,6 @@ pub fn sync_road_segment_meshes(
                 continue;
             }
 
-            // Find the max road dimensions of connected segments
             let mut max_road_hw: f32 = 0.0;
             let mut max_total_hw: f32 = 0.0;
             let mut avg_asphalt = [0.0_f32; 4];
@@ -210,13 +205,13 @@ pub fn sync_road_segment_meshes(
 
             let sidewalk_color: [f32; 4] = [0.58, 0.56, 0.53, 1.0];
 
-            // Build a disc mesh: sidewalk disc + asphalt disc on top
             let mesh = build_intersection_disc(
                 node.position,
                 max_total_hw,
                 max_road_hw,
                 sidewalk_color,
                 avg_asphalt,
+                &grid,
             );
 
             commands.spawn((
