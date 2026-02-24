@@ -2,7 +2,7 @@
 
 use crate::battery_storage::{BatteryState, BatteryTier, BatteryUnit};
 use crate::coal_power::{PowerPlant, PowerPlantType};
-use crate::energy_demand::{EnergyConsumer, EnergyGrid, LoadPriority};
+use crate::energy_demand::{EnergyConsumer, LoadPriority};
 use crate::energy_dispatch::EnergyDispatchState;
 use crate::test_harness::TestCity;
 
