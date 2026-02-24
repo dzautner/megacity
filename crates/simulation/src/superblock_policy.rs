@@ -54,12 +54,55 @@ const MONTHLY_COST_PER_CELL: f64 = 0.2;
 // Types
 // =============================================================================
 
+/// Encode a `RoadType` as a u8 discriminant for bitcode serialization.
+/// `RoadType` only derives serde, not bitcode, so we store as u8.
+fn road_type_to_u8(rt: RoadType) -> u8 {
+    match rt {
+        RoadType::Local => 0,
+        RoadType::Avenue => 1,
+        RoadType::Boulevard => 2,
+        RoadType::Highway => 3,
+        RoadType::OneWay => 4,
+        RoadType::Path => 5,
+    }
+}
+
+/// Decode a u8 discriminant back to `RoadType`.
+fn u8_to_road_type(v: u8) -> RoadType {
+    match v {
+        0 => RoadType::Local,
+        1 => RoadType::Avenue,
+        2 => RoadType::Boulevard,
+        3 => RoadType::Highway,
+        4 => RoadType::OneWay,
+        _ => RoadType::Path,
+    }
+}
+
 /// Record of a road cell's original road type before superblock conversion.
+/// Stores road type as u8 since `RoadType` lacks bitcode derives.
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct OriginalRoad {
     pub x: u16,
     pub y: u16,
-    pub road_type: RoadType,
+    /// Road type stored as u8 discriminant (see `road_type_to_u8`).
+    pub road_type_id: u8,
+}
+
+impl OriginalRoad {
+    /// Create a new record from grid coordinates and a road type.
+    pub fn new(x: usize, y: usize, road_type: RoadType) -> Self {
+        Self {
+            x: x as u16,
+            y: y as u16,
+            road_type_id: road_type_to_u8(road_type),
+        }
+    }
+
+    /// Get the stored road type.
+    pub fn road_type(&self) -> RoadType {
+        u8_to_road_type(self.road_type_id)
+    }
 }
 
 /// Per-superblock activation state.
@@ -165,14 +208,9 @@ impl SuperblockPolicyState {
         for y in sb.y0..=sb.y1.min(GRID_HEIGHT - 1) {
             for x in sb.x0..=sb.x1.min(GRID_WIDTH - 1) {
                 if sb.is_interior(x, y) && grid.get(x, y).cell_type == CellType::Road {
-                    let cell = grid.get(x, y);
-                    let original_type = cell.road_type;
+                    let original_type = grid.get(x, y).road_type;
                     if original_type != RoadType::Path {
-                        original_roads.push(OriginalRoad {
-                            x: x as u16,
-                            y: y as u16,
-                            road_type: original_type,
-                        });
+                        original_roads.push(OriginalRoad::new(x, y, original_type));
                         grid.get_mut(x, y).road_type = RoadType::Path;
                     }
                 }
@@ -190,11 +228,7 @@ impl SuperblockPolicyState {
     }
 
     /// Revert a superblock policy: restore original road types.
-    pub fn revert(
-        &mut self,
-        superblock_index: usize,
-        grid: &mut WorldGrid,
-    ) -> bool {
+    pub fn revert(&mut self, superblock_index: usize, grid: &mut WorldGrid) -> bool {
         let entry_idx = self
             .entries
             .iter()
@@ -211,7 +245,7 @@ impl SuperblockPolicyState {
             let x = original.x as usize;
             let y = original.y as usize;
             if grid.in_bounds(x, y) && grid.get(x, y).cell_type == CellType::Road {
-                grid.get_mut(x, y).road_type = original.road_type;
+                grid.get_mut(x, y).road_type = original.road_type();
             }
         }
 
@@ -281,12 +315,10 @@ impl crate::Saveable for SuperblockPolicyState {
 
 /// System: apply environmental bonuses to interior superblock cells.
 /// Runs on slow tick to reduce per-frame cost.
-#[allow(clippy::too_many_arguments)]
 pub fn apply_superblock_policy_effects(
     slow_timer: Res<SlowTickTimer>,
     policy: Res<SuperblockPolicyState>,
     sb_state: Res<SuperblockState>,
-    grid: Res<WorldGrid>,
     mut land_value: ResMut<LandValueGrid>,
     mut noise: ResMut<NoisePollutionGrid>,
     mut pollution: ResMut<PollutionGrid>,
@@ -405,14 +437,12 @@ impl Plugin for SuperblockPolicyPlugin {
         app.add_systems(
             FixedUpdate,
             (
-                recompute_policy_cache
-                    .after(crate::superblock::update_superblock_stats),
+                recompute_policy_cache.after(crate::superblock::update_superblock_stats),
                 apply_superblock_policy_effects
                     .after(recompute_policy_cache)
                     .after(crate::noise::update_noise_pollution)
                     .after(crate::land_value::update_land_value),
-                apply_perimeter_congestion
-                    .after(recompute_policy_cache),
+                apply_perimeter_congestion.after(recompute_policy_cache),
             )
                 .in_set(crate::SimulationSet::Simulation),
         );
