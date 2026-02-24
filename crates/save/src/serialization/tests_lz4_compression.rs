@@ -4,7 +4,7 @@
 
 use crate::file_header::{
     decompress_payload, unwrap_header, wrap_with_header, wrap_with_header_compressed, UnwrapResult,
-    FLAG_COMPRESSED, HEADER_SIZE, MAGIC,
+    FLAG_COMPRESSED, HEADER_FORMAT_VERSION, HEADER_SIZE, MAGIC,
 };
 
 #[test]
@@ -21,7 +21,7 @@ fn test_compressed_roundtrip() {
         UnwrapResult::WithHeader {
             header, payload, ..
         } => {
-            assert_eq!(header.format_version, 1);
+            assert_eq!(header.format_version, HEADER_FORMAT_VERSION);
             assert!(header.is_compressed());
             assert_eq!(header.flags & FLAG_COMPRESSED, FLAG_COMPRESSED);
             assert_eq!(header.uncompressed_size, data.len() as u32);
@@ -173,9 +173,9 @@ fn test_compressed_file_has_correct_header_structure() {
     // First 4 bytes: MEGA magic.
     assert_eq!(&wrapped[..4], &MAGIC);
 
-    // Bytes 4..8: format version (1).
+    // Bytes 4..8: format version.
     let version = u32::from_le_bytes([wrapped[4], wrapped[5], wrapped[6], wrapped[7]]);
-    assert_eq!(version, 1);
+    assert_eq!(version, HEADER_FORMAT_VERSION);
 
     // Bytes 8..12: flags with compressed bit set.
     let flags = u32::from_le_bytes([wrapped[8], wrapped[9], wrapped[10], wrapped[11]]);
