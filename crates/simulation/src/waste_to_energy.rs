@@ -6,8 +6,9 @@
 //!
 //! Key specs:
 //! - 200-1000 tons/day waste input, generates 0.5-1.0 MWh/ton electricity
-//! - Energy output: waste_tons * BTU_per_lb * 2000 * boiler_eff * generator_eff / 3412
-//! - Default: 500 tons/day = ~15.4 MW average output
+//! - Energy output: waste_tons * BTU_per_lb * 2000 * boiler_eff * generator_eff / 3412 / 1000 / 24
+//!   (converts BTU/day -> kWh/day -> MWh/day -> MW average)
+//! - Default: 500 tons/day = ~17.5 MW average output
 //! - Construction cost: $50M, build time: 10 game-days (1000 ticks at 10Hz)
 //! - Operating cost: $40-60/ton, revenue from tipping fees $50-80/ton
 //! - Air pollution: Q=45.0 (with scrubbers: Q=20.0)
@@ -46,11 +47,17 @@ pub const WTE_BOILER_EFFICIENCY: f32 = 0.80;
 /// Generator (turbine) efficiency (fraction of steam energy converted to electricity).
 pub const WTE_GENERATOR_EFFICIENCY: f32 = 0.33;
 
-/// BTU to MWh conversion factor (BTU per MWh).
-pub const BTU_PER_MWH: f32 = 3_412_000.0;
+/// BTU per kWh (conversion factor).
+pub const BTU_PER_KWH: f32 = 3_412.0;
 
 /// Pounds per ton (short ton).
 pub const LBS_PER_TON: f32 = 2000.0;
+
+/// Hours per day (for converting daily energy to average power).
+pub const HOURS_PER_DAY: f32 = 24.0;
+
+/// kW per MW conversion.
+pub const KW_PER_MW: f32 = 1000.0;
 
 /// Construction cost in dollars.
 pub const WTE_CONSTRUCTION_COST: f64 = 50_000_000.0;
@@ -82,16 +89,25 @@ pub const WTE_FUEL_COST_PER_MWH: f32 = 5.0;
 // Energy output calculation
 // =============================================================================
 
-/// Calculates the energy output in MW for a given waste input.
+/// Calculates the average power output in MW for a given waste input rate.
 ///
-/// Formula: waste_tons * BTU_per_lb * 2000 * boiler_eff * generator_eff / 3,412,000
+/// Formula: waste_tons * BTU_per_lb * 2000 * boiler_eff * generator_eff / 3412 / 1000 / 24
 ///
-/// Using default MSW composition (~4,700 BTU/lb):
-///   500 tons/day * 4700 * 2000 * 0.80 * 0.33 / 3,412,000 = ~364 MWh/day = ~15.2 MW
+/// Steps:
+/// 1. waste_tons * BTU_per_lb * 2000 = total BTU/day
+/// 2. * boiler_eff * generator_eff = useful BTU/day
+/// 3. / 3412 = kWh/day
+/// 4. / 1000 = MWh/day
+/// 5. / 24 = MW (average power)
+///
+/// Using default MSW composition (~5,443 BTU/lb):
+///   500 * 5443 * 2000 * 0.80 * 0.33 / 3412 / 1000 / 24 = ~17.5 MW
 pub fn calculate_wte_output_mw(waste_tons_per_day: f32, btu_per_lb: f32) -> f32 {
-    waste_tons_per_day * btu_per_lb * LBS_PER_TON * WTE_BOILER_EFFICIENCY
-        * WTE_GENERATOR_EFFICIENCY
-        / BTU_PER_MWH
+    let total_btu_per_day = waste_tons_per_day * btu_per_lb * LBS_PER_TON;
+    let useful_btu_per_day = total_btu_per_day * WTE_BOILER_EFFICIENCY * WTE_GENERATOR_EFFICIENCY;
+    let kwh_per_day = useful_btu_per_day / BTU_PER_KWH;
+    let mwh_per_day = kwh_per_day / KW_PER_MW;
+    mwh_per_day / HOURS_PER_DAY
 }
 
 // =============================================================================
@@ -216,7 +232,6 @@ impl PowerPlant {
 /// feeds output into the energy grid.
 ///
 /// Runs every slow tick.
-#[allow(clippy::too_many_arguments)]
 pub fn update_wte_plants(
     timer: Res<SlowTickTimer>,
     mut wte_plants: Query<(&mut WtePlant, &mut PowerPlant)>,
@@ -245,8 +260,12 @@ pub fn update_wte_plants(
     // Total waste available from the city (tons/day from the waste system).
     let available_waste = waste_system.period_generated_tons as f32;
 
-    // Distribute available waste proportionally among WTE plants based on capacity.
-    let total_capacity: f32 = wte_plants.iter().map(|(wte, _)| wte.waste_capacity_tons).sum();
+    // Calculate total WTE capacity for proportional allocation.
+    let total_capacity: f32 = wte_plants
+        .iter()
+        .filter(|(_, p)| p.plant_type == PowerPlantType::WasteToEnergy)
+        .map(|(wte, _)| wte.waste_capacity_tons)
+        .sum();
 
     for (mut wte, mut plant) in &mut wte_plants {
         if plant.plant_type != PowerPlantType::WasteToEnergy {
@@ -333,10 +352,10 @@ mod tests {
     fn test_wte_output_formula_default() {
         let btu = WasteComposition::default().energy_content_btu_per_lb();
         let output = calculate_wte_output_mw(WTE_DEFAULT_WASTE_TONS, btu);
-        // Expected: ~15 MW for 500 tons/day with ~4700 BTU/lb MSW
+        // Expected: ~17.5 MW for 500 tons/day with ~5443 BTU/lb MSW
         assert!(
             output > 10.0 && output < 25.0,
-            "Expected ~15 MW for default 500 tons/day, got {output}"
+            "Expected ~15-20 MW for default 500 tons/day, got {output}"
         );
     }
 
@@ -389,7 +408,11 @@ mod tests {
     fn test_power_plant_new_wte() {
         let plant = PowerPlant::new_wte(5, 5);
         assert_eq!(plant.plant_type, PowerPlantType::WasteToEnergy);
-        assert!(plant.capacity_mw > 10.0 && plant.capacity_mw < 25.0);
+        assert!(
+            plant.capacity_mw > 10.0 && plant.capacity_mw < 25.0,
+            "Expected 10-25 MW capacity, got {}",
+            plant.capacity_mw
+        );
         assert!((plant.fuel_cost - WTE_FUEL_COST_PER_MWH).abs() < f32::EPSILON);
         assert_eq!(plant.grid_x, 5);
         assert_eq!(plant.grid_y, 5);
@@ -424,7 +447,7 @@ mod tests {
         let state = WteState {
             plant_count: 2,
             total_waste_consumed_tons: 800.0,
-            total_output_mw: 24.6,
+            total_output_mw: 28.0,
             total_ash_tons: 80.0,
             total_operating_cost: 40000.0,
             total_tipping_revenue: 52000.0,
@@ -434,7 +457,7 @@ mod tests {
         let bytes = state.save_to_bytes().expect("should produce bytes");
         let loaded = WteState::load_from_bytes(&bytes);
         assert_eq!(loaded.plant_count, 2);
-        assert!((loaded.total_output_mw - 24.6).abs() < 0.1);
+        assert!((loaded.total_output_mw - 28.0).abs() < 0.1);
         assert!((loaded.total_waste_consumed_tons - 800.0).abs() < f32::EPSILON);
         assert!((loaded.total_ash_tons - 80.0).abs() < f32::EPSILON);
         assert!(loaded.scrubbers_installed);
