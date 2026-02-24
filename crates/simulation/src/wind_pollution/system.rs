@@ -31,6 +31,9 @@ const COAL_Q: f32 = 100.0;
 /// Emission rate for gas power plants.
 const GAS_Q: f32 = 35.0;
 
+/// Emission rate for waste-to-energy plants (with scrubbers).
+const WTE_Q: f32 = 20.0;
+
 /// Scrubber emission reduction factor (50% reduction).
 const SCRUBBER_REDUCTION: f32 = 0.5;
 
@@ -104,6 +107,7 @@ fn collect_sources(
         let base_q = match plant.plant_type {
             PowerPlantType::Coal => COAL_Q,
             PowerPlantType::NaturalGas => GAS_Q,
+            PowerPlantType::WasteToEnergy => WTE_Q,
             _ => 0.0,
         };
         if base_q > 0.0 {
