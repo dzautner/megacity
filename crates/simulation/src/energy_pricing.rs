@@ -23,7 +23,6 @@ use crate::{decode_or_warn, Saveable, SaveableRegistry, SimulationSet, TickCount
 const PRICING_INTERVAL: u64 = 4;
 
 /// Hours per month for converting between energy units.
-const HOURS_PER_MONTH: f32 = 720.0;
 
 // ---------------------------------------------------------------------------
 // Time-of-use period
