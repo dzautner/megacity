@@ -229,4 +229,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Environmental Score aggregate metric (POLL-021)
     app.add_plugins(environmental_score::EnvironmentalScorePlugin);
+
+    // Time-of-Use Electricity Pricing (POWER-010)
+    app.add_plugins(energy_pricing::EnergyPricingPlugin);
 }

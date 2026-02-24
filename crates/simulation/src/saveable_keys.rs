@@ -1,7 +1,5 @@
 use bevy::prelude::*;
-
 use crate::SaveableRegistry;
-
 /// Exhaustive list of every `SAVE_KEY` that types implementing `Saveable` declare
 /// across the codebase. The `validate_saveable_registry` startup system asserts
 /// that each of these keys is present in the `SaveableRegistry`, catching the
@@ -36,7 +34,9 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "district_map",
     "education_pipeline",
     "energy_dispatch",
+    "energy_economics",
     "energy_grid",
+    "energy_pricing_config",
     "event_journal",
     "far_transfer",
     "fire_grid",
@@ -109,7 +109,6 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "wind_power",
     "environmental_score",
 ];
-
 /// Startup system that validates the `SaveableRegistry` against the expected key
 /// list. Panics if any expected key is missing (indicating a `Saveable` type whose
 /// plugin forgot to register it) or if duplicate keys are detected.
@@ -118,7 +117,6 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
 pub fn validate_saveable_registry(registry: Res<SaveableRegistry>) {
     let registered: std::collections::HashSet<&str> =
         registry.entries.iter().map(|e| e.key.as_str()).collect();
-
     // Check for duplicate keys.
     if registered.len() != registry.entries.len() {
         let mut seen = std::collections::HashSet::new();
@@ -131,7 +129,6 @@ pub fn validate_saveable_registry(registry: Res<SaveableRegistry>) {
             }
         }
     }
-
     // Check for missing registrations.
     let mut missing = Vec::new();
     for &expected in EXPECTED_SAVEABLE_KEYS {
@@ -139,7 +136,6 @@ pub fn validate_saveable_registry(registry: Res<SaveableRegistry>) {
             missing.push(expected);
         }
     }
-
     if !missing.is_empty() {
         panic!(
             "SaveableRegistry drift detected: {} expected key(s) not registered: {:?}. \
@@ -149,7 +145,6 @@ pub fn validate_saveable_registry(registry: Res<SaveableRegistry>) {
             missing,
         );
     }
-
     info!(
         "SaveableRegistry validated: {} keys registered, all {} expected keys present",
         registry.entries.len(),
