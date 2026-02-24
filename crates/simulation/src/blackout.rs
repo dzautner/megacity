@@ -252,11 +252,10 @@ pub fn evaluate_blackout(
 
     // Shed in reverse priority order: Low (0) first, then Normal (1),
     // then High (2), then Critical (3).
-    for tier in 0..4 {
+    for (tier, tier_cells) in cells_by_tier.iter().enumerate() {
         if remaining_to_shed == 0 {
             break;
         }
-        let tier_cells = &cells_by_tier[tier];
         if tier_cells.is_empty() {
             continue;
         }
