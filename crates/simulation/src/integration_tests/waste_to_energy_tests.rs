@@ -3,7 +3,6 @@
 use crate::buildings::Building;
 use crate::coal_power::{PowerPlant, PowerPlantType};
 use crate::energy_demand::{EnergyConsumer, EnergyGrid, LoadPriority};
-use crate::garbage::WasteSystem;
 use crate::grid::ZoneType;
 use crate::test_harness::TestCity;
 use crate::waste_composition::WasteComposition;
