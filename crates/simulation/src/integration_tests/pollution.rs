@@ -181,16 +181,22 @@ fn test_pollution_roads_add_base_pollution() {
         // Disable wind so drift does not shift road pollution away
         let world = city.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
+        // Inject traffic so road emissions are visible (POLL-002: traffic-scaled)
+        let mut traffic = world.resource_mut::<crate::traffic::TrafficGrid>();
+        for x in 100..=120 {
+            traffic.set(x, 128, 20); // fully congested
+        }
     }
 
     city.tick_slow_cycle();
 
     let grid = city.resource::<PollutionGrid>();
-    // Roads add +2 pollution. Check a cell along the road.
+    // POLL-002: Roads emit traffic-scaled pollution.
+    // At full congestion: Q = 2.0 * (0.2 + 0.8*1.0) = 2.0
     let road_pollution = grid.get(110, 128);
     assert!(
         road_pollution >= 2,
-        "road cells should have at least 2 pollution, got {}",
+        "congested road cells should have at least 2 pollution, got {}",
         road_pollution
     );
 }
@@ -390,11 +396,11 @@ fn test_pollution_recalculated_each_slow_tick() {
 }
 
 // ====================================================================
-// Residential/commercial buildings do NOT generate pollution
+// Residential/commercial buildings generate very low pollution (POLL-002)
 // ====================================================================
 
 #[test]
-fn test_pollution_residential_does_not_generate_pollution() {
+fn test_pollution_residential_generates_very_low_pollution() {
     let mut city = TestCity::new().with_building(128, 128, ZoneType::ResidentialLow, 1);
     {
         // Set wind to zero to avoid any drift effects
@@ -406,15 +412,16 @@ fn test_pollution_residential_does_not_generate_pollution() {
 
     let grid = city.resource::<PollutionGrid>();
     let at_building = grid.get(128, 128);
-    assert_eq!(
-        at_building, 0,
-        "residential building should not generate pollution, got {}",
+    // POLL-002: Residential heating emits Q=1 -- very low but non-zero
+    assert!(
+        at_building <= 2,
+        "residential building should generate very low pollution, got {}",
         at_building
     );
 }
 
 #[test]
-fn test_pollution_commercial_does_not_generate_pollution() {
+fn test_pollution_commercial_generates_low_pollution() {
     let mut city = TestCity::new().with_building(128, 128, ZoneType::CommercialLow, 1);
     {
         let world = city.world_mut();
@@ -425,9 +432,10 @@ fn test_pollution_commercial_does_not_generate_pollution() {
 
     let grid = city.resource::<PollutionGrid>();
     let at_building = grid.get(128, 128);
-    assert_eq!(
-        at_building, 0,
-        "commercial building should not generate pollution, got {}",
+    // POLL-002: Commercial emits Q=1 -- low but non-zero
+    assert!(
+        at_building <= 2,
+        "commercial building should generate low pollution, got {}",
         at_building
     );
 }

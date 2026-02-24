@@ -2,12 +2,16 @@
 
 use bevy::prelude::*;
 
+use crate::building_emissions::{
+    building_emission_profile, category_multiplier, road_emission_q, service_emission_profile,
+};
 use crate::buildings::Building;
 use crate::coal_power::{PowerPlant, PowerPlantType};
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-use crate::grid::{CellType, WorldGrid, ZoneType};
+use crate::grid::{CellType, WorldGrid};
 use crate::pollution::PollutionGrid;
 use crate::services::ServiceBuilding;
+use crate::traffic::TrafficGrid;
 use crate::wind::WindState;
 use crate::SlowTickTimer;
 
@@ -21,20 +25,11 @@ use super::dispersion::{apply_isotropic_source, apply_plume_source, PollutionSou
 /// Minimum wind speed below which we fall back to isotropic dispersion.
 const CALM_WIND_THRESHOLD: f32 = 0.1;
 
-/// Base emission rate for industrial buildings (scales with level).
-const INDUSTRIAL_BASE_Q: f32 = 8.0;
-
-/// Per-level additional emission for industrial buildings.
-const INDUSTRIAL_LEVEL_Q: f32 = 4.0;
-
 /// Emission rate for coal power plants.
 const COAL_Q: f32 = 100.0;
 
 /// Emission rate for gas power plants.
 const GAS_Q: f32 = 35.0;
-
-/// Emission rate for road cells (traffic).
-const ROAD_Q: f32 = 2.0;
 
 /// Scrubber emission reduction factor (50% reduction).
 const SCRUBBER_REDUCTION: f32 = 0.5;
@@ -49,35 +44,40 @@ const PARK_RADIUS: i32 = 6;
 // Source collection
 // =============================================================================
 
-/// Collects all pollution sources from the world.
+/// Collects all pollution sources from the world, using per-building-type
+/// emission profiles from `building_emissions`.
+#[allow(clippy::too_many_arguments)]
 fn collect_sources(
     grid: &WorldGrid,
     buildings: &Query<&Building>,
     power_plants: &Query<&PowerPlant>,
-    policy_mult: f32,
+    services: &Query<&ServiceBuilding>,
+    traffic: &TrafficGrid,
+    policies: &crate::policies::Policies,
     scrubber_mult: f32,
 ) -> Vec<PollutionSource> {
     let mut sources = Vec::new();
 
-    // Roads add low-level traffic pollution
+    // Roads: traffic-scaled emissions (POLL-002)
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {
             if grid.get(x, y).cell_type == CellType::Road {
+                let congestion = traffic.congestion_level(x, y);
+                let q = road_emission_q(congestion) * scrubber_mult;
                 sources.push(PollutionSource {
                     x,
                     y,
-                    emission_q: ROAD_Q * policy_mult * scrubber_mult,
+                    emission_q: q,
                 });
             }
         }
     }
 
-    // Industrial buildings
+    // Zoned buildings: per-type emission profiles (POLL-002)
     for building in buildings {
-        if building.zone_type == ZoneType::Industrial {
-            let q = (INDUSTRIAL_BASE_Q + building.level as f32 * INDUSTRIAL_LEVEL_Q)
-                * policy_mult
-                * scrubber_mult;
+        if let Some(profile) = building_emission_profile(building.zone_type, building.level) {
+            let cat_mult = category_multiplier(profile.category, policies);
+            let q = profile.base_q * cat_mult * scrubber_mult;
             sources.push(PollutionSource {
                 x: building.grid_x,
                 y: building.grid_y,
@@ -86,7 +86,20 @@ fn collect_sources(
         }
     }
 
-    // Power plants
+    // Service buildings: combustion-related services (POLL-002)
+    for service in services {
+        if let Some(profile) = service_emission_profile(service.service_type) {
+            let cat_mult = category_multiplier(profile.category, policies);
+            let q = profile.base_q * cat_mult * scrubber_mult;
+            sources.push(PollutionSource {
+                x: service.grid_x,
+                y: service.grid_y,
+                emission_q: q,
+            });
+        }
+    }
+
+    // Power plants (coal, gas — solar/wind have Q=0)
     for plant in power_plants {
         let base_q = match plant.plant_type {
             PowerPlantType::Coal => COAL_Q,
@@ -94,6 +107,7 @@ fn collect_sources(
             _ => 0.0,
         };
         if base_q > 0.0 {
+            let policy_mult = policies.pollution_multiplier();
             sources.push(PollutionSource {
                 x: plant.grid_x,
                 y: plant.grid_y,
@@ -113,7 +127,7 @@ fn collect_sources(
 ///
 /// Replaces the old isotropic diffusion. Each tick:
 /// 1. Clear the pollution grid
-/// 2. Collect all pollution sources (industrial, power plants, roads)
+/// 2. Collect all pollution sources (buildings, services, power plants, roads)
 /// 3. For each source, apply Gaussian plume dispersion in the wind direction
 /// 4. Apply park reduction
 /// 5. Clamp values to u8 range
@@ -128,6 +142,7 @@ pub fn update_pollution_gaussian_plume(
     policies: Res<crate::policies::Policies>,
     wind: Res<WindState>,
     config: Res<WindPollutionConfig>,
+    traffic: Res<TrafficGrid>,
 ) {
     if !slow_timer.should_run() {
         return;
@@ -137,15 +152,22 @@ pub fn update_pollution_gaussian_plume(
     pollution.levels.fill(0);
 
     // Compute multipliers
-    let policy_mult = policies.pollution_multiplier();
     let scrubber_mult = if config.scrubbers_enabled {
         SCRUBBER_REDUCTION
     } else {
         1.0
     };
 
-    // Collect sources
-    let sources = collect_sources(&grid, &buildings, &power_plants, policy_mult, scrubber_mult);
+    // Collect sources (POLL-002: per-building-type profiles)
+    let sources = collect_sources(
+        &grid,
+        &buildings,
+        &power_plants,
+        &services,
+        &traffic,
+        &policies,
+        scrubber_mult,
+    );
 
     // Floating-point accumulator for precision
     let total_cells = GRID_WIDTH * GRID_HEIGHT;
@@ -173,10 +195,7 @@ pub fn update_pollution_gaussian_plume(
 }
 
 /// Applies park pollution reduction around park service buildings.
-fn apply_park_reduction(
-    pollution: &mut PollutionGrid,
-    services: &Query<&ServiceBuilding>,
-) {
+fn apply_park_reduction(pollution: &mut PollutionGrid, services: &Query<&ServiceBuilding>) {
     for service in services {
         if ServiceBuilding::is_park(service.service_type) {
             let radius = PARK_RADIUS;
