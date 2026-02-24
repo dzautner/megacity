@@ -1,3 +1,4 @@
+pub(crate) mod save;
 pub(crate) mod systems;
 #[cfg(test)]
 mod tests;
@@ -21,5 +22,11 @@ impl Plugin for AchievementsPlugin {
                     .after(crate::specialization::compute_specializations)
                     .in_set(crate::SimulationSet::PostSim),
             );
+
+        // Register AchievementTracker for save/load via the SaveableRegistry.
+        app.init_resource::<crate::SaveableRegistry>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<AchievementTracker>();
     }
 }
