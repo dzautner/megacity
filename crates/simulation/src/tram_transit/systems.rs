@@ -400,6 +400,8 @@ impl Plugin for TramTransitPlugin {
                 FixedUpdate,
                 (update_tram_lines, update_tram_costs, tram_depot_coverage)
                     .chain()
+                    // Order-independent from other plugins: internally chained,
+                    // only writes TramTransitState and TramTransitStats (private resources).
                     .in_set(crate::SimulationSet::Simulation),
             );
 

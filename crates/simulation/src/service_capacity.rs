@@ -367,6 +367,9 @@ impl Plugin for ServiceCapacityPlugin {
                 update_capacity_stats,
             )
                 .chain()
+                // Order-independent from other plugins: internally chained,
+                // only writes ServiceCapacity components and ServiceCapacityStats
+                // (private resources); no shared grid writes.
                 .in_set(crate::SimulationSet::Simulation),
         );
     }

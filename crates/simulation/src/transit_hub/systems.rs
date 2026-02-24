@@ -192,10 +192,14 @@ impl Plugin for TransitHubPlugin {
             .add_systems(
                 FixedUpdate,
                 (
+                    // Order-independent: only writes TransitHubs (private resource).
                     update_transit_hubs,
+                    // Writes LandValueGrid; must run after base land value is computed.
                     transit_hub_land_value.after(crate::land_value::update_land_value),
+                    // Reads TransitHubs written by update_transit_hubs; ordered after it.
                     update_hub_stats.after(update_transit_hubs),
-                ),
+                )
+                    .in_set(crate::SimulationSet::Simulation),
             );
 
         // Register for save/load via the SaveableRegistry.

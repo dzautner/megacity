@@ -5,6 +5,14 @@
 //! appropriate set so that inter-plugin ordering is explicit and testable rather
 //! than relying on implicit timing assumptions.
 //!
+//! # Ordering rules (TEST-022 audit)
+//!
+//! Every system in `FixedUpdate` MUST be in one of these sets.  Systems that
+//! write to a shared grid resource (e.g. `LandValueGrid`, `TrafficGrid`,
+//! `PollutionGrid`, `NoisePollutionGrid`, `EnergyGrid`) MUST have an explicit
+//! `.after()` on the primary system that computes that grid.  Systems that only
+//! write to their own private resource are documented as order-independent.
+//!
 //! # FixedUpdate phases (`SimulationSet`)
 //!
 //! ```text

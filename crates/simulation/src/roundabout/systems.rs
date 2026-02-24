@@ -124,8 +124,20 @@ pub struct RoundaboutPlugin;
 impl Plugin for RoundaboutPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RoundaboutRegistry>()
-            .add_systems(FixedUpdate, update_roundabout_traffic)
-            .add_systems(FixedUpdate, roundabout_efficiency);
+            .add_systems(
+                FixedUpdate,
+                (
+                    // Reads TrafficGrid and writes CsrGraph weights; must run after
+                    // traffic density is computed.
+                    update_roundabout_traffic
+                        .after(crate::traffic::update_traffic_density),
+                    // Reads TrafficGrid for throughput stats; order-independent from
+                    // update_roundabout_traffic (disjoint writes: CsrGraph vs RoundaboutRegistry.stats).
+                    roundabout_efficiency
+                        .after(crate::traffic::update_traffic_density),
+                )
+                    .in_set(crate::SimulationSet::Simulation),
+            );
 
         // Register for save/load via the SaveableRegistry.
         app.init_resource::<crate::SaveableRegistry>();

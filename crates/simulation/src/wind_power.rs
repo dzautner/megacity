@@ -228,9 +228,19 @@ impl Plugin for WindPowerPlugin {
         app.init_resource::<WindPowerState>().add_systems(
             FixedUpdate,
             (
+                // Order-independent: only attaches components to new entities.
                 attach_wind_power_plants,
-                aggregate_wind_power.after(attach_wind_power_plants),
-                wind_turbine_noise.after(aggregate_wind_power),
+                // Writes EnergyGrid (supply); must run after dispatch_energy
+                // which allocates load to plants, and after attach to ensure
+                // new plants are included.
+                aggregate_wind_power
+                    .after(attach_wind_power_plants)
+                    .after(crate::energy_dispatch::dispatch_energy),
+                // Writes NoisePollutionGrid; must run after the primary noise
+                // system and after aggregate_wind_power (reads plant output).
+                wind_turbine_noise
+                    .after(aggregate_wind_power)
+                    .after(crate::noise::update_noise_pollution),
             )
                 .after(crate::wind::update_wind)
                 .in_set(crate::SimulationSet::Simulation),

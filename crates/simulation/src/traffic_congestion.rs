@@ -113,7 +113,11 @@ impl Plugin for TrafficCongestionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TrafficCongestion>().add_systems(
             FixedUpdate,
-            update_congestion_multipliers.after(crate::traffic::update_traffic_density),
+            // Reads TrafficGrid; must run after traffic density is computed.
+            // Only writes TrafficCongestion (private resource).
+            update_congestion_multipliers
+                .after(crate::traffic::update_traffic_density)
+                .in_set(crate::SimulationSet::Simulation),
         );
     }
 }

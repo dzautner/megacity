@@ -243,6 +243,8 @@ impl Plugin for EnvironmentalScorePlugin {
 
         app.add_systems(
             FixedUpdate,
+            // Order-independent: reads pollution/noise/tree grids and writes
+            // EnvironmentalScore (private resource); no shared mutable state.
             update_environmental_score.in_set(SimulationSet::PostSim),
         );
     }

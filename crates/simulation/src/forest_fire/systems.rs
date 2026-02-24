@@ -265,8 +265,11 @@ impl Plugin for ForestFirePlugin {
             .init_resource::<ForestFireStats>()
             .add_systems(
                 FixedUpdate,
+                // Writes LandValueGrid, TreeGrid, FireGrid; must run after
+                // fire_damage and after base land value is computed.
                 update_forest_fire
                     .after(crate::fire::fire_damage)
+                    .after(crate::land_value::update_land_value)
                     .in_set(crate::SimulationSet::Simulation),
             );
     }

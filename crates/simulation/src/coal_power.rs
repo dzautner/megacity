@@ -175,8 +175,11 @@ impl Plugin for CoalPowerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CoalPowerState>().add_systems(
             FixedUpdate,
+            // Writes EnergyGrid (supply) and CoalPowerState; must run after
+            // dispatch_energy which allocates load to plants (sets current_output_mw).
             aggregate_coal_power
                 .after(crate::wind_pollution::update_pollution_gaussian_plume)
+                .after(crate::energy_dispatch::dispatch_energy)
                 .in_set(crate::SimulationSet::Simulation),
         );
 

@@ -145,8 +145,11 @@ impl Plugin for GasPowerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GasPowerState>().add_systems(
             FixedUpdate,
+            // Writes EnergyGrid (supply) and GasPowerState; must run after
+            // dispatch_energy which allocates load to plants (sets current_output_mw).
             aggregate_gas_power
                 .after(crate::wind_pollution::update_pollution_gaussian_plume)
+                .after(crate::energy_dispatch::dispatch_energy)
                 .in_set(crate::SimulationSet::Simulation),
         );
 

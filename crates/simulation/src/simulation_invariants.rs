@@ -137,6 +137,8 @@ impl Plugin for SimulationInvariantsPlugin {
                 validate_marriage_reciprocity,
                 validate_employment_consistency,
             )
+                // Order-independent: read-only validation systems that write only
+                // InvariantViolations (private resource); no shared mutable state.
                 .in_set(crate::SimulationSet::PostSim),
         );
     }

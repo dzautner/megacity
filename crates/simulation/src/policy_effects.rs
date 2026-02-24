@@ -95,6 +95,8 @@ impl Plugin for PolicyTradeoffsPlugin {
         app.init_resource::<PolicyTradeoffEffects>()
             .add_systems(
                 FixedUpdate,
+                // Order-independent: only reads Policies and writes PolicyTradeoffEffects
+                // (private resource); no shared mutable state.
                 update_policy_tradeoff_effects.in_set(crate::SimulationSet::Simulation),
             );
 
