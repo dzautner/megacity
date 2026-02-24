@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::reset_commuting_on_load::PostLoadResetPending;
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
@@ -67,12 +68,15 @@ pub(crate) fn exclusive_load(world: &mut World) {
     registry.load_all(world, &save.extensions);
     world.insert_resource(registry);
 
+    // -- Stage 6: Signal post-load reset for commuting citizens (SAVE-008) --
+    world.insert_resource(PostLoadResetPending);
+
     #[cfg(not(target_arch = "wasm32"))]
     println!("Loaded save from {}", crate::save_plugin::save_file_path());
     #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&"Loaded save from IndexedDB".into());
 
-    // -- Stage 6: Transition back to Idle --
+    // -- Stage 7: Transition back to Idle --
     world
         .resource_mut::<NextState<SaveLoadState>>()
         .set(SaveLoadState::Idle);
