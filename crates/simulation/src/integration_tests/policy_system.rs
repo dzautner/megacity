@@ -416,7 +416,7 @@ fn test_policy_happiness_bonus_stacks_correctly() {
 #[test]
 fn test_policy_all_returns_all_variants() {
     let all = Policy::all();
-    assert_eq!(all.len(), 18, "Policy::all() should return all 18 policies");
+    assert_eq!(all.len(), 29, "Policy::all() should return all 29 policies");
     // Verify a few known policies exist
     assert!(
         all.contains(&Policy::FreePublicTransport),
