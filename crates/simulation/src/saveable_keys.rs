@@ -107,6 +107,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "water_quality_grid",
     "wind_pollution_config",
     "wind_power",
+    "environmental_score",
 ];
 
 /// Startup system that validates the `SaveableRegistry` against the expected key

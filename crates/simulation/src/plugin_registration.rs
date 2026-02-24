@@ -226,4 +226,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Autosave with configurable interval (SAVE-002)
     app.add_plugins(autosave::AutosavePlugin);
+
+    // Environmental Score aggregate metric (POLL-021)
+    app.add_plugins(environmental_score::EnvironmentalScorePlugin);
 }

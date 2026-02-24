@@ -24,7 +24,7 @@ mod tests {
 
     #[test]
     fn test_all_achievements_count() {
-        assert_eq!(Achievement::total_count(), 19);
+        assert_eq!(Achievement::total_count(), 21);
     }
 
     #[test]
