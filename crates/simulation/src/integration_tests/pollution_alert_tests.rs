@@ -7,7 +7,7 @@
 
 use crate::coal_power::PowerPlant;
 use crate::grid::{RoadType, ZoneType};
-use crate::services::ServiceType;
+
 use crate::groundwater::WaterQualityGrid;
 use crate::pollution_alerts::{
     AlertSeverity, ExceedanceTracker, PollutionAlertLog, PollutionAlertType,
