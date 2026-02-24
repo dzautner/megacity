@@ -108,6 +108,8 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "transit_hub_stats",
     "transit_hubs",
     "tree_grid",
+    "tree_maturity",
+    "tree_canopy_stats",
     "tutorial",
     "uhi_mitigation",
     "virtual_population",
