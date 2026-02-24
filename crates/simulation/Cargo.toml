@@ -45,3 +45,8 @@ harness = false
 [[bench]]
 name = "traffic_bench"
 harness = false
+
+[[bench]]
+name = "full_tick_bench"
+harness = false
+required-features = ["bench"]
