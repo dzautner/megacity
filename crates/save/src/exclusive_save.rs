@@ -4,6 +4,8 @@ use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
 use crate::save_error::SaveError;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::save_plugin::PendingSavePath;
 use crate::save_stages::{
     assemble_save_data, collect_disaster_stage, collect_economy_stage, collect_entity_stage,
     collect_environment_stage, collect_grid_stage, collect_policy_stage,
@@ -166,7 +168,12 @@ fn exclusive_save_inner(world: &mut World) -> Result<(), SaveError> {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let path = crate::save_plugin::save_file_path();
+        // Use the override path if set, otherwise fall back to default.
+        let path = world
+            .resource_mut::<PendingSavePath>()
+            .0
+            .take()
+            .unwrap_or_else(crate::save_plugin::save_file_path);
         crate::atomic_write::atomic_write(&path, &bytes)?;
         info!("Saved {} bytes to {}", bytes.len(), path);
     }

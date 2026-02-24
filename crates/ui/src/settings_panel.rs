@@ -1,7 +1,7 @@
 //! Settings panel UI (UX-039 Colorblind Accessibility).
 //!
 //! Provides an egui window with colorblind mode selection and other
-//! accessibility settings. Toggled via the F9 key.
+//! accessibility settings. Toggled via the F10 key.
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
@@ -22,7 +22,7 @@ pub struct SettingsPanelVisible(pub bool);
 // Systems
 // =============================================================================
 
-/// Toggles the settings panel with F9.
+/// Toggles the settings panel with F10.
 pub fn settings_panel_keybind(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut visible: ResMut<SettingsPanelVisible>,
