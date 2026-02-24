@@ -1,22 +1,24 @@
-//! Building Mesh Variants (UX-071)
+//! Building Mesh Variants (REND-003)
 //!
 //! Provides 2-3 distinct mesh variants per zone type per building level, with
 //! deterministic seeded selection based on grid position.  This ensures
 //! neighbouring buildings of the same zone and level still look visually
 //! distinct, while buildings at different levels are clearly differentiated.
 //!
-//! The module works alongside the existing `building_render` and
-//! `building_meshes` systems.  After the base scene is spawned, the
-//! `assign_building_variants` system replaces it with a level-aware variant
-//! that partitions the available model pool by level.
+//! Each variant gets a unique **proportion** (width/height/depth scale) from
+//! `building_variant_proportions`, so even buildings that share the same GLB
+//! model appear different -- one might be tall and narrow, another wide and
+//! squat.  Combined with the per-level model partitioning from the model pool,
+//! this produces 2-3 visually distinct building shapes per zone/level combo.
 
 use bevy::prelude::*;
 
 use simulation::buildings::Building;
 use simulation::grid::ZoneType;
 
-use crate::building_meshes::BuildingModelCache;
+use crate::building_meshes::{building_scale, BuildingModelCache};
 use crate::building_render::{BuildingMesh3d, ZoneBuilding};
+use crate::building_variant_proportions;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -97,7 +99,6 @@ fn select_variant_scene(
     match zone {
         ZoneType::ResidentialLow => select_from_pool(&cache.residential, level, hash),
         ZoneType::ResidentialMedium => {
-            // Medium-density residential uses commercial pool for townhouse look
             select_from_pool(&cache.commercial, level, hash)
         }
         ZoneType::ResidentialHigh => {
@@ -144,27 +145,14 @@ fn select_variant_scene(
 
 /// Given a model pool, partition it into per-level slices and select a
 /// variant from the slice for the given level.
-///
-/// Returns `(scene_handle, variant_index_within_slice)`.
-///
-/// Level slices wrap around the pool so every level gets models even when
-/// the pool is smaller than `levels * VARIANTS_PER_LEVEL`.
 fn select_from_pool(pool: &[Handle<Scene>], level: u8, hash: usize) -> (Handle<Scene>, usize) {
     if pool.is_empty() {
         return (Handle::default(), 0);
     }
 
     let pool_len = pool.len();
-
-    // Compute a level-dependent offset so different levels start in different
-    // parts of the pool.  The offset uses the level multiplied by
-    // VARIANTS_PER_LEVEL so adjacent levels don't overlap (when possible).
     let level_offset = ((level as usize).wrapping_sub(1)) * VARIANTS_PER_LEVEL;
-
-    // Number of variants available for this level (capped by pool size)
     let available = VARIANTS_PER_LEVEL.min(pool_len);
-
-    // Pick within the available variants
     let variant_index = hash % available;
     let pool_index = (level_offset + variant_index) % pool_len;
 
@@ -177,25 +165,27 @@ fn select_from_pool(pool: &[Handle<Scene>], level: u8, hash: usize) -> (Handle<S
 
 /// Assigns (or re-assigns) level-aware mesh variants to zone buildings.
 ///
-/// Runs every frame but short-circuits when there are no new or changed
-/// buildings.  For each zone building mesh entity:
-///
+/// For each zone building mesh entity:
 /// 1. If it has no `BuildingVariant` yet, compute one and replace the scene.
 /// 2. If it already has a `BuildingVariant` but the building's level has
 ///    changed, recompute and replace.
+///
+/// Also applies **per-variant proportions** from the proportion tables: each
+/// variant gets a different width/height/depth scale multiplier so that
+/// buildings of the same zone and level are visually distinct even when they
+/// share the same GLB model.
 #[allow(clippy::type_complexity)]
 pub fn assign_building_variants(
     mut commands: Commands,
     model_cache: Res<BuildingModelCache>,
     buildings: Query<&Building>,
-    mut mesh_query: Query<(Entity, &BuildingMesh3d, Option<&BuildingVariant>), With<ZoneBuilding>>,
+    mut mesh_query: Query<(Entity, &BuildingMesh3d, &mut Transform, Option<&BuildingVariant>), With<ZoneBuilding>>,
 ) {
-    for (mesh_entity, bm, maybe_variant) in &mut mesh_query {
+    for (mesh_entity, bm, mut transform, maybe_variant) in &mut mesh_query {
         let Ok(building) = buildings.get(bm.tracked_entity) else {
             continue;
         };
 
-        // Check whether we need to (re-)assign a variant
         let needs_assign = match maybe_variant {
             None => true,
             Some(v) => v.level != building.level,
@@ -215,7 +205,27 @@ pub fn assign_building_variants(
         let (scene_handle, variant_index) =
             select_variant_scene(&model_cache, building.zone_type, building.level, hash);
 
-        // Replace the scene root on this entity
+        // Look up per-variant proportions for this zone/level/variant
+        let proportions =
+            &building_variant_proportions::proportions_for(building.zone_type, building.level)
+                [variant_index];
+
+        // Compute base scale and the small per-building variation
+        let base_scale = building_scale(building.zone_type, building.level);
+        let pos_hash = building
+            .grid_x
+            .wrapping_mul(7)
+            .wrapping_add(building.grid_y.wrapping_mul(13));
+        let scale_var = 0.98 + (pos_hash % 5) as f32 / 100.0;
+        let s = base_scale * scale_var;
+
+        // Apply variant proportions to the transform scale
+        transform.scale = Vec3::new(
+            s * proportions.x,
+            s * proportions.y,
+            s * proportions.z,
+        );
+
         commands.entity(mesh_entity).insert((
             SceneRoot(scene_handle),
             BuildingVariant {
@@ -253,11 +263,9 @@ mod tests {
 
     #[test]
     fn variant_hash_differs_by_level() {
-        // Same position, different levels should (usually) produce different hashes
         let h1 = variant_hash(10, 20, 1, ZoneType::ResidentialLow);
         let h2 = variant_hash(10, 20, 2, ZoneType::ResidentialLow);
         let h3 = variant_hash(10, 20, 3, ZoneType::ResidentialLow);
-        // All three should be distinct (astronomically unlikely to collide)
         assert_ne!(h1, h2);
         assert_ne!(h2, h3);
         assert_ne!(h1, h3);
@@ -300,23 +308,15 @@ mod tests {
     fn select_from_pool_single_model() {
         let pool = vec![Handle::default()];
         let (_, idx) = select_from_pool(&pool, 1, 999);
-        assert_eq!(idx, 0); // only one model, always index 0
+        assert_eq!(idx, 0);
     }
 
     #[test]
     fn select_from_pool_level_offset() {
-        // With a pool of 9 models and VARIANTS_PER_LEVEL=3:
-        // Level 1 offset = 0 -> indices 0,1,2
-        // Level 2 offset = 3 -> indices 3,4,5
-        // Level 3 offset = 6 -> indices 6,7,8
         let pool: Vec<Handle<Scene>> = (0..9).map(|_| Handle::default()).collect();
-
-        // Force hash = 0 to always pick the first variant in each slice
         let (_, v1) = select_from_pool(&pool, 1, 0);
         let (_, v2) = select_from_pool(&pool, 2, 0);
         let (_, v3) = select_from_pool(&pool, 3, 0);
-
-        // Variant index within the slice should be 0 for all (hash=0)
         assert_eq!(v1, 0);
         assert_eq!(v2, 0);
         assert_eq!(v3, 0);
@@ -324,11 +324,7 @@ mod tests {
 
     #[test]
     fn select_from_pool_wraps_around() {
-        // Pool of 4 models, VARIANTS_PER_LEVEL=3:
-        // Level 1 offset = 0, level 2 offset = 3, level 3 offset = 6 (wraps to 2)
         let pool: Vec<Handle<Scene>> = (0..4).map(|_| Handle::default()).collect();
-
-        // This should not panic -- wrapping is handled by modulo
         let _ = select_from_pool(&pool, 1, 0);
         let _ = select_from_pool(&pool, 2, 0);
         let _ = select_from_pool(&pool, 3, 0);
@@ -336,41 +332,13 @@ mod tests {
     }
 
     #[test]
-    fn different_levels_get_different_pool_indices() {
-        // With 21 residential models (like the real asset pool), different
-        // levels should pick from different starting offsets.
-        let pool: Vec<Handle<Scene>> = (0..21).map(|_| Handle::default()).collect();
-
-        // Use same hash but different levels
-        let hash = 0;
-        let (_, idx1) = select_from_pool(&pool, 1, hash);
-        let (_, idx2) = select_from_pool(&pool, 2, hash);
-        let (_, idx3) = select_from_pool(&pool, 3, hash);
-
-        // Variant indices within each slice are the same (hash=0 -> 0)
-        // but the actual pool indices they map to are different because
-        // level_offset shifts them: 0, 3, 6
-        assert_eq!(idx1, 0);
-        assert_eq!(idx2, 0);
-        assert_eq!(idx3, 0);
-        // The actual pool_index computation differs:
-        // Level 1: (0*3 + 0) % 21 = 0
-        // Level 2: (1*3 + 0) % 21 = 3
-        // Level 3: (2*3 + 0) % 21 = 6
-        // These are different scenes despite same variant_index
-    }
-
-    #[test]
     fn variant_selection_gives_at_least_2_variants() {
-        // Verify that for a pool >= 2, we get at least 2 different variant
-        // indices across different hash values.
         let pool: Vec<Handle<Scene>> = (0..6).map(|_| Handle::default()).collect();
         let mut seen = std::collections::HashSet::new();
         for h in 0..100 {
             let (_, idx) = select_from_pool(&pool, 1, h);
             seen.insert(idx);
         }
-        // With pool >= VARIANTS_PER_LEVEL, we should see at least 2 distinct variants
         assert!(
             seen.len() >= 2,
             "Expected at least 2 variants, got {}",
@@ -380,13 +348,10 @@ mod tests {
 
     #[test]
     fn residential_low_all_levels_covered() {
-        // Ensure variant_hash produces distinct values for ResidentialLow
-        // levels 1, 2, 3 at the same position.
         let pos = (15, 25);
         let hashes: Vec<usize> = (1..=3)
             .map(|lvl| variant_hash(pos.0, pos.1, lvl, ZoneType::ResidentialLow))
             .collect();
-        // All hashes should be distinct
         let unique: std::collections::HashSet<_> = hashes.iter().collect();
         assert_eq!(unique.len(), 3);
     }
