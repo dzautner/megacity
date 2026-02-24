@@ -41,6 +41,8 @@ mod tests_life_sim;
 #[cfg(test)]
 mod tests_migration;
 #[cfg(test)]
+mod tests_migration_chain;
+#[cfg(test)]
 mod tests_save_error;
 #[cfg(test)]
 mod tests_savings;

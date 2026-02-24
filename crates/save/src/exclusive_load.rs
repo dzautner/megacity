@@ -9,7 +9,7 @@ use crate::file_header::{unwrap_header, UnwrapResult};
 use crate::restore_resources::restore_resources_from_save;
 use crate::save_error::SaveError;
 use crate::save_plugin::PendingLoadBytes;
-use crate::serialization::{migrate_save, SaveData, CURRENT_SAVE_VERSION};
+use crate::serialization::{migrate_save_with_report, SaveData};
 use crate::spawn_entities::spawn_entities_from_save;
 
 /// Exclusive system that performs the entire load operation with full world
@@ -64,13 +64,16 @@ fn exclusive_load_inner(world: &mut World) -> Result<(), SaveError> {
     // -- Stage 1: Parse and migrate --
     let mut save = SaveData::decode(payload)?;
 
-    let old_version = migrate_save(&mut save)?;
+    let report = migrate_save_with_report(&mut save)?;
 
-    if old_version != CURRENT_SAVE_VERSION {
+    if report.steps_applied > 0 {
         info!(
-            "Migrated save from v{} to v{}",
-            old_version, CURRENT_SAVE_VERSION
+            "Migrated save from v{} to v{} ({} steps applied)",
+            report.original_version, report.final_version, report.steps_applied,
         );
+        for desc in &report.step_descriptions {
+            info!("  - {desc}");
+        }
     }
 
     // -- Stage 2: Despawn existing entities (immediate, not deferred) --
