@@ -12,19 +12,7 @@
 //! leave `.tmp` artifacts).
 
 use bevy::prelude::*;
-use std::path::{Path, PathBuf};
-
-use simulation::autosave::{slot_filename, AUTOSAVE_SLOT_COUNT};
-
-use crate::file_header::{unwrap_header, UnwrapResult};
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-/// The main save file name (mirrors `save_plugin::save_file_path()` without
-/// requiring the cfg-gated import).
-const MAIN_SAVE_FILENAME: &str = "megacity_save.bin";
+use std::path::PathBuf;
 
 // =============================================================================
 // Resources
@@ -45,149 +33,160 @@ pub struct CrashRecoveryState {
 }
 
 // =============================================================================
-// Core Logic (pure functions, easily testable)
+// Native-only: Core Logic (pure functions, easily testable)
 // =============================================================================
 
-/// Returns the list of `.tmp` file paths that exist for known save files.
-///
-/// Checks the main save file and all autosave slots for leftover `.tmp` files.
-pub(crate) fn find_tmp_files() -> Vec<PathBuf> {
-    let mut tmp_files = Vec::new();
+#[cfg(not(target_arch = "wasm32"))]
+mod native {
+    use super::*;
+    use crate::file_header::{unwrap_header, UnwrapResult};
+    use simulation::autosave::{slot_filename, AUTOSAVE_SLOT_COUNT};
+    use std::path::Path;
 
-    // Check main save file .tmp
-    let main_tmp = format!("{}.tmp", MAIN_SAVE_FILENAME);
-    if Path::new(&main_tmp).exists() {
-        tmp_files.push(PathBuf::from(main_tmp));
+    /// The main save file name (mirrors `save_plugin::save_file_path()`).
+    const MAIN_SAVE_FILENAME: &str = "megacity_save.bin";
+
+    /// Returns the list of `.tmp` file paths that exist for known save files.
+    ///
+    /// Checks the main save file and all autosave slots for leftover `.tmp`
+    /// files.
+    pub(crate) fn find_tmp_files() -> Vec<PathBuf> {
+        let mut tmp_files = Vec::new();
+
+        // Check main save file .tmp
+        let main_tmp = format!("{}.tmp", MAIN_SAVE_FILENAME);
+        if Path::new(&main_tmp).exists() {
+            tmp_files.push(PathBuf::from(main_tmp));
+        }
+
+        // Check autosave slot .tmp files
+        for slot in 0..AUTOSAVE_SLOT_COUNT {
+            let slot_tmp = format!("{}.tmp", slot_filename(slot));
+            if Path::new(&slot_tmp).exists() {
+                tmp_files.push(PathBuf::from(slot_tmp));
+            }
+        }
+
+        tmp_files
     }
 
-    // Check autosave slot .tmp files
-    for slot in 0..AUTOSAVE_SLOT_COUNT {
-        let slot_tmp = format!("{}.tmp", slot_filename(slot));
-        if Path::new(&slot_tmp).exists() {
-            tmp_files.push(PathBuf::from(slot_tmp));
+    /// Removes all `.tmp` files from the list, logging each removal.
+    ///
+    /// Returns the number of files successfully removed.
+    pub(crate) fn clean_tmp_files(tmp_files: &[PathBuf]) -> usize {
+        let mut cleaned = 0;
+        for path in tmp_files {
+            match std::fs::remove_file(path) {
+                Ok(()) => {
+                    info!("Crash recovery: cleaned up tmp file: {}", path.display());
+                    cleaned += 1;
+                }
+                Err(e) => {
+                    warn!(
+                        "Crash recovery: failed to remove tmp file {}: {}",
+                        path.display(),
+                        e
+                    );
+                }
+            }
+        }
+        cleaned
+    }
+
+    /// Validates a save file by reading it and checking the file header
+    /// checksum.
+    ///
+    /// Returns `true` if the file exists and has a valid header with matching
+    /// checksum, or is a valid legacy file (no header). Returns `false` if
+    /// the file doesn't exist, can't be read, or has a corrupted/invalid
+    /// header.
+    pub(crate) fn validate_save_file(path: &Path) -> bool {
+        let bytes = match std::fs::read(path) {
+            Ok(b) => b,
+            Err(_) => return false,
+        };
+
+        if bytes.is_empty() {
+            return false;
+        }
+
+        match unwrap_header(&bytes) {
+            Ok(UnwrapResult::WithHeader { .. }) => true,
+            Ok(UnwrapResult::Legacy(_)) => true,
+            Err(_) => false,
         }
     }
 
-    tmp_files
-}
+    /// Validates autosave slots in reverse order (newest first based on slot
+    /// index, with the most recently written slot being `current_slot - 1`).
+    ///
+    /// Returns the path to the first valid autosave, along with the count of
+    /// corrupted slots encountered.
+    pub(crate) fn find_valid_autosave(newest_slot: u8) -> (Option<PathBuf>, usize) {
+        let mut corrupted = 0;
 
-/// Removes all `.tmp` files from the list, logging each removal.
-///
-/// Returns the number of files successfully removed.
-pub(crate) fn clean_tmp_files(tmp_files: &[PathBuf]) -> usize {
-    let mut cleaned = 0;
-    for path in tmp_files {
-        match std::fs::remove_file(path) {
-            Ok(()) => {
-                info!("Crash recovery: cleaned up tmp file: {}", path.display());
-                cleaned += 1;
+        for i in 0..AUTOSAVE_SLOT_COUNT {
+            let slot = (newest_slot + AUTOSAVE_SLOT_COUNT - 1 - i) % AUTOSAVE_SLOT_COUNT;
+            let filename = slot_filename(slot);
+            let path = PathBuf::from(&filename);
+
+            if !path.exists() {
+                continue;
             }
-            Err(e) => {
-                warn!(
-                    "Crash recovery: failed to remove tmp file {}: {}",
-                    path.display(),
-                    e
+
+            if validate_save_file(&path) {
+                info!(
+                    "Crash recovery: found valid autosave at slot {}: {}",
+                    slot + 1,
+                    filename
                 );
+                return (Some(path), corrupted);
             }
-        }
-    }
-    cleaned
-}
 
-/// Validates a save file by reading it and checking the file header checksum.
-///
-/// Returns `true` if the file exists and has a valid header with matching
-/// checksum, or is a valid legacy file (no header). Returns `false` if the
-/// file doesn't exist, can't be read, or has a corrupted/invalid header.
-pub(crate) fn validate_save_file(path: &Path) -> bool {
-    let bytes = match std::fs::read(path) {
-        Ok(b) => b,
-        Err(_) => return false,
-    };
-
-    if bytes.is_empty() {
-        return false;
-    }
-
-    match unwrap_header(&bytes) {
-        Ok(UnwrapResult::WithHeader { .. }) => true,
-        Ok(UnwrapResult::Legacy(_)) => true,
-        Err(_) => false,
-    }
-}
-
-/// Validates autosave slots in reverse order (newest first based on slot
-/// index, with the most recently written slot being `current_slot - 1`).
-///
-/// Returns the path to the first valid autosave, along with the count of
-/// corrupted slots encountered.
-pub(crate) fn find_valid_autosave(newest_slot: u8) -> (Option<PathBuf>, usize) {
-    let mut corrupted = 0;
-
-    // Check slots in reverse write order: the most recently written slot
-    // is (newest_slot - 1) mod SLOT_COUNT, then (newest_slot - 2) mod
-    // SLOT_COUNT, etc.
-    for i in 0..AUTOSAVE_SLOT_COUNT {
-        let slot = (newest_slot + AUTOSAVE_SLOT_COUNT - 1 - i) % AUTOSAVE_SLOT_COUNT;
-        let filename = slot_filename(slot);
-        let path = PathBuf::from(&filename);
-
-        if !path.exists() {
-            continue;
-        }
-
-        if validate_save_file(&path) {
-            info!(
-                "Crash recovery: found valid autosave at slot {}: {}",
+            warn!(
+                "Crash recovery: autosave slot {} is corrupted: {}",
                 slot + 1,
                 filename
             );
-            return (Some(path), corrupted);
+            corrupted += 1;
         }
 
-        warn!(
-            "Crash recovery: autosave slot {} is corrupted: {}",
-            slot + 1,
-            filename
-        );
-        corrupted += 1;
+        (None, corrupted)
     }
 
-    (None, corrupted)
-}
+    /// Performs the full crash recovery scan:
+    /// 1. Finds and cleans `.tmp` files
+    /// 2. If crash artifacts were found, validates autosave slots
+    /// 3. Returns the `CrashRecoveryState`
+    pub(crate) fn perform_crash_recovery_scan(newest_slot: u8) -> CrashRecoveryState {
+        let tmp_files = find_tmp_files();
+        let detected = !tmp_files.is_empty();
+        let tmp_files_cleaned = clean_tmp_files(&tmp_files);
 
-/// Performs the full crash recovery scan:
-/// 1. Finds and cleans `.tmp` files
-/// 2. If crash artifacts were found, validates autosave slots
-/// 3. Returns the `CrashRecoveryState`
-pub(crate) fn perform_crash_recovery_scan(newest_slot: u8) -> CrashRecoveryState {
-    let tmp_files = find_tmp_files();
-    let detected = !tmp_files.is_empty();
-    let tmp_files_cleaned = clean_tmp_files(&tmp_files);
-
-    let (recovery_path, corrupted_slots) = if detected {
-        info!(
-            "Crash recovery: detected {} tmp file(s), scanning autosaves...",
-            tmp_files.len()
-        );
-        find_valid_autosave(newest_slot)
-    } else {
-        (None, 0)
-    };
-
-    if detected {
-        if let Some(ref path) = recovery_path {
-            info!("Crash recovery: recovery available from {}", path.display());
+        let (recovery_path, corrupted_slots) = if detected {
+            info!(
+                "Crash recovery: detected {} tmp file(s), scanning autosaves...",
+                tmp_files.len()
+            );
+            find_valid_autosave(newest_slot)
         } else {
-            warn!("Crash recovery: no valid autosave found for recovery");
-        }
-    }
+            (None, 0)
+        };
 
-    CrashRecoveryState {
-        detected,
-        recovery_path,
-        tmp_files_cleaned,
-        corrupted_slots,
+        if detected {
+            if let Some(ref path) = recovery_path {
+                info!("Crash recovery: recovery available from {}", path.display());
+            } else {
+                warn!("Crash recovery: no valid autosave found for recovery");
+            }
+        }
+
+        CrashRecoveryState {
+            detected,
+            recovery_path,
+            tmp_files_cleaned,
+            corrupted_slots,
+        }
     }
 }
 
@@ -196,17 +195,12 @@ pub(crate) fn perform_crash_recovery_scan(newest_slot: u8) -> CrashRecoveryState
 // =============================================================================
 
 /// Startup system that scans for crash artifacts and validates autosaves.
-///
-/// Reads the `AutosaveConfig` to determine the most recently written slot,
-/// then performs the full crash recovery scan. The resulting
-/// `CrashRecoveryState` is inserted into the world for other systems
-/// (e.g., UI) to query.
 #[cfg(not(target_arch = "wasm32"))]
 fn crash_recovery_startup(
     mut commands: Commands,
     config: Res<simulation::autosave::AutosaveConfig>,
 ) {
-    let state = perform_crash_recovery_scan(config.current_slot);
+    let state = native::perform_crash_recovery_scan(config.current_slot);
     commands.insert_resource(state);
 }
 
@@ -235,6 +229,10 @@ mod tests {
     use super::*;
     use crate::file_header::wrap_with_header;
     use std::fs;
+    use std::path::Path;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    use super::native::*;
 
     /// Creates a unique temp directory for a test.
     fn test_dir(name: &str) -> PathBuf {
@@ -273,8 +271,8 @@ mod tests {
         let data = b"some save data content";
         let mut wrapped = wrap_with_header(data);
         // Corrupt the payload
-        let last = wrapped.len() - 1;
-        wrapped[last] ^= 0xFF;
+        let last_idx = wrapped.len() - 1;
+        wrapped[last_idx] ^= 0xFF;
         fs::write(&path, &wrapped).unwrap();
 
         assert!(!validate_save_file(&path));
@@ -339,7 +337,6 @@ mod tests {
     fn test_find_valid_autosave_with_valid_slots() {
         let dir = test_dir("valid_slots");
 
-        // Create valid autosave files at known paths in a test directory
         let slot0_path = dir.join("megacity_autosave_1.bin");
         let slot1_path = dir.join("megacity_autosave_2.bin");
 
@@ -362,7 +359,8 @@ mod tests {
         let path = dir.join("corrupted.bin");
         let data = b"test save data";
         let mut wrapped = wrap_with_header(data);
-        wrapped[wrapped.len() - 1] ^= 0xFF;
+        let last_idx = wrapped.len() - 1;
+        wrapped[last_idx] ^= 0xFF;
         fs::write(&path, &wrapped).unwrap();
 
         assert!(!validate_save_file(&path));
@@ -372,7 +370,6 @@ mod tests {
 
     #[test]
     fn test_crash_recovery_state_no_crash() {
-        // When no tmp files exist, detected should be false
         let state = CrashRecoveryState {
             detected: false,
             recovery_path: None,
@@ -395,10 +392,5 @@ mod tests {
         assert!(state.detected);
         assert_eq!(state.recovery_path, Some(path));
         assert_eq!(state.tmp_files_cleaned, 1);
-    }
-
-    #[test]
-    fn test_main_save_filename_constant() {
-        assert_eq!(MAIN_SAVE_FILENAME, "megacity_save.bin");
     }
 }
