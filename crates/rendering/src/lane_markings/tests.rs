@@ -63,7 +63,7 @@ fn test_build_avenue_marking_mesh_not_empty() {
         0.0,
     );
 
-    // Avenue should produce double yellow center lines.
+    // Avenue should produce double yellow center lines + edge lines.
     let positions = mesh
         .attribute(Mesh::ATTRIBUTE_POSITION)
         .expect("mesh should have positions");
@@ -130,8 +130,7 @@ fn test_build_highway_marking_mesh_not_empty() {
 }
 
 #[test]
-fn test_local_road_produces_no_marking_mesh() {
-    // Local roads should not produce any marking geometry.
+fn test_local_road_produces_dashed_center_line() {
     let p0 = Vec2::new(0.0, 0.0);
     let p3 = Vec2::new(100.0, 0.0);
     let p1 = p0 + (p3 - p0) / 3.0;
@@ -152,10 +151,37 @@ fn test_local_road_produces_no_marking_mesh() {
     let positions = mesh
         .attribute(Mesh::ATTRIBUTE_POSITION)
         .expect("mesh should have positions");
-    assert_eq!(
-        positions.len(),
-        0,
-        "local road marking mesh should be empty"
+    assert!(
+        positions.len() > 0,
+        "local road should have dashed center line vertices"
+    );
+}
+
+#[test]
+fn test_oneway_road_produces_dashed_center_line() {
+    let p0 = Vec2::new(0.0, 0.0);
+    let p3 = Vec2::new(80.0, 0.0);
+    let p1 = p0 + (p3 - p0) / 3.0;
+    let p2 = p0 + (p3 - p0) * 2.0 / 3.0;
+
+    let mesh = build_lane_marking_mesh(
+        p0,
+        p1,
+        p2,
+        p3,
+        RoadType::OneWay,
+        road_half_width(RoadType::OneWay),
+        80.0,
+        0.0,
+        0.0,
+    );
+
+    let positions = mesh
+        .attribute(Mesh::ATTRIBUTE_POSITION)
+        .expect("mesh should have positions");
+    assert!(
+        positions.len() > 0,
+        "one-way road should have dashed center line vertices"
     );
 }
 

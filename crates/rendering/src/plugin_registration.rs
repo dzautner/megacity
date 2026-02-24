@@ -95,6 +95,7 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             cursor_preview::draw_intersection_snap_indicator,
             road_render::sync_road_segment_meshes,
             lane_markings::sync_lane_marking_meshes,
+            intersection_markings::sync_intersection_markings,
             road_grade::draw_road_grade_indicators,
         ),
     );
