@@ -109,7 +109,7 @@ fn save_data_with_citizen(salary: f32, savings: f32) -> SaveData {
 fn load_citizen_savings(save: &SaveData) -> f32 {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    app.init_resource::<WorldGrid>();
+    app.insert_resource(WorldGrid::new(4, 4));
     let world = app.world_mut();
     spawn_entities_from_save(world, save);
     let mut query = world.query::<&CitizenDetails>();
