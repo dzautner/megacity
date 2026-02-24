@@ -12,6 +12,7 @@ use crate::SaveableRegistry;
 /// will remind you if you forget to register it.
 pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "active_disaster",
+    "advisor_panel",
     "blueprint_library",
     "bicycle_lanes",
     "bus_transit",

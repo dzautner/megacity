@@ -19,7 +19,7 @@ use crate::zones::ZoneDemand;
 // ---------------------------------------------------------------------------
 
 /// Categories of city advisors, each monitoring a different domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, bitcode::Encode, bitcode::Decode)]
 pub enum AdvisorType {
     Finance,
     Infrastructure,
@@ -178,7 +178,7 @@ impl TipId {
 }
 
 /// A single advisor message displayed in the advisor panel.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bitcode::Encode, bitcode::Decode)]
 pub struct AdvisorMessage {
     pub advisor_type: AdvisorType,
     pub tip_id: TipId,
@@ -205,7 +205,7 @@ pub(crate) const EXPIRY_TICKS: u64 = 500;
 pub(crate) const ADVISOR_INTERVAL: u64 = 200;
 
 /// Resource that holds the current set of advisor messages shown to the player.
-#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, Default, Serialize, Deserialize, bitcode::Encode, bitcode::Decode)]
 pub struct AdvisorPanel {
     pub messages: Vec<AdvisorMessage>,
 }
