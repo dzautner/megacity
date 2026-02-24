@@ -267,8 +267,8 @@ fn emit_quad(
     longitudinal: Vec2,
     half_lateral: f32,
     half_longitudinal: f32,
-    y: f32,
     color: [f32; 4],
+    y: f32,
 ) {
     let vi = positions.len() as u32;
     let tl = center - lateral * half_lateral - longitudinal * half_longitudinal;
