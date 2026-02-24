@@ -310,13 +310,15 @@ pub fn update_park_districts(
     mut effects: ResMut<ParkDistrictEffects>,
     stats: Res<crate::stats::CityStats>,
 ) {
-    if !slow_timer.should_run() { return; }
+    if !slow_timer.should_run() {
+        return;
+    }
     effects.clear();
-    state.cycle_revenue = 0.0;
-    state.total_tourism = 0.0;
 
     let svc_list: Vec<&ServiceBuilding> = services.iter().collect();
     let pop = stats.population.max(1);
+    let mut accum_tourism: f32 = 0.0;
+    let mut accum_revenue: f64 = 0.0;
 
     for district in &mut state.districts {
         count_attractions_for_district(district, &svc_list);
@@ -329,14 +331,20 @@ pub fn update_park_districts(
         district.cycle_revenue = if district.entry_fee > 0.0 {
             let fee = (district.entry_fee as f64).min(MAX_ENTRY_FEE as f64);
             visitor_rate as f64 * BASE_FEE_PER_VISITOR * fee
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         district.total_revenue += district.cycle_revenue;
 
         apply_district_effects(district, &mut effects);
-        state.total_tourism += district.tourism_score();
-        state.cycle_revenue += district.cycle_revenue;
+        accum_tourism += district.tourism_score();
+        accum_revenue += district.cycle_revenue;
     }
+
+    state.total_tourism = accum_tourism;
+    state.cycle_revenue = accum_revenue;
 }
+
 
 // ---------------------------------------------------------------------------
 // Plugin
