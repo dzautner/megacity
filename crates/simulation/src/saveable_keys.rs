@@ -11,6 +11,7 @@ use crate::SaveableRegistry;
 /// When you add a new `Saveable` type, add its key here. The startup assertion
 /// will remind you if you forget to register it.
 pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
+    "advisor_panel",
     "blueprint_library",
     "bicycle_lanes",
     "bus_transit",

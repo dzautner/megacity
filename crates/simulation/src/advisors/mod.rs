@@ -118,6 +118,25 @@ impl crate::Saveable for DismissedAdvisorTips {
 }
 
 // ---------------------------------------------------------------------------
+// Saveable implementation for AdvisorPanel
+// ---------------------------------------------------------------------------
+
+impl crate::Saveable for AdvisorPanel {
+    const SAVE_KEY: &'static str = "advisor_panel";
+
+    fn save_to_bytes(&self) -> Option<Vec<u8>> {
+        if self.messages.is_empty() {
+            return None;
+        }
+        Some(bitcode::encode(self))
+    }
+
+    fn load_from_bytes(bytes: &[u8]) -> Self {
+        crate::decode_or_warn(Self::SAVE_KEY, bytes)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
 
@@ -139,6 +158,9 @@ impl Plugin for AdvisorsPlugin {
         app.world_mut()
             .resource_mut::<crate::SaveableRegistry>()
             .register::<DismissedAdvisorTips>();
+        app.world_mut()
+            .resource_mut::<crate::SaveableRegistry>()
+            .register::<AdvisorPanel>();
     }
 }
 
