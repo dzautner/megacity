@@ -104,6 +104,9 @@ impl Plugin for SavePlugin {
 
         // Autosave bridge: converts simulation-side timer triggers into save events.
         app.add_plugins(crate::autosave_bridge::AutosaveBridgePlugin);
+
+        // Crash recovery: detect crash artifacts and validate autosaves on startup.
+        app.add_plugins(crate::crash_recovery::CrashRecoveryPlugin);
     }
 }
 

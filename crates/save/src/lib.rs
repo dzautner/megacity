@@ -1,6 +1,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod atomic_write;
 mod autosave_bridge;
+mod crash_recovery;
 mod despawn;
 mod exclusive_load;
 mod exclusive_new_game;
@@ -23,6 +24,7 @@ mod spawn_entities;
 #[cfg(target_arch = "wasm32")]
 mod wasm_idb;
 
+pub use crash_recovery::CrashRecoveryState;
 pub use save_error::SaveError;
 pub use save_plugin::{LoadGameEvent, NewGameEvent, SaveGameEvent, SavePlugin};
 pub use saveable_ext::SaveableAppExt;
