@@ -11,7 +11,7 @@ use crate::TestSafetyNet;
 // Types
 // =============================================================================
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, bitcode::Encode, bitcode::Decode)]
 pub enum DisasterType {
     Tornado,
     Earthquake,
@@ -28,6 +28,7 @@ impl DisasterType {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, bitcode::Encode, bitcode::Decode)]
 pub struct DisasterInstance {
     pub disaster_type: DisasterType,
     pub center_x: usize,
