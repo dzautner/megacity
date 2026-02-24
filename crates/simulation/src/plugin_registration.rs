@@ -118,6 +118,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(water_pressure::WaterPressurePlugin);
     app.add_plugins(groundwater_depletion::GroundwaterDepletionPlugin);
     app.add_plugins(wastewater::WastewaterPlugin);
+    app.add_plugins(water_quality_effects::WaterQualityEffectsPlugin);
 
     // Waste management
     app.add_plugins(hazardous_waste::HazardousWastePlugin);
