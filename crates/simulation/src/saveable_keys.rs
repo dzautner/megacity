@@ -124,7 +124,9 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "milestone_progress",
     "play_time",
     "power_lines",
-    "hybrid_coverage",];
+    "hybrid_coverage",
+    "cultural_prestige",
+];
 /// Startup system that validates the `SaveableRegistry` against the expected key
 /// list. Panics if any expected key is missing (indicating a `Saveable` type whose
 /// plugin forgot to register it) or if duplicate keys are detected.
