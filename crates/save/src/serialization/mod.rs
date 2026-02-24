@@ -41,6 +41,8 @@ mod tests_life_sim;
 #[cfg(test)]
 mod tests_migration;
 #[cfg(test)]
+mod tests_savings;
+#[cfg(test)]
 mod tests_stormwater_climate;
 #[cfg(test)]
 mod tests_water;
