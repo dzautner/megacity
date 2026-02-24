@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::disasters::ActiveDisaster;
 use crate::economy::CityBudget;
 use crate::education_jobs::EmploymentStats;
+use crate::environmental_score::EnvironmentalScore;
 use crate::events::{CityEvent, CityEventType, EventJournal};
 use crate::grid::{RoadType, WorldGrid};
 use crate::natural_resources::ResourceBalance;
@@ -33,6 +34,7 @@ pub fn check_achievements(
     city_goods: Res<CityGoods>,
     specializations: Res<CitySpecializations>,
     active_disaster: Res<ActiveDisaster>,
+    env_score: Res<EnvironmentalScore>,
     mut tracker: ResMut<AchievementTracker>,
     mut notifications: ResMut<AchievementNotification>,
     mut journal: ResMut<EventJournal>,
@@ -132,6 +134,14 @@ pub fn check_achievements(
             newly_unlocked.push(Achievement::DiverseSpecializations);
         }
     }
+
+    // --- Environmental (POLL-021) ---
+    check_environmental(
+        &env_score,
+        current_tick,
+        &mut tracker,
+        &mut newly_unlocked,
+    );
 
     // --- Apply rewards and log ---
     for &achievement in &newly_unlocked {
@@ -268,6 +278,26 @@ fn check_road_types(
         && tracker.unlock(Achievement::RoadDiversity, tick)
     {
         newly_unlocked.push(Achievement::RoadDiversity);
+    }
+}
+
+fn check_environmental(
+    env_score: &EnvironmentalScore,
+    tick: u64,
+    tracker: &mut AchievementTracker,
+    newly_unlocked: &mut Vec<Achievement>,
+) {
+    if !tracker.is_unlocked(Achievement::GreenCity)
+        && env_score.overall > 80.0
+        && tracker.unlock(Achievement::GreenCity, tick)
+    {
+        newly_unlocked.push(Achievement::GreenCity);
+    }
+    if !tracker.is_unlocked(Achievement::EcoChampion)
+        && env_score.overall > 95.0
+        && tracker.unlock(Achievement::EcoChampion, tick)
+    {
+        newly_unlocked.push(Achievement::EcoChampion);
     }
 }
 

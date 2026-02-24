@@ -41,6 +41,10 @@ pub enum Achievement {
     DisasterSurvivor,       // Survive a disaster (disaster resolves)
     FullEmployment,         // Reach 0% unemployment (rounded)
     DiverseSpecializations, // Have all 6 specialization scores above 20
+
+    // Environmental (POLL-021)
+    GreenCity,   // Environmental score > 80
+    EcoChampion, // Environmental score > 95
 }
 
 impl Achievement {
@@ -65,6 +69,8 @@ impl Achievement {
         Achievement::DisasterSurvivor,
         Achievement::FullEmployment,
         Achievement::DiverseSpecializations,
+        Achievement::GreenCity,
+        Achievement::EcoChampion,
     ];
 
     /// Human-readable name.
@@ -89,6 +95,8 @@ impl Achievement {
             Achievement::DisasterSurvivor => "Disaster Survivor",
             Achievement::FullEmployment => "Full Employment",
             Achievement::DiverseSpecializations => "Renaissance City",
+            Achievement::GreenCity => "Green City",
+            Achievement::EcoChampion => "Eco Champion",
         }
     }
 
@@ -114,6 +122,8 @@ impl Achievement {
             Achievement::DisasterSurvivor => "Survive a disaster",
             Achievement::FullEmployment => "Reach 0% unemployment",
             Achievement::DiverseSpecializations => "Score above 20 in all 6 specializations",
+            Achievement::GreenCity => "Environmental score above 80",
+            Achievement::EcoChampion => "Environmental score above 95",
         }
     }
 
@@ -139,6 +149,8 @@ impl Achievement {
             Achievement::DisasterSurvivor => AchievementReward::TreasuryBonus(50_000.0),
             Achievement::FullEmployment => AchievementReward::TreasuryBonus(40_000.0),
             Achievement::DiverseSpecializations => AchievementReward::DevelopmentPoints(5),
+            Achievement::GreenCity => AchievementReward::TreasuryBonus(30_000.0),
+            Achievement::EcoChampion => AchievementReward::TreasuryBonus(100_000.0),
         }
     }
 
