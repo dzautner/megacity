@@ -22,6 +22,7 @@ pub fn spawn_construction_props(
     existing_scaffolds: Query<&ScaffoldingMesh>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    grid: Res<WorldGrid>,
     assets: Option<Res<ConstructionAssets>>,
 ) {
     if buildings_uc.is_empty() {
@@ -72,7 +73,7 @@ pub fn spawn_construction_props(
             },
             Mesh3d(ca.scaffold_mesh.clone()),
             MeshMaterial3d(ca.scaffold_material.clone()),
-            Transform::from_xyz(wx, 0.0, wz).with_scale(Vec3::new(
+            Transform::from_xyz(wx, grid.elevation_y(building.grid_x, building.grid_y), wz).with_scale(Vec3::new(
                 scaffold_width,
                 visible_height,
                 scaffold_width,
@@ -97,7 +98,7 @@ pub fn spawn_construction_props(
                 },
                 Mesh3d(ca.crane_base_mesh.clone()),
                 MeshMaterial3d(ca.crane_material.clone()),
-                Transform::from_xyz(crane_x, 0.0, crane_z).with_scale(Vec3::new(
+                Transform::from_xyz(crane_x, grid.elevation_y(building.grid_x, building.grid_y), crane_z).with_scale(Vec3::new(
                     CELL_SIZE * 0.15,
                     crane_mast_height,
                     CELL_SIZE * 0.15,

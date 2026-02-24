@@ -104,7 +104,7 @@ pub fn spawn_tree_props(
                             PropEntity,
                             TreeProp,
                             SceneRoot(scene_handle),
-                            Transform::from_xyz(wx + off_x, 0.0, wz + off_z)
+                            Transform::from_xyz(wx + off_x, grid.elevation_y(gx, gy), wz + off_z)
                                 .with_scale(Vec3::splat(scale)),
                             Visibility::default(),
                         ));
@@ -147,7 +147,7 @@ pub fn spawn_tree_props(
                 PropEntity,
                 TreeProp,
                 SceneRoot(scene_handle),
-                Transform::from_xyz(wx, 0.0, wz)
+                Transform::from_xyz(wx, grid.elevation_y(gx, gy), wz)
                     .with_rotation(Quat::from_rotation_y(yaw))
                     .with_scale(Vec3::splat(scale_var)),
                 Visibility::default(),
@@ -236,7 +236,7 @@ pub fn spawn_road_props(
                 PropEntity,
                 StreetLamp,
                 SceneRoot(scene_handle),
-                Transform::from_xyz(wx + offset_x, 0.0, wz + offset_z)
+                Transform::from_xyz(wx + offset_x, grid.elevation_y(gx, gy), wz + offset_z)
                     .with_scale(Vec3::splat(LAMP_SCALE)),
                 Visibility::default(),
             ));
@@ -331,7 +331,7 @@ pub fn spawn_parked_cars(
                 PropEntity,
                 ParkedCar,
                 SceneRoot(scene_handle),
-                Transform::from_xyz(wx + off_x, 0.0, wz + off_z)
+                Transform::from_xyz(wx + off_x, grid.elevation_y(gx, gy), wz + off_z)
                     .with_rotation(Quat::from_rotation_y(yaw))
                     .with_scale(Vec3::splat(1.0)),
                 Visibility::default(),

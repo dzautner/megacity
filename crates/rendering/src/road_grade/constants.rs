@@ -14,7 +14,7 @@ pub(crate) const GIZMO_Y: f32 = 1.0;
 
 /// Elevation scale factor: terrain elevation is [0,1], we scale for display.
 /// In a 256x256 grid with CELL_SIZE=16, max world height is ~40m conceptually.
-pub(crate) const ELEVATION_DISPLAY_SCALE: f32 = 40.0;
+pub(crate) const ELEVATION_DISPLAY_SCALE: f32 = simulation::config::TERRAIN_HEIGHT_SCALE;
 
 /// Grade thresholds (as fractions, not percentages).
 pub(crate) const GRADE_LOW_THRESHOLD: f32 = 0.03;

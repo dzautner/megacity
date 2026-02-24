@@ -21,6 +21,7 @@ mod tests;
 use bevy::prelude::*;
 
 use simulation::grid::RoadType;
+use simulation::grid::WorldGrid;
 use simulation::road_segments::{RoadSegmentStore, SegmentId, SegmentNodeId};
 
 use self::line_primitives::road_half_width;
@@ -77,6 +78,7 @@ const BARRIER_COLOR: [f32; 4] = [0.55, 0.53, 0.50, 1.0];
 #[allow(clippy::too_many_arguments)]
 pub fn sync_lane_marking_meshes(
     store: Res<RoadSegmentStore>,
+    grid: Res<WorldGrid>,
     existing: Query<(Entity, &LaneMarkingMesh)>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -158,6 +160,7 @@ pub fn sync_lane_marking_meshes(
             segment.arc_length,
             trim_start,
             trim_end,
+            &grid,
         );
 
         commands.spawn((

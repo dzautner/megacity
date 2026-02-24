@@ -33,6 +33,8 @@ fn count_road_neighbors_8(grid: &WorldGrid, gx: usize, gy: usize) -> usize {
     count
 }
 
+/// Draw road surface markings for a single cell. `base_y` is the terrain
+/// elevation at this cell so all detail geometry sits on top of the terrain.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn add_road_markings(
     positions: &mut Vec<[f32; 3]>,
@@ -46,6 +48,7 @@ pub(super) fn add_road_markings(
     lx: usize,
     ly: usize,
     road_type: RoadType,
+    base_y: f32,
 ) {
     if road_type == RoadType::Path {
         return;
@@ -84,9 +87,10 @@ pub(super) fn add_road_markings(
         _ => [0.20 + av, 0.20 + av, 0.22 + av, 1.0],
     };
 
-    let y_road = 0.03;
-    let y_mark = 0.06;
-    let y_curb = 0.12;
+    // Detail offsets above terrain elevation
+    let y_road = base_y + 0.03;
+    let y_mark = base_y + 0.06;
+    let y_curb = base_y + 0.12;
 
     let is_horizontal = has_left || has_right;
     let is_vertical = has_up || has_down;

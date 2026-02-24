@@ -270,6 +270,25 @@ impl WorldGrid {
         (wx, wy)
     }
 
+    /// Convert a grid cell's elevation [0,1] to a world-space Y coordinate.
+    /// Water cells are clamped to `WATER_LEVEL_Y` so the water surface is flat.
+    #[inline]
+    pub fn elevation_y(&self, gx: usize, gy: usize) -> f32 {
+        use crate::config::{TERRAIN_HEIGHT_SCALE, WATER_LEVEL_Y};
+        let cell = self.get(gx, gy);
+        if cell.cell_type == CellType::Water {
+            WATER_LEVEL_Y
+        } else {
+            cell.elevation * TERRAIN_HEIGHT_SCALE
+        }
+    }
+
+    /// Raw elevation to Y without water clamping.
+    #[inline]
+    pub fn raw_elevation_y(elevation: f32) -> f32 {
+        elevation * crate::config::TERRAIN_HEIGHT_SCALE
+    }
+
     /// Returns up to 4 cardinal neighbors and the count of valid entries.
     /// Use `&result[..count]` to iterate over valid neighbors.
     pub fn neighbors4(&self, x: usize, y: usize) -> ([(usize, usize); 4], usize) {

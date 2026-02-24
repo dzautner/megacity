@@ -90,6 +90,7 @@ pub fn spawn_building_meshes(
 
         let (wx, _wy) = WorldGrid::grid_to_world(building.grid_x, building.grid_y);
         let wz = building.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
+        let wy = grid.elevation_y(building.grid_x, building.grid_y);
 
         let yaw = building_facing_road(&grid, building.grid_x, building.grid_y, hash);
         let scale_var = 0.98 + (hash % 5) as f32 / 100.0;
@@ -114,7 +115,7 @@ pub fn spawn_building_meshes(
             },
             ZoneBuilding,
             SceneRoot(scene_handle),
-            Transform::from_xyz(wx, 0.0, wz)
+            Transform::from_xyz(wx, wy, wz)
                 .with_rotation(Quat::from_rotation_y(yaw))
                 .with_scale(build_scale),
             Visibility::default(),
@@ -132,6 +133,7 @@ pub fn spawn_building_meshes(
         let (fw, fh) = ServiceBuilding::footprint(service.service_type);
         let (wx, _wy) = WorldGrid::grid_to_world(service.grid_x, service.grid_y);
         let wz = service.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
+        let wy = grid.elevation_y(service.grid_x, service.grid_y);
         let offset_x = (fw as f32 - 1.0) * CELL_SIZE * 0.5;
         let offset_z = (fh as f32 - 1.0) * CELL_SIZE * 0.5;
 
@@ -141,7 +143,7 @@ pub fn spawn_building_meshes(
             },
             Mesh3d(mesh_handle),
             MeshMaterial3d(mat_handle),
-            Transform::from_xyz(wx + offset_x, 0.0, wz + offset_z),
+            Transform::from_xyz(wx + offset_x, wy, wz + offset_z),
             Visibility::default(),
         ));
     }
@@ -156,6 +158,7 @@ pub fn spawn_building_meshes(
 
         let (wx, _wy) = WorldGrid::grid_to_world(utility.grid_x, utility.grid_y);
         let wz = utility.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
+        let wy = grid.elevation_y(utility.grid_x, utility.grid_y);
 
         commands.spawn((
             BuildingMesh3d {
@@ -163,7 +166,7 @@ pub fn spawn_building_meshes(
             },
             Mesh3d(mesh_handle),
             MeshMaterial3d(mat_handle),
-            Transform::from_xyz(wx, 0.0, wz),
+            Transform::from_xyz(wx, wy, wz),
             Visibility::default(),
         ));
     }
@@ -195,6 +198,7 @@ pub fn update_building_meshes(
 
                 let (wx, _wy) = WorldGrid::grid_to_world(building.grid_x, building.grid_y);
                 let wz = building.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
+                let wy = grid.elevation_y(building.grid_x, building.grid_y);
                 let yaw = building_facing_road(&grid, building.grid_x, building.grid_y, hash);
                 let scale_var = 0.98 + (hash % 5) as f32 / 100.0;
 
@@ -205,7 +209,7 @@ pub fn update_building_meshes(
                     },
                     ZoneBuilding,
                     SceneRoot(scene_handle),
-                    Transform::from_xyz(wx, 0.0, wz)
+                    Transform::from_xyz(wx, wy, wz)
                         .with_rotation(Quat::from_rotation_y(yaw))
                         .with_scale(Vec3::splat(scale * scale_var)),
                     Visibility::default(),
@@ -240,7 +244,11 @@ pub fn update_construction_visuals(
 
         // Apply per-variant proportions if a variant has been assigned
         let props = maybe_variant.map_or_else(
-            || building_variant_proportions::VariantProportion { x: 1.0, y: 1.0, z: 1.0 },
+            || building_variant_proportions::VariantProportion {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+            },
             |v| {
                 building_variant_proportions::proportions_for(
                     building.zone_type,
@@ -256,11 +264,7 @@ pub fn update_construction_visuals(
                 1.0
             };
             let y_factor = 0.3 + progress * 0.7;
-            transform.scale = Vec3::new(
-                s * props.x,
-                s * props.y * y_factor,
-                s * props.z,
-            );
+            transform.scale = Vec3::new(s * props.x, s * props.y * y_factor, s * props.z);
         } else {
             let target = Vec3::new(s * props.x, s * props.y, s * props.z);
             if (transform.scale - target).length() > 0.01 {
@@ -309,10 +313,12 @@ pub struct PlantedTreeAssets {
 
 /// Spawn 3D meshes for newly planted trees (PlantedTree entities without a
 /// corresponding PlantedTreeMesh).
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_planted_tree_meshes(
     mut commands: Commands,
     new_trees: Query<(Entity, &PlantedTree), Without<PlantedTreeMesh>>,
     existing_meshes: Query<&PlantedTreeMesh>,
+    grid: Res<WorldGrid>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     tree_assets: Option<Res<PlantedTreeAssets>>,
@@ -358,6 +364,7 @@ pub fn spawn_planted_tree_meshes(
 
         let (wx, _wy) = WorldGrid::grid_to_world(tree.grid_x, tree.grid_y);
         let wz = tree.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
+        let terrain_y = grid.elevation_y(tree.grid_x, tree.grid_y);
 
         let hash = tree
             .grid_x
@@ -372,7 +379,8 @@ pub fn spawn_planted_tree_meshes(
                 },
                 Mesh3d(assets.trunk_mesh.clone()),
                 MeshMaterial3d(assets.trunk_material.clone()),
-                Transform::from_xyz(wx, 3.0 * scale_var, wz).with_scale(Vec3::splat(scale_var)),
+                Transform::from_xyz(wx, terrain_y + 3.0 * scale_var, wz)
+                    .with_scale(Vec3::splat(scale_var)),
                 Visibility::default(),
             ))
             .id();

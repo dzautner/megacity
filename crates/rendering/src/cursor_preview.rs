@@ -153,10 +153,10 @@ pub fn update_cursor_preview(
     // For zone tools with 3D preview meshes, position at ground level.
     // For other tools, keep the flat cuboid slightly above ground.
     if is_zone_tool {
-        transform.translation.y = 0.0;
+        transform.translation.y = grid.elevation_y(gx, gy);
         transform.scale = Vec3::ONE;
     } else {
-        transform.translation.y = 0.5;
+        transform.translation.y = grid.elevation_y(gx, gy) + 0.5;
         transform.scale = Vec3::new(fw as f32, 1.0, fh as f32);
     }
 
