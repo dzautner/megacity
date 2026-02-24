@@ -1,11 +1,9 @@
 //! Integration tests for POWER-010: Time-of-Use Electricity Pricing and Revenue.
 
 use crate::coal_power::PowerPlant;
-use crate::energy_demand::{EnergyConsumer, EnergyGrid, LoadPriority};
-use crate::energy_dispatch::EnergyDispatchState;
+use crate::energy_demand::{EnergyConsumer, LoadPriority};
 use crate::energy_pricing::{
     EnergyEconomics, EnergyPricingConfig, TimeOfUsePeriod,
-    scarcity_multiplier_from_reserve, tou_multiplier_for_period,
 };
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
