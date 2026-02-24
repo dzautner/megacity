@@ -45,6 +45,7 @@ impl Plugin for ResetCommutingOnLoadPlugin {
 ///
 /// After processing, the `PostLoadResetPending` resource is removed so this
 /// system does not run again until the next load.
+#[allow(clippy::type_complexity)]
 fn reset_commuting_citizens_after_load(
     mut commands: Commands,
     mut query: Query<
