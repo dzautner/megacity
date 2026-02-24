@@ -1,6 +1,7 @@
 use bevy::ecs::query::With;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use bitcode::{Decode, Encode};
 use std::collections::HashSet;
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
@@ -146,7 +147,7 @@ pub fn aggregate_districts(
 // ============================================================================
 
 /// Per-district policy overrides that players can configure.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct DistrictPolicies {
     /// Override tax rate for this district (None = use city-wide rate).
     pub tax_rate: Option<f32>,
@@ -159,7 +160,7 @@ pub struct DistrictPolicies {
 }
 
 /// Computed per-district statistics (updated by the district_stats system).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct PlayerDistrictStats {
     pub population: u32,
     pub avg_happiness: f32,
@@ -167,7 +168,7 @@ pub struct PlayerDistrictStats {
 }
 
 /// A player-created district with a name, color, cells, and policies.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct District {
     pub name: String,
     pub color: [f32; 4],
@@ -202,7 +203,7 @@ pub const DEFAULT_DISTRICTS: &[(&str, [f32; 4])] = &[
 
 /// Resource that holds all player-created districts and a grid mapping
 /// each cell to its district index.
-#[derive(Resource, Serialize, Deserialize)]
+#[derive(Resource, Serialize, Deserialize, Encode, Decode)]
 pub struct DistrictMap {
     pub districts: Vec<District>,
     /// One entry per grid cell (GRID_WIDTH * GRID_HEIGHT). None = no district.
