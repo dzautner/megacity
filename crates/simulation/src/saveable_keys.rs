@@ -84,6 +84,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "seasonal_rendering",
     "solar_power",
     "service_budget",
+    "sim_rng",
     "service_capacity",
     "social_services",
     "specialization_bonuses",

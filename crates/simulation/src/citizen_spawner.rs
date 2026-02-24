@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
+use crate::sim_rng::SimRng;
 
 use crate::buildings::{Building, MixedUseBuilding, UnderConstruction};
 use crate::citizen::{
@@ -26,6 +27,7 @@ pub fn spawn_citizens(
     mut virtual_pop: ResMut<VirtualPopulation>,
     citizens: Query<&crate::citizen::Citizen>,
     game_params: Res<GameParams>,
+    mut rng: ResMut<SimRng>,
 ) {
     timer.0 += 1;
     if timer.0 < game_params.citizen_spawner.spawn_interval_ticks {
@@ -35,7 +37,6 @@ pub fn spawn_citizens(
 
     let real_count = citizens.iter().count() as u32;
 
-    let mut rng = rand::thread_rng();
 
     // Collect available workplaces (immutable pass)
     // Skip buildings that are still under construction
@@ -108,7 +109,7 @@ pub fn spawn_citizens(
         };
 
         // Pick a random workplace
-        let work_idx = rng.gen_range(0..available_work.len());
+        let work_idx = rng.0.gen_range(0..available_work.len());
         let (work_entity, work_gx, work_gy) = available_work[work_idx];
 
         let (home_wx, home_wy) = WorldGrid::grid_to_world(home_gx, home_gy);
@@ -132,13 +133,13 @@ pub fn spawn_citizens(
             continue;
         }
 
-        let age: u8 = rng.gen_range(18..65);
-        let gender = if rng.gen::<bool>() {
+        let age: u8 = rng.0.gen_range(18..65);
+        let gender = if rng.0.gen::<bool>() {
             Gender::Male
         } else {
             Gender::Female
         };
-        let edu = rng.gen_range(0u8..=2);
+        let edu = rng.0.gen_range(0u8..=2);
         let salary = CitizenDetails::base_salary_for_education(edu)
             * (1.0 + age.saturating_sub(18) as f32 * 0.01);
 
@@ -166,11 +167,11 @@ pub fn spawn_citizens(
                 gender,
                 education: edu,
                 happiness: 50.0,
-                health: 85.0 + rng.gen_range(0.0..15.0),
+                health: 85.0 + rng.0.gen_range(0.0..15.0),
                 salary,
-                savings: salary * rng.gen_range(0.5..3.0),
+                savings: salary * rng.0.gen_range(0.5..3.0),
             },
-            Personality::random(&mut rng),
+            Personality::random(&mut rng.0),
             Needs::default(),
             Family::default(),
             ActivityTimer::default(),

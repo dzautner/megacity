@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 use rand::Rng;
+use crate::sim_rng::SimRng;
 
 use crate::buildings::Building;
 use crate::citizen::{Citizen, CitizenDetails, Family, HomeLocation, WorkLocation};
@@ -54,6 +55,7 @@ pub fn age_citizens(
     mut death_grid: ResMut<DeathCareGrid>,
     mut death_stats: ResMut<DeathCareStats>,
     safety_net: Option<Res<TestSafetyNet>>,
+    mut rng: ResMut<SimRng>,
 ) {
     if safety_net.is_some() {
         return;
@@ -66,7 +68,6 @@ pub fn age_citizens(
     death_stats.total_deaths_this_month = 0;
     death_stats.processed_this_month = 0;
 
-    let mut rng = rand::thread_rng();
 
     // (entity, work_building_entity, partner_entity)
     let mut to_despawn: Vec<(Entity, Option<Entity>, Option<Entity>)> = Vec::new();
@@ -86,7 +87,7 @@ pub fn age_citizens(
                 0.0
             };
             let death_chance = (age_factor + health_factor).min(1.0);
-            if rng.gen::<f32>() < death_chance {
+            if rng.0.gen::<f32>() < death_chance {
                 if let Ok(mut building) = buildings.get_mut(home.building) {
                     building.occupants = building.occupants.saturating_sub(1);
                 }
@@ -153,6 +154,7 @@ pub fn emigration(
     mut buildings: Query<&mut Building>,
     mut virtual_pop: ResMut<VirtualPopulation>,
     safety_net: Option<Res<TestSafetyNet>>,
+    mut rng: ResMut<SimRng>,
 ) {
     if safety_net.is_some() {
         return;
@@ -163,13 +165,12 @@ pub fn emigration(
     }
     timer.last_emigration_tick = 0;
 
-    let mut rng = rand::thread_rng();
     let mut to_despawn: Vec<(Entity, Option<Entity>, Option<Entity>)> = Vec::new();
 
     for (entity, details, home, work, family) in &citizens {
         if details.happiness < 20.0 {
             let leave_chance = (20.0 - details.happiness) / 100.0;
-            if rng.gen::<f32>() < leave_chance {
+            if rng.0.gen::<f32>() < leave_chance {
                 if let Ok(mut building) = buildings.get_mut(home.building) {
                     building.occupants = building.occupants.saturating_sub(1);
                 }

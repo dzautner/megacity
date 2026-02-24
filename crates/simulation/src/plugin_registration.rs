@@ -9,6 +9,7 @@ use crate::*;
 /// at the end of the appropriate section.
 pub(crate) fn register_feature_plugins(app: &mut App) {
     // Core simulation chain
+    app.add_plugins(sim_rng::SimRngPlugin);
     app.add_plugins(game_params::GameParamsPlugin);
     app.add_plugins(time_of_day::TimeOfDayPlugin);
     app.add_plugins(zones::ZonesPlugin);
