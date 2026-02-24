@@ -1,7 +1,7 @@
 //! Integration tests for Power Line Transmission and Service Radius (POWER-011).
 
 use crate::coal_power::{PowerPlant, PowerPlantType};
-use crate::grid::{CellType, RoadType};
+use crate::grid::RoadType;
 use crate::power_lines::{PowerLineGrid, POWER_RANGE};
 use crate::test_harness::TestCity;
 
