@@ -1,6 +1,6 @@
 //! Integration tests for POLL-018: Tree and Green Space Pollution Absorption Enhancement.
 
-use crate::districts::{DISTRICTS_X, DISTRICT_SIZE};
+use crate::districts::DISTRICTS_X;
 use crate::noise::NoisePollutionGrid;
 use crate::pollution::PollutionGrid;
 use crate::test_harness::TestCity;
@@ -105,9 +105,12 @@ fn test_mature_tree_reduces_pollution_percentage() {
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, true);
-        // Start with full maturity to test filtering
-        world.resource_mut::<TreeMaturityGrid>().set(128, 128, 1.0);
-        // Set pollution in the area
+        world
+            .resource_mut::<TreeMaturityGrid>()
+            .set(128, 128, 1.0);
+    }
+    {
+        let world = city.world_mut();
         let mut pol = world.resource_mut::<PollutionGrid>();
         for dy in -3i32..=3 {
             for dx in -3i32..=3 {
@@ -146,10 +149,25 @@ fn test_immature_tree_has_reduced_effect() {
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(100, 100, true);
+    }
+    {
+        let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(200, 200, true);
-        world.resource_mut::<TreeMaturityGrid>().set(100, 100, 1.0);
-        world.resource_mut::<TreeMaturityGrid>().set(200, 200, 0.2);
-
+    }
+    {
+        let world = city.world_mut();
+        world
+            .resource_mut::<TreeMaturityGrid>()
+            .set(100, 100, 1.0);
+    }
+    {
+        let world = city.world_mut();
+        world
+            .resource_mut::<TreeMaturityGrid>()
+            .set(200, 200, 0.2);
+    }
+    {
+        let world = city.world_mut();
         let mut pol = world.resource_mut::<PollutionGrid>();
         pol.set(100, 100, 200);
         pol.set(200, 200, 200);
@@ -178,28 +196,31 @@ fn test_immature_tree_has_reduced_effect() {
 fn test_green_space_cluster_bonus() {
     let mut city = TestCity::new();
 
-    // Create a cluster of 12 trees (exceeds threshold of 10)
-    // and a solitary tree for comparison
+    // Create a cluster of trees (exceeds threshold of 10) at (50,50)
     {
         let world = city.world_mut();
-        let mut tree_grid = world.resource_mut::<TreeGrid>();
-        let mut maturity = world.resource_mut::<TreeMaturityGrid>();
-
-        // Cluster: 5x5 area at (50, 50), all mature
         for dy in -2i32..=2 {
             for dx in -2i32..=2 {
                 let x = (50 + dx) as usize;
                 let y = (50 + dy) as usize;
-                tree_grid.set(x, y, true);
-                maturity.set(x, y, 1.0);
+                world.resource_mut::<TreeGrid>().set(x, y, true);
+                world.resource_mut::<TreeMaturityGrid>().set(x, y, 1.0);
             }
         }
+    }
 
-        // Solitary tree at (200, 200), mature
-        tree_grid.set(200, 200, true);
-        maturity.set(200, 200, 1.0);
+    // Solitary tree at (200, 200), mature
+    {
+        let world = city.world_mut();
+        world.resource_mut::<TreeGrid>().set(200, 200, true);
+        world
+            .resource_mut::<TreeMaturityGrid>()
+            .set(200, 200, 1.0);
+    }
 
-        // Set equal pollution
+    // Set equal pollution at both locations
+    {
+        let world = city.world_mut();
         let mut pol = world.resource_mut::<PollutionGrid>();
         pol.set(50, 50, 200);
         pol.set(200, 200, 200);
@@ -231,8 +252,15 @@ fn test_tree_reduces_noise_pollution() {
     {
         let world = city.world_mut();
         world.resource_mut::<TreeGrid>().set(128, 128, true);
-        world.resource_mut::<TreeMaturityGrid>().set(128, 128, 1.0);
-        world.resource_mut::<NoisePollutionGrid>().set(128, 128, 150);
+        world
+            .resource_mut::<TreeMaturityGrid>()
+            .set(128, 128, 1.0);
+    }
+    {
+        let world = city.world_mut();
+        world
+            .resource_mut::<NoisePollutionGrid>()
+            .set(128, 128, 150);
     }
 
     city.tick_slow_cycles(1);
@@ -257,16 +285,15 @@ fn test_canopy_percentage_computed() {
     // Fill an entire district with mature trees
     let dist_x = 4;
     let dist_y = 4;
+    let district_size = crate::districts::DISTRICT_SIZE;
     {
         let world = city.world_mut();
-        let mut tree_grid = world.resource_mut::<TreeGrid>();
-        let mut maturity = world.resource_mut::<TreeMaturityGrid>();
-        for ly in 0..DISTRICT_SIZE {
-            for lx in 0..DISTRICT_SIZE {
-                let gx = dist_x * DISTRICT_SIZE + lx;
-                let gy = dist_y * DISTRICT_SIZE + ly;
-                tree_grid.set(gx, gy, true);
-                maturity.set(gx, gy, 1.0);
+        for ly in 0..district_size {
+            for lx in 0..district_size {
+                let gx = dist_x * district_size + lx;
+                let gy = dist_y * district_size + ly;
+                world.resource_mut::<TreeGrid>().set(gx, gy, true);
+                world.resource_mut::<TreeMaturityGrid>().set(gx, gy, 1.0);
             }
         }
     }
@@ -289,13 +316,11 @@ fn test_co2_absorption_tracks_mature_trees() {
     // Plant 100 mature trees
     {
         let world = city.world_mut();
-        let mut tree_grid = world.resource_mut::<TreeGrid>();
-        let mut maturity = world.resource_mut::<TreeMaturityGrid>();
-        for i in 0..100 {
+        for i in 0..100usize {
             let x = 10 + (i % 10);
             let y = 10 + (i / 10);
-            tree_grid.set(x, y, true);
-            maturity.set(x, y, 1.0);
+            world.resource_mut::<TreeGrid>().set(x, y, true);
+            world.resource_mut::<TreeMaturityGrid>().set(x, y, 1.0);
         }
     }
 
