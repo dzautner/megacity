@@ -13,6 +13,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "active_disaster",
     "advisor_panel",
     "autosave_config",
+    "battery_storage",
     "blueprint_library",
     "active_city_effects",
     "bicycle_lanes",
