@@ -315,7 +315,6 @@ fn test_road_segment_save_id_counters_rebuilt() {
         .with_road(30, 10, 50, 10, RoadType::Avenue);
 
     let store = city.road_segments();
-    let max_seg_id = store.segments.iter().map(|s| s.id.0).max().unwrap();
     let max_node_id = store.nodes.iter().map(|n| n.id.0).max().unwrap();
 
     let restored = roundtrip_store(store);
