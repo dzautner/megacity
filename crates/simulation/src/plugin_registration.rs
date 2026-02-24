@@ -260,6 +260,9 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(play_time::PlayTimePlugin);
 
     // Bevy diagnostics and trace spans (TEST-031)
+
+    // Industrial specializations (SERV-008)
+    app.add_plugins(industrial_specializations::IndustrialSpecializationPlugin);
     app.add_plugins(diagnostics::DiagnosticsPlugin);
 
     // Post-load derived state rebuild (SAVE-026)
