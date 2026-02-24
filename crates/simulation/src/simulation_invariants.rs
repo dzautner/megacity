@@ -11,7 +11,7 @@
 //!    `WorkLocation` components match the `Building::occupants` field.
 
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::buildings::Building;
 use crate::citizen::{Citizen, Family, HomeLocation, WorkLocation};
@@ -56,7 +56,10 @@ pub fn validate_marriage_reciprocity(
         return;
     }
     violations.marriage_non_reciprocal = 0;
-    let partner_map: HashMap<Entity, Option<Entity>> =
+    // **Determinism**: Use BTreeMap to ensure entities are checked in a
+    // deterministic order. When clearing non-reciprocal partners, the order
+    // matters because clearing one partner can affect the other's state.
+    let partner_map: BTreeMap<Entity, Option<Entity>> =
         citizens.iter().map(|(e, f)| (e, f.partner)).collect();
     let mut to_clear: Vec<Entity> = Vec::new();
     for (&entity, &partner_opt) in &partner_map {
@@ -93,11 +96,13 @@ pub fn validate_employment_consistency(
         return;
     }
     violations.employment_drift = 0;
-    let mut worker_counts: HashMap<Entity, u32> = HashMap::new();
+    // Worker and resident counts use BTreeMap for deterministic iteration
+    // when correcting building occupancy drift.
+    let mut worker_counts: BTreeMap<Entity, u32> = BTreeMap::new();
     for work in &workers {
         *worker_counts.entry(work.building).or_insert(0) += 1;
     }
-    let mut resident_counts: HashMap<Entity, u32> = HashMap::new();
+    let mut resident_counts: BTreeMap<Entity, u32> = BTreeMap::new();
     for home in &residents {
         *resident_counts.entry(home.building).or_insert(0) += 1;
     }

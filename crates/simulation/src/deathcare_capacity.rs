@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::death_care::DeathCareStats;
 use crate::services::{ServiceBuilding, ServiceType};
@@ -111,9 +111,9 @@ impl CrematoriumRecord {
 #[derive(Resource, Debug, Clone, Default)]
 pub struct DeathCareCapacityState {
     /// Cemetery records keyed by `(grid_x, grid_y)`.
-    pub cemeteries: HashMap<(usize, usize), CemeteryRecord>,
+    pub cemeteries: BTreeMap<(usize, usize), CemeteryRecord>,
     /// Crematorium records keyed by `(grid_x, grid_y)`.
-    pub crematoriums: HashMap<(usize, usize), CrematoriumRecord>,
+    pub crematoriums: BTreeMap<(usize, usize), CrematoriumRecord>,
     /// Bodies that could not be placed this cycle (overflow).
     pub overflow_bodies: u32,
     /// Running total of bodies interred across all cemeteries.
@@ -156,7 +156,7 @@ impl DeathCareCapacityState {
 }
 
 // ---------------------------------------------------------------------------
-// Serialization helper for bitcode (HashMap not directly supported)
+// Serialization helper for bitcode (BTreeMap not directly supported)
 // ---------------------------------------------------------------------------
 
 #[derive(Encode, Decode, Default)]

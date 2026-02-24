@@ -1,16 +1,27 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::grid::{CellType, RoadType, WorldGrid};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct RoadNode(pub usize, pub usize);
 
+/// The road network graph.
+///
+/// **Deterministic collections**: `edges` uses `BTreeMap<RoadNode, BTreeSet<RoadNode>>`
+/// to guarantee deterministic iteration order. This is critical because:
+/// - `CsrGraph::from_road_network` iterates edges to build the CSR graph
+/// - `neighbors()` returns nodes in a deterministic order for pathfinding
+/// - Simulation invariant checks iterate the edge map
+///
+/// `intersections` remains a `HashSet` because it is only used for membership
+/// checks, never iterated in an order-dependent way.
 #[derive(Resource, Default, Serialize, Deserialize)]
 pub struct RoadNetwork {
-    pub edges: HashMap<RoadNode, HashSet<RoadNode>>,
+    /// Adjacency list using ordered collections for deterministic iteration.
+    pub edges: BTreeMap<RoadNode, BTreeSet<RoadNode>>,
     pub intersections: HashSet<RoadNode>,
     /// Nodes removed since the last drain. Movement systems drain this to
     /// invalidate stale `PathCache` entries that reference deleted roads.
@@ -115,6 +126,7 @@ impl RoadNetwork {
         self.edges.contains_key(&RoadNode(x, y))
     }
 
+    /// Returns neighbors in deterministic order (BTreeSet iteration).
     pub fn neighbors(&self, node: &RoadNode) -> Vec<RoadNode> {
         self.edges
             .get(node)
@@ -209,5 +221,31 @@ mod tests {
         let removed = roads.drain_removed();
         assert!(removed.contains(&RoadNode(11, 10)));
         assert!(roads.recently_removed.is_empty());
+    }
+
+    #[test]
+    fn test_neighbors_are_deterministically_ordered() {
+        let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
+        let mut roads = RoadNetwork::default();
+
+        // Create a cross: center at (10,10) with 4 neighbors
+        roads.place_road(&mut grid, 10, 10);
+        roads.place_road(&mut grid, 9, 10);
+        roads.place_road(&mut grid, 11, 10);
+        roads.place_road(&mut grid, 10, 9);
+        roads.place_road(&mut grid, 10, 11);
+
+        // Verify neighbors are returned in deterministic (sorted) order
+        let neighbors = roads.neighbors(&RoadNode(10, 10));
+        assert_eq!(neighbors.len(), 4);
+        // BTreeSet iteration yields RoadNode in Ord order: (x, y) ascending
+        assert_eq!(neighbors[0], RoadNode(9, 10));
+        assert_eq!(neighbors[1], RoadNode(10, 9));
+        assert_eq!(neighbors[2], RoadNode(10, 11));
+        assert_eq!(neighbors[3], RoadNode(11, 10));
+
+        // Verify repeated calls return the same order
+        let neighbors2 = roads.neighbors(&RoadNode(10, 10));
+        assert_eq!(neighbors, neighbors2);
     }
 }

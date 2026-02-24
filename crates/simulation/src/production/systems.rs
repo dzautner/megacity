@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use bevy::prelude::*;
 
@@ -46,7 +46,8 @@ pub(crate) fn pick_industry_from_nearby_resources(
     resource_grid: &ResourceGrid,
 ) -> IndustryType {
     let search_radius: isize = 8;
-    let mut counts: HashMap<ResourceType, u32> = HashMap::new();
+    // BTreeMap for deterministic tie-breaking in max_by_key (iteration order matters).
+    let mut counts: BTreeMap<ResourceType, u32> = BTreeMap::new();
 
     for dy in -search_radius..=search_radius {
         for dx in -search_radius..=search_radius {

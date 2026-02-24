@@ -83,6 +83,9 @@ pub fn rebuild_csr_with_oneway(
 
 impl CsrGraph {
     /// Build CSR graph from road network, excluding blocked directed edges.
+    ///
+    /// **Determinism**: Edge indices are sorted per node, matching the
+    /// deterministic behavior of `from_road_network`.
     pub fn from_road_network_filtered(
         network: &RoadNetwork,
         blocked: &std::collections::HashSet<(RoadNode, RoadNode)>,
@@ -103,15 +106,16 @@ impl CsrGraph {
         for node in &nodes {
             node_offsets.push(edges.len() as u32);
             if let Some(neighbors) = network.edges.get(node) {
-                for neighbor in neighbors {
-                    // Skip blocked edges
-                    if blocked.contains(&(*node, *neighbor)) {
-                        continue;
-                    }
-                    if let Some(&idx) = node_index.get(neighbor) {
-                        edges.push(idx);
-                        weights.push(1);
-                    }
+                // Collect, filter blocked edges, and sort for deterministic order
+                let mut neighbor_indices: Vec<u32> = neighbors
+                    .iter()
+                    .filter(|neighbor| !blocked.contains(&(*node, **neighbor)))
+                    .filter_map(|neighbor| node_index.get(neighbor).copied())
+                    .collect();
+                neighbor_indices.sort_unstable();
+                for idx in neighbor_indices {
+                    edges.push(idx);
+                    weights.push(1);
                 }
             }
         }
