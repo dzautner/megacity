@@ -122,6 +122,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "environmental_score",
     "milestone_progress",
     "play_time",
+    "power_grid_balance",
     "power_lines",
     "hybrid_coverage",];
 /// Startup system that validates the `SaveableRegistry` against the expected key
