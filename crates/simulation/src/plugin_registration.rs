@@ -210,4 +210,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(social_services::SocialServicesPlugin);
     // Wind-aware Gaussian plume pollution dispersion (SVC-021)
     app.add_plugins(wind_pollution::WindPollutionPlugin);
+
+    // Heating grid save/load (SAVE-040)
+    app.add_plugins(heating_save::HeatingSavePlugin);
 }
