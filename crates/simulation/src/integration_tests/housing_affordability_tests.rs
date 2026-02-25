@@ -31,8 +31,6 @@ fn spawn_residential(
             level: 1,
             capacity,
             occupants,
-            width: 1,
-            height: 1,
         })
         .id();
     {
@@ -77,7 +75,12 @@ fn spawn_citizen_with_salary(
             salary,
             savings: salary * 3.0,
         },
-        Personality::default(),
+        Personality {
+            ambition: 0.5,
+            sociability: 0.5,
+            materialism: 0.5,
+            resilience: 0.5,
+        },
         Needs::default(),
         Family::default(),
         ActivityTimer::default(),
