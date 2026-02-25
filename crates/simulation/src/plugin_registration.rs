@@ -263,6 +263,8 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     // Power plant maintenance schedules and forced outages (POWER-018)
     app.add_plugins(power_plant_maintenance::PowerPlantMaintenancePlugin);
 
+    // Demand response programs (POWER-012)
+    app.add_plugins(demand_response::DemandResponsePlugin);
     // Waste-to-Energy power plant (POWER-014)
     app.add_plugins(waste_to_energy::WtePlugin);
     app.add_plugins(oil_power::OilPowerPlugin);
