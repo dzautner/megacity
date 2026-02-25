@@ -134,6 +134,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "park_districts",
     "power_grid_balance",
     "power_lines",
+    "power_plant_maintenance",
     "hybrid_coverage",
     "service_building_capacity",
     "cultural_prestige",

@@ -259,6 +259,9 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     // Biomass power plant (POWER-017)
     app.add_plugins(biomass_power::BiomassPowerPlugin);
 
+    // Power plant maintenance schedules and forced outages (POWER-018)
+    app.add_plugins(power_plant_maintenance::PowerPlantMaintenancePlugin);
+
     // Waste-to-Energy power plant (POWER-014)
     app.add_plugins(waste_to_energy::WtePlugin);
     app.add_plugins(oil_power::OilPowerPlugin);
