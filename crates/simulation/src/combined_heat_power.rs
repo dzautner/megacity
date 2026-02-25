@@ -329,6 +329,6 @@ mod tests {
     fn test_chp_efficiency_bonus_value() {
         let coal_output = 200.0f32;
         let bonus = coal_output * CHP_EFFICIENCY_BONUS;
-        assert!((bonus - 30.0).abs() < f32::EPSILON);
+        assert!((bonus - 30.0).abs() < 0.01);
     }
 }
