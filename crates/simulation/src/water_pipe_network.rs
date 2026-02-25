@@ -377,8 +377,8 @@ fn calculate_building_pressures(
 }
 
 /// Age pipe breaks and remove repaired ones.
+/// Returns (active_breaks, pipes_under_repair).
 fn tick_pipe_breaks(breaks: &mut PipeBreakTracker) -> (u32, u32) {
-    let mut active = 0u32;
     let mut repairing = 0u32;
     breaks.breaks.retain_mut(|(_x, _y, remaining)| {
         if *remaining > 1 {
@@ -390,10 +390,9 @@ fn tick_pipe_breaks(breaks: &mut PipeBreakTracker) -> (u32, u32) {
             false
         }
     });
-    active = breaks.breaks.len() as u32;
-    let _ = active; // suppress unused warning; we return active from len
-    repairing = repairing.min(breaks.breaks.len() as u32);
-    (breaks.breaks.len() as u32, repairing)
+    let active = breaks.breaks.len() as u32;
+    repairing = repairing.min(active);
+    (active, repairing)
 }
 
 /// Main update system: runs on slow tick.
