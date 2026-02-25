@@ -29,6 +29,9 @@ const HAPPINESS_PENALTY_THRESHOLD: u8 = 10;
 const DISPATCH_INTERVAL: u64 = 10;
 const MAX_ROUTE_STOPS: usize = 8;
 
+/// Grid position with an associated path (used for facility routing results).
+type FacilityRoute = ((usize, usize), Vec<(usize, usize)>);
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -286,9 +289,9 @@ fn find_nearest_facility(
     csr: &CsrGraph,
     facilities: &[(usize, usize)],
     target: (usize, usize),
-) -> Option<((usize, usize), Vec<(usize, usize)>)> {
+) -> Option<FacilityRoute> {
     let tgt = RoadNode(target.0, target.1);
-    let mut best: Option<((usize, usize), Vec<(usize, usize)>)> = None;
+    let mut best: Option<FacilityRoute> = None;
     for &(fx, fy) in facilities {
         if let Some(path) = find_nearby_road_path(csr, RoadNode(fx, fy), tgt) {
             let coords: Vec<(usize, usize)> = path.iter().map(|n| (n.0, n.1)).collect();
