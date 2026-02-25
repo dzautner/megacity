@@ -162,6 +162,15 @@ pub(crate) fn generate_utility_mesh(utility_type: UtilityType) -> bevy::prelude:
                 darken(color, 0.6),
             );
         }
+        UtilityType::HydroDam => {
+            let color = [0.15, 0.45, 0.70, 1.0];
+            // Dam wall
+            m.add_cuboid(0.0, s * 0.3, 0.0, s * 0.45, s * 0.3, s * 0.1, color);
+            // Water behind dam
+            m.add_cuboid(0.0, s * 0.1, -s * 0.2, s * 0.4, s * 0.1, s * 0.15, [0.1, 0.4, 0.8, 1.0]);
+            // Powerhouse at base
+            m.add_cuboid(0.0, s * 0.1, s * 0.15, s * 0.2, s * 0.1, s * 0.08, darken(color, 0.7));
+        }
     }
 
     m.into_mesh()

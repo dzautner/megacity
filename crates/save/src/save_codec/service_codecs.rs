@@ -16,6 +16,7 @@ pub fn utility_type_to_u8(u: UtilityType) -> u8 {
         UtilityType::Geothermal => 6,
         UtilityType::PumpingStation => 7,
         UtilityType::WaterTreatment => 8,
+        UtilityType::HydroDam => 9,
     }
 }
 
@@ -30,6 +31,7 @@ pub fn u8_to_utility_type(v: u8) -> UtilityType {
         6 => UtilityType::Geothermal,
         7 => UtilityType::PumpingStation,
         8 => UtilityType::WaterTreatment,
+        9 => UtilityType::HydroDam,
         _ => UtilityType::PowerPlant, // fallback
     }
 }

@@ -88,5 +88,6 @@ pub fn utility_base_color(utility_type: UtilityType) -> Color {
         UtilityType::Geothermal => Color::srgb(0.65, 0.45, 0.30),
         UtilityType::PumpingStation => Color::srgb(0.3, 0.6, 0.8),
         UtilityType::WaterTreatment => Color::srgb(0.25, 0.55, 0.75),
+        UtilityType::HydroDam => Color::srgb(0.15, 0.45, 0.70),
     }
 }

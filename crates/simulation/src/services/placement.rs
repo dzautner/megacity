@@ -71,6 +71,7 @@ pub fn place_utility_source(
         UtilityType::Geothermal => 35,
         UtilityType::PumpingStation => 15,
         UtilityType::WaterTreatment => 35,
+        UtilityType::HydroDam => 40,
     };
 
     let entity = commands
@@ -97,5 +98,6 @@ pub fn utility_cost(utility_type: UtilityType) -> f64 {
         UtilityType::Geothermal => 3000.0,
         UtilityType::PumpingStation => 400.0,
         UtilityType::WaterTreatment => 1000.0,
+        UtilityType::HydroDam => 5000.0,
     }
 }
