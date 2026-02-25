@@ -13,7 +13,6 @@ use crate::citizen::{Citizen, CitizenDetails};
 use crate::homelessness::HomelessnessStats;
 use crate::immigration::CityAttractiveness;
 use crate::land_value::LandValueGrid;
-use crate::wealth::WealthTier;
 use crate::SlowTickTimer;
 
 // ---------------------------------------------------------------------------
