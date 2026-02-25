@@ -35,7 +35,7 @@ pub const HEALTH_PENALTY_THRESHOLD: f32 = 30.0;
 const MAX_HEALTH_PENALTY: u8 = 40;
 
 /// Maximum land-value penalty fraction (60%).
-const MAX_LAND_VALUE_PENALTY: f32 = 0.60;
+const MAX_LAND_VALUE_PENALTY_PTS: f32 = 30.0;
 
 /// Contamination level at which the maximum land-value penalty is reached.
 const LAND_VALUE_MAX_CONTAM: f32 = 300.0;
@@ -250,6 +250,10 @@ fn apply_soil_health_penalty(
 }
 
 /// Apply land value penalty for contaminated cells (up to -60%).
+///
+/// Uses a fixed subtraction (not multiplicative) so the penalty does not
+/// compound over many ticks and drive values to zero regardless of
+/// contamination level.
 fn apply_soil_land_value_penalty(
     timer: Res<crate::SlowTickTimer>,
     soil: Res<SoilContaminationGrid>,
@@ -265,12 +269,13 @@ fn apply_soil_land_value_penalty(
             if contamination <= 0.0 {
                 continue;
             }
-            // Scale penalty from 0% at contamination=0 to 60% at LAND_VALUE_MAX_CONTAM.
+            // Scale penalty from 0 at contamination=0 to MAX_LAND_VALUE_PENALTY_PTS
+            // at LAND_VALUE_MAX_CONTAM. This is a fixed-point subtraction so it
+            // does not compound multiplicatively over many slow ticks.
             let fraction = (contamination / LAND_VALUE_MAX_CONTAM).min(1.0);
-            let penalty_fraction = fraction * MAX_LAND_VALUE_PENALTY;
-            let current = land_value.get(x, y) as f32;
-            let reduced = current * (1.0 - penalty_fraction);
-            land_value.set(x, y, reduced.round().max(0.0) as u8);
+            let penalty = (fraction * MAX_LAND_VALUE_PENALTY_PTS) as u8;
+            let current = land_value.get(x, y);
+            land_value.set(x, y, current.saturating_sub(penalty));
         }
     }
 }
