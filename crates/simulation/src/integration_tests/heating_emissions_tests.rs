@@ -4,7 +4,6 @@ use crate::grid::ZoneType;
 use crate::heating_emissions::{HeatingEmissionsStats, HeatingFuelMix};
 use crate::pollution::PollutionGrid;
 use crate::test_harness::TestCity;
-use crate::weather::Weather;
 use crate::wind::WindState;
 
 // ====================================================================
