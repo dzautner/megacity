@@ -66,7 +66,7 @@ fn test_catalytic_converters_reduce_road_pollution() {
         for x in 45..55 {
             let cell = grid.get_mut(x, 50);
             cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::TwoLane;
+            cell.road_type = RoadType::Local;
         }
     }
     city_no_cat.tick_slow_cycle();
@@ -81,7 +81,7 @@ fn test_catalytic_converters_reduce_road_pollution() {
         for x in 45..55 {
             let cell = grid.get_mut(x, 50);
             cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::TwoLane;
+            cell.road_type = RoadType::Local;
         }
         world
             .resource_mut::<PollutionMitigationPolicies>()
@@ -117,7 +117,7 @@ fn test_ev_mandate_reduces_road_pollution_progressively() {
         for x in 45..55 {
             let cell = grid.get_mut(x, 50);
             cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::TwoLane;
+            cell.road_type = RoadType::Local;
         }
         let mut mit = world.resource_mut::<PollutionMitigationPolicies>();
         mit.ev_mandate = true;
@@ -137,7 +137,7 @@ fn test_ev_mandate_reduces_road_pollution_progressively() {
         for x in 45..55 {
             let cell = grid.get_mut(x, 50);
             cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::TwoLane;
+            cell.road_type = RoadType::Local;
         }
         let mut mit = world.resource_mut::<PollutionMitigationPolicies>();
         mit.ev_mandate = true;
@@ -258,7 +258,7 @@ fn test_multiple_policies_stack_for_greater_reduction() {
         for x in 45..55 {
             let cell = grid.get_mut(x, 50);
             cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::TwoLane;
+            cell.road_type = RoadType::Local;
         }
         world
             .resource_mut::<PollutionMitigationPolicies>()
@@ -276,7 +276,7 @@ fn test_multiple_policies_stack_for_greater_reduction() {
         for x in 45..55 {
             let cell = grid.get_mut(x, 50);
             cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::TwoLane;
+            cell.road_type = RoadType::Local;
         }
         let mut mit = world.resource_mut::<PollutionMitigationPolicies>();
         mit.catalytic_converters = true;
