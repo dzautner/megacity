@@ -297,4 +297,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(service_vehicle_dispatch::ServiceVehicleDispatchPlugin);
     // Campus/University District System (SERV-011)
     app.add_plugins(campus_university::CampusUniversityPlugin);
+    // Water physics and flood simulation (PROG-007)
+    app.add_plugins(water_physics::WaterPhysicsPlugin);
 }
