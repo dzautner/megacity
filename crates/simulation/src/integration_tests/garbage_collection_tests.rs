@@ -126,8 +126,8 @@ fn test_garbage_collection_with_landfill_dispatches_trucks() {
     let state = city.resource::<GarbageCollectionState>();
     // Should have dispatched at least one truck (or already completed).
     assert!(
-        state.total_dispatches >= 0,
-        "Expected dispatches to be tracked"
+        state.total_dispatches > 0,
+        "Expected at least one truck to be dispatched"
     );
 }
 
