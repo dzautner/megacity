@@ -300,4 +300,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(campus_university::CampusUniversityPlugin);
     // Water physics and flood simulation (PROG-007)
     app.add_plugins(water_physics::WaterPhysicsPlugin);
+    // Garbage collection routing (SERV-004)
+    app.add_plugins(garbage_collection::GarbageCollectionPlugin);
 }

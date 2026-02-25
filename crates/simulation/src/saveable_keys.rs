@@ -146,6 +146,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "vehicle_dispatch",
     "campus_university",
     "water_physics",
+    "garbage_collection",
 ];
 /// Startup system that validates the `SaveableRegistry` against the expected key
 /// list. Panics if any expected key is missing (indicating a `Saveable` type whose
