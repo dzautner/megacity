@@ -27,7 +27,7 @@ fn place_congested_roads(city: &mut TestCity, cx: usize, cy: usize, size: usize)
                 let y = cy + dy;
                 let cell = grid.get_mut(x, y);
                 cell.cell_type = CellType::Road;
-                cell.road_type = RoadType::Local;
+                cell.road_type = RoadType::Highway;
             }
         }
     }
@@ -35,8 +35,8 @@ fn place_congested_roads(city: &mut TestCity, cx: usize, cy: usize, size: usize)
         let mut traffic = world.resource_mut::<TrafficGrid>();
         for dy in 0..size {
             for dx in 0..size {
-                // density=20 → congestion_level=1.0 → full base Q
-                traffic.set(cx + dx, cy + dy, 20);
+                // density=100 → over-capacity on highway → strong emission
+                traffic.set(cx + dx, cy + dy, 100);
             }
         }
     }

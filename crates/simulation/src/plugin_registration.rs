@@ -320,4 +320,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Groundwater quality enhancement (POLL-028)
     app.add_plugins(groundwater_quality::GroundwaterQualityPlugin);
+
+    // Airport area-source air pollution (POLL-016)
+    app.add_plugins(airport_pollution::AirportPollutionPlugin);
 }
