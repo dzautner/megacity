@@ -2,7 +2,7 @@
 
 use crate::grid::ZoneType;
 use crate::test_harness::TestCity;
-use crate::water_physics::{WaterGrid, WaterPhysicsState, FLOOD_DEPTH_THRESHOLD};
+use crate::water_physics::{WaterGrid, WaterPhysicsState};
 use crate::Saveable;
 
 /// Water flows downhill: a cell with higher elevation + water should transfer
