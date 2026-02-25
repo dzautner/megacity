@@ -48,6 +48,7 @@ pub enum PowerPlantType {
     WasteToEnergy,
     HydroDam,
     Geothermal,
+    Biomass,
 }
 
 // =============================================================================

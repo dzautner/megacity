@@ -254,6 +254,9 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     // Power line transmission and service radius (POWER-011)
     app.add_plugins(power_lines::PowerLinePlugin);
 
+    // Biomass power plant (POWER-017)
+    app.add_plugins(biomass_power::BiomassPowerPlugin);
+
     // Waste-to-Energy power plant (POWER-014)
     app.add_plugins(waste_to_energy::WtePlugin);
     // Coverage metrics precomputed for UI (PERF-001)
