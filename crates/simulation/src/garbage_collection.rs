@@ -1,8 +1,9 @@
 //! SERV-004: Garbage Collection Routing
 //!
-//! Dispatches garbage trucks from waste facilities along collection routes.
-//! Buildings accumulate garbage; trucks collect using nearest-unvisited
-//! heuristic. Full trucks (capacity 20) return to dump at their facility.
+//! Dispatches garbage trucks from waste facilities (landfills, incinerators,
+//! recycling centers) along collection routes. Buildings accumulate garbage;
+//! trucks collect using nearest-unvisited heuristic. Full trucks (capacity
+//! 20 units) return to dump at their facility.
 
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
