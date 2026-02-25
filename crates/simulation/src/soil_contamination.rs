@@ -300,8 +300,10 @@ impl Plugin for SoilContaminationPlugin {
 // Unit tests
 // ---------------------------------------------------------------------------
 
+
 #[cfg(test)]
 mod tests {
+    use crate::Saveable;
     use super::*;
 
     #[test]
