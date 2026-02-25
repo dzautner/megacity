@@ -53,7 +53,8 @@ const BARRIER_SEARCH_RADIUS: i32 = 12;
 ///
 /// Returns `(building_count, terrain_blocks)` where:
 /// - `building_count`: number of cells with a building between source and
-///   receiver (excluding endpoints).
+///   receiver (excluding both endpoints -- the building at the source IS the
+///   noise source, not a barrier to it).
 /// - `terrain_blocks`: true if any intermediate cell has elevation higher
 ///   than the interpolated line-of-sight elevation between source and receiver.
 fn count_barriers(
@@ -66,7 +67,7 @@ fn count_barriers(
     let dx = (rx - sx).abs();
     let dy = (ry - sy).abs();
 
-    // Skip adjacent cells (no room for barriers)
+    // Skip adjacent cells (no room for barriers between them)
     if dx <= 1 && dy <= 1 {
         return (0, false);
     }
@@ -111,7 +112,7 @@ fn count_barriers(
 
         let cell = grid.get(x as usize, y as usize);
 
-        // Check building barrier
+        // Check building barrier (only intermediate cells, not endpoints)
         if cell.building_id.is_some() {
             building_count += 1;
         }
@@ -157,17 +158,18 @@ fn barrier_multiplier(building_count: u32, terrain_blocked: bool) -> f32 {
 
 /// Post-processes the noise grid to apply barrier attenuation.
 ///
-/// For each cell with noise above `SOURCE_THRESHOLD`, the system traces lines
-/// to nearby cells and checks for intervening buildings or terrain. If barriers
-/// exist, the receiver cell's noise is reduced.
+/// For each receiver cell, we look at nearby noise source cells (cells with
+/// noise above `SOURCE_THRESHOLD`). For each source, we trace a line from the
+/// source to the receiver, count intervening buildings and terrain obstacles,
+/// and reduce the receiver's noise proportionally.
 ///
-/// The approach works by:
+/// The approach:
 /// 1. Snapshot the current noise grid.
-/// 2. For each cell with noise >= SOURCE_THRESHOLD (potential source), scan
-///    surrounding cells within BARRIER_SEARCH_RADIUS.
-/// 3. For each nearby cell, trace a line from the source to that cell and
-///    count barriers.
-/// 4. If barriers exist, compute a reduction and apply it to the receiver cell.
+/// 2. For each receiver cell with noise > 0, scan surrounding cells within
+///    `BARRIER_SEARCH_RADIUS` for noise sources (cells with noise >= threshold).
+/// 3. For each source, trace barriers and compute a reduction.
+/// 4. Apply the maximum reduction from all source-receiver pairs to the
+///    receiver cell.
 pub fn apply_noise_barriers(
     slow_timer: Res<SlowTickTimer>,
     mut noise: ResMut<NoisePollutionGrid>,
@@ -180,67 +182,78 @@ pub fn apply_noise_barriers(
     // Snapshot the noise grid before modifications
     let snapshot = noise.levels.clone();
 
-    // Collect reduction amounts per cell (accumulated from all nearby sources)
+    // Collect reduction amounts per cell
     let total_cells = GRID_WIDTH * GRID_HEIGHT;
     let mut reductions = vec![0.0f32; total_cells];
 
-    // Find all noise source cells (cells with significant noise)
-    for sy in 0..GRID_HEIGHT {
-        for sx in 0..GRID_WIDTH {
-            let src_noise = snapshot[sy * GRID_WIDTH + sx];
-            if src_noise < SOURCE_THRESHOLD {
+    // For each receiver cell with noise, check if any source has barriers
+    for ry in 0..GRID_HEIGHT {
+        for rx in 0..GRID_WIDTH {
+            let rcv_noise = snapshot[ry * GRID_WIDTH + rx];
+            if rcv_noise == 0 {
                 continue;
             }
 
-            // Check receiver cells around this source
             let r = BARRIER_SEARCH_RADIUS;
+            let mut max_reduction = 0.0f32;
+
             for dy in -r..=r {
                 for dx in -r..=r {
                     if dx == 0 && dy == 0 {
                         continue;
                     }
 
-                    let rx = sx as i32 + dx;
-                    let ry = sy as i32 + dy;
-                    if rx < 0
-                        || ry < 0
-                        || rx >= GRID_WIDTH as i32
-                        || ry >= GRID_HEIGHT as i32
+                    let sx = rx as i32 + dx;
+                    let sy = ry as i32 + dy;
+                    if sx < 0
+                        || sy < 0
+                        || sx >= GRID_WIDTH as i32
+                        || sy >= GRID_HEIGHT as i32
                     {
                         continue;
                     }
 
-                    let rux = rx as usize;
-                    let ruy = ry as usize;
-                    let rcv_noise = snapshot[ruy * GRID_WIDTH + rux];
-                    if rcv_noise == 0 {
+                    let sux = sx as usize;
+                    let suy = sy as usize;
+                    let src_noise = snapshot[suy * GRID_WIDTH + sux];
+                    if src_noise < SOURCE_THRESHOLD {
+                        continue;
+                    }
+
+                    // Source must be louder than receiver to contribute
+                    // meaningfully to noise at the receiver
+                    if src_noise <= rcv_noise {
                         continue;
                     }
 
                     let (buildings, terrain) =
-                        count_barriers(&grid, sx as i32, sy as i32, rx, ry);
+                        count_barriers(&grid, sx, sy, rx as i32, ry as i32);
 
-                    // Only apply if there are actual barriers
                     if buildings == 0 && !terrain {
                         continue;
                     }
 
                     let mult = barrier_multiplier(buildings, terrain);
-                    // The portion of receiver noise attributable to this source
-                    // is approximated as proportional to the source strength.
-                    // We compute the reduction as: noise_contribution * (1 - mult)
-                    let contribution_fraction = src_noise as f32
-                        / (src_noise as f32 + rcv_noise as f32);
-                    let noise_from_source = rcv_noise as f32 * contribution_fraction;
-                    let reduction = noise_from_source * (1.0 - mult);
+                    // The reduction from this source: proportion of receiver
+                    // noise attributable to this source, reduced by barrier.
+                    let contribution = (src_noise as f32 - rcv_noise as f32)
+                        / src_noise as f32
+                        * rcv_noise as f32;
+                    let reduction = contribution * (1.0 - mult);
 
-                    reductions[ruy * GRID_WIDTH + rux] += reduction;
+                    if reduction > max_reduction {
+                        max_reduction = reduction;
+                    }
                 }
+            }
+
+            if max_reduction > 0.0 {
+                reductions[ry * GRID_WIDTH + rx] = max_reduction;
             }
         }
     }
 
-    // Apply reductions (cap total reduction at 80% of original noise to avoid
+    // Apply reductions (cap total reduction at 70% of original noise to avoid
     // artifacts where heavy overlapping barriers zero out noise entirely)
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {
@@ -248,8 +261,8 @@ pub fn apply_noise_barriers(
             let reduction = reductions[idx];
             if reduction > 0.0 {
                 let current = noise.levels[idx] as f32;
-                let max_reduction = current * 0.8;
-                let clamped = reduction.min(max_reduction);
+                let max_red = current * 0.7;
+                let clamped = reduction.min(max_red);
                 noise.levels[idx] = (current - clamped).max(0.0) as u8;
             }
         }
