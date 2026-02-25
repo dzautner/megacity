@@ -19,6 +19,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "blueprint_library",
     "active_city_effects",
     "bicycle_lanes",
+    "biomass_power",
     "bus_transit",
     "chart_history",
     "city_hall",

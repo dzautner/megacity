@@ -91,12 +91,13 @@ pub struct SourceSupply {
     pub solar_mw: f32,
     pub wind_mw: f32,
     pub wte_mw: f32,
+    pub biomass_mw: f32,
     pub battery_mw: f32,
 }
 
 impl SourceSupply {
     pub fn total(&self) -> f32 {
-        self.coal_mw + self.gas_mw + self.solar_mw + self.wind_mw + self.wte_mw + self.battery_mw
+        self.coal_mw + self.gas_mw + self.solar_mw + self.wind_mw + self.wte_mw + self.biomass_mw + self.battery_mw
     }
 }
 
@@ -277,12 +278,19 @@ pub fn aggregate_source_supply(
         .map(|p| p.current_output_mw)
         .sum();
 
+    let biomass_output: f32 = plants
+        .iter()
+        .filter(|p| p.plant_type == PowerPlantType::Biomass)
+        .map(|p| p.current_output_mw)
+        .sum();
+
     let supply = SourceSupply {
         coal_mw: coal_state.total_output_mw,
         gas_mw: gas_state.total_output_mw,
         solar_mw: solar_state.total_output_mw,
         wind_mw: wind_state.total_output_mw,
         wte_mw: wte_output,
+        biomass_mw: biomass_output,
         battery_mw: 0.0,
     };
 
@@ -447,8 +455,8 @@ mod tests {
 
     #[test]
     fn test_source_supply_total() {
-        let s = SourceSupply { coal_mw: 200.0, gas_mw: 100.0, solar_mw: 14.0, wind_mw: 25.0, wte_mw: 10.0, battery_mw: 5.0 };
-        assert!((s.total() - 354.0).abs() < f32::EPSILON);
+        let s = SourceSupply { coal_mw: 200.0, gas_mw: 100.0, solar_mw: 14.0, wind_mw: 25.0, wte_mw: 10.0, biomass_mw: 20.0, battery_mw: 5.0 };
+        assert!((s.total() - 374.0).abs() < f32::EPSILON);
     }
 
     #[test]
