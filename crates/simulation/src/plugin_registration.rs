@@ -285,4 +285,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     // Service vehicle dispatch on road network (SERV-002)
     app.add_plugins(service_road_dispatch::ServiceRoadDispatchPlugin);
     app.add_plugins(service_cross_interaction::ServiceCrossInteractionPlugin);
+    // Service vehicle dispatch (SVC-003)
+    app.add_plugins(service_vehicle_dispatch::ServiceVehicleDispatchPlugin);
 }
