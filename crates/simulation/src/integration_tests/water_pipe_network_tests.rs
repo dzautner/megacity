@@ -126,6 +126,15 @@ fn test_growing_city_outgrows_pipe_capacity() {
         city = city.with_building(x, 49, ZoneType::ResidentialLow, 3);
     }
 
+    // Set occupants on all buildings so they generate water demand.
+    {
+        let world = city.world_mut();
+        let mut query = world.query::<&mut crate::buildings::Building>();
+        for mut building in query.iter_mut(world) {
+            building.occupants = 30;
+        }
+    }
+
     city.tick_slow_cycle();
 
     let state = city.resource::<WaterPipeNetworkState>();
