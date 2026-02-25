@@ -1,6 +1,6 @@
 //! Integration tests for POLL-015: Road Traffic Vehicle Emission Pollution Source.
 
-use crate::grid::{CellType, RoadType};
+use crate::grid::RoadType;
 use crate::pollution::PollutionGrid;
 use crate::test_harness::TestCity;
 use crate::traffic::TrafficGrid;
