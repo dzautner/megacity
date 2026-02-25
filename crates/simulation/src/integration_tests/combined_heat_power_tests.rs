@@ -37,6 +37,20 @@ fn spawn_non_chp_coal_plant(city: &mut TestCity, x: usize, y: usize) {
     world.spawn(PowerPlant::new_coal(x, y));
 }
 
+/// Helper: place roads in a rectangular area for BFS propagation.
+fn place_road_area(city: &mut TestCity, x0: usize, y0: usize, x1: usize, y1: usize) {
+    let world = city.world_mut();
+    world.resource_scope(|world, mut grid: bevy::prelude::Mut<crate::grid::WorldGrid>| {
+        world.resource_scope(|_world, mut roads: bevy::prelude::Mut<crate::roads::RoadNetwork>| {
+            for y in y0..=y1 {
+                for x in x0..=x1 {
+                    roads.place_road(&mut grid, x, y);
+                }
+            }
+        });
+    });
+}
+
 // ====================================================================
 // Resource existence
 // ====================================================================
@@ -57,24 +71,11 @@ fn test_chp_state_exists_in_new_city() {
 fn test_chp_coal_plant_provides_heating() {
     let mut city = TestCity::new().with_weather(-5.0);
     spawn_chp_coal_plant(&mut city, 50, 50);
-
-    // Place roads around the plant so BFS can propagate
-    {
-        let world = city.world_mut();
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        let mut roads = world.remove_resource::<crate::roads::RoadNetwork>().unwrap();
-        for x in 45..=55 {
-            for y in 45..=55 {
-                roads.place_road(&mut grid, x, y);
-            }
-        }
-        world.insert_resource(roads);
-    }
+    place_road_area(&mut city, 45, 45, 55, 55);
 
     city.tick_slow_cycle();
 
     let heating = city.resource::<HeatingGrid>();
-    // The plant at (50,50) should generate heat at the source
     assert!(
         heating.is_heated(50, 50),
         "CHP plant should provide heating at its location"
@@ -89,7 +90,6 @@ fn test_non_chp_plant_no_heating() {
     city.tick_slow_cycle();
 
     let heating = city.resource::<HeatingGrid>();
-    // A plant without CHP upgrade should NOT provide heating
     assert!(
         !heating.is_heated(50, 50),
         "Non-CHP plant should not provide heating"
@@ -104,29 +104,15 @@ fn test_non_chp_plant_no_heating() {
 fn test_chp_heat_propagates_nearby() {
     let mut city = TestCity::new().with_weather(-5.0);
     spawn_chp_coal_plant(&mut city, 50, 50);
-
-    // Place roads for BFS propagation
-    {
-        let world = city.world_mut();
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        let mut roads = world.remove_resource::<crate::roads::RoadNetwork>().unwrap();
-        for x in 40..=60 {
-            for y in 40..=60 {
-                roads.place_road(&mut grid, x, y);
-            }
-        }
-        world.insert_resource(roads);
-    }
+    place_road_area(&mut city, 40, 40, 60, 60);
 
     city.tick_slow_cycle();
 
     let heating = city.resource::<HeatingGrid>();
-    // Nearby cells should be heated
     assert!(
         heating.is_heated(52, 50),
         "Cell 2 away from CHP plant should be heated"
     );
-    // Heat should decay with distance
     let heat_near = heating.get(51, 50);
     let heat_far = heating.get(55, 50);
     assert!(
@@ -169,7 +155,6 @@ fn test_chp_stats_zero_in_warm_weather() {
 
     let state = city.resource::<ChpState>();
     assert_eq!(state.upgrade_count, 1);
-    // Heat output should be zero when there's no heating demand
     assert!(
         state.total_heat_output_mw.abs() < f32::EPSILON,
         "Heat output should be zero in warm weather, got {}",
