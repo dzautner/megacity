@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::health::HealthGrid;
 use crate::land_value::LandValueGrid;
-use crate::soil_contamination::{SoilContaminationGrid, UPDATE_INTERVAL};
+use crate::soil_contamination::SoilContaminationGrid;
 
 // ---------------------------------------------------------------------------
 // Constants
