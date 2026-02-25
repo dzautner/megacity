@@ -315,4 +315,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(pollution_mitigation::PollutionMitigationPlugin);
     // Soil contamination persistence model (POLL-013)
     app.add_plugins(soil_contamination::SoilContaminationPlugin);
+    // Residential and commercial heating air pollution (POLL-031)
+    app.add_plugins(heating_emissions::HeatingEmissionsPlugin);
 }
