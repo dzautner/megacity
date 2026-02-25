@@ -311,4 +311,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(traffic_emissions::TrafficEmissionsPlugin);
     // Air Pollution Mitigation Policies (POLL-004)
     app.add_plugins(pollution_mitigation::PollutionMitigationPlugin);
+    // Soil contamination persistence model (POLL-013)
+    app.add_plugins(soil_contamination::SoilContaminationPlugin);
 }

@@ -59,6 +59,7 @@ pub fn outage_probability(plant_type: PowerPlantType) -> f32 {
         PowerPlantType::WasteToEnergy => monthly_to_per_cycle(0.02),
         PowerPlantType::HydroDam => monthly_to_per_cycle(0.01),
         PowerPlantType::Geothermal => monthly_to_per_cycle(0.01),
+        PowerPlantType::Nuclear => monthly_to_per_cycle(0.01),
     }
 }
 
@@ -72,6 +73,7 @@ pub fn outage_duration_range(plant_type: PowerPlantType) -> (u32, u32) {
         PowerPlantType::WasteToEnergy => (3, 6),                         // 1–2 days
         PowerPlantType::HydroDam => (21, 90),                            // 7–30 days
         PowerPlantType::Geothermal => (9, 21),                           // 3–7 days
+        PowerPlantType::Nuclear => (21, 90),                            // 7–30 days
     }
 }
 
