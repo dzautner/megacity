@@ -317,4 +317,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(soil_contamination::SoilContaminationPlugin);
     // Residential and commercial heating air pollution (POLL-031)
     app.add_plugins(heating_emissions::HeatingEmissionsPlugin);
+
+    // Groundwater quality enhancement (POLL-028)
+    app.add_plugins(groundwater_quality::GroundwaterQualityPlugin);
 }
