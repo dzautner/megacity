@@ -4,7 +4,7 @@ use crate::health::HealthGrid;
 use crate::land_value::LandValueGrid;
 use crate::soil_contamination::{SoilContaminationGrid, UPDATE_INTERVAL};
 use crate::soil_remediation::{
-    RemediationMethod, SoilRemediationState, BUILDABLE_THRESHOLD, HEALTH_PENALTY_THRESHOLD,
+    RemediationMethod, SoilRemediationState, BUILDABLE_THRESHOLD,
 };
 use crate::test_harness::TestCity;
 
