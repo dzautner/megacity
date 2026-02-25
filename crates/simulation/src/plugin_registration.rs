@@ -302,4 +302,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(water_physics::WaterPhysicsPlugin);
     // Garbage collection routing (SERV-004)
     app.add_plugins(garbage_collection::GarbageCollectionPlugin);
+
+    // Road traffic vehicle emission pollution (POLL-015)
+    app.add_plugins(traffic_emissions::TrafficEmissionsPlugin);
 }
