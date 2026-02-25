@@ -305,4 +305,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Road traffic vehicle emission pollution (POLL-015)
     app.add_plugins(traffic_emissions::TrafficEmissionsPlugin);
+    // Complete Noise Source Type Table (POLL-019)
+    app.add_plugins(noise_sources::NoiseSourcesPlugin);
 }
