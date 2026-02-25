@@ -340,6 +340,7 @@ impl Plugin for SoilRemediationPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Saveable;
 
     #[test]
     fn test_remediation_method_rates() {

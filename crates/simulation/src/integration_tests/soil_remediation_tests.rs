@@ -7,7 +7,6 @@ use crate::soil_remediation::{
     RemediationMethod, SoilRemediationState, BUILDABLE_THRESHOLD, HEALTH_PENALTY_THRESHOLD,
 };
 use crate::test_harness::TestCity;
-use crate::SlowTickTimer;
 
 // ---------------------------------------------------------------------------
 // Helpers
