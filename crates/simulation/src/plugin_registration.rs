@@ -168,6 +168,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(advisors::AdvisorsPlugin);
     app.add_plugins(achievements::AchievementsPlugin);
     app.add_plugins(freight_traffic::FreightTrafficPlugin);
+    app.add_plugins(production_chain::ProductionChainPlugin);
 
     // Building lifecycle and disasters
     app.add_plugins(abandonment::AbandonmentPlugin);
