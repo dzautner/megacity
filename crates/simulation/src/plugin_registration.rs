@@ -323,4 +323,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Airport area-source air pollution (POLL-016)
     app.add_plugins(airport_pollution::AirportPollutionPlugin);
+    // Complete Noise Source Type Table (POLL-019)
+    app.add_plugins(noise_sources::NoiseSourcesPlugin);
 }
