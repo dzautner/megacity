@@ -309,4 +309,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Road traffic vehicle emission pollution (POLL-015)
     app.add_plugins(traffic_emissions::TrafficEmissionsPlugin);
+    // Air Pollution Mitigation Policies (POLL-004)
+    app.add_plugins(pollution_mitigation::PollutionMitigationPlugin);
 }
