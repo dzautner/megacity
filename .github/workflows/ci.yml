@@ -29,11 +29,14 @@ jobs:
         with:
           shared-key: ci
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Run clippy
         run: cargo clippy --workspace -- -D warnings
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo nextest run --workspace
 
   fmt:
     runs-on: ubuntu-latest
