@@ -65,6 +65,7 @@ pub fn co2_rate_for_utility(utility_type: UtilityType) -> f32 {
         UtilityType::SewagePlant => 0.0,
         UtilityType::PumpingStation => 0.0,
         UtilityType::WaterTreatment => 0.0,
+        UtilityType::HydroDam => 0.0, // Hydro is zero-carbon
     }
 }
 
