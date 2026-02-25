@@ -147,6 +147,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(flood_protection::FloodProtectionPlugin);
     app.add_plugins(stormwater_mgmt::StormwaterMgmtPlugin);
     app.add_plugins(trees::TreesPlugin);
+    app.add_plugins(tree_absorption::TreeAbsorptionPlugin);
     app.add_plugins(airport::AirportPlugin);
     app.add_plugins(metro_transit::MetroTransitPlugin);
     app.add_plugins(train_transit::TrainTransitPlugin);
