@@ -134,6 +134,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "save_slot_manager",
     "production_chain",
     "service_dispatch",
+    "service_cross_interaction",
 ];
 /// Startup system that validates the `SaveableRegistry` against the expected key
 /// list. Panics if any expected key is missing (indicating a `Saveable` type whose
