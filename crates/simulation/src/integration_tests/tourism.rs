@@ -2,7 +2,7 @@ use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
 use crate::tourism::Tourism;
-use crate::weather::{Season, Weather, WeatherCondition};
+use crate::weather::Weather;
 
 // ====================================================================
 // Tourism system integration tests
@@ -145,30 +145,46 @@ fn test_tourism_airport_multiplier_effect() {
 
 #[test]
 fn test_tourism_weather_affects_visitors() {
+    // Use day 120 (Summer: days 91-180) with clear atmospheric state
+    // so update_weather derives Season::Summer + WeatherCondition::Sunny.
     let mut city_summer = TestCity::new().with_service(10, 10, ServiceType::Stadium);
     {
         let w = city_summer.world_mut();
         {
             let mut wt = w.resource_mut::<Weather>();
-            wt.season = Season::Summer;
-            wt.current_event = WeatherCondition::Sunny;
+            // Set atmospheric state for Sunny (low cloud cover, no precipitation)
+            wt.cloud_cover = 0.05;
+            wt.atmo_precipitation = 0.0;
             wt.temperature = 25.0;
+            // Prevent weather system from randomizing a new event
+            wt.event_days_remaining = 10;
+            // Ensure weather update triggers (different day/hour from last update)
+            wt.last_update_day = 119;
+            wt.last_update_hour = 99;
         }
-        w.resource_mut::<GameClock>().day = 31;
+        w.resource_mut::<GameClock>().day = 120;
     }
     city_summer.tick(1);
     let sv = city_summer.resource::<Tourism>().monthly_visitors;
 
+    // Use day 300 (Winter: days 271-360) with stormy atmospheric state
+    // so update_weather derives Season::Winter + WeatherCondition::Storm.
     let mut city_winter = TestCity::new().with_service(10, 10, ServiceType::Stadium);
     {
         let w = city_winter.world_mut();
         {
             let mut wt = w.resource_mut::<Weather>();
-            wt.season = Season::Winter;
-            wt.current_event = WeatherCondition::Storm;
+            // Set atmospheric state for Storm (high cloud cover + precipitation, temp > 0)
+            wt.cloud_cover = 0.95;
+            wt.atmo_precipitation = 0.9;
             wt.temperature = 2.0;
+            // Prevent weather system from randomizing a new event
+            wt.event_days_remaining = 10;
+            // Ensure weather update triggers
+            wt.last_update_day = 299;
+            wt.last_update_hour = 99;
         }
-        w.resource_mut::<GameClock>().day = 31;
+        w.resource_mut::<GameClock>().day = 300;
     }
     city_winter.tick(1);
     let wv = city_winter.resource::<Tourism>().monthly_visitors;
