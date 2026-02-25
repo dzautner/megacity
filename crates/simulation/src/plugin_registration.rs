@@ -295,4 +295,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(service_cross_interaction::ServiceCrossInteractionPlugin);
     // Service vehicle dispatch (SVC-003)
     app.add_plugins(service_vehicle_dispatch::ServiceVehicleDispatchPlugin);
+    // Campus/University District System (SERV-011)
+    app.add_plugins(campus_university::CampusUniversityPlugin);
 }
