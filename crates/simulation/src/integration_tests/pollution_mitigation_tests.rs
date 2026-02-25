@@ -6,7 +6,41 @@ use crate::pollution::PollutionGrid;
 use crate::pollution_mitigation::PollutionMitigationPolicies;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
+use crate::traffic::TrafficGrid;
 use crate::wind::WindState;
+
+// ====================================================================
+// Helper: place a block of congested roads
+// ====================================================================
+
+/// Place a grid of road cells with high traffic density to ensure
+/// measurable road pollution (roads with zero traffic produce Q < 1.0
+/// which rounds to 0 in the u8 pollution grid).
+fn place_congested_roads(city: &mut TestCity, cx: usize, cy: usize, size: usize) {
+    use crate::grid::{CellType, RoadType};
+    let world = city.world_mut();
+    {
+        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
+        for dy in 0..size {
+            for dx in 0..size {
+                let x = cx + dx;
+                let y = cy + dy;
+                let cell = grid.get_mut(x, y);
+                cell.cell_type = CellType::Road;
+                cell.road_type = RoadType::Local;
+            }
+        }
+    }
+    {
+        let mut traffic = world.resource_mut::<TrafficGrid>();
+        for dy in 0..size {
+            for dx in 0..size {
+                // density=20 → congestion_level=1.0 → full base Q
+                traffic.set(cx + dx, cy + dy, 20);
+            }
+        }
+    }
+}
 
 // ====================================================================
 // Scrubbers on Power Plants
@@ -19,7 +53,6 @@ fn test_scrubbers_reduce_power_plant_pollution() {
     {
         let world = city_no_scrub.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
-        // Spawn a coal power plant
         world.spawn(PowerPlant::new_coal(50, 50));
     }
     city_no_scrub.tick_slow_cycle();
@@ -54,45 +87,32 @@ fn test_scrubbers_reduce_power_plant_pollution() {
 
 #[test]
 fn test_catalytic_converters_reduce_road_pollution() {
-    use crate::grid::{CellType, RoadType};
-
-    // City with roads, no catalytic converters
+    // City with congested roads, no catalytic converters
     let mut city_no_cat = TestCity::new();
     {
         let world = city_no_cat.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        // Place a strip of roads
-        for x in 45..55 {
-            let cell = grid.get_mut(x, 50);
-            cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::Local;
-        }
     }
+    place_congested_roads(&mut city_no_cat, 40, 40, 20);
     city_no_cat.tick_slow_cycle();
     let p_no_cat = city_no_cat.resource::<PollutionGrid>().get(50, 50);
 
-    // City with roads, catalytic converters enabled
+    // City with congested roads, catalytic converters enabled
     let mut city_cat = TestCity::new();
     {
         let world = city_cat.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        for x in 45..55 {
-            let cell = grid.get_mut(x, 50);
-            cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::Local;
-        }
         world
             .resource_mut::<PollutionMitigationPolicies>()
             .catalytic_converters = true;
     }
+    place_congested_roads(&mut city_cat, 40, 40, 20);
     city_cat.tick_slow_cycle();
     let p_cat = city_cat.resource::<PollutionGrid>().get(50, 50);
 
     assert!(
         p_no_cat > 0,
-        "Roads should emit pollution without converters, got {p_no_cat}"
+        "Congested roads should emit pollution without converters, got {p_no_cat}"
     );
     assert!(
         p_cat < p_no_cat,
@@ -106,25 +126,17 @@ fn test_catalytic_converters_reduce_road_pollution() {
 
 #[test]
 fn test_ev_mandate_reduces_road_pollution_progressively() {
-    use crate::grid::{CellType, RoadType};
-
     // City with EV mandate at half phase-in
     let mut city_half = TestCity::new();
     {
         let world = city_half.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        for x in 45..55 {
-            let cell = grid.get_mut(x, 50);
-            cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::Local;
-        }
         let mut mit = world.resource_mut::<PollutionMitigationPolicies>();
         mit.ev_mandate = true;
         mit.ev_mandate_activation_day = Some(0);
-        // Set clock to halfway through phase-in
         world.resource_mut::<GameClock>().day = 5 * 360 / 2;
     }
+    place_congested_roads(&mut city_half, 40, 40, 20);
     city_half.tick_slow_cycle();
     let p_half = city_half.resource::<PollutionGrid>().get(50, 50);
 
@@ -133,18 +145,12 @@ fn test_ev_mandate_reduces_road_pollution_progressively() {
     {
         let world = city_full.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        for x in 45..55 {
-            let cell = grid.get_mut(x, 50);
-            cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::Local;
-        }
         let mut mit = world.resource_mut::<PollutionMitigationPolicies>();
         mit.ev_mandate = true;
         mit.ev_mandate_activation_day = Some(0);
-        // Set clock to full phase-in
         world.resource_mut::<GameClock>().day = 5 * 360;
     }
+    place_congested_roads(&mut city_full, 40, 40, 20);
     city_full.tick_slow_cycle();
     let p_full = city_full.resource::<PollutionGrid>().get(50, 50);
 
@@ -216,7 +222,7 @@ fn test_emissions_cap_profit_penalty() {
 
 #[test]
 fn test_default_mitigation_no_pollution_change() {
-    // Two identical cities: one with default mitigation, one without
+    // Two identical cities with default mitigation (both should have same pollution)
     let mut city_a = TestCity::new()
         .with_building(50, 50, ZoneType::Industrial, 2);
     {
@@ -247,23 +253,16 @@ fn test_default_mitigation_no_pollution_change() {
 
 #[test]
 fn test_multiple_policies_stack_for_greater_reduction() {
-    use crate::grid::{CellType, RoadType};
-
     // City with only catalytic converters
     let mut city_cat_only = TestCity::new();
     {
         let world = city_cat_only.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        for x in 45..55 {
-            let cell = grid.get_mut(x, 50);
-            cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::Local;
-        }
         world
             .resource_mut::<PollutionMitigationPolicies>()
             .catalytic_converters = true;
     }
+    place_congested_roads(&mut city_cat_only, 40, 40, 20);
     city_cat_only.tick_slow_cycle();
     let p_cat = city_cat_only.resource::<PollutionGrid>().get(50, 50);
 
@@ -272,18 +271,13 @@ fn test_multiple_policies_stack_for_greater_reduction() {
     {
         let world = city_both.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
-        let mut grid = world.resource_mut::<crate::grid::WorldGrid>();
-        for x in 45..55 {
-            let cell = grid.get_mut(x, 50);
-            cell.cell_type = CellType::Road;
-            cell.road_type = RoadType::Local;
-        }
         let mut mit = world.resource_mut::<PollutionMitigationPolicies>();
         mit.catalytic_converters = true;
         mit.ev_mandate = true;
         mit.ev_mandate_activation_day = Some(0);
         world.resource_mut::<GameClock>().day = 5 * 360;
     }
+    place_congested_roads(&mut city_both, 40, 40, 20);
     city_both.tick_slow_cycle();
     let p_both = city_both.resource::<PollutionGrid>().get(50, 50);
 
