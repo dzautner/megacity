@@ -34,8 +34,10 @@ pub const HEALTH_PENALTY_THRESHOLD: f32 = 30.0;
 /// Maximum health penalty (applied when contamination is at its maximum).
 const MAX_HEALTH_PENALTY: u8 = 40;
 
-/// Maximum land-value penalty fraction (60%).
-const MAX_LAND_VALUE_PENALTY_PTS: f32 = 30.0;
+/// Maximum land-value penalty applied per slow-tick (absolute points).
+/// A value of 3.0 creates a steady-state reduction of ~30 points
+/// when combined with the exponential smoothing in the land value system.
+const MAX_LAND_VALUE_PENALTY_PTS: f32 = 3.0;
 
 /// Contamination level at which the maximum land-value penalty is reached.
 const LAND_VALUE_MAX_CONTAM: f32 = 300.0;
