@@ -65,7 +65,7 @@ const OIL_Q: f32 = 75.0;
 // =============================================================================
 
 /// Tracks which pollution mitigation policies the player has activated.
-#[derive(Resource, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Resource, Debug, Clone, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct PollutionMitigationPolicies {
     /// Scrubbers on Power Plants: reduces power plant emissions by 50%.
     pub scrubbers_on_power_plants: bool,
@@ -81,17 +81,6 @@ pub struct PollutionMitigationPolicies {
     pub emissions_cap: bool,
 }
 
-impl Default for PollutionMitigationPolicies {
-    fn default() -> Self {
-        Self {
-            scrubbers_on_power_plants: false,
-            catalytic_converters: false,
-            ev_mandate: false,
-            ev_mandate_activation_day: None,
-            emissions_cap: false,
-        }
-    }
-}
 
 impl PollutionMitigationPolicies {
     /// Returns true if no policies are active (used for save skip optimization).
