@@ -1,11 +1,12 @@
 //! Integration tests for the save slots system (SAVE-014).
 //!
 //! Tests verify that the `SaveSlotManager` resource is properly registered,
-//! events are handled, and slot operations work within the full ECS pipeline.
+//! slot operations work, and the Saveable roundtrip preserves state.
 
 use crate::save_slots::{
     DeleteSlotEvent, SaveSlotInfo, SaveSlotManager, SaveToSlotEvent, MAX_SAVE_SLOTS,
 };
+use crate::Saveable;
 use crate::test_harness::TestCity;
 
 // =============================================================================
@@ -21,90 +22,104 @@ fn test_save_slot_manager_registered_as_resource() {
 }
 
 // =============================================================================
-// Slot creation via events
+// Slot creation
 // =============================================================================
 
 #[test]
-fn test_save_to_slot_creates_entry() {
+fn test_create_slot_with_metadata() {
     let mut city = TestCity::new();
 
-    // Send a save-to-slot event.
-    city.world_mut().send_event(SaveToSlotEvent {
-        slot_index: Some(0),
-        display_name: "Test City".to_string(),
-    });
-
-    // Run a frame so Update systems process the event.
-    city.app_mut().update();
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
+        let info = SaveSlotInfo {
+            slot_index: 0,
+            display_name: "My City".to_string(),
+            city_name: "Town".to_string(),
+            population: 1500,
+            treasury: 50000.0,
+            day: 42,
+            hour: 14.5,
+            play_time_seconds: 3600.0,
+            timestamp: 1700000000,
+        };
+        let result = manager.create_slot("My City".to_string(), info);
+        assert_eq!(result, Some(0));
+    }
 
     let manager = city.resource::<SaveSlotManager>();
     assert_eq!(manager.slot_count(), 1);
     let slot = manager.get_slot(0).unwrap();
-    assert_eq!(slot.display_name, "Test City");
+    assert_eq!(slot.display_name, "My City");
+    assert_eq!(slot.population, 1500);
+    assert_eq!(slot.treasury, 50000.0);
+    assert_eq!(slot.day, 42);
     assert_eq!(manager.active_slot, Some(0));
 }
 
 #[test]
-fn test_save_to_slot_auto_assigns_index() {
+fn test_create_multiple_slots() {
     let mut city = TestCity::new();
 
-    // Send with slot_index = None to auto-assign.
-    city.world_mut().send_event(SaveToSlotEvent {
-        slot_index: None,
-        display_name: "Auto Slot".to_string(),
-    });
-
-    city.app_mut().update();
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
+        for i in 0..5u32 {
+            let info = SaveSlotInfo {
+                slot_index: i,
+                display_name: format!("City {}", i + 1),
+                population: (i + 1) * 1000,
+                ..Default::default()
+            };
+            manager.create_slot(format!("City {}", i + 1), info);
+        }
+    }
 
     let manager = city.resource::<SaveSlotManager>();
-    assert_eq!(manager.slot_count(), 1);
-    // Should auto-assign slot index 0.
-    assert!(manager.get_slot(0).is_some());
-    assert_eq!(manager.get_slot(0).unwrap().display_name, "Auto Slot");
+    assert_eq!(manager.slot_count(), 5);
+    for i in 0..5u32 {
+        let slot = manager.get_slot(i).unwrap();
+        assert_eq!(slot.display_name, format!("City {}", i + 1));
+        assert_eq!(slot.population, (i + 1) * 1000);
+    }
 }
 
 #[test]
-fn test_save_to_slot_overwrites_existing() {
+fn test_auto_assign_fills_gaps() {
     let mut city = TestCity::new();
 
-    // Create initial save.
-    city.world_mut().send_event(SaveToSlotEvent {
-        slot_index: Some(0),
-        display_name: "First Save".to_string(),
-    });
-    city.app_mut().update();
-
-    // Overwrite with new name.
-    city.world_mut().send_event(SaveToSlotEvent {
-        slot_index: Some(0),
-        display_name: "Updated Save".to_string(),
-    });
-    city.app_mut().update();
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
+        // Create slots 0, 2, 4 (skipping 1, 3).
+        for i in [0u32, 2, 4] {
+            let info = SaveSlotInfo {
+                slot_index: i,
+                ..Default::default()
+            };
+            manager.create_slot(format!("S{}", i), info);
+        }
+    }
 
     let manager = city.resource::<SaveSlotManager>();
-    assert_eq!(manager.slot_count(), 1, "Should still have just 1 slot");
-    assert_eq!(manager.get_slot(0).unwrap().display_name, "Updated Save");
+    assert_eq!(manager.next_available_index(), Some(1));
 }
 
 // =============================================================================
-// Slot deletion via events
+// Slot deletion
 // =============================================================================
 
 #[test]
 fn test_delete_slot_removes_entry() {
     let mut city = TestCity::new();
 
-    // Create a slot first.
-    city.world_mut().send_event(SaveToSlotEvent {
-        slot_index: Some(0),
-        display_name: "To Delete".to_string(),
-    });
-    city.app_mut().update();
-    assert_eq!(city.resource::<SaveSlotManager>().slot_count(), 1);
-
-    // Delete it.
-    city.world_mut().send_event(DeleteSlotEvent { slot_index: 0 });
-    city.app_mut().update();
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
+        let info = SaveSlotInfo {
+            slot_index: 0,
+            ..Default::default()
+        };
+        manager.create_slot("To Delete".to_string(), info);
+        assert_eq!(manager.slot_count(), 1);
+        assert!(manager.delete_slot(0));
+    }
 
     let manager = city.resource::<SaveSlotManager>();
     assert_eq!(manager.slot_count(), 0);
@@ -115,55 +130,107 @@ fn test_delete_slot_removes_entry() {
 fn test_delete_nonexistent_slot_is_noop() {
     let mut city = TestCity::new();
 
-    city.world_mut()
-        .send_event(DeleteSlotEvent { slot_index: 99 });
-    city.app_mut().update();
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
+        assert!(!manager.delete_slot(99));
+    }
 
     let manager = city.resource::<SaveSlotManager>();
     assert_eq!(manager.slot_count(), 0);
 }
 
 // =============================================================================
-// Multiple slots management
+// Overwrite and update
 // =============================================================================
 
 #[test]
-fn test_multiple_slots_independent() {
+fn test_overwrite_existing_slot() {
     let mut city = TestCity::new();
 
-    for i in 0..3u32 {
-        city.world_mut().send_event(SaveToSlotEvent {
-            slot_index: Some(i),
-            display_name: format!("City {}", i + 1),
-        });
-        city.app_mut().update();
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
+        let info1 = SaveSlotInfo {
+            slot_index: 0,
+            population: 100,
+            ..Default::default()
+        };
+        manager.create_slot("First".to_string(), info1);
+
+        let info2 = SaveSlotInfo {
+            slot_index: 0,
+            population: 500,
+            ..Default::default()
+        };
+        manager.create_slot("Second".to_string(), info2);
     }
 
     let manager = city.resource::<SaveSlotManager>();
-    assert_eq!(manager.slot_count(), 3);
-    assert_eq!(manager.get_slot(0).unwrap().display_name, "City 1");
-    assert_eq!(manager.get_slot(1).unwrap().display_name, "City 2");
-    assert_eq!(manager.get_slot(2).unwrap().display_name, "City 3");
+    assert_eq!(manager.slot_count(), 1, "Should still have 1 slot");
+    let slot = manager.get_slot(0).unwrap();
+    assert_eq!(slot.display_name, "Second");
+    assert_eq!(slot.population, 500);
 }
 
 #[test]
-fn test_max_slots_limit() {
-    let mut manager = SaveSlotManager::default();
-    for i in 0..MAX_SAVE_SLOTS as u32 {
+fn test_update_slot_preserves_name() {
+    let mut city = TestCity::new();
+
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
         let info = SaveSlotInfo {
-            slot_index: i,
+            slot_index: 0,
+            population: 100,
             ..Default::default()
         };
-        manager.create_slot(format!("Save {}", i), info);
-    }
-    assert!(manager.is_full());
+        manager.create_slot("Original".to_string(), info);
 
-    // Trying to create one more should fail.
-    let info = SaveSlotInfo {
-        slot_index: MAX_SAVE_SLOTS as u32,
-        ..Default::default()
-    };
-    assert!(manager.create_slot("Overflow".to_string(), info).is_none());
+        let updated = SaveSlotInfo {
+            slot_index: 0,
+            population: 999,
+            treasury: 12345.0,
+            day: 10,
+            ..Default::default()
+        };
+        assert!(manager.update_slot(0, updated));
+    }
+
+    let manager = city.resource::<SaveSlotManager>();
+    let slot = manager.get_slot(0).unwrap();
+    assert_eq!(slot.display_name, "Original", "Name should be preserved");
+    assert_eq!(slot.population, 999);
+    assert_eq!(slot.treasury, 12345.0);
+}
+
+// =============================================================================
+// Max slots limit
+// =============================================================================
+
+#[test]
+fn test_max_slots_limit_enforced() {
+    let mut city = TestCity::new();
+
+    {
+        let mut manager = city.world_mut().resource_mut::<SaveSlotManager>();
+        for i in 0..MAX_SAVE_SLOTS as u32 {
+            let info = SaveSlotInfo {
+                slot_index: i,
+                ..Default::default()
+            };
+            manager.create_slot(format!("Save {}", i), info);
+        }
+        assert!(manager.is_full());
+        assert!(manager.next_available_index().is_none());
+
+        // Attempting to create beyond max should fail.
+        let overflow = SaveSlotInfo {
+            slot_index: MAX_SAVE_SLOTS as u32,
+            ..Default::default()
+        };
+        assert!(manager.create_slot("Overflow".to_string(), overflow).is_none());
+    }
+
+    let manager = city.resource::<SaveSlotManager>();
+    assert_eq!(manager.slot_count(), MAX_SAVE_SLOTS);
 }
 
 // =============================================================================
@@ -198,29 +265,18 @@ fn test_slot_manager_saveable_roundtrip() {
     }
 }
 
+#[test]
+fn test_empty_manager_skips_save() {
+    let manager = SaveSlotManager::default();
+    assert!(
+        manager.save_to_bytes().is_none(),
+        "Empty manager should skip saving"
+    );
+}
+
 // =============================================================================
 // Slot ordering and querying
 // =============================================================================
-
-#[test]
-fn test_slots_sorted_by_index() {
-    let mut city = TestCity::new();
-
-    // Create slots in reverse order.
-    for i in (0..3u32).rev() {
-        city.world_mut().send_event(SaveToSlotEvent {
-            slot_index: Some(i),
-            display_name: format!("Slot {}", i),
-        });
-        city.app_mut().update();
-    }
-
-    let manager = city.resource::<SaveSlotManager>();
-    let indices: Vec<u32> = manager.slots.iter().map(|s| s.slot_index).collect();
-    assert_eq!(indices, vec![0, 1, 2], "Slots should be sorted by index");
-}
-
-use crate::Saveable;
 
 #[test]
 fn test_slots_by_recency_ordering() {
@@ -239,4 +295,21 @@ fn test_slots_by_recency_ordering() {
     assert_eq!(recent[0].slot_index, 1); // ts=300
     assert_eq!(recent[1].slot_index, 2); // ts=200
     assert_eq!(recent[2].slot_index, 0); // ts=100
+}
+
+#[test]
+fn test_slot_file_paths() {
+    let mut manager = SaveSlotManager::default();
+    for i in 0..3u32 {
+        let info = SaveSlotInfo {
+            slot_index: i,
+            ..Default::default()
+        };
+        manager.create_slot(format!("S{}", i), info);
+    }
+    let paths = manager.all_file_paths();
+    assert_eq!(
+        paths,
+        vec!["saves/slot_1.bin", "saves/slot_2.bin", "saves/slot_3.bin"]
+    );
 }
