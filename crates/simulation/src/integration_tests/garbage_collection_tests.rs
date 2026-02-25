@@ -108,7 +108,7 @@ fn test_garbage_collection_no_landfill_garbage_accumulates() {
 #[test]
 fn test_garbage_collection_with_landfill_dispatches_trucks() {
     let mut city = TestCity::new()
-        .with_road(48, 50, 55, 50, crate::grid::RoadType::TwoLane)
+        .with_road(48, 50, 55, 50, crate::grid::RoadType::Local)
         .with_building(50, 51, ZoneType::ResidentialLow, 1)
         .with_service(48, 50, ServiceType::Landfill)
         .rebuild_csr();
