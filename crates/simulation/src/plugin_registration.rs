@@ -331,4 +331,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Housing affordability crisis mechanic (POL-004)
     app.add_plugins(housing_affordability::HousingAffordabilityPlugin);
+    // Soil remediation (POLL-014)
+    app.add_plugins(soil_remediation::SoilRemediationPlugin);
 }
