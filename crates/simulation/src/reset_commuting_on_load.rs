@@ -25,10 +25,12 @@ impl Plugin for ResetCommutingOnLoadPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedUpdate,
-            // Order-independent: conditional one-shot system that only runs
-            // after a save/load cycle; resets citizen state components.
+            // Must run before the citizen state machine so that reset citizens
+            // are not immediately transitioned (e.g. CommutingToWork -> Working)
+            // before the reset system can move them to AtHome.
             reset_commuting_citizens_after_load
                 .run_if(resource_exists::<PostLoadResetPending>)
+                .before(crate::movement::citizen_state_machine)
                 .in_set(crate::SimulationSet::Simulation),
         );
     }
