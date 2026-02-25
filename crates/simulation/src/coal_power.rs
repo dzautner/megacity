@@ -49,6 +49,7 @@ pub enum PowerPlantType {
     HydroDam,
     Geothermal,
     Biomass,
+    Oil,
 }
 
 // =============================================================================

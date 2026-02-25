@@ -260,6 +260,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Waste-to-Energy power plant (POWER-014)
     app.add_plugins(waste_to_energy::WtePlugin);
+    app.add_plugins(oil_power::OilPowerPlugin);
     // Coverage metrics precomputed for UI (PERF-001)
     app.add_plugins(coverage_metrics::CoverageMetricsPlugin);
 
