@@ -265,6 +265,8 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Industrial specializations (SERV-008)
     app.add_plugins(industrial_specializations::IndustrialSpecializationPlugin);
+    // Park district system with levels (SERV-007)
+    app.add_plugins(park_districts::ParkDistrictPlugin);
     app.add_plugins(diagnostics::DiagnosticsPlugin);
 
     // Post-load derived state rebuild (SAVE-026)

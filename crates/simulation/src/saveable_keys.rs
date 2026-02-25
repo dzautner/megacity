@@ -125,6 +125,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "environmental_score",
     "milestone_progress",
     "play_time",
+    "park_districts",
     "power_grid_balance",
     "power_lines",
     "hybrid_coverage",
