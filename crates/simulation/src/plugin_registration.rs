@@ -333,4 +333,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(housing_affordability::HousingAffordabilityPlugin);
     // Soil remediation (POLL-014)
     app.add_plugins(soil_remediation::SoilRemediationPlugin);
+
+    // Combined Heat and Power from thermal plants (POWER-021)
+    app.add_plugins(combined_heat_power::CombinedHeatPowerPlugin);
 }
