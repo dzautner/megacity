@@ -205,8 +205,8 @@ pub fn update_noise_pollution(
         if building.zone_type == ZoneType::Industrial {
             propagate_noise(
                 &mut noise,
-                building.grid_x as usize,
-                building.grid_y as usize,
+                building.grid_x,
+                building.grid_y,
                 INDUSTRIAL_SOURCE_DB,
             );
         }
@@ -224,8 +224,8 @@ pub fn update_noise_pollution(
         if db > 0.0 {
             propagate_noise(
                 &mut noise,
-                service.grid_x as usize,
-                service.grid_y as usize,
+                service.grid_x,
+                service.grid_y,
                 db,
             );
         }
