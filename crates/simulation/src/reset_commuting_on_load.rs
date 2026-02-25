@@ -28,6 +28,8 @@ impl Plugin for ResetCommutingOnLoadPlugin {
             // Must run before the citizen state machine so that reset citizens
             // are not immediately transitioned (e.g. CommutingToWork -> Working)
             // before the reset system can move them to AtHome.
+            // Conditional one-shot system that runs before the state machine
+            // after a save/load cycle; must run before citizen_state_machine.
             reset_commuting_citizens_after_load
                 .run_if(resource_exists::<PostLoadResetPending>)
                 .before(crate::movement::citizen_state_machine)
