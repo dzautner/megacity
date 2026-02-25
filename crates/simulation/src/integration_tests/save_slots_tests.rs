@@ -4,7 +4,7 @@
 //! slot operations work, and the Saveable roundtrip preserves state.
 
 use crate::save_slots::{
-    DeleteSlotEvent, SaveSlotInfo, SaveSlotManager, SaveToSlotEvent, MAX_SAVE_SLOTS,
+    SaveSlotInfo, SaveSlotManager, MAX_SAVE_SLOTS,
 };
 use crate::Saveable;
 use crate::test_harness::TestCity;
