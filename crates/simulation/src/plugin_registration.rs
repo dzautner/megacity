@@ -325,4 +325,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(airport_pollution::AirportPollutionPlugin);
     // Complete Noise Source Type Table (POLL-019)
     app.add_plugins(noise_sources::NoiseSourcesPlugin);
+    // Hope and Discontent dual meters (PROG-009)
+    app.add_plugins(hope_discontent::HopeDiscontentPlugin);
 }
