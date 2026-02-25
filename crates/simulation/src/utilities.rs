@@ -17,6 +17,7 @@ pub enum UtilityType {
     Geothermal,
     PumpingStation,
     WaterTreatment,
+    HydroDam,
 }
 
 impl UtilityType {
@@ -28,6 +29,7 @@ impl UtilityType {
                 | UtilityType::WindTurbine
                 | UtilityType::NuclearPlant
                 | UtilityType::Geothermal
+                | UtilityType::HydroDam
         )
     }
     pub fn is_water(self) -> bool {
@@ -51,6 +53,7 @@ impl UtilityType {
             UtilityType::Geothermal => "Geothermal Plant",
             UtilityType::PumpingStation => "Pumping Station",
             UtilityType::WaterTreatment => "Water Treatment",
+            UtilityType::HydroDam => "Hydroelectric Dam",
         }
     }
 }

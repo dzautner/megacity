@@ -46,6 +46,7 @@ pub enum PowerPlantType {
     NaturalGas,
     WindTurbine,
     WasteToEnergy,
+    HydroDam,
 }
 
 // =============================================================================
