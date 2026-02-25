@@ -50,6 +50,7 @@ pub enum PowerPlantType {
     Geothermal,
     Biomass,
     Oil,
+    Nuclear,
 }
 
 // =============================================================================
