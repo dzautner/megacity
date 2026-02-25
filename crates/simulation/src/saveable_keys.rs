@@ -75,6 +75,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "neighborhood_quality",
     "nimby_state",
     "noise_grid",
+    "oil_power",
     "oneway_direction_map",
     "parking_policy",
     "policy_tradeoffs",

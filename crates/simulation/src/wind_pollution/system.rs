@@ -36,6 +36,8 @@ const WTE_Q: f32 = 20.0;
 
 /// Emission rate for biomass power plants.
 const BIOMASS_Q: f32 = 25.0;
+/// Emission rate for oil-fired power plants.
+const OIL_Q: f32 = 75.0;
 
 /// Scrubber emission reduction factor (50% reduction).
 const SCRUBBER_REDUCTION: f32 = 0.5;
@@ -112,6 +114,7 @@ fn collect_sources(
             PowerPlantType::NaturalGas => GAS_Q,
             PowerPlantType::WasteToEnergy => WTE_Q,
             PowerPlantType::Biomass => BIOMASS_Q,
+            PowerPlantType::Oil => OIL_Q,
             _ => 0.0,
         };
         if base_q > 0.0 {
