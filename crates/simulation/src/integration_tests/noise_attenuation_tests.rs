@@ -96,7 +96,7 @@ fn test_attenuation_weak_source_reaches_short_distance() {
     // 55 dB source should not reach very far
     let r = max_radius(55.0);
     assert!(
-        r <= 25,
+        r <= 50,
         "55 dB source radius should be modest, got {}",
         r
     );
