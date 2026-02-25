@@ -41,7 +41,7 @@ fn test_coal_plant_starts_with_capacity() {
 
     // The plant should retain capacity after one cycle
     // (outage probability is very low per cycle)
-    let grid = city.resource::<EnergyGrid>();
+    let _grid = city.resource::<EnergyGrid>();
     // After dispatch, supply may or may not include coal depending on demand,
     // but the maintenance state should have at most 1 plant in outage.
     let state = city.resource::<PowerPlantMaintenanceState>();
