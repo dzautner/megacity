@@ -102,10 +102,10 @@ fn test_geothermal_zero_fuel_cost() {
     assert_eq!(state.plant_count, 1, "Should have 1 geothermal plant");
 
     // Verify the plant itself has zero fuel cost
-    let plants: Vec<_> = city
-        .world()
+    let world = city.world_mut();
+    let plants: Vec<_> = world
         .query::<&PowerPlant>()
-        .iter(city.world())
+        .iter(world)
         .filter(|p| p.plant_type == PowerPlantType::Geothermal)
         .collect();
     assert_eq!(plants.len(), 1);
