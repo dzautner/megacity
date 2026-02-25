@@ -86,7 +86,6 @@ fn spawn_citizen_in_state(
         .id()
 }
 
-
 // ====================================================================
 // Tests
 // ====================================================================
@@ -118,24 +117,32 @@ fn test_commuting_to_work_empty_path_reset_to_at_home() {
     // Run one tick to trigger the reset system
     city.tick(1);
 
-    // Verify the citizen is now AtHome (or Working if the tick advanced them)
+    // Verify the citizen is now AtHome
     let world = city.world_mut();
     let state = world.get::<CitizenStateComp>(entity).unwrap();
-    assert!(
-        state.0 == CitizenState::AtHome || state.0 == CitizenState::Working,
-        "Commuting citizen with empty path should be reset to AtHome or Working, got {:?}",
-        state.0
+    assert_eq!(
+        state.0,
+        CitizenState::AtHome,
+        "Commuting citizen with empty path should be reset to AtHome"
     );
-    // Verify position: at home if AtHome, at work if Working
+
+    // Verify position is at home coordinates
     let pos = world.get::<Position>(entity).unwrap();
     let (home_x, home_y) = WorldGrid::grid_to_world(home.0, home.1);
-    let (work_x, work_y) = WorldGrid::grid_to_world(work.0, work.1);
-    let at_home_pos = (pos.x - home_x).abs() < 0.1 && (pos.y - home_y).abs() < 0.1;
-    let at_work_pos = (pos.x - work_x).abs() < 0.1 && (pos.y - work_y).abs() < 0.1;
     assert!(
-        at_home_pos || at_work_pos,
-        "Position should be at home ({}, {}) or work ({}, {}), got ({}, {})",
-        home_x, home_y, work_x, work_y, pos.x, pos.y
+        (pos.x - home_x).abs() < 0.1 && (pos.y - home_y).abs() < 0.1,
+        "Position should be at home coordinates ({}, {}), got ({}, {})",
+        home_x,
+        home_y,
+        pos.x,
+        pos.y
+    );
+
+    // Verify velocity is zeroed
+    let vel = world.get::<Velocity>(entity).unwrap();
+    assert!(
+        vel.x.abs() < 0.001 && vel.y.abs() < 0.001,
+        "Velocity should be zero after reset"
     );
 }
 
@@ -167,7 +174,6 @@ fn test_commuting_home_empty_path_reset_to_at_home() {
     assert_eq!(state.0, CitizenState::AtHome);
 }
 
-
 /// Commuting to shop with empty path is reset.
 #[test]
 fn test_commuting_to_shop_empty_path_reset_to_at_home() {
@@ -195,7 +201,6 @@ fn test_commuting_to_shop_empty_path_reset_to_at_home() {
     let state = world.get::<CitizenStateComp>(entity).unwrap();
     assert_eq!(state.0, CitizenState::AtHome);
 }
-
 
 /// Commuting to leisure with empty path is reset.
 #[test]
@@ -225,7 +230,6 @@ fn test_commuting_to_leisure_empty_path_reset_to_at_home() {
     assert_eq!(state.0, CitizenState::AtHome);
 }
 
-
 /// Commuting to school with empty path is reset.
 #[test]
 fn test_commuting_to_school_empty_path_reset_to_at_home() {
@@ -253,7 +257,6 @@ fn test_commuting_to_school_empty_path_reset_to_at_home() {
     let state = world.get::<CitizenStateComp>(entity).unwrap();
     assert_eq!(state.0, CitizenState::AtHome);
 }
-
 
 /// Citizen at home should NOT be affected by the reset.
 #[test]
@@ -287,7 +290,6 @@ fn test_at_home_citizen_not_affected_by_reset() {
     );
 }
 
-
 /// Citizen working should NOT be affected by the reset.
 #[test]
 fn test_working_citizen_not_affected_by_reset() {
@@ -319,7 +321,6 @@ fn test_working_citizen_not_affected_by_reset() {
         "Working citizen should remain Working"
     );
 }
-
 
 /// Commuting citizen with a valid in-progress path should NOT be reset.
 #[test]
@@ -354,7 +355,6 @@ fn test_commuting_with_valid_path_not_reset() {
     );
 }
 
-
 /// PostLoadResetPending resource is removed after the reset runs.
 #[test]
 fn test_post_load_reset_pending_removed_after_reset() {
@@ -376,7 +376,6 @@ fn test_post_load_reset_pending_removed_after_reset() {
         "PostLoadResetPending should be removed after reset runs"
     );
 }
-
 
 /// Multiple commuting citizens are all reset in one pass.
 #[test]
@@ -437,7 +436,6 @@ fn test_multiple_commuting_citizens_all_reset() {
     }
 }
 
-
 /// Commuting citizen with a completed (stale) path is also reset.
 #[test]
 fn test_commuting_with_completed_path_reset() {
@@ -480,7 +478,6 @@ fn test_commuting_with_completed_path_reset() {
     );
 }
 
-
 /// Without PostLoadResetPending, commuting citizens are NOT reset by the system.
 #[test]
 fn test_no_reset_without_pending_flag() {
@@ -518,4 +515,3 @@ fn test_no_reset_without_pending_flag() {
         "PostLoadResetPending should not exist if never inserted"
     );
 }
-
