@@ -13,13 +13,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev mold
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -27,16 +27,34 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: ci
+          shared-key: clippy
+
+      - name: Run clippy
+        run: cargo clippy --workspace -- -D warnings
+        env:
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev mold
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
-      - name: Run clippy
-        run: cargo clippy --workspace -- -D warnings
-
       - name: Run tests
         run: cargo nextest run --workspace
+        env:
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
 
   fmt:
     runs-on: ubuntu-latest
