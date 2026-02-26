@@ -20,6 +20,7 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     app.add_plugins(EguiPlugin);
 
     // UI feature plugins
+    app.add_plugins(theme::ThemePlugin);
     app.add_plugins(cell_info_panel::CellInfoPanelPlugin);
     app.add_plugins(cell_tooltip::CellTooltipPlugin);
     app.add_plugins(citizen_info::CitizenInfoPlugin);
@@ -65,7 +66,6 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     // UI systems — gated behind SaveLoadState::Idle because they query
     // game entities (buildings, services, citizens) that are despawned
     // during load/new-game transitions.
-    app.add_systems(Startup, theme::apply_cute_theme);
     app.add_systems(
         Update,
         (
