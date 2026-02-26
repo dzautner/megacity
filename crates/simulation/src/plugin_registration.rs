@@ -342,4 +342,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Tutorial UX hints (PLAY-005)
     app.add_plugins(tutorial_hints::TutorialHintsPlugin);
+
+    // App state machine (PLAY-001)
+    app.add_plugins(app_state_plugin::AppStatePlugin);
 }

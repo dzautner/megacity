@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use std::collections::BTreeMap;
 
+pub use app_state::AppState;
 pub use save_load_state::SaveLoadState;
 pub use simulation_sets::{SimulationSet, SimulationUpdateSet};
 
@@ -189,15 +190,23 @@ impl Plugin for SimulationPlugin {
     fn build(&self, app: &mut App) {
         // -- Deterministic phase ordering ----------------------------------------
         // FixedUpdate: PreSim → Simulation → PostSim
-        // Gate simulation sets on SaveLoadState::Idle so that gameplay systems
-        // are automatically suspended during save/load/new-game operations.
+        // Gate simulation sets on SaveLoadState::Idle AND AppState::Playing so
+        // that gameplay systems are suspended during save/load operations and
+        // whenever the game is not in active play (main menu, paused).
         let idle = in_state(SaveLoadState::Idle);
+        let playing = in_state(AppState::Playing);
         app.configure_sets(
             FixedUpdate,
             (
-                SimulationSet::PreSim.run_if(idle.clone()),
-                SimulationSet::Simulation.run_if(idle.clone()),
-                SimulationSet::PostSim.run_if(idle.clone()),
+                SimulationSet::PreSim
+                    .run_if(idle.clone())
+                    .run_if(playing.clone()),
+                SimulationSet::Simulation
+                    .run_if(idle.clone())
+                    .run_if(playing.clone()),
+                SimulationSet::PostSim
+                    .run_if(idle.clone())
+                    .run_if(playing.clone()),
             )
                 .chain(),
         );
@@ -205,8 +214,10 @@ impl Plugin for SimulationPlugin {
         app.configure_sets(
             Update,
             (
-                SimulationUpdateSet::Input.run_if(idle.clone()),
-                SimulationUpdateSet::Visual.run_if(idle),
+                SimulationUpdateSet::Input
+                    .run_if(idle.clone())
+                    .run_if(playing.clone()),
+                SimulationUpdateSet::Visual.run_if(idle).run_if(playing),
             )
                 .chain(),
         );
