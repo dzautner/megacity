@@ -49,6 +49,11 @@ fn main() {
         unfocused_mode: UpdateMode::reactive_low_power(std::time::Duration::from_millis(100)),
     });
 
+    // Start in Playing state so the simulation runs immediately.
+    // A future main-menu feature will remove this and let the menu UI
+    // trigger the transition from MainMenu to Playing.
+    app.insert_state(simulation::AppState::Playing);
+
     app.add_plugins((
         simulation::SimulationPlugin,
         rendering::RenderingPlugin,
