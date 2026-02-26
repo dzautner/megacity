@@ -345,4 +345,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // App state machine (PLAY-001)
     app.add_plugins(app_state_plugin::AppStatePlugin);
+    // UI sound effects triggers (PLAY-008)
+    app.add_plugins(sfx_triggers::SfxTriggersPlugin);
 }
