@@ -68,9 +68,9 @@ impl TestCity {
         app.update();
 
         // After the first update, the tutorial starts active by default
-        // (TutorialState::default() has active=true) which causes
-        // `check_tutorial_progress` to pause the GameClock.
-        // Force both back to a clean state for testing.
+        // Ensure tutorial is definitely inactive (belt-and-suspenders)
+        // so `check_tutorial_progress` never pauses the GameClock.
+        // Force both to clean state for testing.
         if let Some(mut tutorial) = app.world_mut().get_resource_mut::<TutorialState>() {
             tutorial.completed = true;
             tutorial.active = false;

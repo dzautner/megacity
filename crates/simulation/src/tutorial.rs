@@ -188,7 +188,7 @@ impl Default for TutorialState {
         Self {
             current_step: TutorialStep::Welcome,
             completed: false,
-            active: true, // Tutorial triggers on first game start
+            active: false, // Only activated explicitly on New Game
             paused_by_tutorial: false,
         }
     }
@@ -371,7 +371,7 @@ mod tests {
         let state = TutorialState::default();
         assert_eq!(state.current_step, TutorialStep::Welcome);
         assert!(!state.completed);
-        assert!(state.active);
+        assert!(!state.active);
     }
 
     #[test]
