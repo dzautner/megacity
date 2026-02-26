@@ -87,15 +87,30 @@ fn test_scrubbers_reduce_power_plant_pollution() {
 
 #[test]
 fn test_catalytic_converters_reduce_road_pollution() {
+    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+
+    // Sum total pollution across the grid for a robust comparison that
+    // does not depend on a single u8 cell value (which can lose the
+    // 30% reduction to rounding).
+    fn total_pollution(grid: &PollutionGrid) -> u64 {
+        let mut sum = 0u64;
+        for y in 0..GRID_HEIGHT {
+            for x in 0..GRID_WIDTH {
+                sum += grid.get(x, y) as u64;
+            }
+        }
+        sum
+    }
+
     // City with congested roads, no catalytic converters
     let mut city_no_cat = TestCity::new();
     {
         let world = city_no_cat.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
     }
-    place_congested_roads(&mut city_no_cat, 40, 40, 20);
+    place_congested_roads(&mut city_no_cat, 40, 40, 40);
     city_no_cat.tick_slow_cycle();
-    let p_no_cat = city_no_cat.resource::<PollutionGrid>().get(50, 50);
+    let p_no_cat = total_pollution(city_no_cat.resource::<PollutionGrid>());
 
     // City with congested roads, catalytic converters enabled
     let mut city_cat = TestCity::new();
@@ -106,9 +121,9 @@ fn test_catalytic_converters_reduce_road_pollution() {
             .resource_mut::<PollutionMitigationPolicies>()
             .catalytic_converters = true;
     }
-    place_congested_roads(&mut city_cat, 40, 40, 20);
+    place_congested_roads(&mut city_cat, 40, 40, 40);
     city_cat.tick_slow_cycle();
-    let p_cat = city_cat.resource::<PollutionGrid>().get(50, 50);
+    let p_cat = total_pollution(city_cat.resource::<PollutionGrid>());
 
     assert!(
         p_no_cat > 0,
