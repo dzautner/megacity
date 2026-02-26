@@ -48,6 +48,7 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     app.add_plugins(info_panel::budget::BudgetBreakdownPlugin);
     app.add_plugins(energy_dashboard::EnergyDashboardPlugin);
     app.add_plugins(tutorial_camera::TutorialCameraPlugin);
+    app.add_plugins(pause_menu::PauseMenuPlugin);
     // UI resources
     app.init_resource::<day_night_panel::DayNightPanelVisible>();
     app.init_resource::<milestones::Milestones>();
