@@ -7,7 +7,6 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
-use simulation::app_state::AppState;
 use simulation::audio_settings::AudioSettings;
 
 use crate::theme;
