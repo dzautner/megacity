@@ -9,7 +9,7 @@
 
 use crate::config::{GRID_HEIGHT, GRID_WIDTH, WATER_THRESHOLD};
 use crate::grid::{CellType, WorldGrid, ZoneType};
-use crate::terrain_generation::{generate_procedural_terrain, BiomeGrid, Biome};
+use crate::terrain_generation::{generate_procedural_terrain, Biome};
 
 /// Reduced erosion iterations for fast tests (full erosion is 10_000).
 const TEST_EROSION_ITERATIONS: u32 = 100;
