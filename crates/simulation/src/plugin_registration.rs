@@ -336,4 +336,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Combined Heat and Power from thermal plants (POWER-021)
     app.add_plugins(combined_heat_power::CombinedHeatPowerPlugin);
+
+    // Audio system infrastructure (PLAY-007)
+    app.add_plugins(audio_settings::AudioSettingsPlugin);
 }

@@ -12,6 +12,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "achievement_tracker",
     "active_disaster",
     "advisor_panel",
+    "audio_settings",
     "autosave_config",
     "battery_storage",
     "biome_grid",
