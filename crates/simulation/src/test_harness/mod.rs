@@ -12,6 +12,7 @@ use bevy::app::App;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 
+use crate::app_state::AppState;
 use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::economy::CityBudget;
 use crate::grid::WorldGrid;
@@ -51,6 +52,8 @@ impl TestCity {
             active: false,
             ..Default::default()
         });
+        // Start in Playing state so simulation systems run during tests.
+        app.insert_state(AppState::Playing);
         app.add_plugins(SimulationPlugin);
 
         // Insert blank world resources BEFORE the first update, so that
@@ -100,6 +103,8 @@ impl TestCity {
             active: false,
             ..Default::default()
         });
+        // Start in Playing state so simulation systems run during tests.
+        app.insert_state(AppState::Playing);
         app.add_plugins(SimulationPlugin);
         // Run one update so Startup systems execute (init_world runs fully).
         app.update();
