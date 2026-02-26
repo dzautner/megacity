@@ -262,8 +262,16 @@ fn test_completed_remediation_auto_removes_site() {
 fn test_health_penalty_for_contaminated_soil() {
     let mut city = TestCity::new();
 
-    // Record initial health
+    // Run one slow tick to stabilize health values (fresh grid starts at 0)
+    city.tick_slow_cycle();
+
+    // Record initial health after stabilization
     let initial_health = city.resource::<HealthGrid>().get(80, 80);
+    assert!(
+        initial_health > 0,
+        "Health should be non-zero after stabilization: {}",
+        initial_health
+    );
 
     // Set contamination above health threshold
     {
