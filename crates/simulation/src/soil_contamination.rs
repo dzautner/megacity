@@ -137,7 +137,7 @@ fn tick_soil_timer(mut timer: ResMut<SoilContaminationTimer>) {
 /// 4. Lateral spread (cells > 50 spread 0.01 to cardinal neighbors)
 /// 5. Groundwater seepage (soil contamination reduces water quality)
 #[allow(clippy::too_many_arguments)]
-fn update_soil_contamination(
+pub fn update_soil_contamination(
     timer: Res<SoilContaminationTimer>,
     mut grid: ResMut<SoilContaminationGrid>,
     mut water_quality: ResMut<WaterQualityGrid>,
