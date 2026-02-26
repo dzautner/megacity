@@ -19,9 +19,10 @@ use crate::time_of_day::GameClock;
 // =============================================================================
 
 /// The current musical mood, driven by game context.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum MusicMood {
     /// Calm, inviting music for the main menu.
+    #[default]
     MainMenu,
     /// Default gameplay — city growing at a steady pace.
     BuildingPeaceful,
@@ -35,12 +36,6 @@ pub enum MusicMood {
     Milestone,
     /// Game is paused — music fades out or goes very quiet.
     Paused,
-}
-
-impl Default for MusicMood {
-    fn default() -> Self {
-        MusicMood::MainMenu
-    }
 }
 
 // =============================================================================
