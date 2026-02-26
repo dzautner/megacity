@@ -228,7 +228,7 @@ fn compute_night_intensity(hour: f32) -> f32 {
     // Core night: 23:00 - 04:00 => full intensity
     // Fade in:  22:00 - 23:00
     // Fade out: 04:00 - 05:00
-    if hour >= NIGHT_START_HOUR + 1.0 || hour < NIGHT_END_HOUR - 1.0 {
+    if !(NIGHT_END_HOUR - 1.0..NIGHT_START_HOUR + 1.0).contains(&hour) {
         // Deep night
         1.0
     } else if hour >= NIGHT_START_HOUR {
