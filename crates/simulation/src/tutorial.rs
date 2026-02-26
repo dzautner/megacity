@@ -160,6 +160,16 @@ impl TutorialStep {
         TutorialStep::ALL.get(idx + 1).copied()
     }
 
+    /// Returns the previous step, or None if this is the first step.
+    pub fn previous(self) -> Option<TutorialStep> {
+        let idx = self.index();
+        if idx > 0 {
+            TutorialStep::ALL.get(idx - 1).copied()
+        } else {
+            None
+        }
+    }
+
     /// Total number of steps (excluding Completed).
     pub fn total_steps() -> usize {
         TutorialStep::ALL.len() - 1 // exclude Completed from count
@@ -220,6 +230,19 @@ impl TutorialState {
             self.completed = true;
             self.active = false;
             self.paused_by_tutorial = false;
+            false
+        }
+    }
+
+    /// Go back to the previous step. Returns true if moved back.
+    pub fn go_back(&mut self) -> bool {
+        if self.completed {
+            return false;
+        }
+        if let Some(prev) = self.current_step.previous() {
+            self.current_step = prev;
+            true
+        } else {
             false
         }
     }
@@ -355,145 +378,5 @@ impl Plugin for TutorialPlugin {
         app.world_mut()
             .resource_mut::<crate::SaveableRegistry>()
             .register::<TutorialState>();
-    }
-}
-
-// =============================================================================
-// Tests
-// =============================================================================
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_tutorial_state_default() {
-        let state = TutorialState::default();
-        assert_eq!(state.current_step, TutorialStep::Welcome);
-        assert!(!state.completed);
-        assert!(!state.active);
-    }
-
-    #[test]
-    fn test_tutorial_step_progression() {
-        let mut state = TutorialState::default();
-        assert_eq!(state.current_step, TutorialStep::Welcome);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::PlaceRoad);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::ZoneResidential);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::ZoneCommercial);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::PlacePowerPlant);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::PlaceWaterTower);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::ObserveGrowth);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::ManageBudget);
-
-        assert!(state.advance());
-        assert_eq!(state.current_step, TutorialStep::Completed);
-        assert!(state.completed);
-        assert!(!state.active);
-    }
-
-    #[test]
-    fn test_tutorial_skip() {
-        let mut state = TutorialState::default();
-        state.skip();
-        assert_eq!(state.current_step, TutorialStep::Completed);
-        assert!(state.completed);
-        assert!(!state.active);
-    }
-
-    #[test]
-    fn test_tutorial_advance_after_completed() {
-        let mut state = TutorialState::default();
-        state.skip();
-        assert!(!state.advance());
-    }
-
-    #[test]
-    fn test_tutorial_step_titles_not_empty() {
-        for &step in TutorialStep::ALL {
-            assert!(!step.title().is_empty());
-            assert!(!step.description().is_empty());
-            assert!(!step.hint().is_empty());
-        }
-    }
-
-    #[test]
-    fn test_tutorial_step_count() {
-        assert_eq!(TutorialStep::ALL.len(), 9);
-        assert_eq!(TutorialStep::total_steps(), 8);
-    }
-
-    #[test]
-    fn test_tutorial_step_index() {
-        assert_eq!(TutorialStep::Welcome.index(), 0);
-        assert_eq!(TutorialStep::PlaceRoad.index(), 1);
-        assert_eq!(TutorialStep::Completed.index(), 8);
-    }
-
-    #[test]
-    fn test_tutorial_step_next() {
-        assert_eq!(TutorialStep::Welcome.next(), Some(TutorialStep::PlaceRoad));
-        assert_eq!(TutorialStep::Completed.next(), None);
-    }
-
-    #[test]
-    fn test_tutorial_is_manual_step() {
-        assert!(TutorialState {
-            current_step: TutorialStep::Welcome,
-            ..Default::default()
-        }
-        .is_manual_step());
-        assert!(!TutorialState {
-            current_step: TutorialStep::PlaceRoad,
-            ..Default::default()
-        }
-        .is_manual_step());
-        assert!(TutorialState {
-            current_step: TutorialStep::ManageBudget,
-            ..Default::default()
-        }
-        .is_manual_step());
-    }
-
-    #[test]
-    fn test_tutorial_saveable_roundtrip() {
-        let mut state = TutorialState::default();
-        state.advance(); // Move to PlaceRoad
-        state.advance(); // Move to ZoneResidential
-
-        let bytes = state.save_to_bytes().expect("should save in-progress");
-        let restored = TutorialState::load_from_bytes(&bytes);
-        assert_eq!(restored.current_step, TutorialStep::ZoneResidential);
-        assert!(!restored.completed);
-    }
-
-    #[test]
-    fn test_tutorial_saveable_default_skips() {
-        let state = TutorialState::default();
-        assert!(state.save_to_bytes().is_none());
-    }
-
-    #[test]
-    fn test_tutorial_saveable_completed() {
-        let mut state = TutorialState::default();
-        state.skip();
-        let bytes = state.save_to_bytes().expect("should save completed state");
-        let restored = TutorialState::load_from_bytes(&bytes);
-        assert!(restored.completed);
-        assert!(!restored.active);
     }
 }

@@ -339,4 +339,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Audio system infrastructure (PLAY-007)
     app.add_plugins(audio_settings::AudioSettingsPlugin);
+
+    // Tutorial UX hints (PLAY-005)
+    app.add_plugins(tutorial_hints::TutorialHintsPlugin);
 }
