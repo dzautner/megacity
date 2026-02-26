@@ -303,8 +303,7 @@ impl Plugin for PollutionMitigationPlugin {
             (
                 track_ev_mandate_activation.in_set(SimulationSet::PreSim),
                 apply_pollution_mitigation
-                    .after(crate::wind_pollution::update_pollution_gaussian_plume)
-                    .in_set(SimulationSet::Simulation),
+                    .in_set(SimulationSet::PostSim),
             ),
         );
     }
