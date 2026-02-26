@@ -43,9 +43,17 @@ pub(crate) fn exclusive_new_game(world: &mut World) {
         }
     }
 
+    // -- Stage 5: Activate tutorial for new games --
+    {
+        let mut tutorial = world.resource_mut::<simulation::tutorial::TutorialState>();
+        tutorial.active = true;
+        tutorial.current_step = simulation::tutorial::TutorialStep::Welcome;
+        tutorial.completed = false;
+    }
+
     println!("New game started — blank map with $50,000 treasury");
 
-    // -- Stage 5: Transition back to Idle --
+    // -- Stage 6: Transition back to Idle --
     world
         .resource_mut::<NextState<SaveLoadState>>()
         .set(SaveLoadState::Idle);
