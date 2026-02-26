@@ -10,6 +10,8 @@ use save::{LoadGameEvent, SaveGameEvent};
 use simulation::app_state::AppState;
 use simulation::time_of_day::GameClock;
 
+use crate::settings_menu::SettingsMenuOpen;
+
 // =============================================================================
 // Resources
 // =============================================================================
@@ -47,6 +49,7 @@ fn toggle_pause(
     mut game_clock: ResMut<GameClock>,
     mut contexts: EguiContexts,
     mut confirm: ResMut<MainMenuConfirm>,
+    mut settings_menu: ResMut<SettingsMenuOpen>,
 ) {
     // Don't intercept ESC if egui is consuming keyboard input (e.g. text fields).
     if contexts.ctx_mut().wants_keyboard_input() {
@@ -54,6 +57,12 @@ fn toggle_pause(
     }
 
     if !keyboard.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    // If settings menu is open, close it instead of toggling pause.
+    if settings_menu.open {
+        settings_menu.open = false;
         return;
     }
 
@@ -83,8 +92,14 @@ fn pause_menu_ui(
     mut save_events: EventWriter<SaveGameEvent>,
     mut load_events: EventWriter<LoadGameEvent>,
     mut confirm: ResMut<MainMenuConfirm>,
+    mut settings_menu: ResMut<SettingsMenuOpen>,
     #[cfg(not(target_arch = "wasm32"))] mut exit: EventWriter<AppExit>,
 ) {
+    // Don't render pause menu buttons when settings menu is open.
+    if settings_menu.open {
+        return;
+    }
+
     let ctx = contexts.ctx_mut();
 
     // Semi-transparent dark overlay covering the entire screen.
@@ -144,6 +159,15 @@ fn pause_menu_ui(
                     .clicked()
                 {
                     load_events.send(LoadGameEvent);
+                }
+
+                // Settings
+                if ui
+                    .add_sized(button_size, egui::Button::new("Settings"))
+                    .clicked()
+                {
+                    settings_menu.open = true;
+                    settings_menu.from_main_menu = false;
                 }
 
                 ui.add_space(4.0);

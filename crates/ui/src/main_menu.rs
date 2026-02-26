@@ -1,7 +1,7 @@
 //! Main Menu Screen (PLAY-002).
 //!
 //! Renders the main menu when [`AppState::MainMenu`] is active. Provides
-//! buttons for New Game, Continue (most recent save), Load Game (save list),
+//! buttons for New Game, Continue (most recent save), Load Game, Settings,
 //! and Quit (hidden on WASM).
 
 use bevy::prelude::*;
@@ -9,6 +9,8 @@ use bevy_egui::{egui, EguiContexts};
 
 use save::{LoadGameEvent, NewGameEvent, PendingSavePath, SaveMetadata};
 use simulation::app_state::AppState;
+
+use crate::settings_menu::SettingsMenuOpen;
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -71,8 +73,14 @@ fn main_menu_ui(
     mut load_game_events: EventWriter<LoadGameEvent>,
     mut pending_path: ResMut<PendingSavePath>,
     mut app_exit: EventWriter<bevy::app::AppExit>,
+    mut settings_menu: ResMut<SettingsMenuOpen>,
 ) {
     let ctx = contexts.ctx_mut();
+
+    // Don't render main menu buttons when settings menu is open.
+    if settings_menu.open {
+        return;
+    }
 
     if state.show_load_screen {
         render_load_screen(
@@ -93,6 +101,7 @@ fn main_menu_ui(
         &mut load_game_events,
         &mut pending_path,
         &mut app_exit,
+        &mut settings_menu,
     );
 }
 
@@ -113,6 +122,7 @@ fn render_main_buttons(
     load_game_events: &mut EventWriter<LoadGameEvent>,
     pending_path: &mut ResMut<PendingSavePath>,
     app_exit: &mut EventWriter<bevy::app::AppExit>,
+    settings_menu: &mut ResMut<SettingsMenuOpen>,
 ) {
     let has_saves = !state.save_files.is_empty();
 
@@ -178,6 +188,19 @@ fn render_main_buttons(
                     load_response.on_disabled_hover_text("No save files found");
                 } else if load_response.clicked() {
                     state.show_load_screen = true;
+                }
+                ui.add_space(8.0);
+
+                // Settings
+                if ui
+                    .add_sized(
+                        BUTTON_SIZE,
+                        egui::Button::new(egui::RichText::new("Settings").size(18.0)),
+                    )
+                    .clicked()
+                {
+                    settings_menu.open = true;
+                    settings_menu.from_main_menu = true;
                 }
 
                 // Quit (hidden on WASM)
