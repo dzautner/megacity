@@ -343,6 +343,9 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     // Ambient city soundscape (PLAY-009)
     app.add_plugins(ambient_soundscape::AmbientSoundscapePlugin);
 
+    // Dynamic music mood system (PLAY-010)
+    app.add_plugins(dynamic_music::DynamicMusicPlugin);
+
     // Tutorial UX hints (PLAY-005)
     app.add_plugins(tutorial_hints::TutorialHintsPlugin);
 
