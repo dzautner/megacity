@@ -207,7 +207,7 @@ fn update_ambient_soundscape(
 fn compute_weather_intensity(weather: &Weather) -> f32 {
     use crate::weather::WeatherCondition;
 
-    let base = match weather.current_event {
+    let base: f32 = match weather.current_event {
         WeatherCondition::Storm => 1.0,
         WeatherCondition::HeavyRain => 0.8,
         WeatherCondition::Rain => 0.5,
