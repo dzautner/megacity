@@ -15,6 +15,9 @@ env:
 jobs:
   clippy:
     runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +28,9 @@ jobs:
         with:
           components: clippy
 
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: clippy
@@ -34,8 +40,14 @@ jobs:
         env:
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
 
+      - name: Print sccache stats
+        run: sccache --show-stats
+
   test:
     runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +55,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev mold
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -55,6 +70,9 @@ jobs:
         run: cargo nextest run --workspace
         env:
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
+
+      - name: Print sccache stats
+        run: sccache --show-stats
 
   fmt:
     runs-on: ubuntu-latest
@@ -70,6 +88,9 @@ jobs:
 
   wasm-check:
     runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - uses: actions/checkout@v4
 
@@ -80,9 +101,15 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: wasm
 
       - name: Check WASM compilation
         run: cargo check --target wasm32-unknown-unknown -p megacity
+
+      - name: Print sccache stats
+        run: sccache --show-stats
