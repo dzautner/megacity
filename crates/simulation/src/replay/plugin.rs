@@ -2,8 +2,9 @@
 
 use bevy::prelude::*;
 
-use super::player::{ReplayPlayer, feed_replay_actions};
-use super::recorder::{ReplayRecorder, record_actions};
+use super::player::{feed_replay_actions, ReplayPlayer};
+use super::recorder::{record_actions, ReplayRecorder};
+use crate::game_actions::ActionQueue;
 use crate::SimulationSet;
 
 /// Plugin that provides deterministic replay recording and playback.
@@ -20,6 +21,8 @@ impl Plugin for ReplayPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ReplayRecorder>();
         app.init_resource::<ReplayPlayer>();
+        // Ensure ActionQueue exists (it may not be registered by another plugin yet).
+        app.init_resource::<ActionQueue>();
 
         app.add_systems(
             FixedUpdate,
