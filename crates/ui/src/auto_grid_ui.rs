@@ -5,6 +5,7 @@
 //! Also shows cost preview near the cursor when placing the second corner.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::input::{ActiveTool, CursorGridPos};
@@ -153,6 +154,6 @@ pub struct AutoGridUiPlugin;
 
 impl Plugin for AutoGridUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, auto_grid_config_ui);
+        app.add_systems(Update, auto_grid_config_ui.run_if(in_state(AppState::Playing)));
     }
 }

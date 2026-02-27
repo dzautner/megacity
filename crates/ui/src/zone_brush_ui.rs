@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::input::{ActiveTool, CursorGridPos};
@@ -82,6 +83,6 @@ pub struct ZoneBrushUiPlugin;
 
 impl Plugin for ZoneBrushUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, zone_brush_cost_ui);
+        app.add_systems(Update, zone_brush_cost_ui.run_if(in_state(AppState::Playing)));
     }
 }

@@ -8,6 +8,7 @@
 
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::auto_grid_road::{self, AutoGridConfig, AutoGridPhase, AutoGridState};
 use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
@@ -242,6 +243,10 @@ pub struct AutoGridDrawPlugin;
 
 impl Plugin for AutoGridDrawPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_auto_grid_tool, draw_auto_grid_preview));
+        app.add_systems(
+            Update,
+            (handle_auto_grid_tool, draw_auto_grid_preview)
+                .run_if(in_state(AppState::Playing)),
+        );
     }
 }

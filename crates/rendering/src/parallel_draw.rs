@@ -11,6 +11,7 @@
 
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
 use simulation::grid::{RoadType, WorldGrid};
@@ -76,7 +77,8 @@ impl Plugin for ParallelDrawPlugin {
                 toggle_parallel_draw,
                 create_parallel_segment.after(crate::input::handle_tool_input),
                 draw_parallel_preview.after(crate::input::handle_tool_input),
-            ),
+            )
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }

@@ -7,6 +7,7 @@
 //! condition is active.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::camera::OrbitCamera;
@@ -233,6 +234,10 @@ impl Plugin for AdvisorTipsPlugin {
         // NOTE: DismissedAdvisorTips is registered with SaveableRegistry in
         // AdvisorsPlugin (simulation crate), not here.
         app.init_resource::<AdvisorTipsPanelOpen>()
-            .add_systems(Update, (advisor_tips_ui, handle_advisor_jump));
+            .add_systems(
+                Update,
+                (advisor_tips_ui, handle_advisor_jump)
+                    .run_if(in_state(AppState::Playing)),
+            );
     }
 }

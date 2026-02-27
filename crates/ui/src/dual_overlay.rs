@@ -6,6 +6,7 @@
 //! - Adjust the blend factor (in Blend mode)
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 use rendering::overlay::{
     DualOverlayMode, DualOverlayState, OverlayMode, OverlayState, OVERLAY_CHOICES,
@@ -15,7 +16,7 @@ pub struct DualOverlayPlugin;
 
 impl Plugin for DualOverlayPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, dual_overlay_ui);
+        app.add_systems(Update, dual_overlay_ui.run_if(in_state(AppState::Playing)));
     }
 }
 

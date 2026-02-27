@@ -20,6 +20,7 @@ use simulation::land_value::LandValueGrid;
 use simulation::noise::NoisePollutionGrid;
 use simulation::pollution::PollutionGrid;
 use simulation::services::{ServiceBuilding, ServiceType};
+use simulation::app_state::AppState;
 use simulation::SaveLoadState;
 
 /// Tracks which empty cell is currently selected for the info panel.
@@ -274,7 +275,8 @@ impl Plugin for CellInfoPanelPlugin {
                 Update,
                 (update_selected_cell, cell_info_panel_ui)
                     .chain()
-                    .run_if(in_state(SaveLoadState::Idle)),
+                    .run_if(in_state(SaveLoadState::Idle))
+                    .run_if(in_state(AppState::Playing)),
             );
     }
 }

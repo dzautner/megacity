@@ -10,6 +10,7 @@
 //! positioned below the main cell tooltip.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::aqi_colors;
@@ -32,7 +33,7 @@ pub struct AqiTooltipPlugin;
 
 impl Plugin for AqiTooltipPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, aqi_tooltip_ui);
+        app.add_systems(Update, aqi_tooltip_ui.run_if(in_state(AppState::Playing)));
     }
 }
 

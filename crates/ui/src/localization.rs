@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use simulation::localization::{LocalizationState, LOCALE_NAMES, SUPPORTED_LOCALES};
@@ -88,6 +89,10 @@ impl Plugin for LocalizationUiPlugin {
         // NOTE: LocalizationState is registered with SaveableRegistry in
         // LocalizationPlugin (simulation crate), not here.
         app.init_resource::<LanguageSelectorVisible>()
-            .add_systems(Update, (language_selector_keybind, language_selector_ui));
+            .add_systems(
+                Update,
+                (language_selector_keybind, language_selector_ui)
+                    .run_if(in_state(AppState::Playing)),
+            );
     }
 }

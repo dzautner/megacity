@@ -13,6 +13,7 @@ pub mod types;
 mod ui_system;
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 
 pub use types::{EnergyDashboardVisible, EnergyHistory};
 pub use ui_system::{energy_dashboard_ui, record_energy_history};
@@ -26,7 +27,8 @@ impl Plugin for EnergyDashboardPlugin {
             .init_resource::<EnergyHistory>()
             .add_systems(
                 Update,
-                (record_energy_history, energy_dashboard_ui),
+                (record_energy_history, energy_dashboard_ui)
+                    .run_if(in_state(AppState::Playing)),
             );
     }
 }

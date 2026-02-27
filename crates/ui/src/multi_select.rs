@@ -17,6 +17,7 @@ use simulation::multi_select::{
 use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
 use simulation::utilities::UtilitySource;
+use simulation::app_state::AppState;
 use simulation::SaveLoadState;
 
 // =============================================================================
@@ -386,7 +387,8 @@ impl Plugin for MultiSelectUiPlugin {
                 execute_batch_bulldoze,
                 execute_batch_road_upgrade,
             )
-                .run_if(in_state(SaveLoadState::Idle)),
+                .run_if(in_state(SaveLoadState::Idle))
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }

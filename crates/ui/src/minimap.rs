@@ -13,6 +13,7 @@
 //! - Toggle visibility with M key
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::camera::OrbitCamera;
@@ -66,7 +67,8 @@ impl Plugin for MinimapPlugin {
             .init_resource::<CameraTransition>()
             .add_systems(
                 Update,
-                (minimap_toggle_keybind, minimap_ui, apply_camera_transition),
+                (minimap_toggle_keybind, minimap_ui, apply_camera_transition)
+                    .run_if(in_state(AppState::Playing)),
             );
     }
 }

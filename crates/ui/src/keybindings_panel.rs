@@ -5,6 +5,7 @@
 //! Accessible from the Settings panel.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use simulation::keybindings::{BindableAction, KeyBindings, RebindState};
@@ -143,6 +144,9 @@ pub struct KeybindingsPanelPlugin;
 impl Plugin for KeybindingsPanelPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<KeybindingsPanelVisible>()
-            .add_systems(Update, keybindings_panel_ui);
+            .add_systems(
+                Update,
+                keybindings_panel_ui.run_if(in_state(AppState::Playing)),
+            );
     }
 }

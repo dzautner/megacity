@@ -10,6 +10,7 @@ mod input;
 mod popup_ui;
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 
 pub use self::input::TwoKeyShortcutState;
 
@@ -20,7 +21,8 @@ impl Plugin for TwoKeyShortcutPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TwoKeyShortcutState>().add_systems(
             Update,
-            (input::two_key_input_system, popup_ui::two_key_popup_ui),
+            (input::two_key_input_system, popup_ui::two_key_popup_ui)
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 
 use rendering::camera::OrbitCamera;
 use simulation::tutorial::TutorialState;
@@ -44,6 +45,6 @@ pub struct TutorialCameraPlugin;
 impl Plugin for TutorialCameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TutorialCameraState>()
-            .add_systems(Update, tutorial_camera_focus);
+            .add_systems(Update, tutorial_camera_focus.run_if(in_state(AppState::Playing)));
     }
 }

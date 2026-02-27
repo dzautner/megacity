@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
 use simulation::grid::{CellType, WorldGrid, ZoneType};
 use simulation::urban_growth_boundary::UrbanGrowthBoundary;
@@ -212,7 +213,11 @@ pub struct ZoneBrushPreviewPlugin;
 impl Plugin for ZoneBrushPreviewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ZoneBrushSize>()
-            .add_systems(Update, (cycle_brush_size, draw_zone_brush_preview));
+            .add_systems(
+                Update,
+                (cycle_brush_size, draw_zone_brush_preview)
+                    .run_if(in_state(AppState::Playing)),
+            );
     }
 }
 

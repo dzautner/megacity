@@ -21,12 +21,13 @@ mod types;
 pub use types::LegendTextureCache;
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 
 pub struct OverlayLegendPlugin;
 
 impl Plugin for OverlayLegendPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LegendTextureCache>()
-            .add_systems(Update, systems::overlay_legend_ui);
+            .add_systems(Update, systems::overlay_legend_ui.run_if(in_state(AppState::Playing)));
     }
 }

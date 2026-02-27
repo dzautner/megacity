@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::road_segments::RoadSegmentStore;
 
 use crate::input::{ActiveTool, CursorGridPos, DrawPhase, IntersectionSnap, RoadDrawState};
@@ -25,7 +26,8 @@ impl Plugin for IntersectionPreviewPlugin {
                     .after(crate::angle_snap::update_angle_snap)
                     .after(crate::input::update_intersection_snap),
                 draw_intersection_preview_markers.after(compute_intersection_preview),
-            ),
+            )
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }
