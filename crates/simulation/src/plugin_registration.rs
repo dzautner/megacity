@@ -356,4 +356,6 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // New game map options (PLAY-019)
     app.add_plugins(new_game_config::NewGameConfigPlugin);
+    // Bankruptcy and game over warning (PLAY-021)
+    app.add_plugins(bankruptcy_warning::BankruptcyWarningPlugin);
 }

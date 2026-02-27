@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
+use simulation::bankruptcy_warning::{BankruptcyLevel, BankruptcyState};
 use simulation::budget::ExtendedBudget;
 use simulation::economy::CityBudget;
 use simulation::stats::CityStats;
@@ -16,6 +17,17 @@ use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
 use super::catalog::unlock_filter;
 use super::catalog::{show_tool_tooltip, OpenCategory, ToolCatalog};
 use super::widgets::{format_pop, milestone_name, rci_demand_bars, speed_button};
+
+/// Return the color for the treasury label based on the current bankruptcy level.
+fn treasury_color(level: BankruptcyLevel) -> egui::Color32 {
+    match level {
+        BankruptcyLevel::Bankrupt | BankruptcyLevel::Critical => {
+            egui::Color32::from_rgb(220, 60, 60)
+        }
+        BankruptcyLevel::Warning => egui::Color32::from_rgb(230, 200, 50),
+        BankruptcyLevel::Normal => egui::Color32::from_rgb(200, 200, 200),
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Main toolbar system
@@ -38,10 +50,10 @@ pub fn toolbar_ui(
     weather: Res<Weather>,
     grid_snap: Res<GridSnap>,
     extended_budget: Res<ExtendedBudget>,
-    catalog_and_unlocks: (Res<ToolCatalog>, Res<UnlockState>),
+    catalog_unlocks_bankruptcy: (Res<ToolCatalog>, Res<UnlockState>, Res<BankruptcyState>),
 ) {
     let (mut overlay, dual_overlay) = overlay_params;
-    let (catalog, unlocks) = catalog_and_unlocks;
+    let (catalog, unlocks, bankruptcy) = catalog_unlocks_bankruptcy;
     let categories = &catalog.categories;
 
     // Set tooltip delay to 300ms for tool tooltips
@@ -76,8 +88,11 @@ pub fn toolbar_ui(
 
                 ui.separator();
 
-                // Money
-                ui.label(format!("${:.0}", budget.treasury));
+                // Money — colored by bankruptcy level
+                let money_color = treasury_color(bankruptcy.level);
+                ui.label(
+                    egui::RichText::new(format!("${:.0}", budget.treasury)).color(money_color),
+                );
 
                 // Net income indicator
                 {
