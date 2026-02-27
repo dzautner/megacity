@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
@@ -10,7 +11,9 @@ pub enum CellType {
     Road,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, Encode, Decode,
+)]
 pub enum ZoneType {
     #[default]
     None,
@@ -24,7 +27,9 @@ pub enum ZoneType {
     MixedUse,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default, Encode, Decode,
+)]
 pub enum RoadType {
     #[default]
     Local, // 2-lane, speed 30, $10, enables zoning
