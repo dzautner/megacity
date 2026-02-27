@@ -182,19 +182,45 @@ fn test_ev_mandate_reduces_road_pollution_progressively() {
 
 #[test]
 fn test_emissions_cap_reduces_industrial_pollution() {
+    use crate::config::{GRID_HEIGHT, GRID_WIDTH};
+
+    // Sum total pollution across the grid for a robust comparison that
+    // does not depend on a single u8 cell value (which can lose the
+    // 20% reduction to rounding when values are small).
+    fn total_pollution(grid: &PollutionGrid) -> u64 {
+        let mut sum = 0u64;
+        for y in 0..GRID_HEIGHT {
+            for x in 0..GRID_WIDTH {
+                sum += grid.get(x, y) as u64;
+            }
+        }
+        sum
+    }
+
+    // Place a cluster of industrial buildings to generate enough pollution
+    // that the 20% emissions cap reduction is clearly measurable even after
+    // u8 rounding across the grid.
+    fn build_industrial_cluster(city: TestCity) -> TestCity {
+        let mut c = city;
+        for dy in 0..4 {
+            for dx in 0..4 {
+                c = c.with_building(48 + dx, 48 + dy, ZoneType::Industrial, 3);
+            }
+        }
+        c
+    }
+
     // City with industrial buildings, no cap
-    let mut city_no_cap = TestCity::new()
-        .with_building(50, 50, ZoneType::Industrial, 3);
+    let mut city_no_cap = build_industrial_cluster(TestCity::new());
     {
         let world = city_no_cap.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
     }
-    city_no_cap.tick_slow_cycle();
-    let p_no_cap = city_no_cap.resource::<PollutionGrid>().get(50, 50);
+    city_no_cap.tick_slow_cycles(2);
+    let p_no_cap = total_pollution(city_no_cap.resource::<PollutionGrid>());
 
     // City with industrial buildings, emissions cap
-    let mut city_cap = TestCity::new()
-        .with_building(50, 50, ZoneType::Industrial, 3);
+    let mut city_cap = build_industrial_cluster(TestCity::new());
     {
         let world = city_cap.world_mut();
         world.resource_mut::<WindState>().speed = 0.0;
@@ -202,8 +228,8 @@ fn test_emissions_cap_reduces_industrial_pollution() {
             .resource_mut::<PollutionMitigationPolicies>()
             .emissions_cap = true;
     }
-    city_cap.tick_slow_cycle();
-    let p_cap = city_cap.resource::<PollutionGrid>().get(50, 50);
+    city_cap.tick_slow_cycles(2);
+    let p_cap = total_pollution(city_cap.resource::<PollutionGrid>());
 
     assert!(
         p_no_cap > 0,
