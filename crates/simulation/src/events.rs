@@ -87,14 +87,14 @@ pub struct ActiveCityEffects {
 
 const POPULATION_MILESTONES: &[(u32, &str)] = &[
     (1_000, "Town"),
-    (5_000, "Small City"),
+    (5_000, "Township"),
     (10_000, "City"),
-    (25_000, "Large City"),
+    (25_000, "Grand City"),
     (50_000, "Metropolis"),
-    (100_000, "Major Metropolis"),
-    (250_000, "Megacity"),
-    (500_000, "Megalopolis"),
-    (1_000_000, "World Capital"),
+    (100_000, "Conurbation"),
+    (250_000, "Megalopolis"),
+    (500_000, "Gigapolis"),
+    (1_000_000, "Megacity"),
 ];
 
 /// Tracks which population milestones have already been logged to the journal.

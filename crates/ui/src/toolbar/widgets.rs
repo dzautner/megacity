@@ -18,17 +18,17 @@ pub(crate) fn format_pop(n: u32) -> String {
 
 pub(crate) fn milestone_name(pop: u32) -> &'static str {
     const POPS: &[(u32, &str)] = &[
-        (1_000_000, "World Capital"),
-        (500_000, "Megalopolis"),
-        (250_000, "Megacity"),
-        (100_000, "Major Metropolis"),
+        (1_000_000, "Megacity"),
+        (500_000, "Gigapolis"),
+        (250_000, "Megalopolis"),
+        (100_000, "Conurbation"),
         (50_000, "Metropolis"),
-        (25_000, "Large City"),
+        (25_000, "Grand City"),
         (10_000, "City"),
-        (5_000, "Small City"),
+        (5_000, "Township"),
         (1_000, "Town"),
-        (500, "Hamlet"),
-        (100, "Village"),
+        (500, "Village"),
+        (100, "Hamlet"),
     ];
     for &(threshold, name) in POPS {
         if pop >= threshold {

@@ -90,11 +90,11 @@ impl MilestoneTier {
             MilestoneTier::LargeVillage => "Large Village",
             MilestoneTier::Town => "Town",
             MilestoneTier::LargeTown => "Large Town",
-            MilestoneTier::SmallCity => "Small City",
+            MilestoneTier::SmallCity => "Township",
             MilestoneTier::City => "City",
-            MilestoneTier::LargeCity => "Large City",
+            MilestoneTier::LargeCity => "Grand City",
             MilestoneTier::Metropolis => "Metropolis",
-            MilestoneTier::LargeMetropolis => "Large Metropolis",
+            MilestoneTier::LargeMetropolis => "Conurbation",
             MilestoneTier::Megalopolis => "Megalopolis",
         }
     }
