@@ -133,7 +133,7 @@ pub fn build_overview_map(grid: &WorldGrid) -> String {
     for row in 0..OVERVIEW {
         let real_row = row * BLOCK;
         // Row label every 4 overview rows
-        let label = if row % 4 == 0 {
+        let label = if row.is_multiple_of(4) {
             format!("{real_row:>4} | ")
         } else {
             "     | ".to_string()
@@ -250,7 +250,7 @@ fn build_col_header(x0: usize, width: usize) -> String {
     let mut col = 0;
     while col < width {
         let real_x = x0 + col;
-        if real_x % interval == 0 || col == 0 {
+        if real_x.is_multiple_of(interval) || col == 0 {
             let label = format!("{real_x}");
             header.push_str(&label);
             col += label.len();
