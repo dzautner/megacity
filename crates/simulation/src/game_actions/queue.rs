@@ -48,6 +48,11 @@ impl ActionQueue {
     pub fn len(&self) -> usize {
         self.pending.len()
     }
+
+    /// Iterate over pending actions without draining them.
+    pub fn iter(&self) -> impl Iterator<Item = &QueuedAction> {
+        self.pending.iter()
+    }
 }
 
 #[derive(Encode, Decode, Default)]

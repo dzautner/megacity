@@ -373,4 +373,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Game action executor for LLM/agent-driven play (#1873)
     app.add_plugins(game_actions::GameActionsPlugin);
+
+    // Deterministic replay format with recorder and player (#1882)
+    app.add_plugins(replay::ReplayPlugin);
 }
