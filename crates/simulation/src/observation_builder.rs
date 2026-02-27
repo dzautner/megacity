@@ -5,6 +5,7 @@
 
 use bevy::prelude::*;
 
+use crate::ascii_map;
 use crate::city_observation::{
     ActionResultEntry, CityObservation, CityWarning, HappinessSnapshot, PopulationSnapshot,
     ServiceCoverageSnapshot, ZoneDemandSnapshot,
@@ -14,6 +15,7 @@ use crate::coverage_metrics::CoverageMetrics;
 use crate::crime::CrimeGrid;
 use crate::economy::CityBudget;
 use crate::game_actions::{ActionResult, ActionResultLog};
+use crate::grid::WorldGrid;
 use crate::homelessness::HomelessnessStats;
 use crate::pollution::PollutionGrid;
 use crate::stats::CityStats;
@@ -55,6 +57,7 @@ pub fn build_observation(
     pollution_grid: Res<PollutionGrid>,
     crime_grid: Res<CrimeGrid>,
     action_log: Res<ActionResultLog>,
+    grid: Res<WorldGrid>,
     employed_citizens: Query<(), (With<Citizen>, With<WorkLocation>)>,
     mut current: ResMut<CurrentObservation>,
 ) {
@@ -93,6 +96,9 @@ pub fn build_observation(
             }
         })
         .collect();
+
+    // Build overview map from the world grid
+    let overview_map = ascii_map::build_overview_map(&grid);
 
     current.observation = CityObservation {
         tick: tick_counter.0,
@@ -140,6 +146,8 @@ pub fn build_observation(
         warnings,
 
         recent_action_results,
+
+        overview_map,
     };
 }
 

@@ -48,6 +48,10 @@ pub struct CityObservation {
 
     // -- Recent action results (from ActionResultLog when available) ---------
     pub recent_action_results: Vec<ActionResultEntry>,
+
+    // -- Maps (always included) ---------------------------------------------
+    #[serde(default)]
+    pub overview_map: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +126,7 @@ mod tests {
         assert_eq!(obs.tick, 0);
         assert!(obs.warnings.is_empty());
         assert!(obs.recent_action_results.is_empty());
+        assert!(obs.overview_map.is_empty());
     }
 
     #[test]
@@ -165,9 +170,19 @@ mod tests {
                 action_summary: "Built road".into(),
                 success: true,
             }],
+            overview_map: String::new(),
         };
         let json = serde_json::to_string(&obs).unwrap();
         assert!(json.contains("\"tick\":42"));
         assert!(json.contains("NegativeBudget"));
+    }
+
+    #[test]
+    fn observation_deserializes_without_overview_map() {
+        // Simulate an old observation JSON without the overview_map field
+        let json = r#"{"tick":10,"day":1,"hour":6.0,"speed":1.0,"paused":false,"treasury":0.0,"monthly_income":0.0,"monthly_expenses":0.0,"net_income":0.0,"population":{"total":0,"employed":0,"unemployed":0,"homeless":0},"zone_demand":{"residential":0.0,"commercial":0.0,"industrial":0.0,"office":0.0},"power_coverage":0.0,"water_coverage":0.0,"services":{"fire":0.0,"police":0.0,"health":0.0,"education":0.0},"happiness":{"overall":0.0,"components":[]},"warnings":[],"recent_action_results":[]}"#;
+        let obs: CityObservation = serde_json::from_str(json).unwrap();
+        assert_eq!(obs.tick, 10);
+        assert!(obs.overview_map.is_empty());
     }
 }
