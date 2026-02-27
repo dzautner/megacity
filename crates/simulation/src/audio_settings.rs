@@ -175,7 +175,7 @@ impl Saveable for AudioSettings {
 // Mute toggle system
 // =============================================================================
 
-/// System that listens for the `M` key to toggle audio mute.
+/// System that listens for `Shift+M` to toggle audio mute.
 ///
 /// Uses `Option<Res<ButtonInput<KeyCode>>>` so the system is a no-op in
 /// headless test contexts where Bevy's `InputPlugin` is not present.
@@ -187,8 +187,9 @@ fn mute_toggle_system(
     let Some(keys) = keys else {
         return;
     };
-    // M key for mute toggle (not bound in the keybindings system).
-    if keys.just_pressed(KeyCode::KeyM) {
+    // Shift+M for mute toggle (plain M is used for minimap).
+    let shift_held = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+    if keys.just_pressed(KeyCode::KeyM) && shift_held {
         settings.toggle_mute();
     }
 }

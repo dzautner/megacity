@@ -84,9 +84,9 @@ pub(super) fn views_and_tools_categories() -> Vec<ShortcutCategory> {
             ],
         },
         ShortcutCategory {
-            key: KeyCode::KeyW,
+            key: KeyCode::KeyY,
             label: "Terrain",
-            key_hint: "W",
+            key_hint: "Y",
             items: vec![
                 ShortcutItem {
                     name: "Raise",
@@ -111,9 +111,9 @@ pub(super) fn views_and_tools_categories() -> Vec<ShortcutCategory> {
             ],
         },
         ShortcutCategory {
-            key: KeyCode::KeyD,
+            key: KeyCode::KeyO,
             label: "Districts",
-            key_hint: "D",
+            key_hint: "O",
             items: vec![
                 ShortcutItem {
                     name: "Downtown",

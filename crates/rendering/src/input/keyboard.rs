@@ -33,7 +33,7 @@ pub fn toggle_grid_snap(
     }
 }
 
-/// Toggle curve drawing mode with the G key (configurable via keybindings).
+/// Toggle curve drawing mode with Shift+G (configurable via keybindings).
 pub fn toggle_curve_draw_mode(
     keys: Res<ButtonInput<KeyCode>>,
     mut curve_mode: ResMut<CurveDrawMode>,
@@ -48,7 +48,7 @@ pub fn toggle_curve_draw_mode(
             draw_state.phase = DrawPhase::Idle;
         }
         if curve_mode.enabled {
-            status.set("Curve drawing mode ON (G to toggle off)", false);
+            status.set("Curve drawing mode ON (Shift+G to toggle off)", false);
         } else {
             status.set("Curve drawing mode OFF", false);
         }

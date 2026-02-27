@@ -144,6 +144,12 @@ pub(crate) fn two_key_input_system(
     }
 
     // --- No pending category: check for category key presses ---
+    // Skip if modifier keys are held — those are separate bindings (e.g. Shift+G for curve draw).
+    let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+    let ctrl_held = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+    if shift_held || ctrl_held {
+        return;
+    }
     for (idx, cat) in categories.iter().enumerate() {
         if keyboard.just_pressed(cat.key) {
             state.pending_category = Some(idx);
