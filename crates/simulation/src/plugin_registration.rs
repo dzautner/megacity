@@ -376,4 +376,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Deterministic replay format with recorder and player (#1882)
     app.add_plugins(replay::ReplayPlugin);
+
+    // ASCII map rendering for debugging and LLM observation (#1902)
+    app.add_plugins(ascii_map::AsciiMapPlugin);
 }
