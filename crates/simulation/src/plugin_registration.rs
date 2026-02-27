@@ -367,4 +367,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Deterministic state hashing for replay verification (#1883)
     app.add_plugins(state_hash::StateHashPlugin);
+
+    // City observation snapshot for LLM agent (#1880)
+    app.add_plugins(observation_plugin::ObservationPlugin);
 }
