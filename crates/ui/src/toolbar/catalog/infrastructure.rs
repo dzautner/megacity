@@ -18,6 +18,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Local Road",
                     cost: Some(10.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::RoadAvenue),
@@ -25,6 +26,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Avenue",
                     cost: Some(20.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::RoadBoulevard),
@@ -32,6 +34,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Boulevard",
                     cost: Some(30.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::RoadHighway),
@@ -39,6 +42,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Highway",
                     cost: Some(40.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::RoadOneWay),
@@ -46,6 +50,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "One-Way",
                     cost: Some(15.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::RoadPath),
@@ -53,6 +58,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Path",
                     cost: Some(5.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::RoadUpgrade),
@@ -60,6 +66,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Upgrade",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::AutoGrid),
@@ -67,6 +74,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Auto-Grid",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -80,6 +88,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Res Low",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::ZoneResidentialMedium),
@@ -87,6 +96,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Res Medium",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::ZoneResidentialHigh),
@@ -94,6 +104,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Res High",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::ZoneCommercialLow),
@@ -101,6 +112,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Com Low",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::ZoneCommercialHigh),
@@ -108,6 +120,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Com High",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::ZoneIndustrial),
@@ -115,6 +128,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Industrial",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::ZoneOffice),
@@ -122,6 +136,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Office",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::ZoneMixedUse),
@@ -129,6 +144,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Mixed-Use",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -142,6 +158,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Power Plant",
                     cost: Some(800.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceSolarFarm),
@@ -149,6 +166,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Solar Farm",
                     cost: Some(1200.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceWindTurbine),
@@ -156,6 +174,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Wind Turbine",
                     cost: Some(600.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceNuclearPlant),
@@ -163,6 +182,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Nuclear Plant",
                     cost: Some(5000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceGeothermal),
@@ -170,6 +190,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Geothermal",
                     cost: Some(3000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceWaterTower),
@@ -177,6 +198,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Water Tower",
                     cost: Some(600.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceSewagePlant),
@@ -184,6 +206,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Sewage Plant",
                     cost: Some(500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlacePumpingStation),
@@ -191,6 +214,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Pumping Station",
                     cost: Some(400.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceWaterTreatment),
@@ -198,6 +222,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Water Treatment",
                     cost: Some(1000.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -211,6 +236,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Fire House",
                     cost: Some(200.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceFireStation),
@@ -218,6 +244,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Fire Station",
                     cost: Some(500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceFireHQ),
@@ -225,6 +252,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Fire HQ",
                     cost: Some(1500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlacePoliceKiosk),
@@ -232,6 +260,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Police Kiosk",
                     cost: Some(200.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlacePoliceStation),
@@ -239,6 +268,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Police Station",
                     cost: Some(500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlacePoliceHQ),
@@ -246,6 +276,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Police HQ",
                     cost: Some(1500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlacePrison),
@@ -253,6 +284,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Prison",
                     cost: Some(2000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceMedicalClinic),
@@ -260,6 +292,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Medical Clinic",
                     cost: Some(300.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceHospital),
@@ -267,6 +300,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Hospital",
                     cost: Some(1000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceMedicalCenter),
@@ -274,6 +308,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Medical Center",
                     cost: Some(3000.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -287,6 +322,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Kindergarten",
                     cost: Some(400.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceElementarySchool),
@@ -294,6 +330,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Elementary",
                     cost: Some(750.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceHighSchool),
@@ -301,6 +338,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "High School",
                     cost: Some(1000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceUniversity),
@@ -308,6 +346,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "University",
                     cost: Some(2000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceLibrary),
@@ -315,6 +354,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Library",
                     cost: Some(500.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -328,6 +368,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Small Park",
                     cost: Some(100.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceLargePark),
@@ -335,6 +376,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Large Park",
                     cost: Some(300.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlacePlayground),
@@ -342,6 +384,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Playground",
                     cost: Some(200.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlacePlaza),
@@ -349,6 +392,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Plaza",
                     cost: Some(150.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceSportsField),
@@ -356,6 +400,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Sports Field",
                     cost: Some(400.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceStadium),
@@ -363,6 +408,7 @@ pub(super) fn infrastructure_categories() -> Vec<ToolCategory> {
                     name: "Stadium",
                     cost: Some(2000.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },

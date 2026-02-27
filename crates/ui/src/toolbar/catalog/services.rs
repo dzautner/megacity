@@ -4,7 +4,7 @@
 use rendering::input::ActiveTool;
 use rendering::overlay::OverlayMode;
 
-use super::{ToolCategory, ToolItem};
+use super::{DashboardKind, ToolCategory, ToolItem};
 
 /// Returns tool categories for services, overlays, and misc tools.
 pub(super) fn services_categories() -> Vec<ToolCategory> {
@@ -19,6 +19,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "City Hall",
                     cost: Some(5000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceMuseum),
@@ -26,6 +27,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Museum",
                     cost: Some(3000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceCathedral),
@@ -33,6 +35,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Cathedral",
                     cost: Some(4000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceTVStation),
@@ -40,6 +43,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "TV Station",
                     cost: Some(3500.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -53,6 +57,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Landfill",
                     cost: Some(300.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceRecyclingCenter),
@@ -60,6 +65,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Recycling Center",
                     cost: Some(800.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceIncinerator),
@@ -67,6 +73,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Incinerator",
                     cost: Some(1500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceTransferStation),
@@ -74,6 +81,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Transfer Station",
                     cost: Some(500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceCemetery),
@@ -81,6 +89,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Cemetery",
                     cost: Some(400.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceCrematorium),
@@ -88,6 +97,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Crematorium",
                     cost: Some(600.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -101,6 +111,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Bus Depot",
                     cost: Some(1000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceTrainStation),
@@ -108,6 +119,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Train Station",
                     cost: Some(2000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceSubwayStation),
@@ -115,6 +127,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Subway",
                     cost: Some(3000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceTramDepot),
@@ -122,6 +135,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Tram Depot",
                     cost: Some(1500.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceFerryPier),
@@ -129,6 +143,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Ferry Pier",
                     cost: Some(800.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceSmallAirstrip),
@@ -136,6 +151,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Small Airstrip",
                     cost: Some(5000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceRegionalAirport),
@@ -143,6 +159,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Regional Airport",
                     cost: Some(10000.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceInternationalAirport),
@@ -150,6 +167,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Int'l Airport",
                     cost: Some(15000.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -163,6 +181,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Cell Tower",
                     cost: Some(300.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::PlaceDataCenter),
@@ -170,6 +189,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Data Center",
                     cost: Some(2000.0),
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -183,6 +203,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Power",
                     cost: None,
                     overlay: Some(OverlayMode::Power),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -190,6 +211,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Water",
                     cost: None,
                     overlay: Some(OverlayMode::Water),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -197,6 +219,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Traffic",
                     cost: None,
                     overlay: Some(OverlayMode::Traffic),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -204,6 +227,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Pollution",
                     cost: None,
                     overlay: Some(OverlayMode::Pollution),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -211,6 +235,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Land Value",
                     cost: None,
                     overlay: Some(OverlayMode::LandValue),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -218,6 +243,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Education",
                     cost: None,
                     overlay: Some(OverlayMode::Education),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -225,6 +251,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Garbage",
                     cost: None,
                     overlay: Some(OverlayMode::Garbage),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -232,6 +259,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Noise",
                     cost: None,
                     overlay: Some(OverlayMode::Noise),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -239,6 +267,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Water Pollution",
                     cost: None,
                     overlay: Some(OverlayMode::WaterPollution),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -246,6 +275,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "GW Level",
                     cost: None,
                     overlay: Some(OverlayMode::GroundwaterLevel),
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: None,
@@ -253,6 +283,32 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "GW Quality",
                     cost: None,
                     overlay: Some(OverlayMode::GroundwaterQuality),
+                    dashboard: None,
+                },
+                // --- Dashboards ---
+                ToolItem {
+                    tool: None,
+                    icon: "ED",
+                    name: "Energy Dashboard",
+                    cost: None,
+                    overlay: None,
+                    dashboard: Some(DashboardKind::Energy),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "WD",
+                    name: "Water Dashboard",
+                    cost: None,
+                    overlay: None,
+                    dashboard: Some(DashboardKind::Water),
+                },
+                ToolItem {
+                    tool: None,
+                    icon: "GD",
+                    name: "Waste Dashboard",
+                    cost: None,
+                    overlay: None,
+                    dashboard: Some(DashboardKind::Waste),
                 },
             ],
         },
@@ -266,6 +322,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Plant Tree",
                     cost: Some(50.0),
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::TreeRemove),
@@ -273,6 +330,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Remove Tree",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -286,6 +344,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Raise",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::TerrainLower),
@@ -293,6 +352,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Lower",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::TerrainLevel),
@@ -300,6 +360,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Flatten",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::TerrainWater),
@@ -307,6 +368,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Water",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -320,6 +382,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Downtown",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictPaint(1)),
@@ -327,6 +390,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Suburbs",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictPaint(2)),
@@ -334,6 +398,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Industrial",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictPaint(3)),
@@ -341,6 +406,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Waterfront",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictPaint(4)),
@@ -348,6 +414,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Historic",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictPaint(5)),
@@ -355,6 +422,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "University",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictPaint(6)),
@@ -362,6 +430,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Arts",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictPaint(7)),
@@ -369,6 +438,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Tech Park",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::DistrictErase),
@@ -376,6 +446,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Erase District",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
@@ -389,6 +460,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Bulldoze",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
                 ToolItem {
                     tool: Some(ActiveTool::Inspect),
@@ -396,6 +468,7 @@ pub(super) fn services_categories() -> Vec<ToolCategory> {
                     name: "Inspect",
                     cost: None,
                     overlay: None,
+                    dashboard: None,
                 },
             ],
         },
