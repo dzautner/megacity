@@ -15,15 +15,14 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let is_agent = args.iter().any(|a| a == "--agent");
 
-    // Parse optional --seed <N> for agent mode.
-    let seed: Option<u64> = args
-        .windows(2)
-        .find(|w| w[0] == "--seed")
-        .and_then(|w| w[1].parse().ok());
-
     // -- Agent mode: headless JSON protocol over stdin/stdout ----------------
     #[cfg(not(target_arch = "wasm32"))]
     if is_agent {
+        // Parse optional --seed <N> for agent mode (native only).
+        let seed: Option<u64> = args
+            .windows(2)
+            .find(|w| w[0] == "--seed")
+            .and_then(|w| w[1].parse().ok());
         agent_mode::run_agent_mode(seed);
         return;
     }
