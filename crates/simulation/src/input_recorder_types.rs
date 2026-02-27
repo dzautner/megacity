@@ -4,6 +4,10 @@
 //! These types are separate from the game's canonical enums because the
 //! game types don't all derive `bitcode::Encode`/`Decode` (e.g. `Vec2`,
 //! `SegmentId`).
+//!
+//! Note: `CityAction::Composite` is flattened into individual actions during
+//! recording. This avoids bitcode's recursion-limit issue with self-referential
+//! enums and simplifies replay (each entry is a single atomic action).
 
 use bitcode::{Decode, Encode};
 
@@ -16,10 +20,14 @@ use crate::utilities::UtilityType;
 // RecordedAction
 // ---------------------------------------------------------------------------
 
-/// A serializable representation of a player action.
+/// A serializable representation of a single atomic player action.
 ///
 /// This mirrors `CityAction` but uses only types that derive `Encode`/`Decode`.
 /// Segment-level road operations store raw f32 coordinates and u32 IDs.
+///
+/// `CityAction::Composite` is expanded into individual `RecordedAction`s
+/// during conversion (see `from_city_action_list`), so this enum has no
+/// recursive variant.
 #[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub enum RecordedAction {
     /// Road segment placed via the freeform drawing tool.
@@ -87,8 +95,6 @@ pub enum RecordedAction {
         grid_y: usize,
         refund: f64,
     },
-    /// Composite action (e.g. drag operation).
-    Composite(Vec<RecordedAction>),
 }
 
 // ---------------------------------------------------------------------------
@@ -319,113 +325,139 @@ impl From<UtilityType> for RecordedUtilityType {
 // CityAction → RecordedAction conversion
 // ---------------------------------------------------------------------------
 
-impl RecordedAction {
-    /// Convert a `CityAction` into a `RecordedAction`.
-    pub fn from_city_action(action: &CityAction) -> Self {
-        match action {
-            CityAction::PlaceRoadSegment {
-                segment_id,
-                start_node,
-                end_node,
-                p0,
-                p1,
-                p2,
-                p3,
-                road_type,
-                cost,
-                ..
-            } => Self::PlaceRoadSegment {
-                segment_id: segment_id.0,
-                start_node: start_node.0,
-                end_node: end_node.0,
-                p0: [p0.x, p0.y],
-                p1: [p1.x, p1.y],
-                p2: [p2.x, p2.y],
-                p3: [p3.x, p3.y],
-                road_type: (*road_type).into(),
-                cost: *cost,
-            },
-            CityAction::PlaceGridRoad {
-                x,
-                y,
-                road_type,
-                cost,
-            } => Self::PlaceGridRoad {
-                x: *x,
-                y: *y,
-                road_type: (*road_type).into(),
-                cost: *cost,
-            },
-            CityAction::PlaceZone { cells, cost } => Self::PlaceZone {
-                cells: cells
-                    .iter()
-                    .map(|(x, y, zt)| (*x, *y, (*zt).into()))
-                    .collect(),
-                cost: *cost,
-            },
-            CityAction::PlaceService {
-                service_type,
-                grid_x,
-                grid_y,
-                cost,
-            } => Self::PlaceService {
-                service_type: (*service_type).into(),
-                grid_x: *grid_x,
-                grid_y: *grid_y,
-                cost: *cost,
-            },
-            CityAction::PlaceUtility {
-                utility_type,
-                grid_x,
-                grid_y,
-                cost,
-            } => Self::PlaceUtility {
-                utility_type: (*utility_type).into(),
-                grid_x: *grid_x,
-                grid_y: *grid_y,
-                cost: *cost,
-            },
-            CityAction::BulldozeRoad {
-                x,
-                y,
-                road_type,
-                refund,
-            } => Self::BulldozeRoad {
-                x: *x,
-                y: *y,
-                road_type: (*road_type).into(),
-                refund: *refund,
-            },
-            CityAction::BulldozeZone { x, y, zone } => Self::BulldozeZone {
-                x: *x,
-                y: *y,
-                zone: (*zone).into(),
-            },
-            CityAction::BulldozeService {
-                service_type,
-                grid_x,
-                grid_y,
-                refund,
-            } => Self::BulldozeService {
-                service_type: (*service_type).into(),
-                grid_x: *grid_x,
-                grid_y: *grid_y,
-                refund: *refund,
-            },
-            CityAction::BulldozeUtility {
-                utility_type,
-                grid_x,
-                grid_y,
-                refund,
-            } => Self::BulldozeUtility {
-                utility_type: (*utility_type).into(),
-                grid_x: *grid_x,
-                grid_y: *grid_y,
-                refund: *refund,
-            },
-            CityAction::Composite(actions) => {
-                Self::Composite(actions.iter().map(Self::from_city_action).collect())
+/// Convert a single non-composite `CityAction` into a `RecordedAction`.
+fn convert_single(action: &CityAction) -> RecordedAction {
+    match action {
+        CityAction::PlaceRoadSegment {
+            segment_id,
+            start_node,
+            end_node,
+            p0,
+            p1,
+            p2,
+            p3,
+            road_type,
+            cost,
+            ..
+        } => RecordedAction::PlaceRoadSegment {
+            segment_id: segment_id.0,
+            start_node: start_node.0,
+            end_node: end_node.0,
+            p0: [p0.x, p0.y],
+            p1: [p1.x, p1.y],
+            p2: [p2.x, p2.y],
+            p3: [p3.x, p3.y],
+            road_type: (*road_type).into(),
+            cost: *cost,
+        },
+        CityAction::PlaceGridRoad {
+            x,
+            y,
+            road_type,
+            cost,
+        } => RecordedAction::PlaceGridRoad {
+            x: *x,
+            y: *y,
+            road_type: (*road_type).into(),
+            cost: *cost,
+        },
+        CityAction::PlaceZone { cells, cost } => RecordedAction::PlaceZone {
+            cells: cells
+                .iter()
+                .map(|(x, y, zt)| (*x, *y, (*zt).into()))
+                .collect(),
+            cost: *cost,
+        },
+        CityAction::PlaceService {
+            service_type,
+            grid_x,
+            grid_y,
+            cost,
+        } => RecordedAction::PlaceService {
+            service_type: (*service_type).into(),
+            grid_x: *grid_x,
+            grid_y: *grid_y,
+            cost: *cost,
+        },
+        CityAction::PlaceUtility {
+            utility_type,
+            grid_x,
+            grid_y,
+            cost,
+        } => RecordedAction::PlaceUtility {
+            utility_type: (*utility_type).into(),
+            grid_x: *grid_x,
+            grid_y: *grid_y,
+            cost: *cost,
+        },
+        CityAction::BulldozeRoad {
+            x,
+            y,
+            road_type,
+            refund,
+        } => RecordedAction::BulldozeRoad {
+            x: *x,
+            y: *y,
+            road_type: (*road_type).into(),
+            refund: *refund,
+        },
+        CityAction::BulldozeZone { x, y, zone } => RecordedAction::BulldozeZone {
+            x: *x,
+            y: *y,
+            zone: (*zone).into(),
+        },
+        CityAction::BulldozeService {
+            service_type,
+            grid_x,
+            grid_y,
+            refund,
+        } => RecordedAction::BulldozeService {
+            service_type: (*service_type).into(),
+            grid_x: *grid_x,
+            grid_y: *grid_y,
+            refund: *refund,
+        },
+        CityAction::BulldozeUtility {
+            utility_type,
+            grid_x,
+            grid_y,
+            refund,
+        } => RecordedAction::BulldozeUtility {
+            utility_type: (*utility_type).into(),
+            grid_x: *grid_x,
+            grid_y: *grid_y,
+            refund: *refund,
+        },
+        CityAction::Composite(actions) => {
+            // This shouldn't be called for composites via this path,
+            // but handle gracefully by taking the first sub-action.
+            // The public API always uses `from_city_action_list` which
+            // flattens composites.
+            if let Some(first) = actions.first() {
+                convert_single(first)
+            } else {
+                // Empty composite: use a no-op zone placement.
+                RecordedAction::PlaceZone {
+                    cells: Vec::new(),
+                    cost: 0.0,
+                }
             }
+        }
+    }
+}
+
+impl RecordedAction {
+    /// Convert a `CityAction` into one or more `RecordedAction`s.
+    ///
+    /// `Composite` actions are flattened: each sub-action becomes its own
+    /// `RecordedAction` at the same tick. This avoids recursion in the
+    /// serialized format.
+    pub fn from_city_action_list(action: &CityAction) -> Vec<Self> {
+        match action {
+            CityAction::Composite(actions) => {
+                actions.iter().flat_map(Self::from_city_action_list).collect()
+            }
+            other => vec![convert_single(other)],
         }
     }
 }

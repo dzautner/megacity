@@ -48,6 +48,8 @@ pub struct InputRecorder {
     /// Current operating mode.
     pub mode: RecorderMode,
     /// Recorded actions tagged with the tick they occurred on.
+    /// Composite actions are flattened: each sub-action gets its own entry
+    /// at the same tick number.
     pub actions: Vec<(u64, RecordedAction)>,
     /// Current position in the action log during replay.
     pub replay_cursor: usize,
@@ -77,6 +79,16 @@ impl InputRecorder {
     pub fn record(&mut self, tick: u64, action: RecordedAction) {
         if self.mode == RecorderMode::Recording {
             self.actions.push((tick, action));
+        }
+    }
+
+    /// Record a `CityAction` at the given tick, flattening composites.
+    pub fn record_city_action(&mut self, tick: u64, action: &CityAction) {
+        if self.mode != RecorderMode::Recording {
+            return;
+        }
+        for recorded in RecordedAction::from_city_action_list(action) {
+            self.actions.push((tick, recorded));
         }
     }
 
@@ -129,8 +141,7 @@ pub fn capture_actions(
         return;
     }
     for action in events.read() {
-        let recorded = RecordedAction::from_city_action(action);
-        recorder.record(tick.0, recorded);
+        recorder.record_city_action(tick.0, action);
     }
 }
 

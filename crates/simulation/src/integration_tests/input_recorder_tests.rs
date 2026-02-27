@@ -17,13 +17,8 @@ fn enable_recording(city: &mut TestCity) {
     world.resource_mut::<InputRecorder>().start_recording();
 }
 
-/// Read the current tick from TickCounter.
-fn current_tick(city: &mut TestCity) -> u64 {
-    city.resource::<TickCounter>().0
-}
-
 // ---------------------------------------------------------------------------
-// Tests: recording
+// Tests: recording basics
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -164,23 +159,6 @@ fn test_serialize_deserialize_roundtrip() {
             zone: RecordedZoneType::Industrial,
         },
     );
-    recorder.record(
-        20,
-        RecordedAction::Composite(vec![
-            RecordedAction::PlaceGridRoad {
-                x: 1,
-                y: 1,
-                road_type: RecordedRoadType::Local,
-                cost: 10.0,
-            },
-            RecordedAction::PlaceGridRoad {
-                x: 2,
-                y: 1,
-                road_type: RecordedRoadType::Local,
-                cost: 10.0,
-            },
-        ]),
-    );
 
     // Serialize
     let bytes = bitcode::encode(&recorder);
@@ -188,19 +166,17 @@ fn test_serialize_deserialize_roundtrip() {
     // Deserialize
     let restored: InputRecorder = bitcode::decode(&bytes).expect("decode should succeed");
 
-    assert_eq!(restored.actions.len(), 5);
+    assert_eq!(restored.actions.len(), 4);
     assert_eq!(restored.actions[0].0, 1);
     assert_eq!(restored.actions[1].0, 5);
     assert_eq!(restored.actions[2].0, 10);
     assert_eq!(restored.actions[3].0, 15);
-    assert_eq!(restored.actions[4].0, 20);
 
     // Verify action data survived roundtrip
     assert_eq!(restored.actions[0].1, recorder.actions[0].1);
     assert_eq!(restored.actions[1].1, recorder.actions[1].1);
     assert_eq!(restored.actions[2].1, recorder.actions[2].1);
     assert_eq!(restored.actions[3].1, recorder.actions[3].1);
-    assert_eq!(restored.actions[4].1, recorder.actions[4].1);
 }
 
 #[test]
@@ -290,9 +266,10 @@ fn test_city_action_conversion_place_zone() {
         ],
         cost: 100.0,
     };
-    let recorded = RecordedAction::from_city_action(&action);
+    let recorded = RecordedAction::from_city_action_list(&action);
+    assert_eq!(recorded.len(), 1);
 
-    match recorded {
+    match &recorded[0] {
         RecordedAction::PlaceZone { cells, cost } => {
             assert_eq!(cells.len(), 2);
             assert_eq!(cells[0], (10, 20, RecordedZoneType::CommercialHigh));
@@ -304,7 +281,7 @@ fn test_city_action_conversion_place_zone() {
 }
 
 #[test]
-fn test_city_action_conversion_composite() {
+fn test_city_action_composite_flattened() {
     use crate::grid::RoadType;
     use crate::undo_redo::CityAction;
 
@@ -322,12 +299,60 @@ fn test_city_action_conversion_composite() {
             cost: 20.0,
         },
     ]);
-    let recorded = RecordedAction::from_city_action(&action);
+    let recorded = RecordedAction::from_city_action_list(&action);
 
-    match recorded {
-        RecordedAction::Composite(inner) => {
-            assert_eq!(inner.len(), 2);
+    // Composite is flattened: 2 sub-actions become 2 separate RecordedActions
+    assert_eq!(recorded.len(), 2);
+    match &recorded[0] {
+        RecordedAction::PlaceGridRoad { x, y, .. } => {
+            assert_eq!(*x, 5);
+            assert_eq!(*y, 6);
         }
-        _ => panic!("Expected Composite variant"),
+        _ => panic!("Expected PlaceGridRoad"),
     }
+    match &recorded[1] {
+        RecordedAction::PlaceGridRoad { x, y, .. } => {
+            assert_eq!(*x, 6);
+            assert_eq!(*y, 6);
+        }
+        _ => panic!("Expected PlaceGridRoad"),
+    }
+}
+
+#[test]
+fn test_record_city_action_flattens_composite() {
+    use crate::grid::RoadType;
+    use crate::undo_redo::CityAction;
+
+    let mut recorder = InputRecorder::default();
+    recorder.start_recording();
+
+    let composite = CityAction::Composite(vec![
+        CityAction::PlaceGridRoad {
+            x: 1,
+            y: 2,
+            road_type: RoadType::Local,
+            cost: 10.0,
+        },
+        CityAction::PlaceGridRoad {
+            x: 2,
+            y: 2,
+            road_type: RoadType::Local,
+            cost: 10.0,
+        },
+        CityAction::PlaceGridRoad {
+            x: 3,
+            y: 2,
+            road_type: RoadType::Local,
+            cost: 10.0,
+        },
+    ]);
+
+    recorder.record_city_action(50, &composite);
+
+    // All 3 sub-actions should be recorded at the same tick
+    assert_eq!(recorder.action_count(), 3);
+    assert_eq!(recorder.actions[0].0, 50);
+    assert_eq!(recorder.actions[1].0, 50);
+    assert_eq!(recorder.actions[2].0, 50);
 }
