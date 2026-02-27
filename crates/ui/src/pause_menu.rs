@@ -12,6 +12,7 @@ use bevy_egui::{egui, EguiContexts};
 use simulation::app_state::AppState;
 use simulation::time_of_day::GameClock;
 
+use crate::confirm_dialog::PendingConfirmAction;
 use crate::save_slot_ui::SaveSlotUiState;
 use crate::settings_menu::SettingsMenuOpen;
 
@@ -45,6 +46,7 @@ impl Plugin for PauseMenuPlugin {
 // =============================================================================
 
 /// Toggles between Playing and Paused when ESC is pressed.
+#[allow(clippy::too_many_arguments)]
 fn toggle_pause(
     keyboard: Res<ButtonInput<KeyCode>>,
     app_state: Res<State<AppState>>,
@@ -53,6 +55,7 @@ fn toggle_pause(
     mut contexts: EguiContexts,
     mut confirm: ResMut<MainMenuConfirm>,
     mut settings_menu: ResMut<SettingsMenuOpen>,
+    mut pending_confirm: ResMut<PendingConfirmAction>,
 ) {
     // Don't intercept ESC if egui is consuming keyboard input (e.g. text fields).
     if contexts.ctx_mut().wants_keyboard_input() {
@@ -60,6 +63,12 @@ fn toggle_pause(
     }
 
     if !keyboard.just_pressed(KeyCode::Escape) {
+        return;
+    }
+
+    // If a confirmation dialog is open, dismiss it instead of toggling pause.
+    if pending_confirm.0.is_some() {
+        pending_confirm.0 = None;
         return;
     }
 

@@ -12,8 +12,8 @@ use simulation::zones::ZoneDemand;
 
 use rendering::input::{ActiveTool, GridSnap, StatusMessage};
 use rendering::overlay::{DualOverlayMode, DualOverlayState, OverlayMode, OverlayState};
-use save::NewGameEvent;
 
+use crate::confirm_dialog::{ConfirmAction, PendingConfirmAction};
 use crate::save_slot_ui::SaveSlotUiState;
 
 use super::catalog::unlock_filter;
@@ -78,7 +78,7 @@ pub fn toolbar_ui(
     overlay_params: (ResMut<OverlayState>, Res<DualOverlayState>),
     status: Res<StatusMessage>,
     mut slot_ui: ResMut<SaveSlotUiState>,
-    mut new_game_events: EventWriter<NewGameEvent>,
+    mut pending_confirm: ResMut<PendingConfirmAction>,
     mut open_cat: ResMut<OpenCategory>,
     weather_snap: (Res<Weather>, Res<GridSnap>),
     extended_budget: Res<ExtendedBudget>,
@@ -224,8 +224,9 @@ pub fn toolbar_ui(
                 ui.separator();
 
                 // Save / Load / New Game — Save/Load open slot picker dialogs
+                // New Game — goes through confirmation dialog (issue #1820)
                 if ui.button("New").clicked() {
-                    new_game_events.send(NewGameEvent);
+                    pending_confirm.0 = Some(ConfirmAction::NewGame);
                 }
                 if ui.button("Save").clicked() {
                     slot_ui.save_dialog_open = true;
