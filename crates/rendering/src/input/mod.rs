@@ -8,6 +8,7 @@
 //! - `terrain_tools`: Terrain modification helpers (raise, lower, level, water)
 //! - `tool_handler`: Main tool input dispatch system
 //! - `keyboard`: Keyboard shortcuts, escape key, tree tool, road upgrade, building delete
+//! - `unlock_guard`: Placement-side unlock enforcement (safety net)
 
 mod cursor;
 mod keyboard;
@@ -16,6 +17,7 @@ mod road_drawing;
 mod terrain_tools;
 mod tool_handler;
 mod types;
+mod unlock_guard;
 
 #[cfg(test)]
 mod tests;

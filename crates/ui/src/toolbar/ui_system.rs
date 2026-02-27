@@ -5,6 +5,7 @@ use simulation::budget::ExtendedBudget;
 use simulation::economy::CityBudget;
 use simulation::stats::CityStats;
 use simulation::time_of_day::GameClock;
+use simulation::unlocks::UnlockState;
 use simulation::weather::Weather;
 use simulation::zones::ZoneDemand;
 
@@ -12,6 +13,7 @@ use rendering::input::{ActiveTool, GridSnap, StatusMessage};
 use rendering::overlay::{DualOverlayMode, DualOverlayState, OverlayMode, OverlayState};
 use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
 
+use super::catalog::unlock_filter;
 use super::catalog::{show_tool_tooltip, OpenCategory, ToolCatalog};
 use super::widgets::{format_pop, milestone_name, rci_demand_bars, speed_button};
 
@@ -37,6 +39,7 @@ pub fn toolbar_ui(
     grid_snap: Res<GridSnap>,
     extended_budget: Res<ExtendedBudget>,
     catalog: Res<ToolCatalog>,
+    unlocks: Res<UnlockState>,
 ) {
     let (mut overlay, dual_overlay) = overlay_params;
     let categories = &catalog.categories;
@@ -298,6 +301,13 @@ pub fn toolbar_ui(
 
                                 // All items in a single horizontal row
                                 for item in cat.items.iter() {
+                                    // Check unlock state for this item
+                                    let lock_hint = item
+                                        .tool
+                                        .as_ref()
+                                        .and_then(|t| unlock_filter::unlock_hint(t, &unlocks));
+                                    let is_locked = lock_hint.is_some();
+
                                     let label_text = if let Some(cost) = item.cost {
                                         format!("{} ${:.0}", item.name, cost)
                                     } else {
@@ -312,25 +322,48 @@ pub fn toolbar_ui(
                                         },
                                     };
 
-                                    let response = ui
-                                        .selectable_label(
-                                            is_active,
-                                            egui::RichText::new(&label_text).size(11.0),
-                                        )
-                                        .on_hover_ui(|ui| {
-                                            show_tool_tooltip(ui, item);
-                                        });
+                                    if is_locked {
+                                        // Grayed-out locked item
+                                        let response = ui
+                                            .add(egui::Label::new(
+                                                egui::RichText::new(&label_text)
+                                                    .size(11.0)
+                                                    .color(
+                                                        egui::Color32::from_rgb(100, 100, 100),
+                                                    ),
+                                            ).sense(egui::Sense::hover()))
+                                            .on_hover_ui(|tip| {
+                                                show_tool_tooltip(
+                                                    tip,
+                                                    item,
+                                                    lock_hint.as_deref(),
+                                                );
+                                            });
 
-                                    if response.clicked() {
-                                        if let Some(ref t) = item.tool {
-                                            *tool = *t;
-                                            should_close = true;
-                                        } else if let Some(ov) = item.overlay {
-                                            overlay.mode = if overlay.mode == ov {
-                                                OverlayMode::None
-                                            } else {
-                                                ov
-                                            };
+                                        // Swallow clicks on locked items
+                                        let _ = response;
+                                    } else {
+                                        // Normal unlocked item
+                                        let response = ui
+                                            .selectable_label(
+                                                is_active,
+                                                egui::RichText::new(&label_text).size(11.0),
+                                            )
+                                            .on_hover_ui(|tip| {
+                                                show_tool_tooltip(tip, item, None);
+                                            });
+
+                                        if response.clicked() {
+                                            if let Some(ref t) = item.tool {
+                                                *tool = *t;
+                                                should_close = true;
+                                            } else if let Some(ov) = item.overlay {
+                                                overlay.mode = if overlay.mode == ov {
+                                                    OverlayMode::None
+                                                } else {
+                                                    ov
+                                                };
+                                            }
                                         }
                                     }
                                 }
