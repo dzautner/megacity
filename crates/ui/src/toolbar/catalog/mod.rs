@@ -167,6 +167,8 @@ fn utility_maintenance(ut: UtilityType) -> f64 {
         UtilityType::PumpingStation => 8.0,
         UtilityType::WaterTreatment => 25.0,
         UtilityType::HydroDam => 50.0,
+        UtilityType::OilPlant => 35.0,
+        UtilityType::GasPlant => 40.0,
     }
 }
 
@@ -183,6 +185,8 @@ fn utility_range(ut: UtilityType) -> u32 {
         UtilityType::PumpingStation => 15,
         UtilityType::WaterTreatment => 35,
         UtilityType::HydroDam => 40,
+        UtilityType::OilPlant => 30,
+        UtilityType::GasPlant => 30,
     }
 }
 
@@ -199,6 +203,8 @@ fn utility_capacity(ut: UtilityType) -> &'static str {
         UtilityType::PumpingStation => "500 m\u{00b3}/day",
         UtilityType::WaterTreatment => "1500 m\u{00b3}/day",
         UtilityType::HydroDam => "200 MW",
+        UtilityType::OilPlant => "100 MW",
+        UtilityType::GasPlant => "500 MW",
     }
 }
 

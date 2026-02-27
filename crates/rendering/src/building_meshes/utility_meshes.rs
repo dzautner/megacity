@@ -171,6 +171,20 @@ pub(crate) fn generate_utility_mesh(utility_type: UtilityType) -> bevy::prelude:
             // Powerhouse at base
             m.add_cuboid(0.0, s * 0.1, s * 0.15, s * 0.2, s * 0.1, s * 0.08, darken(color, 0.7));
         }
+        UtilityType::OilPlant => {
+            let color = [0.3, 0.3, 0.3, 1.0];
+            // Main building
+            m.add_cuboid(0.0, s * 0.15, 0.0, s * 0.3, s * 0.15, s * 0.25, color);
+            // Smokestack
+            m.add_cylinder(s * 0.15, s * 0.3, 0.0, s * 0.04, s * 0.3, 8, darken(color, 0.6));
+        }
+        UtilityType::GasPlant => {
+            let color = [0.5, 0.6, 0.7, 1.0];
+            // Main building
+            m.add_cuboid(0.0, s * 0.12, 0.0, s * 0.25, s * 0.12, s * 0.2, color);
+            // Turbine housing
+            m.add_cylinder(0.0, s * 0.2, 0.0, s * 0.08, s * 0.08, 8, darken(color, 0.7));
+        }
     }
 
     m.into_mesh()

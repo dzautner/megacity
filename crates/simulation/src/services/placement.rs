@@ -72,6 +72,8 @@ pub fn place_utility_source(
         UtilityType::PumpingStation => 15,
         UtilityType::WaterTreatment => 35,
         UtilityType::HydroDam => 40,
+        UtilityType::OilPlant => 30,
+        UtilityType::GasPlant => 30,
     };
 
     let entity = commands
@@ -99,5 +101,7 @@ pub fn utility_cost(utility_type: UtilityType) -> f64 {
         UtilityType::PumpingStation => 400.0,
         UtilityType::WaterTreatment => 1000.0,
         UtilityType::HydroDam => 5000.0,
+        UtilityType::OilPlant => 1000.0,
+        UtilityType::GasPlant => 1200.0,
     }
 }
