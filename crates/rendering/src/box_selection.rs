@@ -7,6 +7,7 @@
 
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
 use simulation::grid::{CellType, WorldGrid};
 use simulation::multi_select::{MultiSelectState, SelectableItem};
@@ -287,7 +288,8 @@ impl Plugin for BoxSelectionPlugin {
                 box_selection_release,
                 box_selection_cancel,
                 draw_box_selection_gizmo,
-            ),
+            )
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }

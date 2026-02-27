@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::SaveLoadState;
 
 use super::resources::{FollowCitizen, SelectedCitizen};
@@ -21,7 +22,8 @@ impl Plugin for CitizenInfoPlugin {
                     camera_follow_citizen,
                 )
                     .chain()
-                    .run_if(in_state(SaveLoadState::Idle)),
+                    .run_if(in_state(SaveLoadState::Idle))
+                    .run_if(in_state(AppState::Playing)),
             );
     }
 }

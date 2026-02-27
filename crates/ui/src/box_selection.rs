@@ -5,6 +5,7 @@
 //! Also shows the selected entity count after a box selection completes.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::box_selection::BoxSelectionState;
@@ -84,7 +85,7 @@ pub struct BoxSelectionUiPlugin;
 
 impl Plugin for BoxSelectionUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, box_selection_indicator_ui);
+        app.add_systems(Update, box_selection_indicator_ui.run_if(in_state(AppState::Playing)));
     }
 }
 

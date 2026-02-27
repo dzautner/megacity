@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 
 use simulation::buildings::Building;
+use simulation::app_state::AppState;
 use simulation::SaveLoadState;
 use simulation::citizen::{Citizen, Position};
 use simulation::config::CELL_SIZE;
@@ -314,7 +315,9 @@ impl Plugin for EnhancedSelectPlugin {
         app.init_resource::<SelectionKind>()
             .add_systems(
                 Update,
-                enhanced_select_system.run_if(in_state(SaveLoadState::Idle)),
+                enhanced_select_system
+                    .run_if(in_state(SaveLoadState::Idle))
+                    .run_if(in_state(AppState::Playing)),
             );
     }
 }

@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
 use crate::*;
+use simulation::app_state::AppState;
 use simulation::SaveLoadState;
 
 /// Register all UI plugins and systems.
@@ -13,8 +14,13 @@ use simulation::SaveLoadState;
 /// Systems that query game entities (buildings, citizens, services) are gated
 /// behind `SaveLoadState::Idle` to prevent races with the exclusive load/new-game
 /// systems that despawn entities with direct world access (issue #1604).
+///
+/// Most gameplay UI systems are additionally gated behind `AppState::Playing`
+/// so that the main menu renders a clean screen without game panels behind it
+/// (issue #1733).
 pub(crate) fn register_ui_systems(app: &mut App) {
     let idle = in_state(SaveLoadState::Idle);
+    let playing = in_state(AppState::Playing);
 
     // Core egui
     app.add_plugins(EguiPlugin);
@@ -68,7 +74,8 @@ pub(crate) fn register_ui_systems(app: &mut App) {
 
     // UI systems — gated behind SaveLoadState::Idle because they query
     // game entities (buildings, services, citizens) that are despawned
-    // during load/new-game transitions.
+    // during load/new-game transitions. Also gated behind AppState::Playing
+    // so the main menu shows a clean screen (issue #1733).
     app.add_systems(
         Update,
         (
@@ -77,7 +84,8 @@ pub(crate) fn register_ui_systems(app: &mut App) {
             toolbar::toolbar_ui,
             info_panel::info_panel_ui,
         )
-            .run_if(idle.clone()),
+            .run_if(idle.clone())
+            .run_if(playing.clone()),
     );
     app.add_systems(
         Update,
@@ -95,16 +103,19 @@ pub(crate) fn register_ui_systems(app: &mut App) {
             day_night_panel::day_night_panel_ui,
             road_cost_display::road_cost_display_ui,
         )
-            .run_if(idle.clone()),
+            .run_if(idle.clone())
+            .run_if(playing.clone()),
     );
 
     // Keybinds that must remain active during save/load (they trigger
-    // save/load events or control simulation speed).
+    // save/load events or control simulation speed) but should not run
+    // from the main menu.
     app.add_systems(
         Update,
         (
             info_panel::quick_save_load_keybinds,
             toolbar::speed_keybinds,
-        ),
+        )
+            .run_if(playing),
     );
 }

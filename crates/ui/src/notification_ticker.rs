@@ -9,6 +9,7 @@
 //! the full history of past notifications.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::camera::OrbitCamera;
@@ -292,7 +293,11 @@ impl Plugin for NotificationTickerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NotificationJournalVisible>()
             .init_resource::<TickerScroll>()
-            .add_systems(Update, (notification_ticker_ui, notification_journal_ui));
+            .add_systems(
+                Update,
+                (notification_ticker_ui, notification_journal_ui)
+                    .run_if(in_state(AppState::Playing)),
+            );
     }
 }
 

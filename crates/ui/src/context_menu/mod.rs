@@ -18,6 +18,7 @@ mod ui_render;
 pub use types::{ContextMenuState, ContextTarget};
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 
 use types::PendingAction;
 
@@ -34,7 +35,8 @@ impl Plugin for ContextMenuPlugin {
                     ui_render::context_menu_ui,
                     actions::execute_context_menu_action,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(AppState::Playing)),
             );
     }
 }

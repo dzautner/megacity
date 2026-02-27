@@ -5,6 +5,7 @@
 //! simpler flat layouts rendered inline here.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::input::SelectedBuilding;
@@ -325,6 +326,9 @@ pub struct ProgressiveDisclosurePlugin;
 impl Plugin for ProgressiveDisclosurePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedBuildingTab>()
-            .add_systems(Update, progressive_building_inspection_ui);
+            .add_systems(
+                Update,
+                progressive_building_inspection_ui.run_if(in_state(AppState::Playing)),
+            );
     }
 }

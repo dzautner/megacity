@@ -4,6 +4,7 @@
 //! accessibility settings. Toggled via the F10 key.
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use simulation::colorblind::{ColorblindMode, ColorblindSettings};
@@ -144,6 +145,10 @@ pub struct SettingsPanelPlugin;
 impl Plugin for SettingsPanelPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SettingsPanelVisible>()
-            .add_systems(Update, (settings_panel_keybind, settings_panel_ui));
+            .add_systems(
+                Update,
+                (settings_panel_keybind, settings_panel_ui)
+                    .run_if(in_state(AppState::Playing)),
+            );
     }
 }

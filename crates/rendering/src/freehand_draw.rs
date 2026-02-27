@@ -6,6 +6,7 @@
 
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
 use simulation::freehand_road::{
@@ -28,7 +29,8 @@ impl Plugin for FreehandDrawPlugin {
             Update,
             (toggle_freehand_mode, handle_freehand_draw)
                 .chain()
-                .before(crate::input::handle_tool_input),
+                .before(crate::input::handle_tool_input)
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }

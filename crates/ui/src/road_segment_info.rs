@@ -9,6 +9,7 @@
 //! - Monthly maintenance cost estimate for this segment
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use rendering::enhanced_select::SelectionKind;
@@ -285,7 +286,8 @@ impl Plugin for RoadSegmentInfoPlugin {
                     refresh_road_segment_info,
                     road_segment_info_ui,
                 )
-                    .chain(),
+                    .chain()
+                    .run_if(in_state(AppState::Playing)),
             );
     }
 }

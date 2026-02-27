@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 
 use crate::*;
+use simulation::app_state::AppState;
 use simulation::SaveLoadState;
 
 /// Register all rendering plugins and systems.
@@ -15,6 +16,7 @@ use simulation::SaveLoadState;
 /// that despawn entities with direct world access (issue #1604).
 pub(crate) fn register_rendering_systems(app: &mut App) {
     let idle = in_state(SaveLoadState::Idle);
+    let playing = in_state(AppState::Playing);
 
     app.add_systems(
         Startup,
@@ -33,21 +35,31 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
 
     // Camera controls pipeline:
     //   1. sync_target_from_external_changes — detect external OrbitCamera writes
-    //   2. Camera input systems — write to CameraTarget
+    //   2. Camera input systems — write to CameraTarget (Playing only)
     //   3. smooth_camera_to_target — lerp OrbitCamera toward CameraTarget
     //   4. apply_orbit_camera — update the Transform from OrbitCamera
+    //
+    // Camera input is gated behind AppState::Playing so that the camera
+    // cannot be moved from the main menu or while paused (issue #1733).
+    // The smoothing + apply systems always run so the camera stays valid.
+    app.add_systems(
+        Update,
+        (
+            camera::camera_pan_keyboard,
+            camera::camera_pan_drag,
+            camera::camera_left_drag,
+            camera::camera_orbit_drag,
+            camera::camera_zoom,
+            camera::camera_zoom_keyboard,
+            camera::camera_rotate_keyboard,
+        )
+            .after(camera_smoothing::sync_target_from_external_changes)
+            .run_if(playing.clone()),
+    );
     app.add_systems(
         Update,
         (
             camera_smoothing::sync_target_from_external_changes,
-            camera::camera_pan_keyboard.after(camera_smoothing::sync_target_from_external_changes),
-            camera::camera_pan_drag.after(camera_smoothing::sync_target_from_external_changes),
-            camera::camera_left_drag.after(camera_smoothing::sync_target_from_external_changes),
-            camera::camera_orbit_drag.after(camera_smoothing::sync_target_from_external_changes),
-            camera::camera_zoom.after(camera_smoothing::sync_target_from_external_changes),
-            camera::camera_zoom_keyboard.after(camera_smoothing::sync_target_from_external_changes),
-            camera::camera_rotate_keyboard
-                .after(camera_smoothing::sync_target_from_external_changes),
             camera_smoothing::smooth_camera_to_target
                 .after(camera::camera_pan_keyboard)
                 .after(camera::camera_pan_drag)
@@ -60,7 +72,8 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
         ),
     );
 
-    // Input and tool handling — gated because tools can mutate/query game entities
+    // Input and tool handling — gated behind SaveLoadState::Idle (entity safety)
+    // and AppState::Playing (no input on main menu or pause, issue #1733).
     app.add_systems(
         Update,
         (
@@ -88,7 +101,8 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             input::tick_status_message,
             overlay::toggle_overlay_keys,
         )
-            .run_if(idle.clone()),
+            .run_if(idle.clone())
+            .run_if(playing.clone()),
     );
 
     // Terrain and road rendering

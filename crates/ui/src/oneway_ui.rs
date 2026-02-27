@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
 
 use simulation::oneway::{OneWayDirection, OneWayDirectionMap, ToggleOneWayEvent};
@@ -125,7 +126,9 @@ impl Plugin for OneWayUiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedSegment>().add_systems(
             Update,
-            (select_road_segment_on_click, road_segment_context_menu).chain(),
+            (select_road_segment_on_click, road_segment_context_menu)
+                .chain()
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }

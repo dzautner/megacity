@@ -14,6 +14,7 @@ mod formatting;
 mod warnings;
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 
 // Re-export all public items so the rest of the crate sees the same API.
 pub use dashboard_ui::waste_dashboard_ui;
@@ -41,6 +42,6 @@ pub struct WasteDashboardPlugin;
 impl Plugin for WasteDashboardPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WasteDashboardVisible>()
-            .add_systems(Update, waste_dashboard_ui);
+            .add_systems(Update, waste_dashboard_ui.run_if(in_state(AppState::Playing)));
     }
 }

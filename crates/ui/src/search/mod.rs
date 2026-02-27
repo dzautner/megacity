@@ -16,6 +16,7 @@ pub use systems::{search_keybind, search_panel_ui, update_search_results};
 pub use types::{BuildingResult, CitizenResult, SearchState};
 
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 
 pub struct SearchPlugin;
 
@@ -23,7 +24,9 @@ impl Plugin for SearchPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SearchState>().add_systems(
             Update,
-            (search_keybind, update_search_results, search_panel_ui).chain(),
+            (search_keybind, update_search_results, search_panel_ui)
+                .chain()
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }

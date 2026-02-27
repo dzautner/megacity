@@ -11,6 +11,7 @@
 
 use bevy::prelude::*;
 
+use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
 use simulation::grid::RoadType;
 use simulation::road_segments::{RoadSegmentStore, SegmentId};
@@ -86,7 +87,8 @@ impl Plugin for ParallelSnapPlugin {
                     .after(compute_parallel_snap)
                     .before(crate::input::handle_tool_input),
                 draw_parallel_snap_guide,
-            ),
+            )
+                .run_if(in_state(AppState::Playing)),
         );
     }
 }
