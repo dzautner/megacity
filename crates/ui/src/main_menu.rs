@@ -363,8 +363,7 @@ fn render_new_game_dialog(
                     );
                     if !name_valid {
                         start_btn.on_disabled_hover_text("City name cannot be empty");
-                    }
-                    if start_btn.clicked() {
+                    } else if start_btn.clicked() {
                         // Write config to resource
                         new_game_config.city_name =
                             state.city_name_input.trim().to_string();
