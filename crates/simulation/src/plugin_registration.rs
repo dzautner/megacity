@@ -363,4 +363,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // Input action recorder for deterministic replay (STAB-03)
     app.add_plugins(input_recorder::InputRecorderPlugin);
+
+    // Deterministic state hashing for replay verification (#1883)
+    app.add_plugins(state_hash::StateHashPlugin);
 }
