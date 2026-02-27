@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::new_game_config::NewGameConfig;
 use simulation::notifications::{NotificationEvent, NotificationPriority};
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
@@ -224,7 +225,10 @@ fn collect_metadata(world: &World, citizen_count: u32) -> SaveMetadata {
         .unwrap_or(0.0);
 
     let total_population = citizen_count + virtual_pop.total_virtual;
-    let city_name = city_name_from_population(total_population).to_string();
+    let city_name = world
+        .get_resource::<NewGameConfig>()
+        .map(|cfg| cfg.city_name.clone())
+        .unwrap_or_else(|| city_name_from_population(total_population).to_string());
 
     SaveMetadata {
         city_name,

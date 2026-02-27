@@ -353,4 +353,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(app_state_plugin::AppStatePlugin);
     // UI sound effects triggers (PLAY-008)
     app.add_plugins(sfx_triggers::SfxTriggersPlugin);
+
+    // New game map options (PLAY-019)
+    app.add_plugins(new_game_config::NewGameConfigPlugin);
 }

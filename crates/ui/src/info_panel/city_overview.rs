@@ -5,6 +5,7 @@ use bevy_egui::egui;
 
 use simulation::education_jobs::JobType;
 use simulation::immigration::{CityAttractiveness, ImmigrationStats};
+use simulation::new_game_config::NewGameConfig;
 use simulation::stats::CityStats;
 use simulation::zones::ZoneDemand;
 
@@ -16,11 +17,13 @@ pub fn draw_city_stats(
     stats: &CityStats,
     demand: &ZoneDemand,
     extras: &InfoPanelExtras,
+    config: &NewGameConfig,
 ) {
     let homeless_stats = &extras.homeless_stats;
     let wind = &extras.wind;
 
-    ui.heading("City Stats");
+    // Display player-chosen city name as the heading
+    ui.heading(&config.city_name);
     ui.separator();
 
     ui.label(format!("Population: {}", format_pop(stats.population)));

@@ -7,6 +7,7 @@ use simulation::coverage_metrics::CoverageMetrics;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::loans::LoanBook;
+use simulation::new_game_config::NewGameConfig;
 use simulation::stats::CityStats;
 use simulation::zones::ZoneDemand;
 
@@ -33,12 +34,13 @@ pub fn info_panel_ui(
     mut ext_budget: ResMut<simulation::budget::ExtendedBudget>,
     mut loan_book: ResMut<LoanBook>,
     mut extras: InfoPanelExtras,
+    new_game_config: Res<NewGameConfig>,
 ) {
     egui::SidePanel::right("info_panel")
         .default_width(200.0)
         .show(contexts.ctx_mut(), |ui| {
             // City Stats, Buildings, RCIO Demand, Employment
-            city_overview::draw_city_stats(ui, &stats, &demand, &extras);
+            city_overview::draw_city_stats(ui, &stats, &demand, &extras, &new_game_config);
 
             // City Attractiveness
             city_overview::draw_attractiveness(ui, &extras.attractiveness, &extras.imm_stats);
