@@ -1,9 +1,11 @@
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
 use simulation::config::{WORLD_HEIGHT, WORLD_WIDTH};
 
 use crate::camera_smoothing::CameraTarget;
+use crate::egui_input_guard::egui_wants_pointer;
 
 const PAN_SPEED: f32 = 500.0;
 const ZOOM_SPEED: f32 = 0.15;
@@ -161,6 +163,7 @@ pub fn camera_pan_keyboard(
 
 /// Middle-mouse drag: pan focus.
 pub fn camera_pan_drag(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut drag: ResMut<CameraDrag>,
@@ -172,6 +175,10 @@ pub fn camera_pan_drag(
     let scale = target.distance / 1000.0;
 
     if buttons.just_pressed(MouseButton::Middle) {
+        // Prevent starting a drag when egui is handling pointer input.
+        if egui_wants_pointer(&mut contexts) {
+            return;
+        }
         if let Some(pos) = window.cursor_position() {
             drag.dragging = true;
             drag.last_pos = pos;
@@ -202,6 +209,7 @@ pub fn camera_pan_drag(
 /// Only orbits after the mouse moves beyond RIGHT_DRAG_THRESHOLD pixels.
 /// If released before that, sets `RightClickDrag::just_released_click` for one frame.
 pub fn camera_orbit_drag(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut drag: ResMut<CameraOrbitDrag>,
@@ -216,6 +224,10 @@ pub fn camera_orbit_drag(
     right_click.just_released_click = false;
 
     if buttons.just_pressed(MouseButton::Right) {
+        // Prevent starting an orbit drag when egui is handling pointer input.
+        if egui_wants_pointer(&mut contexts) {
+            return;
+        }
         if let Some(pos) = window.cursor_position() {
             drag.dragging = true;
             drag.last_pos = pos;
@@ -262,6 +274,7 @@ pub fn camera_orbit_drag(
 /// When Shift is held, left-drag is used for box selection instead of camera
 /// panning, so this system skips panning in that case.
 pub fn camera_left_drag(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
     windows: Query<&Window>,
@@ -274,6 +287,10 @@ pub fn camera_left_drag(
     let scale = target.distance / 1000.0;
 
     if buttons.just_pressed(MouseButton::Left) {
+        // Prevent starting a drag when egui is handling pointer input.
+        if egui_wants_pointer(&mut contexts) {
+            return;
+        }
         if let Some(pos) = window.cursor_position() {
             left_drag.pressed = true;
             left_drag.start_pos = pos;
@@ -338,7 +355,17 @@ pub fn camera_rotate_keyboard(
 }
 
 /// Scroll wheel: zoom (change distance).
-pub fn camera_zoom(mut scroll_evts: EventReader<MouseWheel>, mut target: ResMut<CameraTarget>) {
+pub fn camera_zoom(
+    mut contexts: EguiContexts,
+    mut scroll_evts: EventReader<MouseWheel>,
+    mut target: ResMut<CameraTarget>,
+) {
+    // Prevent scroll-zoom when egui is handling pointer input (e.g. scrollable panels).
+    if egui_wants_pointer(&mut contexts) {
+        scroll_evts.clear();
+        return;
+    }
+
     for evt in scroll_evts.read() {
         let dy = match evt.unit {
             MouseScrollUnit::Line => evt.y,

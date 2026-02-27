@@ -7,6 +7,7 @@
 //! Also draws the preview overlay (rectangle outline + grid lines) between clicks.
 
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
 use simulation::app_state::AppState;
 use simulation::auto_grid_road::{self, AutoGridConfig, AutoGridPhase, AutoGridState};
@@ -16,12 +17,14 @@ use simulation::grid::WorldGrid;
 use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 
+use crate::egui_input_guard::egui_wants_pointer;
 use crate::input::{ActiveTool, CursorGridPos, StatusMessage};
 use crate::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
 
 /// System that handles clicks for the auto-grid tool.
 #[allow(clippy::too_many_arguments)]
 pub fn handle_auto_grid_tool(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -41,6 +44,11 @@ pub fn handle_auto_grid_tool(
         if auto_grid_state.phase != AutoGridPhase::Idle {
             auto_grid_state.phase = AutoGridPhase::Idle;
         }
+        return;
+    }
+
+    // Prevent click-through: skip world actions when egui is handling pointer input.
+    if egui_wants_pointer(&mut contexts) {
         return;
     }
 

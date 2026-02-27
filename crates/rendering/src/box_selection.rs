@@ -6,12 +6,14 @@
 //! `MultiSelectState` from the multi-select system.
 
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
 use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
 use simulation::grid::{CellType, WorldGrid};
 use simulation::multi_select::{MultiSelectState, SelectableItem};
 
+use crate::egui_input_guard::egui_wants_pointer;
 use crate::input::{CursorGridPos, DrawPhase, RoadDrawState, StatusMessage};
 
 // =============================================================================
@@ -68,7 +70,9 @@ impl BoxSelectionState {
 /// Guards:
 /// - Only activates when Shift is held
 /// - Does not activate during road drawing (Shift is used for angle snap)
+/// - Does not activate when egui is handling pointer input
 pub fn box_selection_start(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
     cursor: Res<CursorGridPos>,
@@ -76,6 +80,11 @@ pub fn box_selection_start(
     mut box_state: ResMut<BoxSelectionState>,
 ) {
     if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    // Prevent click-through: skip when egui is handling pointer input.
+    if egui_wants_pointer(&mut contexts) {
         return;
     }
 

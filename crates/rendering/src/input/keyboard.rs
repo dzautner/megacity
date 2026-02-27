@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
 use simulation::bulldoze_refund;
 use simulation::config::CELL_SIZE;
@@ -10,6 +11,7 @@ use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
 use simulation::utilities::UtilitySource;
 
+use crate::egui_input_guard::egui_wants_pointer;
 use crate::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
 
 use super::types::{
@@ -159,6 +161,7 @@ pub fn delete_selected_building(
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_tree_tool(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -171,6 +174,11 @@ pub fn handle_tree_tool(
     left_drag: Res<crate::camera::LeftClickDrag>,
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
 ) {
+    // Prevent click-through: skip world actions when egui is handling pointer input.
+    if egui_wants_pointer(&mut contexts) {
+        return;
+    }
+
     if left_drag.is_dragging {
         return;
     }
@@ -240,6 +248,7 @@ pub fn handle_tree_tool(
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_road_upgrade_tool(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -252,6 +261,11 @@ pub fn handle_road_upgrade_tool(
     chunks: Query<(Entity, &TerrainChunk), Without<ChunkDirty>>,
     mut commands: Commands,
 ) {
+    // Prevent click-through: skip world actions when egui is handling pointer input.
+    if egui_wants_pointer(&mut contexts) {
+        return;
+    }
+
     if left_drag.is_dragging {
         return;
     }
