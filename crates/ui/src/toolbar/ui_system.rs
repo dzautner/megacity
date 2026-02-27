@@ -38,10 +38,10 @@ pub fn toolbar_ui(
     weather: Res<Weather>,
     grid_snap: Res<GridSnap>,
     extended_budget: Res<ExtendedBudget>,
-    catalog: Res<ToolCatalog>,
-    unlocks: Res<UnlockState>,
+    catalog_and_unlocks: (Res<ToolCatalog>, Res<UnlockState>),
 ) {
     let (mut overlay, dual_overlay) = overlay_params;
+    let (catalog, unlocks) = catalog_and_unlocks;
     let categories = &catalog.categories;
 
     // Set tooltip delay to 300ms for tool tooltips
@@ -325,13 +325,16 @@ pub fn toolbar_ui(
                                     if is_locked {
                                         // Grayed-out locked item
                                         let response = ui
-                                            .add(egui::Label::new(
-                                                egui::RichText::new(&label_text)
-                                                    .size(11.0)
-                                                    .color(
-                                                        egui::Color32::from_rgb(100, 100, 100),
-                                                    ),
-                                            ).sense(egui::Sense::hover()))
+                                            .add(
+                                                egui::Label::new(
+                                                    egui::RichText::new(&label_text)
+                                                        .size(11.0)
+                                                        .color(egui::Color32::from_rgb(
+                                                            100, 100, 100,
+                                                        )),
+                                                )
+                                                .sense(egui::Sense::hover()),
+                                            )
                                             .on_hover_ui(|tip| {
                                                 show_tool_tooltip(
                                                     tip,
