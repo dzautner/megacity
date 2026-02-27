@@ -80,8 +80,7 @@ pub fn toolbar_ui(
     mut slot_ui: ResMut<SaveSlotUiState>,
     mut new_game_events: EventWriter<NewGameEvent>,
     mut open_cat: ResMut<OpenCategory>,
-    weather: Res<Weather>,
-    grid_snap: Res<GridSnap>,
+    weather_snap: (Res<Weather>, Res<GridSnap>),
     extended_budget: Res<ExtendedBudget>,
     catalog_unlocks_bankruptcy: (Res<ToolCatalog>, Res<UnlockState>, Res<BankruptcyState>),
     mut dashboard_vis: (
@@ -92,6 +91,7 @@ pub fn toolbar_ui(
 ) {
     let (mut overlay, dual_overlay) = overlay_params;
     let (catalog, unlocks, bankruptcy) = catalog_unlocks_bankruptcy;
+    let (weather, grid_snap) = weather_snap;
     let categories = &catalog.categories;
     let current_pop = stats.population;
 
