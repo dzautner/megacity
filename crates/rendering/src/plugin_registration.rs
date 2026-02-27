@@ -248,4 +248,7 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
 
     // Zoning visual feedback (PLAY-P1-01)
     app.add_plugins(zoning_feedback::ZoningFeedbackPlugin);
+
+    // Audio playback — consumes PlaySfxEvent (PLAY-007)
+    app.add_plugins(audio_playback::AudioPlaybackPlugin);
 }
