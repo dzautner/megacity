@@ -61,20 +61,7 @@ pub fn place_utility_source(
         return false;
     }
 
-    let range = match utility_type {
-        UtilityType::PowerPlant => 30,
-        UtilityType::SolarFarm => 25,
-        UtilityType::WindTurbine => 20,
-        UtilityType::WaterTower => 25,
-        UtilityType::SewagePlant => 20,
-        UtilityType::NuclearPlant => 50,
-        UtilityType::Geothermal => 35,
-        UtilityType::PumpingStation => 15,
-        UtilityType::WaterTreatment => 35,
-        UtilityType::HydroDam => 40,
-        UtilityType::OilPlant => 30,
-        UtilityType::GasPlant => 30,
-    };
+    let range = utility_range(utility_type);
 
     let entity = commands
         .spawn(UtilitySource {
@@ -87,6 +74,24 @@ pub fn place_utility_source(
 
     grid.get_mut(gx, gy).building_id = Some(entity);
     true
+}
+
+/// Returns the propagation range for a given utility type.
+pub fn utility_range(utility_type: UtilityType) -> u32 {
+    match utility_type {
+        UtilityType::PowerPlant => 30,
+        UtilityType::SolarFarm => 25,
+        UtilityType::WindTurbine => 20,
+        UtilityType::WaterTower => 25,
+        UtilityType::SewagePlant => 20,
+        UtilityType::NuclearPlant => 50,
+        UtilityType::Geothermal => 35,
+        UtilityType::PumpingStation => 15,
+        UtilityType::WaterTreatment => 35,
+        UtilityType::HydroDam => 40,
+        UtilityType::OilPlant => 30,
+        UtilityType::GasPlant => 30,
+    }
 }
 
 pub fn utility_cost(utility_type: UtilityType) -> f64 {
