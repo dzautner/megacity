@@ -57,17 +57,16 @@ fn test_bankruptcy_normal_at_healthy_treasury() {
 #[test]
 fn test_bankruptcy_emits_notification_on_transition() {
     let mut city = TestCity::new().with_budget(4000.0);
-
-    // Clear any existing notifications
-    let log_before = city.resource::<NotificationLog>();
-    let count_before = log_before.active.len();
-
     city.tick_slow_cycle();
 
-    let log_after = city.resource::<NotificationLog>();
+    let log = city.resource::<NotificationLog>();
+    let has_treasury_notification = log
+        .journal
+        .iter()
+        .any(|entry| entry.text.contains("Treasury low"));
     assert!(
-        log_after.journal.len() > count_before,
-        "Should have emitted a notification on transition to Warning"
+        has_treasury_notification,
+        "Should have emitted a 'Treasury low' notification on transition to Warning"
     );
 }
 
