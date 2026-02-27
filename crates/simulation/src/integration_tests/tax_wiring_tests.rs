@@ -3,7 +3,6 @@
 //! UI tax slider was disconnected from the economy system.
 
 use crate::budget::ExtendedBudget;
-use crate::economy::CityBudget;
 use crate::grid::ZoneType;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
