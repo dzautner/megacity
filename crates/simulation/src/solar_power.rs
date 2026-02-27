@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use crate::coal_power::{PowerPlant, PowerPlantType};
 use crate::time_of_day::GameClock;
 use crate::utilities::{UtilitySource, UtilityType};
 use crate::weather::{Season, Weather, WeatherCondition};
@@ -120,8 +121,33 @@ impl Saveable for SolarPowerState {
 }
 
 // =============================================================================
-// System
+// Systems
 // =============================================================================
+
+/// Attaches `PowerPlant` components to `UtilitySource` entities of type
+/// `SolarFarm` that don't already have one.
+pub fn attach_solar_power_plants(
+    timer: Res<SlowTickTimer>,
+    mut commands: Commands,
+    sources: Query<(Entity, &UtilitySource), Without<PowerPlant>>,
+) {
+    if !timer.should_run() {
+        return;
+    }
+
+    for (entity, source) in &sources {
+        if source.utility_type == UtilityType::SolarFarm {
+            commands.entity(entity).insert(PowerPlant {
+                plant_type: PowerPlantType::Solar,
+                capacity_mw: SOLAR_NAMEPLATE_MW,
+                current_output_mw: 0.0,
+                fuel_cost: SOLAR_FUEL_COST_PER_MWH,
+                grid_x: source.grid_x,
+                grid_y: source.grid_y,
+            });
+        }
+    }
+}
 
 /// Recalculates solar farm output based on current time, season, and weather.
 ///
@@ -169,8 +195,12 @@ impl Plugin for SolarPowerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SolarPowerState>().add_systems(
             FixedUpdate,
-            update_solar_power
-                .after(crate::imports_exports::process_trade)
+            (
+                attach_solar_power_plants,
+                update_solar_power
+                    .after(attach_solar_power_plants)
+                    .after(crate::imports_exports::process_trade),
+            )
                 .in_set(crate::SimulationSet::Simulation),
         );
 

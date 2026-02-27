@@ -280,7 +280,10 @@ impl TestCity {
     /// Spawn a utility source at the given cell.
     pub fn with_utility(mut self, x: usize, y: usize, utility_type: UtilityType) -> Self {
         let range = match utility_type {
-            UtilityType::PowerPlant | UtilityType::NuclearPlant => 120,
+            UtilityType::PowerPlant
+            | UtilityType::NuclearPlant
+            | UtilityType::OilPlant
+            | UtilityType::GasPlant => 120,
             UtilityType::WaterTower | UtilityType::PumpingStation => 90,
             _ => 50,
         };

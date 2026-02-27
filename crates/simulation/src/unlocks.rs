@@ -462,6 +462,8 @@ impl UnlockState {
             UtilityType::WaterTreatment => {
                 self.is_unlocked(UnlockNode::SewagePlant)
             }
+            UtilityType::OilPlant => self.is_unlocked(UnlockNode::BasicPower),
+            UtilityType::GasPlant => self.is_unlocked(UnlockNode::BasicPower),
         }
     }
 }

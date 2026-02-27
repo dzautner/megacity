@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::coal_power::{PowerPlant, PowerPlantType};
 use crate::energy_demand::EnergyGrid;
+use crate::utilities::{UtilitySource, UtilityType};
 use crate::SlowTickTimer;
 
 // =============================================================================
@@ -111,6 +112,26 @@ impl crate::Saveable for OilPowerState {
 // Systems
 // =============================================================================
 
+/// Attaches `PowerPlant` components to `UtilitySource` entities of type
+/// `OilPlant` that don't already have one.
+pub fn attach_oil_power_plants(
+    timer: Res<SlowTickTimer>,
+    mut commands: Commands,
+    sources: Query<(Entity, &UtilitySource), Without<PowerPlant>>,
+) {
+    if !timer.should_run() {
+        return;
+    }
+
+    for (entity, source) in &sources {
+        if source.utility_type == UtilityType::OilPlant {
+            commands
+                .entity(entity)
+                .insert(PowerPlant::new_oil(source.grid_x, source.grid_y));
+        }
+    }
+}
+
 /// Aggregates oil power plant output into `EnergyGrid.total_supply_mwh` and
 /// updates `OilPowerState`. Runs every slow tick.
 pub fn aggregate_oil_power(
@@ -154,9 +175,13 @@ impl Plugin for OilPowerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OilPowerState>().add_systems(
             FixedUpdate,
-            aggregate_oil_power
-                .after(crate::wind_pollution::update_pollution_gaussian_plume)
-                .after(crate::energy_dispatch::dispatch_energy)
+            (
+                attach_oil_power_plants,
+                aggregate_oil_power
+                    .after(attach_oil_power_plants)
+                    .after(crate::wind_pollution::update_pollution_gaussian_plume)
+                    .after(crate::energy_dispatch::dispatch_energy),
+            )
                 .in_set(crate::SimulationSet::Simulation),
         );
 
