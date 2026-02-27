@@ -33,22 +33,67 @@ pub fn is_tool_unlocked(tool: &ActiveTool, unlocks: &UnlockState) -> bool {
     }
 }
 
-/// Returns a human-readable hint describing when a locked tool becomes
-/// available, e.g. `"Unlocks at Village (pop 1,200)"`.
+/// Progress info for a locked tool, including requirement text and
+/// current progress toward unlocking.
+pub struct UnlockProgress {
+    /// Human-readable requirement, e.g. "Requires Village (pop 1,200)"
+    pub requirement: String,
+    /// Progress text, e.g. "500 / 1,200 population"
+    pub progress_text: String,
+    /// Fraction of progress (0.0 to 1.0)
+    pub fraction: f32,
+    /// Whether the player is close to unlocking (>80% progress)
+    pub nearly_unlocked: bool,
+}
+
+/// Returns unlock progress info for a locked tool, including the specific
+/// requirement and current progress toward it.
 ///
 /// Returns `None` for tools that are always available or already unlocked.
-pub fn unlock_hint(tool: &ActiveTool, unlocks: &UnlockState) -> Option<String> {
+pub fn unlock_progress(
+    tool: &ActiveTool,
+    unlocks: &UnlockState,
+    current_population: u32,
+) -> Option<UnlockProgress> {
     if is_tool_unlocked(tool, unlocks) {
         return None;
     }
     let node = required_unlock_node(tool)?;
-    let pop = node.required_population();
-    let tier = tier_name_for_population(pop);
-    Some(format!(
-        "Unlocks at {} (pop {:>5})",
+    let required_pop = node.required_population();
+    let tier = tier_name_for_population(required_pop);
+
+    let requirement = format!(
+        "Requires {} (pop {})",
         tier,
-        format_pop_with_commas(pop)
-    ))
+        format_pop_with_commas(required_pop),
+    );
+
+    let fraction = if required_pop == 0 {
+        // Needs development points but no population — show as
+        // needing DP purchase (fraction stays 0 since it's DP-gated)
+        0.0
+    } else {
+        (current_population as f32 / required_pop as f32).min(1.0)
+    };
+
+    let progress_text = if required_pop == 0 {
+        "Requires development points".to_string()
+    } else {
+        format!(
+            "{} / {} population",
+            format_pop_with_commas(current_population),
+            format_pop_with_commas(required_pop),
+        )
+    };
+
+    let nearly_unlocked = fraction > 0.8;
+
+    Some(UnlockProgress {
+        requirement,
+        progress_text,
+        fraction,
+        nearly_unlocked,
+    })
 }
 
 /// Maps an `ActiveTool` to the `UnlockNode` that gates it.

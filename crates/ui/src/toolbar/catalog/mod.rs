@@ -243,21 +243,72 @@ fn overlay_description(mode: OverlayMode) -> &'static str {
     }
 }
 
-/// Builds rich tooltip UI content for a tool item, optionally showing an
-/// unlock hint when the item is locked.
+/// Builds rich tooltip UI content for a tool item, optionally showing
+/// unlock progress when the item is locked.
 pub(super) fn show_tool_tooltip(
     ui: &mut egui::Ui,
     item: &ToolItem,
-    lock_hint: Option<&str>,
+    progress: Option<&unlock_filter::UnlockProgress>,
 ) {
     ui.set_max_width(250.0);
 
-    // Show lock message prominently if present
-    if let Some(hint) = lock_hint {
+    // Show lock progress prominently if present
+    if let Some(prog) = progress {
+        // Requirement label — amber when close, gray otherwise
+        let req_color = if prog.nearly_unlocked {
+            egui::Color32::from_rgb(255, 180, 60) // amber
+        } else {
+            egui::Color32::from_rgb(180, 180, 180) // gray
+        };
         ui.label(
-            egui::RichText::new(hint)
-                .color(egui::Color32::from_rgb(255, 180, 60))
+            egui::RichText::new(&prog.requirement)
+                .color(req_color)
                 .strong(),
+        );
+        ui.add_space(2.0);
+
+        // Progress bar
+        let bar_color = if prog.nearly_unlocked {
+            egui::Color32::from_rgb(255, 180, 60) // amber
+        } else {
+            egui::Color32::from_rgb(120, 120, 120) // gray
+        };
+        let bar_bg = egui::Color32::from_rgb(50, 50, 50);
+        let bar_height = 12.0;
+        let bar_width = 230.0;
+        let (rect, _) = ui.allocate_exact_size(
+            egui::vec2(bar_width, bar_height),
+            egui::Sense::hover(),
+        );
+        if ui.is_rect_visible(rect) {
+            let painter = ui.painter();
+            // Background
+            painter.rect_filled(rect, 3.0, bar_bg);
+            // Filled portion
+            if prog.fraction > 0.0 {
+                let fill_width = rect.width() * prog.fraction;
+                let fill_rect = egui::Rect::from_min_size(
+                    rect.min,
+                    egui::vec2(fill_width, rect.height()),
+                );
+                painter.rect_filled(fill_rect, 3.0, bar_color);
+            }
+            // Percentage text centered on bar
+            let pct_text = format!("{:.0}%", prog.fraction * 100.0);
+            painter.text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                &pct_text,
+                egui::FontId::proportional(9.0),
+                egui::Color32::WHITE,
+            );
+        }
+
+        // Progress text below bar
+        ui.label(
+            egui::RichText::new(&prog.progress_text)
+                .small()
+                .color(req_color),
         );
         ui.add_space(4.0);
     }
