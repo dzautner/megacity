@@ -1,6 +1,7 @@
 //! Main tool input dispatch system.
 
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
 use simulation::bulldoze_refund;
 use simulation::curve_road_drawing::CurveDrawMode;
@@ -15,6 +16,7 @@ use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::utilities::{UtilitySource, UtilityType};
 
 use crate::angle_snap::AngleSnapState;
+use crate::egui_input_guard::egui_wants_pointer;
 use crate::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
 
 use super::placement::{
@@ -38,6 +40,7 @@ pub fn handle_tool_input(
         Res<AngleSnapState>,
         Res<CurveDrawMode>,
         Res<UnlockState>,
+        EguiContexts,
     ),
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -62,7 +65,13 @@ pub fn handle_tool_input(
     ),
     mut district_map: ResMut<simulation::districts::DistrictMap>,
 ) {
-    let (buttons, keys, angle_snap, curve_mode, unlocks) = input;
+    let (buttons, keys, angle_snap, curve_mode, unlocks, mut contexts) = input;
+
+    // Prevent click-through: skip world actions when egui is handling pointer input.
+    if egui_wants_pointer(&mut contexts) {
+        return;
+    }
+
     let (left_drag, ugb, snap, brush_size, freehand, mut action_writer) = misc;
 
     if left_drag.is_dragging {

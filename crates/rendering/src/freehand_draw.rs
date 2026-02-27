@@ -5,6 +5,7 @@
 //! simplified road segments on release.
 
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
 use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
@@ -18,6 +19,7 @@ use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 
 use crate::camera::LeftClickDrag;
+use crate::egui_input_guard::egui_wants_pointer;
 use crate::input::{ActiveTool, CursorGridPos, StatusMessage};
 use crate::terrain_render::{mark_chunk_dirty_at, ChunkDirty, TerrainChunk};
 
@@ -69,6 +71,7 @@ pub fn toggle_freehand_mode(
 /// commit segments on release.
 #[allow(clippy::too_many_arguments)]
 pub fn handle_freehand_draw(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -83,6 +86,11 @@ pub fn handle_freehand_draw(
     mut commands: Commands,
 ) {
     if !freehand.enabled {
+        return;
+    }
+
+    // Prevent click-through: skip world actions when egui is handling pointer input.
+    if egui_wants_pointer(&mut contexts) {
         return;
     }
 

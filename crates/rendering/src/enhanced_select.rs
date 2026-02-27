@@ -8,17 +8,19 @@
 //! display the appropriate info panel without conflicting with each other.
 
 use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
-use simulation::buildings::Building;
 use simulation::app_state::AppState;
-use simulation::SaveLoadState;
+use simulation::buildings::Building;
 use simulation::citizen::{Citizen, Position};
 use simulation::config::CELL_SIZE;
 use simulation::grid::WorldGrid;
 use simulation::road_segments::{RoadSegmentStore, SegmentId};
 use simulation::services::ServiceBuilding;
+use simulation::SaveLoadState;
 
 use crate::camera::LeftClickDrag;
+use crate::egui_input_guard::egui_wants_pointer;
 use crate::input::{ActiveTool, CursorGridPos, SelectedBuilding};
 
 // ---------------------------------------------------------------------------
@@ -59,6 +61,7 @@ pub enum SelectionKind {
 /// 4. Fallback: empty cell selection
 #[allow(clippy::too_many_arguments)]
 pub fn enhanced_select_system(
+    mut contexts: EguiContexts,
     buttons: Res<ButtonInput<MouseButton>>,
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -73,6 +76,11 @@ pub fn enhanced_select_system(
 ) {
     // Only respond to fresh left-clicks
     if !buttons.just_pressed(MouseButton::Left) || !cursor.valid {
+        return;
+    }
+
+    // Prevent click-through: skip selection when egui is handling pointer input.
+    if egui_wants_pointer(&mut contexts) {
         return;
     }
 
@@ -312,13 +320,12 @@ pub struct EnhancedSelectPlugin;
 
 impl Plugin for EnhancedSelectPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SelectionKind>()
-            .add_systems(
-                Update,
-                enhanced_select_system
-                    .run_if(in_state(SaveLoadState::Idle))
-                    .run_if(in_state(AppState::Playing)),
-            );
+        app.init_resource::<SelectionKind>().add_systems(
+            Update,
+            enhanced_select_system
+                .run_if(in_state(SaveLoadState::Idle))
+                .run_if(in_state(AppState::Playing)),
+        );
     }
 }
 
