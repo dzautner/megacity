@@ -370,4 +370,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // City observation snapshot for LLM agent (#1880)
     app.add_plugins(observation_plugin::ObservationPlugin);
+
+    // Game action executor for LLM/agent-driven play (#1873)
+    app.add_plugins(game_actions::GameActionsPlugin);
 }
