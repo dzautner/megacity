@@ -34,7 +34,8 @@ fn test_economy_breakdown_sums_match_totals_after_tax_collection() {
 
     let expense_sum = extended.expense_breakdown.road_maintenance
         + extended.expense_breakdown.service_costs
-        + extended.expense_breakdown.policy_costs;
+        + extended.expense_breakdown.policy_costs
+        + extended.expense_breakdown.fuel_costs;
 
     assert!(
         (budget.monthly_income - income_sum).abs() < 0.01,

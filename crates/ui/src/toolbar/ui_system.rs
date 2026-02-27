@@ -133,6 +133,7 @@ pub fn toolbar_ui(
                             ui.label(format!("Service Costs: ${:.0}", eb.service_costs));
                             ui.label(format!("Policy Costs: ${:.0}", eb.policy_costs));
                             ui.label(format!("Loan Payments: ${:.0}", eb.loan_payments));
+                            ui.label(format!("Power Fuel: ${:.0}", eb.fuel_costs));
                         });
                         ui.separator();
                         ui.label(

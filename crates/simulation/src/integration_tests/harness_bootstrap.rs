@@ -40,8 +40,8 @@ fn empty_city_has_default_budget() {
     let city = TestCity::new();
     let budget = city.budget();
     assert!(
-        (budget.treasury - 10_000.0).abs() < f64::EPSILON,
-        "default treasury should be 10000, got {}",
+        (budget.treasury - 50_000.0).abs() < f64::EPSILON,
+        "default treasury should be 50000, got {}",
         budget.treasury
     );
     assert!(
