@@ -124,12 +124,10 @@ pub(crate) fn draw_stacked_area(
         }
     }
 
-    let max_val = cumulative
-        .last()
-        .unwrap()
-        .iter()
-        .cloned()
-        .fold(1.0_f64, f64::max);
+    let Some(last_cumulative) = cumulative.last() else {
+        return;
+    };
+    let max_val = last_cumulative.iter().cloned().fold(1.0_f64, f64::max);
 
     // Draw layers from top to bottom (so last layer is on top)
     for li in (0..layers.len()).rev() {

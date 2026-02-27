@@ -60,7 +60,7 @@ pub fn simplify_rdp(points: &[Vec2], tolerance: f32) -> Vec<Vec2> {
     }
 
     let first = points[0];
-    let last = *points.last().unwrap();
+    let Some(&last) = points.last() else { return points.to_vec(); };
 
     // Find point with maximum perpendicular distance from the line (first, last)
     let mut max_dist = 0.0_f32;
@@ -106,7 +106,7 @@ pub fn filter_short_segments(points: &[Vec2], min_len: f32) -> Vec<Vec2> {
     let mut result = vec![points[0]];
 
     for &pt in &points[1..] {
-        let last = *result.last().unwrap();
+        let Some(&last) = result.last() else { continue; };
         if (pt - last).length() >= min_len {
             result.push(pt);
         }
@@ -114,12 +114,12 @@ pub fn filter_short_segments(points: &[Vec2], min_len: f32) -> Vec<Vec2> {
 
     // Always keep the last point if there are at least 2 input points
     if result.len() == 1 && points.len() >= 2 {
-        let last = *points.last().unwrap();
+        let Some(&last) = points.last() else { return result; };
         if (last - result[0]).length() >= min_len {
             result.push(last);
         }
     } else if let Some(&last_result) = result.last() {
-        let last_input = *points.last().unwrap();
+        let Some(&last_input) = points.last() else { return result; };
         if (last_input - last_result).length() > 1e-3 {
             // The last input point was filtered out; ensure we include it
             // only if it's far enough from the previous kept point
@@ -129,7 +129,9 @@ pub fn filter_short_segments(points: &[Vec2], min_len: f32) -> Vec<Vec2> {
                 // Replace the last kept point with the final input point
                 // to ensure the stroke ends at the cursor position
                 if result.len() > 1 {
-                    *result.last_mut().unwrap() = last_input;
+                    if let Some(last) = result.last_mut() {
+                        *last = last_input;
+                    }
                 }
             }
         }

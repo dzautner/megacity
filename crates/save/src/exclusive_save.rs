@@ -205,7 +205,9 @@ fn exclusive_save_inner(world: &mut World) -> Result<(), SaveError> {
                 Err(e) => {
                     let msg = e.to_string();
                     web_sys::console::error_1(&msg.clone().into());
-                    *error_slot.lock().unwrap() = Some(msg);
+                    if let Ok(mut guard) = error_slot.lock() {
+                        *guard = Some(msg);
+                    }
                 }
             }
         });

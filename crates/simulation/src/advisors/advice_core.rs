@@ -16,7 +16,7 @@ pub(crate) fn find_worst_cell(levels: &[u8], width: usize) -> Option<(usize, usi
     if levels.is_empty() {
         return None;
     }
-    let (max_idx, &max_val) = levels.iter().enumerate().max_by_key(|(_, &v)| v).unwrap();
+    let (max_idx, &max_val) = levels.iter().enumerate().max_by_key(|(_, &v)| v)?;
     if max_val == 0 {
         return None;
     }
@@ -30,7 +30,7 @@ pub(crate) fn find_worst_coverage_cell(levels: &[u8], width: usize) -> Option<(u
     if levels.is_empty() {
         return None;
     }
-    let (min_idx, _) = levels.iter().enumerate().min_by_key(|(_, &v)| v).unwrap();
+    let (min_idx, _) = levels.iter().enumerate().min_by_key(|(_, &v)| v)?;
     let x = min_idx % width;
     let y = min_idx / width;
     Some((x, y))

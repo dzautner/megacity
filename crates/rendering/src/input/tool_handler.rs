@@ -289,7 +289,7 @@ pub fn handle_tool_input(
         | ActiveTool::ZoneIndustrial
         | ActiveTool::ZoneOffice
         | ActiveTool::ZoneMixedUse => {
-            let zone = tool.zone_type().unwrap();
+            let Some(zone) = tool.zone_type() else { return; };
             let zoned_cells = apply_zone_brush(
                 &mut grid,
                 &mut status,

@@ -30,11 +30,12 @@ pub(crate) fn exclusive_new_game(world: &mut World) {
     reset_all_resources(world);
 
     // -- Stage 3: Reset extension-registered resources via SaveableRegistry --
-    let registry = world
-        .remove_resource::<SaveableRegistry>()
-        .expect("SaveableRegistry must exist");
-    registry.reset_all(world);
-    world.insert_resource(registry);
+    if let Some(registry) = world.remove_resource::<SaveableRegistry>() {
+        registry.reset_all(world);
+        world.insert_resource(registry);
+    } else {
+        warn!("SaveableRegistry missing during new game setup");
+    }
 
     // -- Stage 3b: Restore the player's chosen config (reset cleared it) --
     world.insert_resource(NewGameConfig { city_name, seed });

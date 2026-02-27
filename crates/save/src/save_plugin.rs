@@ -184,7 +184,9 @@ fn start_wasm_load(mut events: EventReader<LoadGameEvent>, buffer: Res<WasmLoadB
         let slot = buffer.0.clone();
         wasm_bindgen_futures::spawn_local(async move {
             let result = wasm_idb::idb_load().await;
-            *slot.lock().unwrap() = Some(result);
+            if let Ok(mut guard) = slot.lock() {
+                *guard = Some(result);
+            }
         });
     }
 }
@@ -197,7 +199,9 @@ fn poll_wasm_load(
     mut pending: ResMut<PendingLoadBytes>,
     mut next_state: ResMut<NextState<SaveLoadState>>,
 ) {
-    let mut slot = buffer.0.lock().unwrap();
+    let Ok(mut slot) = buffer.0.lock() else {
+        return;
+    };
     if let Some(result) = slot.take() {
         match result {
             Ok(bytes) => {
@@ -218,7 +222,9 @@ fn poll_wasm_save_error(
     buffer: Res<WasmSaveErrorBuffer>,
     mut notifications: EventWriter<NotificationEvent>,
 ) {
-    let mut slot = buffer.0.lock().unwrap();
+    let Ok(mut slot) = buffer.0.lock() else {
+        return;
+    };
     if let Some(error_msg) = slot.take() {
         web_sys::console::error_1(&format!("Save error surfaced to UI: {}", error_msg).into());
         notifications.send(NotificationEvent {

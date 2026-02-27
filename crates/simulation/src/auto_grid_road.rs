@@ -124,8 +124,7 @@ fn scan_horizontal_line(grid: &WorldGrid, y: usize, min_x: usize, max_x: usize) 
         let at_end = x == max_x;
         let run_broken = !passable;
 
-        if (run_broken || at_end) && run_start.is_some() {
-            let start = run_start.unwrap();
+        if let Some(start) = run_start.filter(|_| run_broken || at_end) {
             let end = if passable { x } else { x - 1 };
             if end > start {
                 segments.push(((start, y), (end, y)));
@@ -163,8 +162,7 @@ fn scan_vertical_line(
         let at_end = y == max_y;
         let run_broken = !passable;
 
-        if (run_broken || at_end) && run_start.is_some() {
-            let start = run_start.unwrap();
+        if let Some(start) = run_start.filter(|_| run_broken || at_end) {
             let end = if passable { y } else { y - 1 };
             if end > start {
                 segments.push(((x, start), (x, end)));

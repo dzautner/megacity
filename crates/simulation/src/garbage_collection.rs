@@ -316,7 +316,7 @@ fn build_collection_route(
         .collect();
     let mut current = start;
     while !remaining.is_empty() && route.len() < MAX_ROUTE_STOPS {
-        let (best_idx, _) = remaining
+        let Some((best_idx, _)) = remaining
             .iter()
             .enumerate()
             .min_by_key(|(_, &(bx, by))| {
@@ -324,7 +324,9 @@ fn build_collection_route(
                 let dy = (by as i64 - current.1 as i64).unsigned_abs();
                 dx * dx + dy * dy
             })
-            .unwrap();
+        else {
+            break;
+        };
         let next = remaining.remove(best_idx);
         route.push(next);
         current = next;
