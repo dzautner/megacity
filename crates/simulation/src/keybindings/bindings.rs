@@ -157,6 +157,7 @@ pub struct KeyBindings {
     pub toggle_policies: KeyBinding,
     pub toggle_settings: KeyBinding,
     pub toggle_search: KeyBinding,
+    pub toggle_help: KeyBinding,
 
     // System
     pub quick_save: KeyBinding,
@@ -201,6 +202,7 @@ impl Default for KeyBindings {
             toggle_policies: KeyBinding::simple(KeyCode::KeyP),
             toggle_settings: KeyBinding::simple(KeyCode::F10),
             toggle_search: KeyBinding::ctrl(KeyCode::KeyF),
+            toggle_help: KeyBinding::simple(KeyCode::F1),
             quick_save: KeyBinding::simple(KeyCode::F5),
             quick_load: KeyBinding::simple(KeyCode::F9),
             new_game: KeyBinding::ctrl(KeyCode::KeyN),
@@ -241,6 +243,7 @@ impl KeyBindings {
             BindableAction::TogglePolicies => self.toggle_policies,
             BindableAction::ToggleSettings => self.toggle_settings,
             BindableAction::ToggleSearch => self.toggle_search,
+            BindableAction::ToggleHelp => self.toggle_help,
             BindableAction::QuickSave => self.quick_save,
             BindableAction::QuickLoad => self.quick_load,
             BindableAction::NewGame => self.new_game,
@@ -279,6 +282,7 @@ impl KeyBindings {
             BindableAction::TogglePolicies => self.toggle_policies = binding,
             BindableAction::ToggleSettings => self.toggle_settings = binding,
             BindableAction::ToggleSearch => self.toggle_search = binding,
+            BindableAction::ToggleHelp => self.toggle_help = binding,
             BindableAction::QuickSave => self.quick_save = binding,
             BindableAction::QuickLoad => self.quick_load = binding,
             BindableAction::NewGame => self.new_game = binding,

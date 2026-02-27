@@ -59,6 +59,7 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     app.add_plugins(main_menu::MainMenuPlugin);
     app.add_plugins(settings_menu::SettingsMenuPlugin);
     app.add_plugins(loading_screen::LoadingScreenPlugin);
+    app.add_plugins(help_overlay::HelpOverlayPlugin);
     // UI resources
     app.init_resource::<day_night_panel::DayNightPanelVisible>();
     app.init_resource::<milestones::Milestones>();

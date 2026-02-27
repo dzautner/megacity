@@ -44,6 +44,7 @@ pub enum BindableAction {
     TogglePolicies,
     ToggleSettings,
     ToggleSearch,
+    ToggleHelp,
 
     // Save/Load (ctrl-modified)
     QuickSave,
@@ -86,6 +87,7 @@ impl BindableAction {
             Self::TogglePolicies => "Toggle Policies",
             Self::ToggleSettings => "Toggle Settings",
             Self::ToggleSearch => "Toggle Search",
+            Self::ToggleHelp => "Toggle Help",
             Self::QuickSave => "Quick Save",
             Self::QuickLoad => "Quick Load",
             Self::NewGame => "New Game",
@@ -124,7 +126,8 @@ impl BindableAction {
             | Self::ToggleAdvisor
             | Self::TogglePolicies
             | Self::ToggleSettings
-            | Self::ToggleSearch => "Panels",
+            | Self::ToggleSearch
+            | Self::ToggleHelp => "Panels",
 
             Self::QuickSave | Self::QuickLoad | Self::NewGame | Self::Screenshot => "System",
         }
@@ -160,6 +163,7 @@ impl BindableAction {
         Self::TogglePolicies,
         Self::ToggleSettings,
         Self::ToggleSearch,
+        Self::ToggleHelp,
         Self::QuickSave,
         Self::QuickLoad,
         Self::NewGame,
