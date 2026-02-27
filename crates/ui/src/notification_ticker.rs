@@ -1,61 +1,86 @@
-//! UX-008: Notification Ticker UI.
+//! UX-008 / PLAY-023: Notification Toast System.
 //!
-//! Renders a horizontal scrolling ticker below the HUD toolbar bar showing
-//! active notifications color-coded by priority. Clicking a notification
-//! jumps the camera to its location. Emergency notifications can be dismissed
-//! with a close button; lower-priority notifications auto-expire.
+//! Renders a vertical stack of toast notifications (up to 5) in the top-right
+//! corner, color-coded by priority using theme colors. Toasts auto-dismiss
+//! after a configurable real-time duration and can be dismissed early by
+//! clicking. Emergency notifications stay longer. Clicking a notification
+//! with a location also jumps the camera there.
 //!
 //! Also provides a notification journal window (toggled via button) showing
 //! the full history of past notifications.
 
 use bevy::prelude::*;
-use simulation::app_state::AppState;
 use bevy_egui::{egui, EguiContexts};
+use simulation::app_state::AppState;
 
+use crate::theme;
 use rendering::camera::OrbitCamera;
 use simulation::notifications::{NotificationLog, NotificationPriority};
 
-// =============================================================================
-// Constants
-// =============================================================================
-
-/// Height of the ticker bar in pixels.
-const TICKER_HEIGHT: f32 = 28.0;
-
-/// Y offset from top (below the main toolbar).
-const TICKER_Y_OFFSET: f32 = 36.0;
-
-// =============================================================================
-// Resources
-// =============================================================================
+const MAX_VISIBLE_TOASTS: usize = 5;
+const TOAST_DURATION_DEFAULT: f32 = 5.0;
+const TOAST_DURATION_CRITICAL: f32 = 15.0;
+const TOAST_DURATION_WARNING: f32 = 8.0;
+const TOAST_WIDTH: f32 = 360.0;
+const TOAST_RIGHT_MARGIN: f32 = 16.0;
+const TOAST_TOP_MARGIN: f32 = 48.0;
+const TOAST_SPACING: f32 = 4.0;
 
 /// Tracks visibility of the notification journal window.
 #[derive(Resource, Default)]
 pub struct NotificationJournalVisible(pub bool);
 
-/// Horizontal scroll offset for the ticker (auto-scrolls).
-#[derive(Resource)]
-pub struct TickerScroll {
-    pub offset: f32,
+/// Per-toast real-time timer state, keyed by notification ID.
+#[derive(Resource, Default)]
+pub struct ToastTimers {
+    pub timers: Vec<(u64, f32)>,
 }
 
-impl Default for TickerScroll {
-    fn default() -> Self {
-        Self { offset: 0.0 }
+impl ToastTimers {
+    /// Ensure a timer exists for the given notification; returns true if new.
+    pub fn ensure_timer(&mut self, id: u64, duration: f32) -> bool {
+        if self.timers.iter().any(|(tid, _)| *tid == id) {
+            return false;
+        }
+        self.timers.push((id, duration));
+        true
+    }
+
+    /// Tick all timers by `dt` seconds and return IDs that have expired.
+    pub fn tick(&mut self, dt: f32) -> Vec<u64> {
+        let mut expired = Vec::new();
+        for (id, remaining) in &mut self.timers {
+            *remaining -= dt;
+            if *remaining <= 0.0 {
+                expired.push(*id);
+            }
+        }
+        self.timers.retain(|(_, r)| *r > 0.0);
+        expired
+    }
+
+    /// Remove a timer by ID (e.g., when user dismisses).
+    pub fn remove(&mut self, id: u64) {
+        self.timers.retain(|(tid, _)| *tid != id);
     }
 }
 
-// =============================================================================
-// Color mapping
-// =============================================================================
-
 fn priority_color(priority: NotificationPriority) -> egui::Color32 {
     match priority {
-        NotificationPriority::Emergency => egui::Color32::from_rgb(255, 60, 60),
-        NotificationPriority::Warning => egui::Color32::from_rgb(255, 165, 0),
-        NotificationPriority::Attention => egui::Color32::from_rgb(255, 220, 50),
-        NotificationPriority::Info => egui::Color32::from_rgb(220, 220, 220),
-        NotificationPriority::Positive => egui::Color32::from_rgb(80, 220, 80),
+        NotificationPriority::Emergency => theme::ERROR,
+        NotificationPriority::Warning | NotificationPriority::Attention => theme::WARNING,
+        NotificationPriority::Info => theme::TEXT,
+        NotificationPriority::Positive => theme::SUCCESS,
+    }
+}
+
+fn priority_bg(priority: NotificationPriority) -> egui::Color32 {
+    match priority {
+        NotificationPriority::Emergency => egui::Color32::from_rgba_premultiplied(60, 20, 20, 230),
+        NotificationPriority::Warning => egui::Color32::from_rgba_premultiplied(50, 40, 15, 230),
+        NotificationPriority::Attention => egui::Color32::from_rgba_premultiplied(45, 40, 20, 230),
+        NotificationPriority::Info => egui::Color32::from_rgba_premultiplied(25, 27, 35, 230),
+        NotificationPriority::Positive => egui::Color32::from_rgba_premultiplied(20, 50, 25, 230),
     }
 }
 
@@ -69,147 +94,179 @@ fn priority_icon(priority: NotificationPriority) -> &'static str {
     }
 }
 
-// =============================================================================
-// Ticker System
-// =============================================================================
+fn toast_duration(priority: NotificationPriority) -> f32 {
+    match priority {
+        NotificationPriority::Emergency => TOAST_DURATION_CRITICAL,
+        NotificationPriority::Warning => TOAST_DURATION_WARNING,
+        _ => TOAST_DURATION_DEFAULT,
+    }
+}
 
-/// Renders the notification ticker bar below the HUD toolbar.
+/// Ticks toast timers and dismisses expired toasts from the notification log.
+pub fn tick_toast_timers(
+    mut timers: ResMut<ToastTimers>,
+    mut log: ResMut<NotificationLog>,
+    time: Res<Time>,
+) {
+    let dt = time.delta_secs();
+    if dt <= 0.0 {
+        return;
+    }
+    for notif in &log.active {
+        timers.ensure_timer(notif.id, toast_duration(notif.priority));
+    }
+    let active_ids: Vec<u64> = log.active.iter().map(|n| n.id).collect();
+    timers.timers.retain(|(id, _)| active_ids.contains(id));
+    let expired = timers.tick(dt);
+    for id in expired {
+        log.dismiss(id);
+    }
+}
+
+/// Renders vertically stacked toast notifications in the top-right corner.
 #[allow(clippy::too_many_arguments)]
-pub fn notification_ticker_ui(
+pub fn notification_toast_ui(
     mut contexts: EguiContexts,
     mut log: ResMut<NotificationLog>,
     mut orbit: ResMut<OrbitCamera>,
     mut journal_visible: ResMut<NotificationJournalVisible>,
-    mut scroll: ResMut<TickerScroll>,
-    time: Res<Time>,
+    mut timers: ResMut<ToastTimers>,
 ) {
     let active_count = log.active.len();
     if active_count == 0 && !journal_visible.0 {
-        // Nothing to show — reset scroll
-        scroll.offset = 0.0;
         return;
     }
 
-    // Auto-scroll the ticker
-    scroll.offset += time.delta_secs() * 30.0;
-
     let mut jump_target: Option<(f32, f32)> = None;
     let mut dismiss_id: Option<u64> = None;
+    let ctx = contexts.ctx_mut();
+    let screen_width = ctx.screen_rect().width();
 
-    // Render ticker bar as a top panel offset below the toolbar
-    egui::Area::new(egui::Id::new("notification_ticker"))
-        .fixed_pos(egui::pos2(0.0, TICKER_Y_OFFSET))
-        .order(egui::Order::Middle)
-        .show(contexts.ctx_mut(), |ui| {
-            let screen_width = ui.ctx().screen_rect().width();
+    let mut sorted_indices: Vec<usize> = (0..log.active.len()).collect();
+    sorted_indices.sort_by(|&a, &b| {
+        let na = &log.active[a];
+        let nb = &log.active[b];
+        na.priority
+            .cmp(&nb.priority)
+            .then(nb.created_tick.cmp(&na.created_tick))
+    });
+    sorted_indices.truncate(MAX_VISIBLE_TOASTS);
 
-            egui::Frame::new()
-                .fill(egui::Color32::from_rgba_premultiplied(20, 20, 30, 220))
-                .inner_margin(egui::Margin::symmetric(6, 4))
-                .show(ui, |ui| {
-                    ui.set_min_width(screen_width);
-                    ui.set_max_height(TICKER_HEIGHT);
+    for (toast_idx, &notif_idx) in sorted_indices.iter().enumerate() {
+        let notif = &log.active[notif_idx];
+        let toast_id = notif.id;
+        let color = priority_color(notif.priority);
+        let bg = priority_bg(notif.priority);
+        let icon = priority_icon(notif.priority);
+        let label_text = format!("{} {}", icon, notif.text);
+        let priority = notif.priority;
+        let location = notif.location;
+        let day = notif.day;
+        let hour = notif.hour;
 
-                    ui.horizontal(|ui| {
-                        // Journal toggle button
-                        let journal_btn = if journal_visible.0 {
-                            "Journal [v]"
-                        } else {
-                            "Journal [>]"
-                        };
-                        if ui.small_button(journal_btn).clicked() {
-                            journal_visible.0 = !journal_visible.0;
-                        }
+        let y_pos = TOAST_TOP_MARGIN + (toast_idx as f32) * (36.0 + TOAST_SPACING);
+        let x_pos = screen_width - TOAST_WIDTH - TOAST_RIGHT_MARGIN;
 
-                        ui.separator();
-
-                        // Show active notification count
-                        if active_count > 0 {
-                            ui.label(
-                                egui::RichText::new(format!("({})", active_count))
-                                    .small()
-                                    .color(egui::Color32::from_rgb(180, 180, 180)),
+        egui::Area::new(egui::Id::new(("toast", toast_id)))
+            .fixed_pos(egui::pos2(x_pos, y_pos))
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                egui::Frame::new()
+                    .fill(bg)
+                    .stroke(egui::Stroke::new(1.0, color))
+                    .corner_radius(egui::CornerRadius::same(4))
+                    .inner_margin(egui::Margin::symmetric(8, 6))
+                    .show(ui, |ui| {
+                        ui.set_min_width(TOAST_WIDTH - 20.0);
+                        ui.set_max_width(TOAST_WIDTH - 20.0);
+                        ui.horizontal(|ui| {
+                            let response = ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(&label_text)
+                                        .color(color)
+                                        .size(theme::FONT_BODY),
+                                )
+                                .sense(egui::Sense::click()),
                             );
-                        }
-
-                        // Scrollable area for notifications
-                        egui::ScrollArea::horizontal()
-                            .scroll_offset(egui::vec2(scroll.offset, 0.0))
-                            .show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    // Sort: emergency first, then by creation (newest first)
-                                    let mut sorted_indices: Vec<usize> =
-                                        (0..log.active.len()).collect();
-                                    sorted_indices.sort_by(|&a, &b| {
-                                        let na = &log.active[a];
-                                        let nb = &log.active[b];
-                                        na.priority
-                                            .cmp(&nb.priority)
-                                            .then(nb.created_tick.cmp(&na.created_tick))
-                                    });
-
-                                    for &idx in &sorted_indices {
-                                        let notif = &log.active[idx];
-                                        let color = priority_color(notif.priority);
-                                        let icon = priority_icon(notif.priority);
-
-                                        let label_text = format!("{} {}", icon, notif.text);
-                                        let response = ui.add(
-                                            egui::Label::new(
-                                                egui::RichText::new(&label_text).color(color),
+                            if response.clicked() {
+                                if let Some(loc) = location {
+                                    jump_target = Some(loc);
+                                }
+                                dismiss_id = Some(toast_id);
+                            }
+                            let h = hour as u32;
+                            let m = ((hour.fract()) * 60.0) as u32;
+                            response.on_hover_text(format!(
+                                "{} — Day {} {:02}:{:02}\nClick to dismiss{}",
+                                priority.label(),
+                                day,
+                                h,
+                                m,
+                                if location.is_some() {
+                                    " and jump to location"
+                                } else {
+                                    ""
+                                },
+                            ));
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                egui::RichText::new("x")
+                                                    .color(theme::TEXT_MUTED)
+                                                    .size(theme::FONT_SMALL),
                                             )
-                                            .sense(egui::Sense::click()),
-                                        );
-
-                                        if response.clicked() {
-                                            if let Some(loc) = notif.location {
-                                                jump_target = Some(loc);
-                                            }
-                                        }
-                                        response.on_hover_text(format!(
-                                            "{} — Day {} {:02}:{:02}{}",
-                                            notif.priority.label(),
-                                            notif.day,
-                                            notif.hour as u32,
-                                            ((notif.hour.fract()) * 60.0) as u32,
-                                            if notif.location.is_some() {
-                                                " (click to jump)"
-                                            } else {
-                                                ""
-                                            },
-                                        ));
-
-                                        // Dismiss button for emergency notifications
-                                        if notif.priority == NotificationPriority::Emergency
-                                            && ui.small_button("x").clicked()
-                                        {
-                                            dismiss_id = Some(notif.id);
-                                        }
-
-                                        ui.add_space(12.0);
+                                            .frame(false),
+                                        )
+                                        .clicked()
+                                    {
+                                        dismiss_id = Some(toast_id);
                                     }
-                                });
-                            });
+                                },
+                            );
+                        });
                     });
-                });
-        });
+            });
+    }
 
-    // Apply camera jump
+    // Journal toggle button
+    if active_count > 0 || journal_visible.0 {
+        egui::Area::new(egui::Id::new("toast_journal_toggle"))
+            .fixed_pos(egui::pos2(8.0, TOAST_TOP_MARGIN))
+            .order(egui::Order::Middle)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    let journal_btn = if journal_visible.0 {
+                        "Journal [v]"
+                    } else {
+                        "Journal [>]"
+                    };
+                    if ui.small_button(journal_btn).clicked() {
+                        journal_visible.0 = !journal_visible.0;
+                    }
+                    if active_count > 0 {
+                        ui.label(
+                            egui::RichText::new(format!("({} active)", active_count))
+                                .small()
+                                .color(theme::TEXT_MUTED),
+                        );
+                    }
+                });
+            });
+    }
+
     if let Some((wx, wz)) = jump_target {
         orbit.focus.x = wx;
         orbit.focus.z = wz;
         orbit.distance = orbit.distance.min(400.0);
     }
-
-    // Apply dismiss
     if let Some(id) = dismiss_id {
         log.dismiss(id);
+        timers.remove(id);
     }
 }
-
-// =============================================================================
-// Journal Window System
-// =============================================================================
 
 /// Renders the notification journal window showing full history.
 pub fn notification_journal_ui(
@@ -221,7 +278,6 @@ pub fn notification_journal_ui(
     if !visible.0 {
         return;
     }
-
     let mut jump_target: Option<(f32, f32)> = None;
 
     egui::Window::new("Notification Journal")
@@ -233,35 +289,32 @@ pub fn notification_journal_ui(
         .show(contexts.ctx_mut(), |ui| {
             ui.label(format!("{} entries", log.journal.len()));
             ui.separator();
-
             if log.journal.is_empty() {
                 ui.label("No notifications recorded yet.");
                 return;
             }
-
             egui::ScrollArea::vertical()
                 .max_height(400.0)
                 .show(ui, |ui| {
-                    // Show most recent first
                     for entry in log.journal.iter().rev() {
                         let color = priority_color(entry.priority);
                         let icon = priority_icon(entry.priority);
                         let h = entry.hour as u32;
                         let m = ((entry.hour.fract()) * 60.0) as u32;
                         let time_str = format!("Day {} {:02}:{:02}", entry.day, h, m);
-
                         ui.horizontal(|ui| {
                             ui.label(
                                 egui::RichText::new(&time_str)
                                     .small()
-                                    .color(egui::Color32::from_rgb(150, 150, 150)),
+                                    .color(theme::TEXT_MUTED),
                             );
                             let label_text = format!("{} {}", icon, entry.text);
                             let response = ui.add(
-                                egui::Label::new(egui::RichText::new(&label_text).color(color))
-                                    .sense(egui::Sense::click()),
+                                egui::Label::new(
+                                    egui::RichText::new(&label_text).color(color),
+                                )
+                                .sense(egui::Sense::click()),
                             );
-
                             if response.clicked() {
                                 if let Some(loc) = entry.location {
                                     jump_target = Some(loc);
@@ -283,42 +336,45 @@ pub fn notification_journal_ui(
     }
 }
 
-// =============================================================================
-// Plugin
-// =============================================================================
-
 pub struct NotificationTickerPlugin;
 
 impl Plugin for NotificationTickerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<NotificationJournalVisible>()
-            .init_resource::<TickerScroll>()
+            .init_resource::<ToastTimers>()
             .add_systems(
                 Update,
-                (notification_ticker_ui, notification_journal_ui)
+                (
+                    tick_toast_timers,
+                    notification_toast_ui,
+                    notification_journal_ui,
+                )
+                    .chain()
                     .run_if(in_state(AppState::Playing)),
             );
     }
 }
-
-// =============================================================================
-// Tests
-// =============================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn test_priority_colors_use_theme() {
+        assert_eq!(priority_color(NotificationPriority::Emergency), theme::ERROR);
+        assert_eq!(priority_color(NotificationPriority::Warning), theme::WARNING);
+        assert_eq!(priority_color(NotificationPriority::Info), theme::TEXT);
+        assert_eq!(priority_color(NotificationPriority::Positive), theme::SUCCESS);
+    }
+
+    #[test]
     fn test_priority_colors_distinct() {
         let colors = [
             priority_color(NotificationPriority::Emergency),
             priority_color(NotificationPriority::Warning),
-            priority_color(NotificationPriority::Attention),
             priority_color(NotificationPriority::Info),
             priority_color(NotificationPriority::Positive),
         ];
-        // Ensure all are distinct
         for i in 0..colors.len() {
             for j in (i + 1)..colors.len() {
                 assert_ne!(colors[i], colors[j], "Priority colors must be distinct");
@@ -349,8 +405,50 @@ mod tests {
     }
 
     #[test]
-    fn test_ticker_scroll_default() {
-        let scroll = TickerScroll::default();
-        assert_eq!(scroll.offset, 0.0);
+    fn test_toast_timers_ensure_and_tick() {
+        let mut timers = ToastTimers::default();
+        assert!(timers.ensure_timer(1, 5.0));
+        assert!(!timers.ensure_timer(1, 5.0));
+        assert!(timers.ensure_timer(2, 3.0));
+        let expired = timers.tick(4.0);
+        assert!(expired.contains(&2));
+        assert!(!expired.contains(&1));
+        assert_eq!(timers.timers.len(), 1);
+    }
+
+    #[test]
+    fn test_toast_timers_remove() {
+        let mut timers = ToastTimers::default();
+        timers.ensure_timer(1, 5.0);
+        timers.ensure_timer(2, 5.0);
+        timers.remove(1);
+        assert_eq!(timers.timers.len(), 1);
+        assert_eq!(timers.timers[0].0, 2);
+    }
+
+    #[test]
+    fn test_toast_duration_critical_longer() {
+        assert!(
+            toast_duration(NotificationPriority::Emergency)
+                > toast_duration(NotificationPriority::Info)
+        );
+        assert!(
+            toast_duration(NotificationPriority::Warning)
+                > toast_duration(NotificationPriority::Info)
+        );
+    }
+
+    #[test]
+    fn test_priority_bg_distinct_for_key_priorities() {
+        let bgs = [
+            priority_bg(NotificationPriority::Emergency),
+            priority_bg(NotificationPriority::Info),
+            priority_bg(NotificationPriority::Positive),
+        ];
+        for i in 0..bgs.len() {
+            for j in (i + 1)..bgs.len() {
+                assert_ne!(bgs[i], bgs[j], "Priority backgrounds must be distinct");
+            }
+        }
     }
 }
