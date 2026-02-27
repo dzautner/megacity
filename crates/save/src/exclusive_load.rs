@@ -1,7 +1,9 @@
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use simulation::notifications::{NotificationEvent, NotificationPriority};
 use simulation::post_load_rebuild::PostLoadRebuildPending;
 use simulation::reset_commuting_on_load::PostLoadResetPending;
+use simulation::PreLoadAppState;
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
@@ -18,19 +20,35 @@ use crate::spawn_entities::spawn_entities_from_save;
 /// Runs on `OnEnter(SaveLoadState::Loading)`, then transitions back to `Idle`.
 pub(crate) fn exclusive_load(world: &mut World) {
     if let Err(e) = exclusive_load_inner(world) {
-        let msg = format!("Load failed: {e}");
+        let msg = format!("Failed to load save file: {e}");
         error!("{msg}");
         world.send_event(NotificationEvent {
             text: msg,
             priority: NotificationPriority::Warning,
             location: None,
         });
+
+        // Roll back AppState so the player isn't stranded in a broken world.
+        rollback_app_state(world);
     }
 
     // Always transition back to Idle, even on error.
     world
         .resource_mut::<NextState<SaveLoadState>>()
         .set(SaveLoadState::Idle);
+}
+
+/// Restore the pre-load `AppState` so the player returns to wherever they
+/// were (main menu or pause menu) instead of being stuck in Playing with an
+/// empty world.
+fn rollback_app_state(world: &mut World) {
+    let prev = world
+        .get_resource_mut::<PreLoadAppState>()
+        .and_then(|mut r| r.0.take());
+    if let Some(state) = prev {
+        world.resource_mut::<NextState<AppState>>().set(state);
+        info!("Rolled back AppState to {state:?} after load failure");
+    }
 }
 
 /// Inner implementation that returns `Result` for proper error propagation.
@@ -134,6 +152,11 @@ fn exclusive_load_inner(world: &mut World) -> Result<(), SaveError> {
 
     // -- Stage 7: Signal post-load derived state rebuild (SAVE-026) --
     world.insert_resource(PostLoadRebuildPending);
+
+    // Load succeeded — clear the pre-load state since no rollback is needed.
+    if let Some(mut pre_load) = world.get_resource_mut::<PreLoadAppState>() {
+        pre_load.0 = None;
+    }
 
     #[cfg(not(target_arch = "wasm32"))]
     info!("Loaded save from {}", crate::save_plugin::save_file_path());

@@ -9,6 +9,7 @@ use bevy_egui::egui;
 use save::{LoadGameEvent, PendingSavePath, SaveMetadata};
 use simulation::app_state::AppState;
 use simulation::save_slots::{SaveSlotInfo, SaveSlotManager};
+use simulation::PreLoadAppState;
 
 use crate::save_slot_format::format_slot_details;
 
@@ -43,6 +44,7 @@ pub fn render_load_screen(
     pending_path: &mut ResMut<PendingSavePath>,
     slot_manager: &Res<SaveSlotManager>,
     delete_events: &mut EventWriter<simulation::save_slots::DeleteSlotEvent>,
+    pre_load: &mut ResMut<PreLoadAppState>,
 ) {
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE.fill(egui::Color32::from_rgba_premultiplied(20, 22, 30, 240)))
@@ -78,7 +80,7 @@ pub fn render_load_screen(
                         render_slot_row(
                             ui, slot, entry_size, confirm_delete,
                             next_app_state, load_game_events,
-                            pending_path, delete_events,
+                            pending_path, delete_events, pre_load,
                         );
                     }
                     ui.add_space(8.0);
@@ -108,6 +110,7 @@ pub fn render_load_screen(
                             .clicked()
                         {
                             pending_path.0 = Some(entry.path.clone());
+                            pre_load.0 = Some(AppState::MainMenu);
                             load_game_events.send(LoadGameEvent);
                             next_app_state.set(AppState::Playing);
                         }
@@ -145,6 +148,7 @@ fn render_slot_row(
     load_game_events: &mut EventWriter<LoadGameEvent>,
     pending_path: &mut ResMut<PendingSavePath>,
     delete_events: &mut EventWriter<simulation::save_slots::DeleteSlotEvent>,
+    pre_load: &mut ResMut<PreLoadAppState>,
 ) {
     let is_confirming = *confirm_delete == Some(slot.slot_index);
 
@@ -164,6 +168,7 @@ fn render_slot_row(
             .clicked()
         {
             pending_path.0 = Some(slot.file_path());
+            pre_load.0 = Some(AppState::MainMenu);
             load_game_events.send(LoadGameEvent);
             next_app_state.set(AppState::Playing);
         }

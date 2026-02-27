@@ -13,6 +13,7 @@ use bevy_egui::{egui, EguiContexts};
 use save::{LoadGameEvent, PendingSavePath, SaveGameEvent};
 use simulation::app_state::AppState;
 use simulation::notifications::{NotificationEvent, NotificationPriority};
+use simulation::PreLoadAppState;
 use simulation::save_slots::{
     DeleteSlotEvent, SaveSlotInfo, SaveSlotManager, SaveToSlotEvent, MAX_SAVE_SLOTS,
 };
@@ -132,6 +133,8 @@ fn load_slot_dialog_system(
     mut pending_path: ResMut<PendingSavePath>,
     mut delete_events: EventWriter<DeleteSlotEvent>,
     mut next_app_state: ResMut<NextState<AppState>>,
+    mut pre_load: ResMut<PreLoadAppState>,
+    current_app_state: Res<State<AppState>>,
 ) {
     if !ui_state.load_dialog_open {
         return;
@@ -176,7 +179,8 @@ fn load_slot_dialog_system(
                                     ui, slot, &mut ui_state,
                                     &mut load_game_events, &mut pending_path,
                                     &mut delete_events, &mut next_app_state,
-                                    &mut should_close,
+                                    &mut should_close, &mut pre_load,
+                                    &current_app_state,
                                 );
                             }
                         });
@@ -387,6 +391,8 @@ fn render_load_slot_row(
     delete_events: &mut EventWriter<DeleteSlotEvent>,
     next_app_state: &mut ResMut<NextState<AppState>>,
     should_close: &mut bool,
+    pre_load: &mut ResMut<PreLoadAppState>,
+    current_app_state: &Res<State<AppState>>,
 ) {
     let is_confirming_delete = ui_state.confirm_delete == Some(slot.slot_index);
 
@@ -437,6 +443,7 @@ fn render_load_slot_row(
                                 .color(crate::theme::PRIMARY),
                         )).clicked() {
                             pending_path.0 = Some(slot.file_path());
+                            pre_load.0 = Some(*current_app_state.get());
                             load_game_events.send(LoadGameEvent);
                             next_app_state.set(AppState::Playing);
                             *should_close = true;
