@@ -74,12 +74,16 @@ async fn open_db() -> Result<IdbDatabase, WasmStorageError> {
 
     // Handle upgrade (create object store on first use).
     let on_upgrade = Closure::once(move |event: web_sys::IdbVersionChangeEvent| {
-        let target = event.target().expect("event target");
+        let Some(target) = event.target() else {
+            return;
+        };
         let request: IdbOpenDbRequest = target.unchecked_into();
-        let db: IdbDatabase = request.result().expect("result").unchecked_into();
+        let Ok(result) = request.result() else {
+            return;
+        };
+        let db: IdbDatabase = result.unchecked_into();
         if !db.object_store_names().contains(STORE_NAME) {
-            db.create_object_store(STORE_NAME)
-                .expect("create object store");
+            let _ = db.create_object_store(STORE_NAME);
         }
     });
     open_request.set_onupgradeneeded(Some(on_upgrade.as_ref().unchecked_ref()));

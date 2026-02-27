@@ -75,7 +75,9 @@ pub(crate) fn pick_industry_from_nearby_resources(
     }
 
     // Pick the dominant resource type
-    let (best_resource, _count) = counts.iter().max_by_key(|(_, &c)| c).unwrap();
+    let Some((best_resource, _count)) = counts.iter().max_by_key(|(_, &c)| c) else {
+        return IndustryType::Manufacturing;
+    };
 
     // Decide between extraction and processing based on a position hash
     let hash = gx.wrapping_mul(13).wrapping_add(gy.wrapping_mul(7));

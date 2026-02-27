@@ -177,7 +177,7 @@ fn find_nearest_citizen(
         let dy = pos.y - click_world.y;
         let dist_sq = dx * dx + dy * dy;
 
-        if dist_sq < radius_sq && (best.is_none() || dist_sq < best.unwrap().1) {
+        if dist_sq < radius_sq && best.map_or(true, |(_, d)| dist_sq < d) {
             best = Some((entity, dist_sq));
         }
     }
@@ -283,7 +283,7 @@ fn find_nearest_road_segment(
 
         // Sample the Bezier curve and find the closest point
         let dist_sq = min_distance_to_segment_sq(segment, click_world);
-        if dist_sq < threshold_sq && (best.is_none() || dist_sq < best.unwrap().1) {
+        if dist_sq < threshold_sq && best.map_or(true, |(_, d)| dist_sq < d) {
             best = Some((segment.id, dist_sq));
         }
     }

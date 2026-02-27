@@ -162,11 +162,13 @@ pub fn advise_road_hierarchy(
     let count = state.violations.len();
 
     // Pick the worst violation for the suggestion message
-    let worst = state
+    let Some(worst) = state
         .violations
         .iter()
         .max_by_key(|v| v.levels_skipped)
-        .unwrap();
+    else {
+        return;
+    };
 
     let low_name = road_type_display_name(worst.low_road_type);
     let high_name = road_type_display_name(worst.high_road_type);

@@ -58,7 +58,7 @@ pub(crate) fn detect_right_click_context_menu(
         let dx = pos.x - world_x;
         let dy = pos.y - world_y;
         let dist_sq = dx * dx + dy * dy;
-        if dist_sq < radius_sq && (best_citizen.is_none() || dist_sq < best_citizen.unwrap().1) {
+        if dist_sq < radius_sq && best_citizen.map_or(true, |(_, d)| dist_sq < d) {
             best_citizen = Some((entity, dist_sq));
         }
     }

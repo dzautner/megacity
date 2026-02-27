@@ -74,7 +74,7 @@ pub fn update_water_treatment(
     plant_entities.sort();
 
     for entity in &plant_entities {
-        let plant = state.plants.get_mut(entity).unwrap();
+        let Some(plant) = state.plants.get_mut(entity) else { continue; };
 
         if remaining_demand <= 0.0 {
             plant.current_flow_mgd = 0.0;

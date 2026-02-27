@@ -104,7 +104,7 @@ pub fn spawn_citizens(
         }
 
         let (home_gx, home_gy) = {
-            let (_, b, _) = buildings.get(home_entity).unwrap();
+            let Ok((_, b, _)) = buildings.get(home_entity) else { continue; };
             (b.grid_x, b.grid_y)
         };
 

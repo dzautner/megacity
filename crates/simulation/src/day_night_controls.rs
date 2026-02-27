@@ -115,9 +115,9 @@ pub fn update_visual_hour(
     clock: Res<crate::time_of_day::GameClock>,
     mut controls: ResMut<DayNightControls>,
 ) {
-    if controls.locked_hour.is_some() {
+    if let Some(locked) = controls.locked_hour {
         // Locked: visual hour is always the locked value
-        controls.visual_hour = controls.locked_hour.unwrap();
+        controls.visual_hour = locked;
         return;
     }
 

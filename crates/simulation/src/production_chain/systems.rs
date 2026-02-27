@@ -67,15 +67,13 @@ pub fn update_deep_production_chains(
             continue;
         }
 
-        if chain_opt.is_none() {
+        let Some(mut chain_building) = chain_opt else {
             // Assign a DeepChainBuilding based on industry type
             if let Some((ci, si)) = chain_and_stage_for(industry.industry_type) {
                 to_assign.push((entity, ci, si));
             }
             continue;
-        }
-
-        let mut chain_building = chain_opt.unwrap();
+        };
         let ci = chain_building.chain_index;
         let si = chain_building.stage;
 
