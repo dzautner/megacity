@@ -57,7 +57,11 @@ fn test_bankruptcy_normal_at_healthy_treasury() {
 #[test]
 fn test_bankruptcy_emits_notification_on_transition() {
     let mut city = TestCity::new().with_budget(4000.0);
-    city.tick_slow_cycle();
+
+    // Run two slow cycles: the first triggers the state transition and emits
+    // the NotificationEvent, the second allows collect_notifications to pick
+    // it up from the event buffer and push it into the NotificationLog.
+    city.tick_slow_cycles(2);
 
     let log = city.resource::<NotificationLog>();
     let has_treasury_notification = log
