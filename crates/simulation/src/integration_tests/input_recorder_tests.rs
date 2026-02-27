@@ -5,7 +5,6 @@ use crate::input_recorder_types::{
     RecordedRoadType, RecordedServiceType, RecordedUtilityType, RecordedZoneType,
 };
 use crate::test_harness::TestCity;
-use crate::TickCounter;
 
 // ---------------------------------------------------------------------------
 // Helpers
