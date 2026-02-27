@@ -49,7 +49,7 @@ fn total_power_plant_fuel_cost(
         + biomass.total_fuel_cost as f64
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn collect_taxes(
     clock: Res<GameClock>,
     mut budget: ResMut<CityBudget>,
