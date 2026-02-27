@@ -12,7 +12,9 @@ use simulation::zones::ZoneDemand;
 
 use rendering::input::{ActiveTool, GridSnap, StatusMessage};
 use rendering::overlay::{DualOverlayMode, DualOverlayState, OverlayMode, OverlayState};
-use save::{LoadGameEvent, NewGameEvent, SaveGameEvent};
+use save::NewGameEvent;
+
+use crate::save_slot_ui::SaveSlotUiState;
 
 use super::catalog::unlock_filter;
 use super::catalog::{show_tool_tooltip, OpenCategory, ToolCatalog};
@@ -43,8 +45,7 @@ pub fn toolbar_ui(
     demand: Res<ZoneDemand>,
     overlay_params: (ResMut<OverlayState>, Res<DualOverlayState>),
     status: Res<StatusMessage>,
-    mut save_events: EventWriter<SaveGameEvent>,
-    mut load_events: EventWriter<LoadGameEvent>,
+    mut slot_ui: ResMut<SaveSlotUiState>,
     mut new_game_events: EventWriter<NewGameEvent>,
     mut open_cat: ResMut<OpenCategory>,
     weather: Res<Weather>,
@@ -185,15 +186,18 @@ pub fn toolbar_ui(
 
                 ui.separator();
 
-                // Save / Load / New Game
+                // Save / Load / New Game — Save/Load open slot picker dialogs
                 if ui.button("New").clicked() {
                     new_game_events.send(NewGameEvent);
                 }
                 if ui.button("Save").clicked() {
-                    save_events.send(SaveGameEvent);
+                    slot_ui.save_dialog_open = true;
+                    slot_ui.save_name_input = String::new();
+                    slot_ui.confirm_overwrite = None;
                 }
                 if ui.button("Load").clicked() {
-                    load_events.send(LoadGameEvent);
+                    slot_ui.load_dialog_open = true;
+                    slot_ui.confirm_delete = None;
                 }
 
                 // Current overlay
