@@ -245,4 +245,7 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
 
     // Power grid overlay (POWER-020)
     app.add_plugins(power_overlay::PowerOverlayPlugin);
+
+    // Zoning visual feedback (PLAY-P1-01)
+    app.add_plugins(zoning_feedback::ZoningFeedbackPlugin);
 }
