@@ -111,7 +111,7 @@ pub fn handle_auto_grid_tool(
             if budget.treasury < plan.total_cost {
                 status.set(
                     format!(
-                        "Not enough money (need ${:.0}, have ${:.0})",
+                        "Not enough funds (need ${:.0}, have ${:.0})",
                         plan.total_cost, budget.treasury
                     ),
                     true,

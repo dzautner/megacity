@@ -207,7 +207,7 @@ pub fn handle_tree_tool(
                 status.set("Cell occupied by a building", true);
                 false
             } else if budget.treasury < simulation::trees::TREE_PLANT_COST {
-                status.set("Not enough money", true);
+                status.set(format!("Not enough funds (need ${:.0}, have ${:.0})", simulation::trees::TREE_PLANT_COST, budget.treasury), true);
                 false
             } else {
                 budget.treasury -= simulation::trees::TREE_PLANT_COST;

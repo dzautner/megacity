@@ -124,7 +124,13 @@ fn commit_straight_segment(
     let approx_cells = ((end_pos - start_pos).length() / CELL_SIZE).ceil() as usize;
     let total_cost = road_type.cost() * approx_cells as f64;
     if budget.treasury < total_cost {
-        status.set("Not enough money", true);
+        status.set(
+            format!(
+                "Not enough funds (need ${:.0}, have ${:.0})",
+                total_cost, budget.treasury
+            ),
+            true,
+        );
         return;
     }
 
@@ -183,7 +189,13 @@ fn commit_curved_segment(
     let approx_cells = (arc_len / CELL_SIZE).ceil() as usize;
     let total_cost = road_type.cost() * approx_cells as f64;
     if budget.treasury < total_cost {
-        status.set("Not enough money", true);
+        status.set(
+            format!(
+                "Not enough funds (need ${:.0}, have ${:.0})",
+                total_cost, budget.treasury
+            ),
+            true,
+        );
         return;
     }
 

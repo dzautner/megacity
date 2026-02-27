@@ -153,7 +153,7 @@ pub fn handle_freehand_draw(
         let total_cost = road_type.cost() * approx_cells as f64;
 
         if budget.treasury < total_cost {
-            status.set("Not enough money for freehand road", true);
+            status.set(format!("Not enough funds (need ${:.0}, have ${:.0})", total_cost, budget.treasury), true);
             freehand.reset_stroke();
             return;
         }
