@@ -191,7 +191,7 @@ impl Default for KeyBindings {
             tool_bulldoze: KeyBinding::simple(KeyCode::KeyB),
             tool_inspect: KeyBinding::simple(KeyCode::KeyI),
             toggle_grid_snap: KeyBinding::simple(KeyCode::KeyF),
-            toggle_curve_draw: KeyBinding::simple(KeyCode::KeyG),
+            toggle_curve_draw: KeyBinding { key: KeyCode::KeyG, ctrl: false, shift: true },
             delete_building: KeyBinding::simple(KeyCode::Delete),
             delete_building_alt: KeyBinding::simple(KeyCode::Backspace),
             escape: KeyBinding::simple(KeyCode::Escape),

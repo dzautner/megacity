@@ -202,9 +202,9 @@ pub(super) fn placement_categories() -> Vec<ShortcutCategory> {
             ],
         },
         ShortcutCategory {
-            key: KeyCode::KeyS,
+            key: KeyCode::KeyH,
             label: "Education",
-            key_hint: "S",
+            key_hint: "H",
             items: vec![
                 ShortcutItem {
                     name: "Kindergarten",

@@ -124,7 +124,8 @@ fn minimap_toggle_keybind(
     if contexts.ctx_mut().wants_keyboard_input() {
         return;
     }
-    if keyboard.just_pressed(KeyCode::KeyM) {
+    let shift_held = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+    if keyboard.just_pressed(KeyCode::KeyM) && !shift_held {
         state.visible = !state.visible;
     }
 }
