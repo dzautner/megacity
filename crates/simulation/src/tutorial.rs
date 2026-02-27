@@ -71,7 +71,12 @@ impl TutorialStep {
                 "Welcome, Mayor! In this tutorial you will learn the basics of \
                  building a thriving city. We will guide you through placing \
                  roads, zoning areas, providing utilities, and managing your \
-                 budget. Click 'Next' to begin, or 'Skip Tutorial' if you are \
+                 budget.\n\n\
+                 Camera Controls:\n\
+                 \u{2022} WASD or Arrow Keys to pan the camera\n\
+                 \u{2022} Scroll wheel to zoom in and out\n\
+                 \u{2022} Right-click drag to rotate, Q/E keys to rotate\n\n\
+                 Click 'Next' to begin, or 'Skip Tutorial' if you are \
                  already experienced."
             }
             TutorialStep::PlaceRoad => {
@@ -125,7 +130,10 @@ impl TutorialStep {
     /// Hint text shown below the description to guide the player.
     pub fn hint(self) -> &'static str {
         match self {
-            TutorialStep::Welcome => "Click 'Next' to start the tutorial.",
+            TutorialStep::Welcome => {
+                "Try moving the camera with WASD and scrolling to zoom. \
+                 Click 'Next' when you are ready."
+            }
             TutorialStep::PlaceRoad => "Hint: Select Roads > Local Road and drag to place at least 5 cells.",
             TutorialStep::ZoneResidential => {
                 "Hint: Select Zones > Res Low and paint at least 10 cells next to your road."
