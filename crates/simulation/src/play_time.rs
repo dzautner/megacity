@@ -38,7 +38,7 @@ pub struct PlayTimePlugin;
 impl Plugin for PlayTimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlayTime>()
-            .add_systems(Update, tick_play_time);
+            .add_systems(Update, tick_play_time.in_set(crate::SimulationUpdateSet::Visual));
 
         // Register for save/load
         let mut registry = app
