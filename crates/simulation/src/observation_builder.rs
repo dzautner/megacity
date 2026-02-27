@@ -6,13 +6,14 @@
 use bevy::prelude::*;
 
 use crate::city_observation::{
-    CityObservation, CityWarning, HappinessSnapshot, PopulationSnapshot,
+    ActionResultEntry, CityObservation, CityWarning, HappinessSnapshot, PopulationSnapshot,
     ServiceCoverageSnapshot, ZoneDemandSnapshot,
 };
 use crate::citizen::{Citizen, WorkLocation};
 use crate::coverage_metrics::CoverageMetrics;
 use crate::crime::CrimeGrid;
 use crate::economy::CityBudget;
+use crate::game_actions::{ActionResult, ActionResultLog};
 use crate::homelessness::HomelessnessStats;
 use crate::pollution::PollutionGrid;
 use crate::stats::CityStats;
@@ -53,6 +54,7 @@ pub fn build_observation(
     traffic_congestion: Res<TrafficCongestion>,
     pollution_grid: Res<PollutionGrid>,
     crime_grid: Res<CrimeGrid>,
+    action_log: Res<ActionResultLog>,
     employed_citizens: Query<(), (With<Citizen>, With<WorkLocation>)>,
     mut current: ResMut<CurrentObservation>,
 ) {
@@ -77,6 +79,20 @@ pub fn build_observation(
         population_total,
         unemployed,
     );
+
+    // Populate recent action results from the ActionResultLog.
+    let recent_action_results: Vec<ActionResultEntry> = action_log
+        .last_n(10)
+        .iter()
+        .map(|(action, result)| {
+            let mut summary = format!("{:?}", action);
+            summary.truncate(100);
+            ActionResultEntry {
+                action_summary: summary,
+                success: matches!(result, ActionResult::Success),
+            }
+        })
+        .collect();
 
     current.observation = CityObservation {
         tick: tick_counter.0,
@@ -123,8 +139,7 @@ pub fn build_observation(
 
         warnings,
 
-        // TODO: Populate from ActionResultLog once AGENT-A3 lands that module.
-        recent_action_results: Vec::new(),
+        recent_action_results,
     };
 }
 

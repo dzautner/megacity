@@ -11,11 +11,25 @@ use rendering::camera::OrbitCamera;
 mod agent_mode;
 
 fn main() {
+    // -- CLI argument parsing -------------------------------------------------
+    let args: Vec<String> = std::env::args().collect();
+    let is_agent = args.iter().any(|a| a == "--agent");
+
+    // Parse optional --seed <N> for agent mode.
+    let seed: Option<u64> = args
+        .windows(2)
+        .find(|w| w[0] == "--seed")
+        .and_then(|w| w[1].parse().ok());
+
     // -- Agent mode: headless JSON protocol over stdin/stdout ----------------
     #[cfg(not(target_arch = "wasm32"))]
-    if std::env::args().any(|a| a == "--agent") {
-        agent_mode::run_agent_mode();
+    if is_agent {
+        agent_mode::run_agent_mode(seed);
         return;
+    }
+    #[cfg(target_arch = "wasm32")]
+    if is_agent {
+        panic!("Agent mode is not supported on WASM");
     }
 
     let mut app = App::new();

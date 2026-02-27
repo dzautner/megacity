@@ -11,7 +11,7 @@
 //! `"type"` fields. See [`simulation::agent_protocol`] for the full schema.
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn run_agent_mode() {
+pub fn run_agent_mode(seed: Option<u64>) {
     use std::io::{BufRead, Write};
 
     use bevy::prelude::*;
@@ -21,8 +21,10 @@ pub fn run_agent_mode() {
         make_response, AgentCommand, ResponsePayload, PROTOCOL_VERSION,
     };
     use simulation::app_state::AppState;
+    use simulation::replay::ReplayRecorder;
     use simulation::time_of_day::GameClock;
     use simulation::tutorial::TutorialState;
+    use simulation::TickCounter;
 
     // -- Build a minimal Bevy App with simulation + save, no rendering/UI ---
     let mut app = App::new();
@@ -56,6 +58,19 @@ pub fn run_agent_mode() {
     }
     if let Some(mut clock) = app.world_mut().get_resource_mut::<GameClock>() {
         clock.paused = false;
+    }
+
+    // Start the replay recorder so all agent actions are captured.
+    {
+        let agent_seed = seed.unwrap_or(0);
+        let tick = app
+            .world()
+            .get_resource::<TickCounter>()
+            .map(|t| t.0)
+            .unwrap_or(0);
+        if let Some(mut recorder) = app.world_mut().get_resource_mut::<ReplayRecorder>() {
+            recorder.start(agent_seed, "agent_session".to_string(), tick);
+        }
     }
 
     // -- I/O setup -----------------------------------------------------------
@@ -127,6 +142,7 @@ fn process_command(
     use simulation::game_actions::{ActionQueue, ActionSource, GameAction};
     use simulation::game_actions::{ActionResult, ActionResultLog};
     use simulation::observation_builder::CurrentObservation;
+    use simulation::replay::{ReplayFile, ReplayPlayer, ReplayRecorder};
     use simulation::TickCounter;
 
     match cmd {
@@ -223,14 +239,63 @@ fn process_command(
             make_response(ResponsePayload::Ok)
         }
 
-        AgentCommand::SaveReplay { .. } => {
-            // Stub — replay save not yet implemented.
-            make_response(ResponsePayload::Ok)
+        AgentCommand::SaveReplay { path } => {
+            let tick = app
+                .world()
+                .get_resource::<TickCounter>()
+                .map(|t| t.0)
+                .unwrap_or(0);
+
+            let replay_file = app
+                .world_mut()
+                .get_resource_mut::<ReplayRecorder>()
+                .map(|mut recorder| recorder.stop(tick, 0));
+
+            match replay_file {
+                Some(replay) => {
+                    let json = replay.to_json();
+                    if let Err(e) = std::fs::write(&path, json) {
+                        make_response(ResponsePayload::Error {
+                            message: format!("Failed to write replay to {path}: {e}"),
+                        })
+                    } else {
+                        make_response(ResponsePayload::Ok)
+                    }
+                }
+                None => make_response(ResponsePayload::Error {
+                    message: "ReplayRecorder resource not found".to_string(),
+                }),
+            }
         }
 
-        AgentCommand::LoadReplay { .. } => {
-            // Stub — replay load not yet implemented.
-            make_response(ResponsePayload::Ok)
+        AgentCommand::LoadReplay { path } => {
+            let contents = match std::fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(e) => {
+                    return make_response(ResponsePayload::Error {
+                        message: format!("Failed to read replay from {path}: {e}"),
+                    });
+                }
+            };
+
+            let replay = match ReplayFile::from_json(&contents) {
+                Ok(r) => r,
+                Err(e) => {
+                    return make_response(ResponsePayload::Error {
+                        message: format!("Failed to parse replay: {e}"),
+                    });
+                }
+            };
+
+            match app.world_mut().get_resource_mut::<ReplayPlayer>() {
+                Some(mut player) => {
+                    player.load(replay);
+                    make_response(ResponsePayload::Ok)
+                }
+                None => make_response(ResponsePayload::Error {
+                    message: "ReplayPlayer resource not found".to_string(),
+                }),
+            }
         }
 
         AgentCommand::Quit => make_response(ResponsePayload::Goodbye),
