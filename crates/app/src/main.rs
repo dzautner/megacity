@@ -49,10 +49,19 @@ fn main() {
         unfocused_mode: UpdateMode::reactive_low_power(std::time::Duration::from_millis(100)),
     });
 
-    // Start in Playing state so the simulation runs immediately.
-    // A future main-menu feature will remove this and let the menu UI
-    // trigger the transition from MainMenu to Playing.
-    app.insert_state(simulation::AppState::Playing);
+    // Screenshot mode needs the Tel Aviv map and active simulation;
+    // normal startup boots into MainMenu with an empty grid.
+    #[cfg(not(target_arch = "wasm32"))]
+    let screenshot_mode = std::env::var("MEGACITY_SCREENSHOTS").is_ok();
+    #[cfg(target_arch = "wasm32")]
+    let screenshot_mode = false;
+
+    if screenshot_mode {
+        app.insert_state(simulation::AppState::Playing);
+        app.add_systems(Startup, simulation::world_init::init_world);
+    } else {
+        app.insert_state(simulation::AppState::MainMenu);
+    }
 
     app.add_plugins((
         simulation::SimulationPlugin,
@@ -63,7 +72,7 @@ fn main() {
 
     // Screenshot mode: takes preset screenshots and exits (native only)
     #[cfg(not(target_arch = "wasm32"))]
-    if std::env::var("MEGACITY_SCREENSHOTS").is_ok() {
+    if screenshot_mode {
         let world_cx = 128.0 * 16.0; // center of 256x256 grid
         let world_cz = 128.0 * 16.0;
         let center = Vec3::new(world_cx, 0.0, world_cz);

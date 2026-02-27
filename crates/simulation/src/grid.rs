@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::CELL_SIZE;
+use crate::config::{CELL_SIZE, GRID_HEIGHT, GRID_WIDTH};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CellType {
@@ -226,6 +226,12 @@ pub struct WorldGrid {
     pub cells: Vec<Cell>,
     pub width: usize,
     pub height: usize,
+}
+
+impl Default for WorldGrid {
+    fn default() -> Self {
+        Self::new(GRID_WIDTH, GRID_HEIGHT)
+    }
 }
 
 impl WorldGrid {

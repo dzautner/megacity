@@ -9,7 +9,6 @@ use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 
 use crate::app_state::AppState;
-use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::grid::{CellType, WorldGrid};
 use crate::terrain_generation::generate_procedural_terrain;
 use crate::test_harness::TestCity;
@@ -26,22 +25,14 @@ fn build_fresh_launch_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_plugins(StatesPlugin);
-    app.insert_resource(crate::world_init::SkipWorldInit);
     // Do NOT skip the tutorial -- we want it to activate as a new player
     // would experience. But we start it inactive (the New Game flow
     // activates it explicitly).
     app.insert_resource(TutorialState::default());
     // Do NOT insert AppState::Playing -- let it default to MainMenu.
+    // SimulationPlugin registers default resources (WorldGrid, etc.)
+    // via init_resource, so no manual insertion is needed.
     app.add_plugins(crate::SimulationPlugin);
-
-    let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
-    let (gw_grid, wq_grid) = crate::groundwater::init_groundwater(&grid);
-    app.insert_resource(grid);
-    app.insert_resource(crate::roads::RoadNetwork::default());
-    app.insert_resource(crate::economy::CityBudget::default());
-    app.insert_resource(crate::natural_resources::ResourceGrid::default());
-    app.insert_resource(gw_grid);
-    app.insert_resource(wq_grid);
 
     // First update runs Startup systems.
     app.update();

@@ -56,13 +56,19 @@ fn build_headless_rendering_app() -> App {
         ..Default::default()
     });
 
-    // Simulation (with Tel Aviv map)
+    // Start in Playing state so simulation systems run during the benchmark.
+    app.insert_state(simulation::AppState::Playing);
+
+    // Simulation
     app.add_plugins(simulation::SimulationPlugin);
+
+    // Tel Aviv map init — not registered by default, add explicitly for benchmarks.
+    app.add_systems(Startup, simulation::world_init::init_world);
 
     // Rendering (CPU-side only — no GPU backend)
     app.add_plugins(rendering::RenderingPlugin);
 
-    // First update: startup systems run (init_world, load_building_models, etc.)
+    // First update: startup systems run (load_building_models, etc.)
     app.update();
 
     // Clean up tutorial state

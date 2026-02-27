@@ -232,7 +232,12 @@ impl Plugin for SimulationPlugin {
             .init_resource::<policies::Policies>()
             .init_resource::<budget::ExtendedBudget>()
             .init_resource::<LodFrameCounter>()
-            .add_systems(Startup, world_init::init_world)
+            .init_resource::<grid::WorldGrid>()
+            .init_resource::<roads::RoadNetwork>()
+            .init_resource::<economy::CityBudget>()
+            .init_resource::<natural_resources::ResourceGrid>()
+            .init_resource::<groundwater::GroundwaterGrid>()
+            .init_resource::<groundwater::WaterQualityGrid>()
             .add_systems(PostStartup, validate_saveable_registry)
             .add_systems(FixedUpdate, tick_slow_timer.in_set(SimulationSet::PreSim))
             .add_systems(
