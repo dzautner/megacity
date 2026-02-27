@@ -11,9 +11,9 @@ use super::types::InfoPanelExtras;
 /// Render the budget overview with per-zone tax sliders and budget-details button.
 ///
 /// The zone tax sliders modify `ExtendedBudget.zone_taxes` directly, which is
-/// what `collect_taxes()` actually reads. A sync system in the simulation crate
-/// keeps `CityBudget.tax_rate` equal to the average of the zone rates so that
-/// happiness, immigration, and advisor systems still work correctly.
+/// what `collect_taxes()` actually reads. When any slider changes we also update
+/// `CityBudget.tax_rate` to the average of all zone rates so that happiness,
+/// immigration, and advisor systems (which read the single rate) stay correct.
 pub fn draw_budget(
     ui: &mut egui::Ui,
     budget: &mut CityBudget,
@@ -26,6 +26,8 @@ pub fn draw_budget(
     ui.label(format!("Income: ${:.0}/month", budget.monthly_income));
     ui.label(format!("Expenses: ${:.0}/month", budget.monthly_expenses));
 
+    let mut changed = false;
+
     ui.collapsing("Tax Rates", |ui| {
         let zt = &mut ext_budget.zone_taxes;
 
@@ -37,6 +39,7 @@ pub fn draw_budget(
                 .changed()
             {
                 zt.residential = res_pct / 100.0;
+                changed = true;
             }
         });
 
@@ -48,6 +51,7 @@ pub fn draw_budget(
                 .changed()
             {
                 zt.commercial = com_pct / 100.0;
+                changed = true;
             }
         });
 
@@ -59,6 +63,7 @@ pub fn draw_budget(
                 .changed()
             {
                 zt.industrial = ind_pct / 100.0;
+                changed = true;
             }
         });
 
@@ -70,6 +75,7 @@ pub fn draw_budget(
                 .changed()
             {
                 zt.office = off_pct / 100.0;
+                changed = true;
             }
         });
 
@@ -77,6 +83,14 @@ pub fn draw_budget(
         let avg = (zt.residential + zt.commercial + zt.industrial + zt.office) / 4.0;
         ui.label(format!("Avg rate: {:.1}%", avg * 100.0));
     });
+
+    // Sync the summary tax_rate field so happiness/immigration/advisors stay
+    // consistent with what the player chose in the per-zone sliders.
+    if changed {
+        let zt = &ext_budget.zone_taxes;
+        budget.tax_rate =
+            (zt.residential + zt.commercial + zt.industrial + zt.office) / 4.0;
+    }
 
     if ui.button("Budget Details...").clicked() {
         extras.budget_visible.0 = !extras.budget_visible.0;

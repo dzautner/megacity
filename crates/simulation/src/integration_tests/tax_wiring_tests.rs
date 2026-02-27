@@ -137,34 +137,6 @@ fn test_zero_tax_rate_produces_zero_revenue() {
     );
 }
 
-/// The sync system keeps CityBudget.tax_rate equal to the average of zone rates.
-#[test]
-fn test_sync_tax_rate_equals_zone_average() {
-    let mut city = TestCity::new()
-        .with_building(50, 50, ZoneType::ResidentialLow, 1)
-        .with_budget(10_000.0);
-    {
-        let world = city.world_mut();
-        let mut ext = world.resource_mut::<ExtendedBudget>();
-        ext.zone_taxes.residential = 0.08;
-        ext.zone_taxes.commercial = 0.12;
-        ext.zone_taxes.industrial = 0.06;
-        ext.zone_taxes.office = 0.14;
-    }
-
-    // Tick to let the sync system run
-    city.tick(1);
-
-    let budget = city.budget();
-    let expected_avg = (0.08 + 0.12 + 0.06 + 0.14) / 4.0;
-    assert!(
-        (budget.tax_rate - expected_avg).abs() < 0.001,
-        "CityBudget.tax_rate should equal zone average: got {}, expected {}",
-        budget.tax_rate,
-        expected_avg
-    );
-}
-
 /// Different zone types use their own rates independently.
 #[test]
 fn test_each_zone_uses_its_own_rate() {
