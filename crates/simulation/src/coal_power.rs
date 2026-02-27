@@ -14,6 +14,7 @@ use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::energy_demand::EnergyGrid;
+use crate::utilities::{UtilitySource, UtilityType};
 use crate::SlowTickTimer;
 
 // =============================================================================
@@ -136,6 +137,26 @@ impl crate::Saveable for CoalPowerState {
 // Systems
 // =============================================================================
 
+/// Attaches `PowerPlant` components to `UtilitySource` entities of type
+/// `PowerPlant` (coal) that don't already have one.
+pub fn attach_coal_power_plants(
+    timer: Res<SlowTickTimer>,
+    mut commands: Commands,
+    sources: Query<(Entity, &UtilitySource), Without<PowerPlant>>,
+) {
+    if !timer.should_run() {
+        return;
+    }
+
+    for (entity, source) in &sources {
+        if source.utility_type == UtilityType::PowerPlant {
+            commands
+                .entity(entity)
+                .insert(PowerPlant::new_coal(source.grid_x, source.grid_y));
+        }
+    }
+}
+
 /// Aggregates coal power plant output into `EnergyGrid.total_supply_mwh` and
 /// updates `CoalPowerState`. Runs every slow tick.
 pub fn aggregate_coal_power(
@@ -181,11 +202,15 @@ impl Plugin for CoalPowerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CoalPowerState>().add_systems(
             FixedUpdate,
-            // Writes EnergyGrid (supply) and CoalPowerState; must run after
-            // dispatch_energy which allocates load to plants (sets current_output_mw).
-            aggregate_coal_power
-                .after(crate::wind_pollution::update_pollution_gaussian_plume)
-                .after(crate::energy_dispatch::dispatch_energy)
+            (
+                attach_coal_power_plants,
+                // Writes EnergyGrid (supply) and CoalPowerState; must run after
+                // dispatch_energy which allocates load to plants (sets current_output_mw).
+                aggregate_coal_power
+                    .after(attach_coal_power_plants)
+                    .after(crate::wind_pollution::update_pollution_gaussian_plume)
+                    .after(crate::energy_dispatch::dispatch_energy),
+            )
                 .in_set(crate::SimulationSet::Simulation),
         );
 
