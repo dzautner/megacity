@@ -81,9 +81,10 @@ impl TutorialStep {
             }
             TutorialStep::PlaceRoad => {
                 "Roads are the foundation of your city. Open the 'Roads' category \
-                 in the bottom toolbar and select 'Local Road'. Click and drag \
-                 on the map to place a road segment of at least 5 cells. Roads \
-                 allow buildings to grow along them."
+                 in the bottom toolbar and select 'Local Road'. Click once on \
+                 the map to set a start point, then click again to place the \
+                 end point. Make a road of at least 5 cells. Roads allow \
+                 buildings to grow along them."
             }
             TutorialStep::ZoneResidential => {
                 "Now let's create homes for your citizens. Open the 'Zones' \
@@ -134,7 +135,7 @@ impl TutorialStep {
                 "Try moving the camera with WASD and scrolling to zoom. \
                  Click 'Next' when you are ready."
             }
-            TutorialStep::PlaceRoad => "Hint: Select Roads > Local Road and drag to place at least 5 cells.",
+            TutorialStep::PlaceRoad => "Hint: Select Roads > Local Road, click to start, then click to end. Place at least 5 cells.",
             TutorialStep::ZoneResidential => {
                 "Hint: Select Zones > Res Low and paint at least 10 cells next to your road."
             }
