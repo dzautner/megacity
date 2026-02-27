@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 
+use crate::buildings::Building;
 use crate::grid::{CellType, WorldGrid};
 use crate::stats::CityStats;
 use crate::time_of_day::GameClock;
@@ -75,20 +76,20 @@ impl TutorialStep {
             }
             TutorialStep::PlaceRoad => {
                 "Roads are the foundation of your city. Open the 'Roads' category \
-                 in the bottom toolbar and select 'Local Road'. Then click and \
-                 drag on the map to place a road segment. Roads allow buildings \
-                 to grow along them."
+                 in the bottom toolbar and select 'Local Road'. Click and drag \
+                 on the map to place a road segment of at least 5 cells. Roads \
+                 allow buildings to grow along them."
             }
             TutorialStep::ZoneResidential => {
                 "Now let's create homes for your citizens. Open the 'Zones' \
                  category and select 'Res Low' (low-density residential). Paint \
-                 zones on cells adjacent to your road. Buildings will appear \
-                 once power and water are available."
+                 at least 10 zone cells adjacent to your road. Buildings will \
+                 appear once power and water are available."
             }
             TutorialStep::ZoneCommercial => {
                 "Citizens need places to work and shop. Open the 'Zones' category \
-                 and select 'Com Low' (low-density commercial). Zone some cells \
-                 near your road, ideally close to the residential area."
+                 and select 'Com Low' (low-density commercial). Zone at least 5 \
+                 cells near your road, ideally close to the residential area."
             }
             TutorialStep::PlacePowerPlant => {
                 "Buildings need electricity to function. Open the 'Utilities' \
@@ -102,9 +103,9 @@ impl TutorialStep {
             }
             TutorialStep::ObserveGrowth => {
                 "Excellent! Your city now has the basics: roads, zones, power, \
-                 and water. Unpause the simulation and watch as citizens move \
-                 in and buildings appear. Wait until your population reaches 5 \
-                 to continue."
+                 and water. Unpause the simulation and watch as buildings grow \
+                 and citizens move in. Wait until at least one building appears \
+                 and your population reaches 5 to continue."
             }
             TutorialStep::ManageBudget => {
                 "As your city grows, you will earn tax revenue and incur \
@@ -125,12 +126,12 @@ impl TutorialStep {
     pub fn hint(self) -> &'static str {
         match self {
             TutorialStep::Welcome => "Click 'Next' to start the tutorial.",
-            TutorialStep::PlaceRoad => "Hint: Select Roads > Local Road from the bottom toolbar.",
+            TutorialStep::PlaceRoad => "Hint: Select Roads > Local Road and drag to place at least 5 cells.",
             TutorialStep::ZoneResidential => {
-                "Hint: Select Zones > Res Low and paint next to your road."
+                "Hint: Select Zones > Res Low and paint at least 10 cells next to your road."
             }
             TutorialStep::ZoneCommercial => {
-                "Hint: Select Zones > Com Low and paint near your residential zone."
+                "Hint: Select Zones > Com Low and paint at least 5 cells near your residential zone."
             }
             TutorialStep::PlacePowerPlant => {
                 "Hint: Select Utilities > Power Plant and place it near zones."
@@ -139,7 +140,7 @@ impl TutorialStep {
                 "Hint: Select Utilities > Water Tower and place it near zones."
             }
             TutorialStep::ObserveGrowth => {
-                "Hint: Press Space to unpause. Wait for population to reach 5."
+                "Hint: Press Space to unpause. Wait for buildings and population to reach 5."
             }
             TutorialStep::ManageBudget => "Hint: Press 'B' to open the budget panel.",
             TutorialStep::Completed => "You can now close this window.",
@@ -281,16 +282,29 @@ impl Saveable for TutorialState {
 }
 
 // =============================================================================
+// Tutorial Progress Thresholds
+// =============================================================================
+
+/// Minimum number of road cells required to complete the PlaceRoad step.
+pub const MIN_ROAD_CELLS: usize = 5;
+/// Minimum number of residential zone cells required to complete the ZoneResidential step.
+pub const MIN_RESIDENTIAL_ZONES: usize = 10;
+/// Minimum number of commercial zone cells required to complete the ZoneCommercial step.
+pub const MIN_COMMERCIAL_ZONES: usize = 5;
+
+// =============================================================================
 // Tutorial Progress Detection System
 // =============================================================================
 
 /// System that checks whether the player has completed the current tutorial step's
 /// objective and automatically advances to the next step.
+#[allow(clippy::too_many_arguments)]
 pub fn check_tutorial_progress(
     mut tutorial: ResMut<TutorialState>,
     grid: Res<WorldGrid>,
     stats: Res<CityStats>,
     utility_sources: Query<&UtilitySource>,
+    buildings: Query<&Building>,
     mut clock: ResMut<GameClock>,
 ) {
     if !tutorial.active || tutorial.completed {
@@ -321,18 +335,34 @@ pub fn check_tutorial_progress(
     let step = tutorial.current_step;
     let completed = match step {
         TutorialStep::PlaceRoad => {
-            // Check if there's at least one road cell
-            grid.cells
+            // Require at least MIN_ROAD_CELLS road cells so players learn to
+            // drag a meaningful road segment, not just click once.
+            let count = grid
+                .cells
                 .iter()
-                .any(|cell| cell.cell_type == CellType::Road)
+                .filter(|cell| cell.cell_type == CellType::Road)
+                .count();
+            count >= MIN_ROAD_CELLS
         }
         TutorialStep::ZoneResidential => {
-            // Check if there's at least one residential zone
-            grid.cells.iter().any(|cell| cell.zone.is_residential())
+            // Require at least MIN_RESIDENTIAL_ZONES residential zone cells
+            // so players learn to paint a proper residential area.
+            let count = grid
+                .cells
+                .iter()
+                .filter(|cell| cell.zone.is_residential())
+                .count();
+            count >= MIN_RESIDENTIAL_ZONES
         }
         TutorialStep::ZoneCommercial => {
-            // Check if there's at least one commercial zone
-            grid.cells.iter().any(|cell| cell.zone.is_commercial())
+            // Require at least MIN_COMMERCIAL_ZONES commercial zone cells
+            // so players learn to paint a proper commercial area.
+            let count = grid
+                .cells
+                .iter()
+                .filter(|cell| cell.zone.is_commercial())
+                .count();
+            count >= MIN_COMMERCIAL_ZONES
         }
         TutorialStep::PlacePowerPlant => {
             // Check if there's at least one power utility
@@ -345,8 +375,12 @@ pub fn check_tutorial_progress(
                 .any(|u| u.utility_type == UtilityType::WaterTower)
         }
         TutorialStep::ObserveGrowth => {
-            // Wait for population to reach 5
-            stats.population >= 5
+            // Require at least one residential or commercial building to have
+            // actually spawned (not just zoned), AND population >= 5.
+            let has_building = buildings.iter().any(|b| {
+                b.zone_type.is_residential() || b.zone_type.is_commercial()
+            });
+            has_building && stats.population >= 5
         }
         _ => false,
     };

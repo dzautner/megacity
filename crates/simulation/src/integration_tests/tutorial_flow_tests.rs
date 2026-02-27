@@ -113,7 +113,7 @@ fn test_tutorial_place_road_auto_advances() {
 #[test]
 fn test_tutorial_zone_residential_auto_advances() {
     let mut city = TestCity::new()
-        .with_zone(12, 10, ZoneType::ResidentialLow);
+        .with_zone_rect(12, 10, 13, 14, ZoneType::ResidentialLow); // 2x5 = 10 cells
 
     activate_tutorial_at(&mut city, TutorialStep::ZoneResidential);
     run_update(&mut city);
@@ -122,7 +122,7 @@ fn test_tutorial_zone_residential_auto_advances() {
     assert_eq!(
         tutorial.current_step,
         TutorialStep::ZoneCommercial,
-        "ZoneResidential should auto-advance to ZoneCommercial after zoning residential"
+        "ZoneResidential should auto-advance to ZoneCommercial after zoning >= 10 residential cells"
     );
 }
 
@@ -133,7 +133,7 @@ fn test_tutorial_zone_residential_auto_advances() {
 #[test]
 fn test_tutorial_zone_commercial_auto_advances() {
     let mut city = TestCity::new()
-        .with_zone(14, 10, ZoneType::CommercialLow);
+        .with_zone_rect(14, 10, 18, 10, ZoneType::CommercialLow); // 5x1 = 5 cells
 
     activate_tutorial_at(&mut city, TutorialStep::ZoneCommercial);
     run_update(&mut city);
@@ -142,7 +142,7 @@ fn test_tutorial_zone_commercial_auto_advances() {
     assert_eq!(
         tutorial.current_step,
         TutorialStep::PlacePowerPlant,
-        "ZoneCommercial should auto-advance to PlacePowerPlant after zoning commercial"
+        "ZoneCommercial should auto-advance to PlacePowerPlant after zoning >= 5 commercial cells"
     );
 }
 
@@ -191,11 +191,12 @@ fn test_tutorial_place_water_auto_advances() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_tutorial_observe_growth_waits_for_population() {
-    let mut city = TestCity::new();
+fn test_tutorial_observe_growth_waits_for_population_and_building() {
+    let mut city = TestCity::new()
+        .with_building(12, 10, ZoneType::ResidentialLow, 1);
     activate_tutorial_at(&mut city, TutorialStep::ObserveGrowth);
 
-    // With population = 0, should NOT advance
+    // With population = 0, should NOT advance even with a building
     run_update(&mut city);
     let tutorial = city.resource::<TutorialState>();
     assert_eq!(
@@ -215,7 +216,7 @@ fn test_tutorial_observe_growth_waits_for_population() {
     assert_eq!(
         tutorial.current_step,
         TutorialStep::ManageBudget,
-        "ObserveGrowth should advance to ManageBudget when population >= 5"
+        "ObserveGrowth should advance to ManageBudget when population >= 5 and building exists"
     );
 }
 
