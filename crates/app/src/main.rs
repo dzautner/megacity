@@ -7,7 +7,17 @@ use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 #[cfg(not(target_arch = "wasm32"))]
 use rendering::camera::OrbitCamera;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod agent_mode;
+
 fn main() {
+    // -- Agent mode: headless JSON protocol over stdin/stdout ----------------
+    #[cfg(not(target_arch = "wasm32"))]
+    if std::env::args().any(|a| a == "--agent") {
+        agent_mode::run_agent_mode();
+        return;
+    }
+
     let mut app = App::new();
 
     // --- Window configuration ---------------------------------------------------
