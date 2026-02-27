@@ -13,7 +13,9 @@ use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::economy::CityBudget;
 use crate::grid::{CellType, RoadType, WorldGrid, ZoneType};
 use crate::roads::RoadNetwork;
+use crate::services::{ServiceBuilding, ServiceType};
 use crate::time_of_day::GameClock;
+use crate::utilities::{UtilitySource, UtilityType};
 use crate::zones::is_adjacent_to_road;
 
 use super::result_log::ActionResultLog;
@@ -26,6 +28,7 @@ use super::{ActionError, ActionQueue, ActionResult, GameAction};
 /// Drains all pending actions from the queue and executes them in order.
 #[allow(clippy::too_many_arguments)]
 pub fn execute_queued_actions(
+    mut commands: Commands,
     mut queue: ResMut<ActionQueue>,
     mut log: ResMut<ActionResultLog>,
     mut grid: ResMut<WorldGrid>,
@@ -38,6 +41,7 @@ pub fn execute_queued_actions(
     for queued in actions {
         let result = execute_single(
             &queued.action,
+            &mut commands,
             &mut grid,
             &mut roads,
             &mut budget,
@@ -52,8 +56,10 @@ pub fn execute_queued_actions(
 // Dispatcher
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 fn execute_single(
     action: &GameAction,
+    commands: &mut Commands,
     grid: &mut WorldGrid,
     roads: &mut RoadNetwork,
     budget: &mut CityBudget,
@@ -72,12 +78,10 @@ fn execute_single(
             zone_type,
         } => execute_zone_rect(*min, *max, *zone_type, grid),
         GameAction::PlaceUtility { pos, utility_type } => {
-            let cost = crate::services::utility_cost(*utility_type);
-            execute_place_building(*pos, cost, grid, budget)
+            execute_place_utility(*pos, *utility_type, commands, grid, budget)
         }
         GameAction::PlaceService { pos, service_type } => {
-            let cost = crate::services::ServiceBuilding::cost(*service_type);
-            execute_place_building(*pos, cost, grid, budget)
+            execute_place_service(*pos, *service_type, commands, grid, budget)
         }
         GameAction::BulldozeRect { min, max } => execute_bulldoze_rect(*min, *max, grid, budget),
         GameAction::SetTaxRates {
@@ -202,34 +206,117 @@ fn execute_zone_rect(
     ActionResult::Success
 }
 
-/// Shared placement validator for utilities and services.
-fn execute_place_building(
+/// Place a utility source: validate, deduct cost, spawn entity, set grid cell.
+fn execute_place_utility(
     pos: (u32, u32),
-    cost: f64,
+    utility_type: UtilityType,
+    commands: &mut Commands,
     grid: &mut WorldGrid,
     budget: &mut CityBudget,
 ) -> ActionResult {
-    let (x, y) = match bounds_check(pos.0, pos.1) {
-        Ok(v) => v,
-        Err(e) => return e,
+    let cost = crate::services::utility_cost(utility_type);
+    let (x, y) = match validate_building_placement(pos, cost, grid, budget) {
+        Ok(coords) => coords,
+        Err(result) => return result,
     };
 
+    budget.treasury -= cost;
+
+    let range = crate::services::utility_range(utility_type);
+    let entity = commands
+        .spawn(UtilitySource {
+            utility_type,
+            grid_x: x,
+            grid_y: y,
+            range,
+        })
+        .id();
+
+    grid.get_mut(x, y).building_id = Some(entity);
+    ActionResult::Success
+}
+
+/// Place a service building: validate, deduct cost, spawn entity, set grid
+/// cells for the full footprint.
+fn execute_place_service(
+    pos: (u32, u32),
+    service_type: ServiceType,
+    commands: &mut Commands,
+    grid: &mut WorldGrid,
+    budget: &mut CityBudget,
+) -> ActionResult {
+    let cost = ServiceBuilding::cost(service_type);
+    let (x, y) = match validate_building_placement(pos, cost, grid, budget) {
+        Ok(coords) => coords,
+        Err(result) => return result,
+    };
+
+    // Check the full footprint is clear
+    let (fw, fh) = ServiceBuilding::footprint(service_type);
+    for dy in 0..fh {
+        for dx in 0..fw {
+            let cx = x + dx;
+            let cy = y + dy;
+            if !grid.in_bounds(cx, cy) {
+                return ActionResult::Error(ActionError::OutOfBounds);
+            }
+            // Skip (x, y) itself — already validated above
+            if dx == 0 && dy == 0 {
+                continue;
+            }
+            let cell = grid.get(cx, cy);
+            if cell.cell_type == CellType::Water {
+                return ActionResult::Error(ActionError::BlockedByWater);
+            }
+            if cell.building_id.is_some() {
+                return ActionResult::Error(ActionError::AlreadyExists);
+            }
+        }
+    }
+
+    budget.treasury -= cost;
+
+    let entity = commands
+        .spawn(ServiceBuilding {
+            service_type,
+            grid_x: x,
+            grid_y: y,
+            radius: ServiceBuilding::coverage_radius(service_type),
+        })
+        .id();
+
+    // Mark all footprint cells
+    for dy in 0..fh {
+        for dx in 0..fw {
+            grid.get_mut(x + dx, y + dy).building_id = Some(entity);
+        }
+    }
+    ActionResult::Success
+}
+
+/// Shared placement validator for buildings. Returns grid coordinates on
+/// success, or an `ActionResult` error on failure.
+fn validate_building_placement(
+    pos: (u32, u32),
+    cost: f64,
+    grid: &WorldGrid,
+    budget: &CityBudget,
+) -> Result<(usize, usize), ActionResult> {
+    let (x, y) = bounds_check(pos.0, pos.1)?;
+
     if budget.treasury < cost {
-        return ActionResult::Error(ActionError::InsufficientFunds);
+        return Err(ActionResult::Error(ActionError::InsufficientFunds));
     }
 
     let cell = grid.get(x, y);
     if cell.cell_type == CellType::Water {
-        return ActionResult::Error(ActionError::BlockedByWater);
+        return Err(ActionResult::Error(ActionError::BlockedByWater));
     }
     if cell.building_id.is_some() {
-        return ActionResult::Error(ActionError::AlreadyExists);
+        return Err(ActionResult::Error(ActionError::AlreadyExists));
     }
 
-    // Mark cell as occupied (the actual entity spawn is left to the relevant
-    // system; we just deduct funds and validate placement).
-    budget.treasury -= cost;
-    ActionResult::Success
+    Ok((x, y))
 }
 
 /// Clear all cells in a rectangle, refunding road costs.
