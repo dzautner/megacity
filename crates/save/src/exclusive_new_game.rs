@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use simulation::new_game_config::NewGameConfig;
 use simulation::terrain_generation::{generate_procedural_terrain, TerrainConfig};
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
@@ -9,18 +10,19 @@ use crate::reset_resources::reset_all_resources;
 /// Default number of hydraulic erosion iterations for new games.
 const NEW_GAME_EROSION_ITERATIONS: u32 = 10_000;
 
-/// Generate a random seed from the current system time.
-fn random_seed() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(42)
-}
-
 /// Exclusive system that resets the world for a new game.  Entity despawns
 /// are immediate (no deferred Commands).
 /// Runs on `OnEnter(SaveLoadState::NewGame)`, then transitions back to `Idle`.
 pub(crate) fn exclusive_new_game(world: &mut World) {
+    // -- Stage 0: Read player's chosen config before reset clears it --
+    let config = world
+        .get_resource::<NewGameConfig>()
+        .cloned()
+        .unwrap_or_default();
+
+    let seed = config.seed;
+    let city_name = config.city_name.clone();
+
     // -- Stage 1: Despawn existing entities (immediate) --
     despawn_all_game_entities(world);
 
@@ -34,8 +36,10 @@ pub(crate) fn exclusive_new_game(world: &mut World) {
     registry.reset_all(world);
     world.insert_resource(registry);
 
+    // -- Stage 3b: Restore the player's chosen config (reset cleared it) --
+    world.insert_resource(NewGameConfig { city_name, seed });
+
     // -- Stage 4: Generate procedural terrain --
-    let seed = random_seed();
     let biome_grid = {
         let mut grid = world.resource_mut::<simulation::grid::WorldGrid>();
         generate_procedural_terrain(&mut grid, seed, NEW_GAME_EROSION_ITERATIONS)
@@ -57,7 +61,11 @@ pub(crate) fn exclusive_new_game(world: &mut World) {
         tutorial.completed = false;
     }
 
-    println!("New game started — procedural terrain (seed {seed}) with $50,000 treasury");
+    let config = world.resource::<NewGameConfig>();
+    println!(
+        "New game '{}' started — procedural terrain (seed {seed}) with $50,000 treasury",
+        config.city_name
+    );
 
     // -- Stage 6: Transition back to Idle --
     world
