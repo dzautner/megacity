@@ -96,24 +96,6 @@ pub fn unlock_progress(
     })
 }
 
-/// Returns a human-readable hint describing when a locked tool becomes
-/// available, e.g. `"Unlocks at Village (pop 1,200)"`.
-///
-/// Returns `None` for tools that are always available or already unlocked.
-pub fn unlock_hint(tool: &ActiveTool, unlocks: &UnlockState) -> Option<String> {
-    if is_tool_unlocked(tool, unlocks) {
-        return None;
-    }
-    let node = required_unlock_node(tool)?;
-    let pop = node.required_population();
-    let tier = tier_name_for_population(pop);
-    Some(format!(
-        "Unlocks at {} (pop {:>5})",
-        tier,
-        format_pop_with_commas(pop)
-    ))
-}
-
 /// Maps an `ActiveTool` to the `UnlockNode` that gates it.
 fn required_unlock_node(tool: &ActiveTool) -> Option<UnlockNode> {
     // Utility tools
