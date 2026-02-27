@@ -19,6 +19,8 @@ This document is for any AI agent (Claude, Codex, Gemini, Copilot, Devin, etc.) 
 6. **Always run `cargo fmt --all`** before committing.
 7. **ALWAYS use a git worktree.** Never work directly in the main repo checkout. See "Set Up a Worktree" below — follow the steps EXACTLY.
 8. **NEVER run `git checkout` or `git switch` in the main repo.** This breaks other worktrees. Only use these inside your own worktree.
+9. **SEE EVERY PR THROUGH TO MERGE.** Your job is NOT done when the code is written. You MUST monitor CI, fix failures, rebase when behind, and keep watching until `gh pr view <N> --json state` returns `MERGED`. Do NOT stop after pushing. Do NOT stop after creating the PR. Do NOT stop after CI passes. Only stop when the PR state is `MERGED`.
+10. **Post to the Agent Chat Log** frequently. See "Agent Chat Log" section below.
 
 ## How to Pick Up Work
 
@@ -266,17 +268,32 @@ gh pr checks <PR_NUMBER> --watch
 
 **Repeat rebase + CI watch until the PR is merged.** This is the most common reason PRs get stuck.
 
-### 8. Verify Merge and Clean Up
+### 8. Verify Merge and Clean Up (DO NOT SKIP THIS)
+
+**Your task is NOT complete until the PR is merged.** Writing code is only half the job. You MUST stay alive and loop through steps 6-7 until the PR reaches MERGED state.
 
 ```bash
-# Poll until merged
-gh pr view <PR_NUMBER> --json state
-# Should return: {"state":"MERGED"}
+# Loop: check state, rebase if BEHIND, watch CI again
+while true; do
+  STATE=$(gh pr view <PR_NUMBER> --json state -q '.state')
+  if [ "$STATE" = "MERGED" ]; then
+    echo "PR merged!"
+    break
+  fi
+  MERGE_STATUS=$(gh pr view <PR_NUMBER> --json mergeStateStatus -q '.mergeStateStatus')
+  if [ "$MERGE_STATUS" = "BEHIND" ]; then
+    git fetch origin main && git rebase origin/main && git push --force-with-lease
+  fi
+  gh pr checks <PR_NUMBER> --watch || true
+  sleep 30
+done
 
 # Clean up worktree
 cd /path/to/megacity
 git worktree remove /tmp/worktree-<short-name>
 ```
+
+**Common failure mode**: Agent writes code, creates PR, sees CI start, then stops. CI passes but branch is BEHIND. Auto-merge can't proceed. The PR sits there forever. **DON'T BE THAT AGENT.** Stay until MERGED.
 
 ## Parallel Agent Coordination
 
@@ -374,6 +391,60 @@ app.register_saveable::<MyState>();
 
 Do NOT modify `save_types.rs`, `serialization.rs`, `save_restore.rs`, or `save_helpers.rs`.
 
+## Agent Chat Log (IMPORTANT — USE THIS)
+
+All agents share a communication log at **`.agent-chat.log`** in the main repo root (`/Users/danielzautner/cities/.agent-chat.log`). This is your team's informal chat channel. **Post frequently.** The human maintainer watches this file with `tail -f` to stay informed.
+
+### How to Post
+
+Append a line to the log. Always include a timestamp, your name, and your message:
+
+```bash
+echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] <your-agent-name>: <message>" >> /Users/danielzautner/cities/.agent-chat.log
+```
+
+Example:
+```bash
+echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] claude-agent-42: Starting work on #1843 (grid road mode)" >> /Users/danielzautner/cities/.agent-chat.log
+```
+
+### When to Post (Post Often!)
+
+Post a message for **every significant event**. Be chatty. Think of this as a team Slack channel. Examples:
+
+- **Starting work**: `"Starting work on #1843 — setting up worktree"`
+- **Understanding the task**: `"Read the issue, looks like I need to add RoadDrawMode to grid.rs and a new input handler"`
+- **Design decisions**: `"Going with an enum-based approach for road modes rather than booleans — cleaner for future extension"`
+- **Progress updates**: `"Code written, running cargo fmt, about to push"`
+- **PR created**: `"PR #1899 created, waiting for CI"`
+- **CI status**: `"CI passed on PR #1899, auto-merge enabled"`
+- **CI failures**: `"Clippy failed on PR #1899 — too_many_arguments on line 42, fixing now"`
+- **Discoveries**: `"Found that road_segments.rs already has a curve_mode field — can reuse it instead of adding a new one"`
+- **Warnings for others**: `"Heads up: I'm modifying plugin_registration.rs — if you're also touching it, expect a merge conflict"`
+- **Merge conflicts**: `"Rebasing on main due to BEHIND status, new commits from other agents"`
+- **Done**: `"PR #1899 merged! Issue #1843 closed. Cleaning up worktree."`
+- **Ideas/suggestions**: `"While working on this I noticed the economy module could use a tax bracket feature — might be worth a ticket"`
+- **Blockers**: `"Blocked on #1843 — depends on #1871 which hasn't merged yet"`
+
+### How to Read
+
+Read the last N lines to see what other agents have been up to:
+
+```bash
+tail -20 /Users/danielzautner/cities/.agent-chat.log
+```
+
+**Check the log before starting work** to see if anyone else is working on related files or might conflict with you.
+
+### Rules
+
+1. **Always use the absolute path** `/Users/danielzautner/cities/.agent-chat.log` — this works from any worktree
+2. **Never delete or truncate** the log file — only append
+3. **Keep messages on one line** — no multi-line messages
+4. **Use your agent name consistently** so we can track who said what (e.g., `claude-cr02`, `gemini-grid-road`, `codex-zone-depth`)
+5. **The log is .gitignored** — it stays local, never committed
+6. **Post at least 5 messages per task**: start, design, progress, PR, done
+
 ## Quick Reference
 
 | Task | Command |
@@ -389,3 +460,5 @@ Do NOT modify `save_types.rs`, `serialization.rs`, `save_restore.rs`, or `save_h
 | Check merge state | `gh pr view <N> --json mergeStateStatus` |
 | Rebase on main | `git fetch origin main && git rebase origin/main && git push --force-with-lease` |
 | Clean worktree | `git worktree remove /tmp/worktree-X` |
+| Post to chat | `echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] name: msg" >> /Users/danielzautner/cities/.agent-chat.log` |
+| Read chat | `tail -20 /Users/danielzautner/cities/.agent-chat.log` |
