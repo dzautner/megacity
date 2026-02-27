@@ -16,7 +16,6 @@ use simulation::citizen::{
 };
 use simulation::config::CELL_SIZE;
 use simulation::budget::ExtendedBudget;
-use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::land_value::LandValueGrid;
 use simulation::noise::NoisePollutionGrid;
@@ -68,7 +67,6 @@ pub fn progressive_building_inspection_ui(
     pollution: Res<PollutionGrid>,
     noise: Res<NoisePollutionGrid>,
     land_value: Res<LandValueGrid>,
-    budget: Res<CityBudget>,
     ext_budget: Res<ExtendedBudget>,
     tree_grid: Res<TreeGrid>,
     mut tab_state: ResMut<SelectedBuildingTab>,
