@@ -1,6 +1,8 @@
 # Megacity
 
-A city builder simulation built with [Bevy](https://bevyengine.org/) (Rust ECS game engine). Simulates a living city with 10,000+ citizens who commute, work, age, marry, and respond to the urban environment you create.
+A deep city builder simulation built with [Bevy](https://bevyengine.org/) (Rust ECS game engine). Simulates a living city with 10,000+ individually tracked citizens who commute, work, age, marry, and respond to the urban environment you create — scaling to 1M+ via a virtual population LOD system.
+
+Playable natively on macOS, Linux, and Windows, or [in the browser via WebAssembly](https://dzautner.github.io/megacity/).
 
 ![City overview with coastline, road network, and UI panels](screenshots/city-overview.png)
 
@@ -12,85 +14,160 @@ A city builder simulation built with [Bevy](https://bevyengine.org/) (Rust ECS g
 
 ## Features
 
-### City Simulation
-- **256x256 grid world** with terrain, coastlines, rivers, and distinct neighborhoods
-- **Zoning system** with 6 zone types: Residential Low/High, Commercial Low/High, Industrial, and Office
-- **Building lifecycle** - construction phase, upgrades (up to level 5), abandonment, and demolition
-- **Districts** with per-district statistics and policy overrides
+### Citizens & Demographics
+- **Individual agent simulation** — each citizen tracks age, gender, education level, personality traits, health, happiness, savings, and needs
+- **State machine movement** — citizens commute home-to-work along Bezier-curve road paths with activities at each location
+- **Full life events** — aging, education advancement, job seeking, marriage, children, retirement, death
+- **LOD scaling** — Full/Simplified/Abstract tiers with a virtual population layer so ~10K tracked entities represent 1M+ simulated citizens
+- **Immigration & emigration** driven by city attractiveness (jobs, housing, happiness, services)
+- **Homelessness & welfare** systems with social service buildings
+- **Disease model** — illness spreading through the population based on health infrastructure coverage
 
-### Citizens
-- **Individual agent simulation** - each citizen has age, gender, education, personality traits, health, happiness, savings, and needs
-- **State machine movement** - citizens commute between home and work along road paths, with activities at each location
-- **Life events** - aging, education advancement, job seeking, marriage, children, retirement, death
-- **LOD system** - Full/Simplified/Abstract tiers with virtual population scaling to simulate 1M+ citizens while only tracking ~10K entities
-- **Immigration and emigration** driven by city attractiveness metrics
+### Zoning & Buildings
+- **6 zone types**: Residential Low/High, Commercial Low/High, Industrial, and Office — plus Mixed-Use
+- **Building lifecycle** — construction phase, upgrades (up to level 5), abandonment, and demolition
+- **Form-based zoning** — cumulative zoning, inclusionary zoning (affordable housing mandates), FAR transfer, historic preservation districts
+- **Districts** with per-district statistics, policy overrides, and neighborhood quality scoring
+- **Superblocks** — car-free pedestrian zones with policy effects on walkability and happiness
 
 ### Transportation
-- **Bezier curve road segments** - smooth roads with Local, Avenue, Boulevard, Highway, and Path types
-- **CSR graph pathfinding** with A* and traffic-aware routing
-- **Traffic density simulation** with congestion modeling
-- **Road maintenance** - degradation from traffic, repair budgets, condition tracking
-- **Traffic accidents** spawning from high-congestion areas
+- **Bezier curve road segments** — smooth roads with Local, Avenue, Boulevard, Highway, Path, and One-Way types
+- **CSR graph pathfinding** — A* routing on a compressed sparse row graph built from road segments, with traffic-aware cost functions
+- **Traffic simulation** — density modeling, congestion propagation, level-of-service grading, and traffic accidents
+- **Public transit** — bus routes, tram lines, metro systems, and train networks with transit hubs
+- **Road tools** — freehand drawing, curve drawing, auto-grid placement, parallel snap, roundabout builder
+- **Road maintenance** — degradation from traffic volume, repair budgets, condition tracking
+- **Bicycle lanes** and walkability scoring
+- **Freight traffic** from industrial production chains
+- **Airport** with outside connections for tourism and trade
 
-### Economy
-- **Tax collection** with property tax system
-- **City budget** with treasury, income, and expenditure tracking
-- **Extended budget** with per-category breakdowns
-- **Loan system** with credit ratings, interest rates, and bankruptcy events
-- **Import/export trade** via outside connections
-- **Production chains** - industrial buildings produce goods, market prices fluctuate
-- **Wealth tracking** across the population
+### Economy & Budget
+- **Per-zone tax collection** — independent residential, commercial, industrial, and office tax rates
+- **City budget** with treasury, income tracking, and per-category expenditure breakdowns
+- **Loan system** with credit ratings, variable interest rates, and bankruptcy game-over
+- **Production chains** — industrial buildings produce goods, market prices fluctuate with supply/demand
+- **Import/export trade** via outside connections (road, rail, airport, port)
+- **Wealth distribution** tracked across the population
+- **City specializations** computed from economic mix (industrial hub, tech center, tourist destination, etc.)
+- **Hope & Discontent** dual meters reflecting citizen morale
 
 ### Services & Infrastructure
-- **Power and water** utility networks with propagation radius
-- **Fire system** - random fires, fire spread, fire station coverage, extinguishing
-- **Crime simulation** with police coverage reducing crime rates
-- **Health system** with hospital coverage and citizen health tracking
-- **Education** - elementary schools, high schools, universities with coverage grids
-- **Death care** processing
-- **Postal service** coverage
-- **Garbage collection** and waste management
-- **Heating** grid for cold weather
+- **Power grid** — coal, gas, nuclear, solar, wind, hydro, geothermal, biomass, waste-to-energy plants with battery storage, demand response, time-of-use pricing, power line transmission, maintenance schedules, and blackout events
+- **Water system** — pipe networks, water pressure simulation, treatment plants, conservation policies, groundwater modeling with depletion
+- **District heating** — combined heat & power from thermal plants, heating service coverage, degree-day calculations
+- **Fire system** — random fires, fire spread to forests, tiered fire stations, service vehicle dispatch
+- **Crime & justice** — crime simulation with tiered police coverage
+- **Health** — hospitals, disease model, pollution health effects
+- **Education** — elementary schools, high schools, universities, campus districts with education pipeline
+- **Death care** — crematoriums and cemeteries with capacity tracking
+- **Garbage** — collection routing, waste composition, recycling, composting, hazardous waste, landfills with gas emissions, waste-to-energy, and waste reduction policies
+- **Parks** — park districts with leveling system, cultural buildings with prestige
+- **Postal & telecom** coverage networks
+- **Service vehicle dispatch** on the road network with capacity limits and staffing
 
-### Environment
-- **Weather system** with temperature, precipitation, and wind
-- **Pollution grid** from industrial zones and traffic
-- **Noise pollution** from roads and industry
-- **Water pollution** with health penalties
-- **Groundwater** simulation with quality tracking
-- **Land value** grid influenced by services, pollution, and proximity
-- **Natural resources** - generation and extraction
-- **Forest fires** spreading from regular fires to tree areas
-- **Trees** with environmental effects
+### Environment & Climate
+- **Weather system** — temperature, precipitation, wind speed/direction, seasonal cycles
+- **Climate events** — droughts, heat waves, cold snaps with gameplay consequences
+- **Climate change** — long-term temperature trends affecting energy demand and disasters
+- **Air pollution** — grid-based dispersion from industrial zones, traffic emissions, heating, and airports, with wind-aware Gaussian plume modeling
+- **Noise pollution** — complete source type table (roads, industry, airports) with noise barriers
+- **Water pollution** — sources, treatment, quality effects on health
+- **Soil contamination** — persistence model with remediation mechanics
+- **Groundwater** — aquifer simulation with quality tracking and depletion
+- **Land value** grid influenced by services, pollution, proximity, and neighborhood quality
+- **Trees** — forest system with environmental absorption effects, vulnerable to forest fires
+- **Urban heat island** effect with mitigation strategies (green roofs, reflective surfaces)
+- **Procedural terrain** — FBM noise-based generation with coastlines and rivers
+- **Stormwater & flooding** — storm drainage, combined sewer overflows, flood simulation with protection infrastructure
+- **Environmental score** — aggregate sustainability metric
 
 ### Disasters & Events
-- **Natural disasters** - earthquakes with structural damage
+- **Natural disasters** — earthquakes with structural damage, flooding
+- **Forest fires** spreading from urban fires to tree areas
+- **Emergency management** response system
 - **Random city events** with active effects on the simulation
-- **Achievement system** tracking milestones
-- **Advisor panel** with contextual suggestions
+- **Notification system** with event journal
 
-### Game Systems
-- **Save/load** with bitcode serialization and file versioning with migration support
-- **Unlocks** and development points progression
-- **City specializations** computed from economic mix
-- **Policies** system for city-wide rules
-- **Tourism** simulation with airport connections
-- **Homelessness** and welfare systems
+### Progression & Gameplay
+- **Unlocks & milestones** — development points progression system
+- **Achievement tracking**
+- **Advisor panel** with contextual suggestions
+- **Tutorial system** with progressive UX hints
+- **Save/load** — bitcode serialization with file versioning, migration system, crash recovery, multiple save slots, autosave, and quick-save/quick-load hotkeys
+- **Undo/redo** for building actions
+- **Blueprints** — save and reuse building layouts
+- **Dynamic music** — mood-based soundtrack that responds to city state
+- **Ambient soundscape** — background city audio
+- **Colorblind mode** and customizable keybindings
 
 ## Architecture
 
 ```
 crates/
-  app/          Entry point, asset loading, window setup
-  simulation/   All game logic: citizens, economy, services, environment
-  rendering/    Bevy rendering: meshes, terrain, roads, overlays, props
-  ui/           egui-based UI: toolbar, info panels, budget views
-  save/         Save/load serialization with versioning
+  app/          Entry point — window setup, asset loading, platform init (native + WASM)
+  simulation/   All game logic — 235 feature plugins across 180 modules
+  rendering/    Bevy rendering — terrain, roads, buildings, overlays, camera, effects
+  ui/           egui-based UI — toolbar, info panels, dashboards, menus, settings
+  save/         Persistence — bitcode serialization, versioning, migration, crash recovery
+  automod_dir/  Proc macro for zero-conflict module auto-discovery
 ```
 
-The simulation runs on a fixed 10Hz timestep. Rendering runs at full frame rate with LOD-based culling. A spatial grid enables O(1) lookups for nearest-destination queries.
+### Simulation
 
-Road geometry uses cubic Bezier curves stored in `RoadSegmentStore` (source of truth), rasterized to the grid for cell-level queries and indexed in a CSR graph for pathfinding.
+The simulation runs on a **fixed 10Hz timestep** (`FixedUpdate`). The world is a **256x256 cell grid** (CELL_SIZE=16.0, 4096x4096 world units) divided into 8x8 chunks for spatial queries. Rendering runs at full frame rate with LOD-based culling.
+
+Road geometry uses **cubic Bezier curves** stored in `RoadSegmentStore` (source of truth), rasterized to the grid for cell-level queries, and indexed in a **CSR graph** for A* pathfinding with traffic-aware cost functions.
+
+The simulation is **fully deterministic** — a ChaCha8 RNG seeded per game ensures identical state across runs, enabling replay verification and competitive seeds.
+
+### Plugin Architecture
+
+Every feature is a self-contained Bevy plugin:
+
+```rust
+pub struct MyFeaturePlugin;
+
+impl Plugin for MyFeaturePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<MyState>();
+        app.add_systems(FixedUpdate, my_system.in_set(SimulationSet::Simulation));
+    }
+}
+```
+
+Modules are **auto-discovered** at compile time via `automod_dir::dir!()` — creating a new `.rs` file automatically includes it as a module with no `lib.rs` edits needed. Plugin registration is one line per plugin in `plugin_registration.rs`. This design supports dozens of contributors working in parallel with near-zero merge conflicts.
+
+### Save System
+
+Features opt into persistence by implementing a `Saveable` trait:
+
+```rust
+impl Saveable for MyState {
+    const SAVE_KEY: &'static str = "my_feature";
+    fn save_to_bytes(&self) -> Option<Vec<u8>> { ... }
+    fn load_from_bytes(bytes: &[u8]) -> Self { ... }
+}
+```
+
+Saveable state is stored in an extension map inside save files — new features never need to modify the core save code. Save files include version headers with automatic migration for backwards compatibility.
+
+### Testing
+
+244 integration test files use a `TestCity` builder for headless Bevy App tests:
+
+```rust
+#[test]
+fn test_residential_tax_affects_income() {
+    let mut city = TestCity::new()
+        .with_road_line((100, 128), (156, 128), RoadType::Avenue)
+        .with_zone_rect((101, 129), (110, 135), ZoneType::ResidentialLow)
+        .with_starting_treasury(50_000.0);
+    city.tick_slow_cycles(2);
+    assert!(city.app.world().resource::<CityBudget>().income > 0.0);
+}
+```
+
+6 benchmark suites (Criterion.rs) track performance for simulation ticks, pathfinding, grid operations, traffic, serialization, and frame rendering.
 
 ## Building & Running
 
@@ -105,6 +182,25 @@ sudo apt-get install -y libasound2-dev libudev-dev pkg-config libwayland-dev
 
 # Build and run
 cargo run --release -p app
+```
+
+### WASM (browser)
+
+```bash
+# Install trunk
+cargo install trunk
+
+# Build and serve
+trunk serve --release
+```
+
+### Development
+
+```bash
+cargo build --workspace        # Build all crates
+cargo test --workspace         # Run all tests
+cargo clippy --workspace -- -D warnings  # Lint
+cargo fmt --all                # Format
 ```
 
 ## License
