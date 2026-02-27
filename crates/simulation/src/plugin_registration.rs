@@ -379,4 +379,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
 
     // ASCII map rendering for debugging and LLM observation (#1902)
     app.add_plugins(ascii_map::AsciiMapPlugin);
+
+    // WorldSnapshot spatial state serialization (#1903)
+    app.add_plugins(world_snapshot::WorldSnapshotPlugin);
 }
