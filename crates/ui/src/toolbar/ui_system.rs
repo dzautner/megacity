@@ -43,6 +43,7 @@ pub fn toolbar_ui(
     let (mut overlay, dual_overlay) = overlay_params;
     let (catalog, unlocks) = catalog_and_unlocks;
     let categories = &catalog.categories;
+    let current_pop = stats.population;
 
     // Set tooltip delay to 300ms for tool tooltips
     contexts
@@ -302,11 +303,14 @@ pub fn toolbar_ui(
                                 // All items in a single horizontal row
                                 for item in cat.items.iter() {
                                     // Check unlock state for this item
-                                    let lock_hint = item
-                                        .tool
-                                        .as_ref()
-                                        .and_then(|t| unlock_filter::unlock_hint(t, &unlocks));
-                                    let is_locked = lock_hint.is_some();
+                                    let progress = item.tool.as_ref().and_then(|t| {
+                                        unlock_filter::unlock_progress(
+                                            t,
+                                            &unlocks,
+                                            current_pop,
+                                        )
+                                    });
+                                    let is_locked = progress.is_some();
 
                                     let label_text = if let Some(cost) = item.cost {
                                         format!("{} ${:.0}", item.name, cost)
@@ -323,15 +327,21 @@ pub fn toolbar_ui(
                                     };
 
                                     if is_locked {
-                                        // Grayed-out locked item
+                                        // Locked item color: amber when
+                                        // close (>80%), gray otherwise
+                                        let nearly =
+                                            progress.as_ref().is_some_and(|p| p.nearly_unlocked);
+                                        let text_color = if nearly {
+                                            egui::Color32::from_rgb(255, 180, 60)
+                                        } else {
+                                            egui::Color32::from_rgb(100, 100, 100)
+                                        };
                                         let response = ui
                                             .add(
                                                 egui::Label::new(
                                                     egui::RichText::new(&label_text)
                                                         .size(11.0)
-                                                        .color(egui::Color32::from_rgb(
-                                                            100, 100, 100,
-                                                        )),
+                                                        .color(text_color),
                                                 )
                                                 .sense(egui::Sense::hover()),
                                             )
@@ -339,7 +349,7 @@ pub fn toolbar_ui(
                                                 show_tool_tooltip(
                                                     tip,
                                                     item,
-                                                    lock_hint.as_deref(),
+                                                    progress.as_ref(),
                                                 );
                                             });
 
