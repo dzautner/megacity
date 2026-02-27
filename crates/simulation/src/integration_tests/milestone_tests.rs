@@ -43,11 +43,11 @@ fn test_milestone_tier_names() {
     assert_eq!(MilestoneTier::LargeVillage.name(), "Large Village");
     assert_eq!(MilestoneTier::Town.name(), "Town");
     assert_eq!(MilestoneTier::LargeTown.name(), "Large Town");
-    assert_eq!(MilestoneTier::SmallCity.name(), "Small City");
+    assert_eq!(MilestoneTier::SmallCity.name(), "Township");
     assert_eq!(MilestoneTier::City.name(), "City");
-    assert_eq!(MilestoneTier::LargeCity.name(), "Large City");
+    assert_eq!(MilestoneTier::LargeCity.name(), "Grand City");
     assert_eq!(MilestoneTier::Metropolis.name(), "Metropolis");
-    assert_eq!(MilestoneTier::LargeMetropolis.name(), "Large Metropolis");
+    assert_eq!(MilestoneTier::LargeMetropolis.name(), "Conurbation");
     assert_eq!(MilestoneTier::Megalopolis.name(), "Megalopolis");
 }
 
