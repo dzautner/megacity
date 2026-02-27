@@ -46,6 +46,11 @@ pub enum BindableAction {
     ToggleSearch,
     ToggleHelp,
 
+    // Dashboards
+    ToggleEnergyDashboard,
+    ToggleWaterDashboard,
+    ToggleWasteDashboard,
+
     // Save/Load (ctrl-modified)
     QuickSave,
     QuickLoad,
@@ -88,6 +93,9 @@ impl BindableAction {
             Self::ToggleSettings => "Toggle Settings",
             Self::ToggleSearch => "Toggle Search",
             Self::ToggleHelp => "Toggle Help",
+            Self::ToggleEnergyDashboard => "Toggle Energy Dashboard",
+            Self::ToggleWaterDashboard => "Toggle Water Dashboard",
+            Self::ToggleWasteDashboard => "Toggle Waste Dashboard",
             Self::QuickSave => "Quick Save",
             Self::QuickLoad => "Quick Load",
             Self::NewGame => "New Game",
@@ -107,7 +115,9 @@ impl BindableAction {
             | Self::CameraZoomIn
             | Self::CameraZoomOut => "Camera",
 
-            Self::TogglePause | Self::SpeedNormal | Self::SpeedFast | Self::SpeedFastest => "Speed",
+            Self::TogglePause | Self::SpeedNormal | Self::SpeedFast | Self::SpeedFastest => {
+                "Speed"
+            }
 
             Self::ToolRoad
             | Self::ToolZoneRes
@@ -128,6 +138,10 @@ impl BindableAction {
             | Self::ToggleSettings
             | Self::ToggleSearch
             | Self::ToggleHelp => "Panels",
+
+            Self::ToggleEnergyDashboard
+            | Self::ToggleWaterDashboard
+            | Self::ToggleWasteDashboard => "Dashboards",
 
             Self::QuickSave | Self::QuickLoad | Self::NewGame | Self::Screenshot => "System",
         }
@@ -164,6 +178,9 @@ impl BindableAction {
         Self::ToggleSettings,
         Self::ToggleSearch,
         Self::ToggleHelp,
+        Self::ToggleEnergyDashboard,
+        Self::ToggleWaterDashboard,
+        Self::ToggleWasteDashboard,
         Self::QuickSave,
         Self::QuickLoad,
         Self::NewGame,

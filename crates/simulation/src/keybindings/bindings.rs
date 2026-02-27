@@ -159,6 +159,11 @@ pub struct KeyBindings {
     pub toggle_search: KeyBinding,
     pub toggle_help: KeyBinding,
 
+    // Dashboards
+    pub toggle_energy_dashboard: KeyBinding,
+    pub toggle_water_dashboard: KeyBinding,
+    pub toggle_waste_dashboard: KeyBinding,
+
     // System
     pub quick_save: KeyBinding,
     pub quick_load: KeyBinding,
@@ -203,6 +208,9 @@ impl Default for KeyBindings {
             toggle_settings: KeyBinding::simple(KeyCode::F10),
             toggle_search: KeyBinding::ctrl(KeyCode::KeyF),
             toggle_help: KeyBinding::simple(KeyCode::F1),
+            toggle_energy_dashboard: KeyBinding::simple(KeyCode::F3),
+            toggle_water_dashboard: KeyBinding::simple(KeyCode::F4),
+            toggle_waste_dashboard: KeyBinding::simple(KeyCode::F6),
             quick_save: KeyBinding::simple(KeyCode::F5),
             quick_load: KeyBinding::simple(KeyCode::F9),
             new_game: KeyBinding::ctrl(KeyCode::KeyN),
@@ -244,6 +252,9 @@ impl KeyBindings {
             BindableAction::ToggleSettings => self.toggle_settings,
             BindableAction::ToggleSearch => self.toggle_search,
             BindableAction::ToggleHelp => self.toggle_help,
+            BindableAction::ToggleEnergyDashboard => self.toggle_energy_dashboard,
+            BindableAction::ToggleWaterDashboard => self.toggle_water_dashboard,
+            BindableAction::ToggleWasteDashboard => self.toggle_waste_dashboard,
             BindableAction::QuickSave => self.quick_save,
             BindableAction::QuickLoad => self.quick_load,
             BindableAction::NewGame => self.new_game,
@@ -283,6 +294,9 @@ impl KeyBindings {
             BindableAction::ToggleSettings => self.toggle_settings = binding,
             BindableAction::ToggleSearch => self.toggle_search = binding,
             BindableAction::ToggleHelp => self.toggle_help = binding,
+            BindableAction::ToggleEnergyDashboard => self.toggle_energy_dashboard = binding,
+            BindableAction::ToggleWaterDashboard => self.toggle_water_dashboard = binding,
+            BindableAction::ToggleWasteDashboard => self.toggle_waste_dashboard = binding,
             BindableAction::QuickSave => self.quick_save = binding,
             BindableAction::QuickLoad => self.quick_load = binding,
             BindableAction::NewGame => self.new_game = binding,

@@ -34,6 +34,18 @@ impl Default for ToolCatalog {
 }
 
 // ---------------------------------------------------------------------------
+// Dashboard kinds (energy, water, waste)
+// ---------------------------------------------------------------------------
+
+/// Identifies which dashboard panel to toggle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DashboardKind {
+    Energy,
+    Water,
+    Waste,
+}
+
+// ---------------------------------------------------------------------------
 // Data-driven category / item definitions
 // ---------------------------------------------------------------------------
 
@@ -44,6 +56,7 @@ pub(super) struct ToolItem {
     pub name: &'static str,
     pub cost: Option<f64>,
     pub overlay: Option<OverlayMode>,
+    pub dashboard: Option<DashboardKind>,
 }
 
 pub(super) struct ToolCategory {
@@ -152,6 +165,15 @@ fn tool_description(item: &ToolItem) -> Option<&'static str> {
         ActiveTool::DistrictErase => "Remove district assignment from cells",
         ActiveTool::AutoGrid => "Auto-generate a grid of roads in a rectangular area",
     })
+}
+
+/// Returns a brief description for a dashboard kind.
+fn dashboard_description(kind: DashboardKind) -> &'static str {
+    match kind {
+        DashboardKind::Energy => "Open power grid overview dashboard (F3)",
+        DashboardKind::Water => "Open water supply dashboard (F4)",
+        DashboardKind::Waste => "Open waste management dashboard (F6)",
+    }
 }
 
 /// Returns the monthly maintenance cost for a utility type.
@@ -276,10 +298,8 @@ pub(super) fn show_tool_tooltip(
         let bar_bg = egui::Color32::from_rgb(50, 50, 50);
         let bar_height = 12.0;
         let bar_width = 230.0;
-        let (rect, _) = ui.allocate_exact_size(
-            egui::vec2(bar_width, bar_height),
-            egui::Sense::hover(),
-        );
+        let (rect, _) =
+            ui.allocate_exact_size(egui::vec2(bar_width, bar_height), egui::Sense::hover());
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
             // Background
@@ -287,10 +307,8 @@ pub(super) fn show_tool_tooltip(
             // Filled portion
             if prog.fraction > 0.0 {
                 let fill_width = rect.width() * prog.fraction;
-                let fill_rect = egui::Rect::from_min_size(
-                    rect.min,
-                    egui::vec2(fill_width, rect.height()),
-                );
+                let fill_rect =
+                    egui::Rect::from_min_size(rect.min, egui::vec2(fill_width, rect.height()));
                 painter.rect_filled(fill_rect, 3.0, bar_color);
             }
             // Percentage text centered on bar
@@ -313,8 +331,12 @@ pub(super) fn show_tool_tooltip(
         ui.add_space(4.0);
     }
 
-    // Description from tool or overlay
+    // Description from tool, overlay, or dashboard
     if let Some(desc) = tool_description(item) {
+        ui.label(egui::RichText::new(desc).weak());
+        ui.add_space(4.0);
+    } else if let Some(dk) = item.dashboard {
+        let desc = dashboard_description(dk);
         ui.label(egui::RichText::new(desc).weak());
         ui.add_space(4.0);
     } else if let Some(ov) = item.overlay {

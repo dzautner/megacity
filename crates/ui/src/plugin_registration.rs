@@ -62,6 +62,7 @@ pub(crate) fn register_ui_systems(app: &mut App) {
     app.add_plugins(help_overlay::HelpOverlayPlugin);
     app.add_plugins(save_slot_ui::SaveSlotUiPlugin);
     app.add_plugins(crash_recovery_ui::CrashRecoveryUiPlugin);
+    app.add_plugins(dashboard_toggles::DashboardTogglesPlugin);
     // UI resources
     app.init_resource::<day_night_panel::DayNightPanelVisible>();
     app.init_resource::<milestones::Milestones>();

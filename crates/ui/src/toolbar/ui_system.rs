@@ -17,8 +17,12 @@ use save::NewGameEvent;
 use crate::save_slot_ui::SaveSlotUiState;
 
 use super::catalog::unlock_filter;
-use super::catalog::{show_tool_tooltip, OpenCategory, ToolCatalog};
+use super::catalog::{show_tool_tooltip, DashboardKind, OpenCategory, ToolCatalog};
 use super::widgets::{format_pop, milestone_name, rci_demand_bars, speed_button};
+
+use crate::energy_dashboard::EnergyDashboardVisible;
+use crate::waste_dashboard::WasteDashboardVisible;
+use crate::water_dashboard::WaterDashboardVisible;
 
 /// Return the color for the treasury label based on the current bankruptcy level.
 fn treasury_color(level: BankruptcyLevel) -> egui::Color32 {
@@ -28,6 +32,34 @@ fn treasury_color(level: BankruptcyLevel) -> egui::Color32 {
         }
         BankruptcyLevel::Warning => egui::Color32::from_rgb(230, 200, 50),
         BankruptcyLevel::Normal => egui::Color32::from_rgb(200, 200, 200),
+    }
+}
+
+/// Toggle a dashboard's visibility resource by kind.
+fn toggle_dashboard(
+    kind: DashboardKind,
+    energy: &mut ResMut<EnergyDashboardVisible>,
+    water: &mut ResMut<WaterDashboardVisible>,
+    waste: &mut ResMut<WasteDashboardVisible>,
+) {
+    match kind {
+        DashboardKind::Energy => energy.0 = !energy.0,
+        DashboardKind::Water => water.0 = !water.0,
+        DashboardKind::Waste => waste.0 = !waste.0,
+    }
+}
+
+/// Check if a dashboard is currently visible.
+fn is_dashboard_visible(
+    kind: DashboardKind,
+    energy: &EnergyDashboardVisible,
+    water: &WaterDashboardVisible,
+    waste: &WasteDashboardVisible,
+) -> bool {
+    match kind {
+        DashboardKind::Energy => energy.0,
+        DashboardKind::Water => water.0,
+        DashboardKind::Waste => waste.0,
     }
 }
 
@@ -48,13 +80,18 @@ pub fn toolbar_ui(
     mut slot_ui: ResMut<SaveSlotUiState>,
     mut new_game_events: EventWriter<NewGameEvent>,
     mut open_cat: ResMut<OpenCategory>,
-    weather: Res<Weather>,
-    grid_snap: Res<GridSnap>,
+    weather_snap: (Res<Weather>, Res<GridSnap>),
     extended_budget: Res<ExtendedBudget>,
     catalog_unlocks_bankruptcy: (Res<ToolCatalog>, Res<UnlockState>, Res<BankruptcyState>),
+    mut dashboard_vis: (
+        ResMut<EnergyDashboardVisible>,
+        ResMut<WaterDashboardVisible>,
+        ResMut<WasteDashboardVisible>,
+    ),
 ) {
     let (mut overlay, dual_overlay) = overlay_params;
     let (catalog, unlocks, bankruptcy) = catalog_unlocks_bankruptcy;
+    let (weather, grid_snap) = weather_snap;
     let categories = &catalog.categories;
     let current_pop = stats.population;
 
@@ -324,11 +361,7 @@ pub fn toolbar_ui(
                                 for item in cat.items.iter() {
                                     // Check unlock state for this item
                                     let progress = item.tool.as_ref().and_then(|t| {
-                                        unlock_filter::unlock_progress(
-                                            t,
-                                            &unlocks,
-                                            current_pop,
-                                        )
+                                        unlock_filter::unlock_progress(t, &unlocks, current_pop)
                                     });
                                     let is_locked = progress.is_some();
 
@@ -342,7 +375,15 @@ pub fn toolbar_ui(
                                         Some(ref t) => *tool == *t,
                                         None => match item.overlay {
                                             Some(ov) => overlay.mode == ov,
-                                            None => false,
+                                            None => match item.dashboard {
+                                                Some(dk) => is_dashboard_visible(
+                                                    dk,
+                                                    &dashboard_vis.0,
+                                                    &dashboard_vis.1,
+                                                    &dashboard_vis.2,
+                                                ),
+                                                None => false,
+                                            },
                                         },
                                     };
 
@@ -366,11 +407,7 @@ pub fn toolbar_ui(
                                                 .sense(egui::Sense::hover()),
                                             )
                                             .on_hover_ui(|tip| {
-                                                show_tool_tooltip(
-                                                    tip,
-                                                    item,
-                                                    progress.as_ref(),
-                                                );
+                                                show_tool_tooltip(tip, item, progress.as_ref());
                                             });
 
                                         // Swallow clicks on locked items
@@ -396,6 +433,13 @@ pub fn toolbar_ui(
                                                 } else {
                                                     ov
                                                 };
+                                            } else if let Some(dk) = item.dashboard {
+                                                toggle_dashboard(
+                                                    dk,
+                                                    &mut dashboard_vis.0,
+                                                    &mut dashboard_vis.1,
+                                                    &mut dashboard_vis.2,
+                                                );
                                             }
                                         }
                                     }
