@@ -1,12 +1,13 @@
 use std::collections::VecDeque;
 
 use bevy::prelude::*;
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::grid::{CellType, WorldGrid};
 use crate::roads::RoadNetwork;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Encode, Decode)]
 pub enum UtilityType {
     PowerPlant,
     SolarFarm,
