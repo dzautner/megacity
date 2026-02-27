@@ -8,24 +8,89 @@ use simulation::loans::{LoanBook, LoanTier};
 
 use super::types::InfoPanelExtras;
 
-/// Render the budget overview with tax slider and budget-details button.
-pub fn draw_budget(ui: &mut egui::Ui, budget: &mut CityBudget, extras: &mut InfoPanelExtras) {
+/// Render the budget overview with per-zone tax sliders and budget-details button.
+///
+/// The zone tax sliders modify `ExtendedBudget.zone_taxes` directly, which is
+/// what `collect_taxes()` actually reads. When any slider changes we also update
+/// `CityBudget.tax_rate` to the average of all zone rates so that happiness,
+/// immigration, and advisor systems (which read the single rate) stay correct.
+pub fn draw_budget(
+    ui: &mut egui::Ui,
+    budget: &mut CityBudget,
+    ext_budget: &mut simulation::budget::ExtendedBudget,
+    extras: &mut InfoPanelExtras,
+) {
     ui.separator();
     ui.heading("Budget");
     ui.label(format!("Treasury: ${:.0}", budget.treasury));
     ui.label(format!("Income: ${:.0}/month", budget.monthly_income));
     ui.label(format!("Expenses: ${:.0}/month", budget.monthly_expenses));
 
-    ui.horizontal(|ui| {
-        ui.label("Tax rate:");
-        let mut tax_pct = budget.tax_rate * 100.0;
-        if ui
-            .add(egui::Slider::new(&mut tax_pct, 0.0..=25.0).suffix("%"))
-            .changed()
-        {
-            budget.tax_rate = tax_pct / 100.0;
-        }
+    let mut changed = false;
+
+    ui.collapsing("Tax Rates", |ui| {
+        let zt = &mut ext_budget.zone_taxes;
+
+        let mut res_pct = zt.residential * 100.0;
+        ui.horizontal(|ui| {
+            ui.label("Residential:");
+            if ui
+                .add(egui::Slider::new(&mut res_pct, 0.0..=25.0).suffix("%"))
+                .changed()
+            {
+                zt.residential = res_pct / 100.0;
+                changed = true;
+            }
+        });
+
+        let mut com_pct = zt.commercial * 100.0;
+        ui.horizontal(|ui| {
+            ui.label("Commercial:");
+            if ui
+                .add(egui::Slider::new(&mut com_pct, 0.0..=25.0).suffix("%"))
+                .changed()
+            {
+                zt.commercial = com_pct / 100.0;
+                changed = true;
+            }
+        });
+
+        let mut ind_pct = zt.industrial * 100.0;
+        ui.horizontal(|ui| {
+            ui.label("Industrial:");
+            if ui
+                .add(egui::Slider::new(&mut ind_pct, 0.0..=25.0).suffix("%"))
+                .changed()
+            {
+                zt.industrial = ind_pct / 100.0;
+                changed = true;
+            }
+        });
+
+        let mut off_pct = zt.office * 100.0;
+        ui.horizontal(|ui| {
+            ui.label("Office:");
+            if ui
+                .add(egui::Slider::new(&mut off_pct, 0.0..=25.0).suffix("%"))
+                .changed()
+            {
+                zt.office = off_pct / 100.0;
+                changed = true;
+            }
+        });
+
+        // Show effective average rate for reference
+        let avg = (zt.residential + zt.commercial + zt.industrial + zt.office) / 4.0;
+        ui.label(format!("Avg rate: {:.1}%", avg * 100.0));
     });
+
+    // Sync the summary tax_rate field so happiness/immigration/advisors stay
+    // consistent with what the player chose in the per-zone sliders.
+    if changed {
+        let zt = &ext_budget.zone_taxes;
+        budget.tax_rate =
+            (zt.residential + zt.commercial + zt.industrial + zt.office) / 4.0;
+    }
 
     if ui.button("Budget Details...").clicked() {
         extras.budget_visible.0 = !extras.budget_visible.0;
