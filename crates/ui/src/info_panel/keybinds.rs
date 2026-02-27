@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
 use super::{AdvisorVisible, ChartsVisible, JournalVisible, PoliciesVisible};
+use crate::confirm_dialog::{ConfirmAction, PendingConfirmAction};
 
 /// Toggles UI panel visibility when keybinds are pressed.
 /// J = Event Journal, C = Charts, F2 = Advisors, P = Policies.
@@ -39,17 +40,18 @@ pub fn panel_keybinds(
 /// Keyboard shortcuts for quick save (F5) and quick load (F9) to `quicksave.bin`,
 /// plus new game (Ctrl+N).
 /// Skipped when egui wants keyboard input (e.g. a text field is focused).
+///
+/// Destructive actions (new game, quick load) go through the confirmation
+/// dialog when triggered during active gameplay (issue #1820).
 #[allow(clippy::too_many_arguments, unused_mut, unused_variables)]
 pub fn quick_save_load_keybinds(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut contexts: EguiContexts,
     mut save_events: EventWriter<save::SaveGameEvent>,
-    mut load_events: EventWriter<save::LoadGameEvent>,
-    mut new_game_events: EventWriter<save::NewGameEvent>,
+    mut pending_confirm: ResMut<PendingConfirmAction>,
     mut notifications: EventWriter<simulation::notifications::NotificationEvent>,
     mut path_override: ResMut<save::PendingSavePath>,
     bindings: Res<simulation::keybindings::KeyBindings>,
-    mut pre_load: ResMut<simulation::PreLoadAppState>,
 ) {
     if contexts.ctx_mut().wants_keyboard_input() {
         return;
@@ -81,16 +83,10 @@ pub fn quick_save_load_keybinds(
             }
             path_override.0 = Some(qs_path);
         }
-        pre_load.0 = Some(simulation::app_state::AppState::Playing);
-        load_events.send(save::LoadGameEvent);
-        notifications.send(simulation::notifications::NotificationEvent {
-            text: "Quick loaded".to_string(),
-            priority: simulation::notifications::NotificationPriority::Info,
-            location: None,
-        });
+        pending_confirm.0 = Some(ConfirmAction::QuickLoad);
     }
     if bindings.new_game.just_pressed(&keyboard) {
-        new_game_events.send(save::NewGameEvent);
+        pending_confirm.0 = Some(ConfirmAction::NewGame);
     }
 }
 // quicksave: F5/F9 (issue #720)
