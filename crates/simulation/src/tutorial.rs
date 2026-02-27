@@ -114,7 +114,7 @@ impl TutorialStep {
             }
             TutorialStep::ManageBudget => {
                 "As your city grows, you will earn tax revenue and incur \
-                 expenses. Press 'B' or check the info panel to review your \
+                 expenses. Check the info panel to review your \
                  budget. You can adjust the tax rate to balance income and \
                  spending. Your treasury is shown in the top bar."
             }
@@ -150,7 +150,7 @@ impl TutorialStep {
             TutorialStep::ObserveGrowth => {
                 "Hint: Press Space to unpause. Wait for buildings and population to reach 5."
             }
-            TutorialStep::ManageBudget => "Hint: Press 'B' to open the budget panel.",
+            TutorialStep::ManageBudget => "Hint: Click 'Budget Details...' in the info panel to see the full budget.",
             TutorialStep::Completed => "You can now close this window.",
         }
     }
