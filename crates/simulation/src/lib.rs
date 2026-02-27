@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use std::collections::BTreeMap;
 
 pub use app_state::AppState;
+pub use pre_load_app_state::PreLoadAppState;
 pub use save_load_state::SaveLoadState;
 pub use simulation_sets::{SimulationSet, SimulationUpdateSet};
 

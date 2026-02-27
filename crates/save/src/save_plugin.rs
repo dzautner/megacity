@@ -1,5 +1,7 @@
 use bevy::prelude::*;
+use simulation::app_state::AppState;
 use simulation::notifications::{NotificationEvent, NotificationPriority};
+use simulation::PreLoadAppState;
 use simulation::SaveLoadState;
 use simulation::SaveableRegistry;
 
@@ -63,7 +65,8 @@ impl Plugin for SavePlugin {
             .add_event::<NewGameEvent>()
             .init_resource::<SaveableRegistry>()
             .init_resource::<PendingLoadBytes>()
-            .init_resource::<PendingSavePath>();
+            .init_resource::<PendingSavePath>()
+            .init_resource::<PreLoadAppState>();
 
         // On WASM, register IndexedDB async load infrastructure.
         #[cfg(target_arch = "wasm32")]
@@ -146,7 +149,7 @@ fn detect_new_game_event(
 
 /// Native: detects `LoadGameEvent`, reads save file, stores bytes, and
 /// transitions to `Loading` state.  File I/O errors are surfaced as
-/// notifications instead of being silently swallowed.
+/// notifications and trigger a rollback to the pre-load `AppState`.
 #[cfg(not(target_arch = "wasm32"))]
 fn detect_load_event(
     mut events: EventReader<LoadGameEvent>,
@@ -154,6 +157,8 @@ fn detect_load_event(
     mut pending: ResMut<PendingLoadBytes>,
     mut notifications: EventWriter<NotificationEvent>,
     mut path_override: ResMut<PendingSavePath>,
+    mut pre_load: ResMut<PreLoadAppState>,
+    mut next_app_state: ResMut<NextState<AppState>>,
 ) {
     if events.read().next().is_some() {
         events.read().for_each(drop);
@@ -165,13 +170,17 @@ fn detect_load_event(
             }
             Err(e) => {
                 let save_err = crate::save_error::SaveError::from(e);
-                let msg = format!("Load failed: {save_err}");
+                let msg = format!("Failed to load save file: {save_err}");
                 error!("{msg}");
                 notifications.send(NotificationEvent {
                     text: msg,
                     priority: NotificationPriority::Warning,
                     location: None,
                 });
+                // Roll back AppState so the player isn't stranded.
+                if let Some(prev) = pre_load.0.take() {
+                    next_app_state.set(prev);
+                }
             }
         }
     }
@@ -192,12 +201,16 @@ fn start_wasm_load(mut events: EventReader<LoadGameEvent>, buffer: Res<WasmLoadB
 }
 
 /// WASM phase 2: polls the shared buffer; when bytes arrive, stores them in
-/// `PendingLoadBytes` and transitions to `Loading` state.
+/// `PendingLoadBytes` and transitions to `Loading` state.  On read failure,
+/// rolls back to the pre-load `AppState`.
 #[cfg(target_arch = "wasm32")]
 fn poll_wasm_load(
     buffer: Res<WasmLoadBuffer>,
     mut pending: ResMut<PendingLoadBytes>,
     mut next_state: ResMut<NextState<SaveLoadState>>,
+    mut pre_load: ResMut<PreLoadAppState>,
+    mut next_app_state: ResMut<NextState<AppState>>,
+    mut notifications: EventWriter<NotificationEvent>,
 ) {
     let Ok(mut slot) = buffer.0.lock() else {
         return;
@@ -209,7 +222,17 @@ fn poll_wasm_load(
                 next_state.set(SaveLoadState::Loading);
             }
             Err(e) => {
-                web_sys::console::error_1(&format!("Failed to load from IndexedDB: {}", e).into());
+                let msg = format!("Failed to load from IndexedDB: {e}");
+                web_sys::console::error_1(&msg.clone().into());
+                notifications.send(NotificationEvent {
+                    text: msg,
+                    priority: NotificationPriority::Warning,
+                    location: None,
+                });
+                // Roll back AppState so the player isn't stranded.
+                if let Some(prev) = pre_load.0.take() {
+                    next_app_state.set(prev);
+                }
             }
         }
     }

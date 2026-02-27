@@ -13,6 +13,7 @@ use save::{LoadGameEvent, NewGameEvent, PendingSavePath};
 use simulation::app_state::AppState;
 use simulation::new_game_config::{random_seed, NewGameConfig};
 use simulation::save_slots::SaveSlotManager;
+use simulation::PreLoadAppState;
 
 use crate::main_menu_load::{discover_save_files, SaveFileEntry};
 use crate::settings_menu::SettingsMenuOpen;
@@ -85,6 +86,7 @@ fn main_menu_ui(
     mut new_game_config: ResMut<NewGameConfig>,
     slot_manager: Res<SaveSlotManager>,
     mut delete_events: EventWriter<simulation::save_slots::DeleteSlotEvent>,
+    mut pre_load: ResMut<PreLoadAppState>,
 ) {
     let ctx = contexts.ctx_mut();
 
@@ -106,6 +108,7 @@ fn main_menu_ui(
                 &mut pending_path,
                 &slot_manager,
                 &mut delete_events,
+                &mut pre_load,
             );
             if back_clicked {
                 state.screen = MenuScreen::Main;
@@ -130,6 +133,7 @@ fn main_menu_ui(
                 &mut app_exit,
                 &mut settings_menu,
                 &slot_manager,
+                &mut pre_load,
             );
         }
     }
@@ -151,6 +155,7 @@ fn render_main_buttons(
     app_exit: &mut EventWriter<bevy::app::AppExit>,
     settings_menu: &mut ResMut<SettingsMenuOpen>,
     slot_manager: &Res<SaveSlotManager>,
+    pre_load: &mut ResMut<PreLoadAppState>,
 ) {
     let has_saves = !state.save_files.is_empty() || slot_manager.slot_count() > 0;
 
@@ -197,10 +202,12 @@ fn render_main_buttons(
                     let slot_saves = slot_manager.slots_by_recency();
                     if let Some(slot) = slot_saves.first() {
                         pending_path.0 = Some(slot.file_path());
+                        pre_load.0 = Some(AppState::MainMenu);
                         load_game_events.send(LoadGameEvent);
                         next_app_state.set(AppState::Playing);
                     } else if let Some(entry) = state.save_files.first() {
                         pending_path.0 = Some(entry.path.clone());
+                        pre_load.0 = Some(AppState::MainMenu);
                         load_game_events.send(LoadGameEvent);
                         next_app_state.set(AppState::Playing);
                     }

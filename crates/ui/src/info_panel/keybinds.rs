@@ -49,6 +49,7 @@ pub fn quick_save_load_keybinds(
     mut notifications: EventWriter<simulation::notifications::NotificationEvent>,
     mut path_override: ResMut<save::PendingSavePath>,
     bindings: Res<simulation::keybindings::KeyBindings>,
+    mut pre_load: ResMut<simulation::PreLoadAppState>,
 ) {
     if contexts.ctx_mut().wants_keyboard_input() {
         return;
@@ -80,6 +81,7 @@ pub fn quick_save_load_keybinds(
             }
             path_override.0 = Some(qs_path);
         }
+        pre_load.0 = Some(simulation::app_state::AppState::Playing);
         load_events.send(save::LoadGameEvent);
         notifications.send(simulation::notifications::NotificationEvent {
             text: "Quick loaded".to_string(),
