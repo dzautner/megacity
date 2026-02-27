@@ -204,6 +204,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(multi_select::MultiSelectPlugin);
     app.add_plugins(blueprints::BlueprintPlugin);
     app.add_plugins(simulation_invariants::SimulationInvariantsPlugin);
+    app.add_plugins(invariant_checks::InvariantChecksPlugin);
 
     // Mode choice (TRAF-007)
     app.add_plugins(mode_choice::ModeChoicePlugin);
