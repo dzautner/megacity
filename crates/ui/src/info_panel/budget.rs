@@ -35,6 +35,7 @@ pub struct PrevExpenses {
     pub service_costs: f64,
     pub policy_costs: f64,
     pub loan_payments: f64,
+    pub fuel_costs: f64,
 }
 
 /// System that snapshots budget values every 30 days for trend comparison.
@@ -64,6 +65,7 @@ pub fn snapshot_budget_trends(
         service_costs: exp.service_costs,
         policy_costs: exp.policy_costs,
         loan_payments: exp.loan_payments,
+        fuel_costs: exp.fuel_costs,
     };
     trends.prev_total_income = inc.residential_tax
         + inc.commercial_tax
@@ -71,7 +73,7 @@ pub fn snapshot_budget_trends(
         + inc.office_tax
         + inc.trade_income;
     trends.prev_total_expenses =
-        exp.road_maintenance + exp.service_costs + exp.policy_costs + exp.loan_payments;
+        exp.road_maintenance + exp.service_costs + exp.policy_costs + exp.loan_payments + exp.fuel_costs;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,11 +96,12 @@ const INCOME_COLORS: [egui::Color32; 5] = [
 ];
 
 /// Per-category expense colors (shades of red/orange).
-const EXPENSE_COLORS: [egui::Color32; 4] = [
+const EXPENSE_COLORS: [egui::Color32; 5] = [
     egui::Color32::from_rgb(239, 83, 80),  // Road maintenance - red
     egui::Color32::from_rgb(255, 152, 0),  // Service costs - orange
     egui::Color32::from_rgb(255, 112, 67), // Policy costs - deep orange
     egui::Color32::from_rgb(244, 67, 54),  // Loan payments - bright red
+    egui::Color32::from_rgb(255, 183, 77), // Fuel costs - amber
 ];
 
 // ---------------------------------------------------------------------------
@@ -129,7 +132,8 @@ pub fn budget_panel_ui(
     let total_expenses = expenses.road_maintenance
         + expenses.service_costs
         + expenses.policy_costs
-        + expenses.loan_payments;
+        + expenses.loan_payments
+        + expenses.fuel_costs;
     let net = total_income - total_expenses;
 
     let mut open = true;
@@ -219,7 +223,7 @@ pub fn budget_panel_ui(
             ui.heading("Expenses");
             ui.add_space(2.0);
 
-            let expense_items: [(&str, f64, f64, egui::Color32); 4] = [
+            let expense_items: [(&str, f64, f64, egui::Color32); 5] = [
                 (
                     "Road Maintenance",
                     expenses.road_maintenance,
@@ -243,6 +247,12 @@ pub fn budget_panel_ui(
                     expenses.loan_payments,
                     trends.prev_expenses.loan_payments,
                     EXPENSE_COLORS[3],
+                ),
+                (
+                    "Power Fuel",
+                    expenses.fuel_costs,
+                    trends.prev_expenses.fuel_costs,
+                    EXPENSE_COLORS[0],
                 ),
             ];
 

@@ -451,7 +451,8 @@ fn test_formula_expense_breakdown_sums_to_monthly_expenses() {
 
     let breakdown_sum = ext.expense_breakdown.road_maintenance
         + ext.expense_breakdown.service_costs
-        + ext.expense_breakdown.policy_costs;
+        + ext.expense_breakdown.policy_costs
+        + ext.expense_breakdown.fuel_costs;
 
     assert!(
         (budget.monthly_expenses - breakdown_sum).abs() < 0.01,
@@ -800,7 +801,7 @@ fn test_formula_loan_debt_to_income_no_debt_no_income() {
 #[test]
 fn test_formula_default_budget_initial_values() {
     let budget = CityBudget::default();
-    assert_eq!(budget.treasury, 10_000.0);
+    assert_eq!(budget.treasury, 50_000.0);
     assert_eq!(budget.tax_rate, 0.1);
     assert_eq!(budget.monthly_income, 0.0);
     assert_eq!(budget.monthly_expenses, 0.0);

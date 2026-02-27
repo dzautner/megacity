@@ -18,8 +18,8 @@ fn test_game_params_defaults_match_original_constants() {
     let params = city.resource::<crate::game_params::GameParams>();
 
     assert!(
-        (params.economy.starting_treasury - 10_000.0).abs() < f64::EPSILON,
-        "starting_treasury should be 10000"
+        (params.economy.starting_treasury - 50_000.0).abs() < f64::EPSILON,
+        "starting_treasury should be 50000"
     );
     assert!(
         (params.economy.default_tax_rate - 0.10).abs() < f32::EPSILON,

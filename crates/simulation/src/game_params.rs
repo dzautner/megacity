@@ -108,7 +108,7 @@ pub struct EconomyParams {
 impl Default for EconomyParams {
     fn default() -> Self {
         Self {
-            starting_treasury: 10_000.0,
+            starting_treasury: 50_000.0,
             default_tax_rate: 0.10,
             tax_collection_interval_days: 30,
         }
@@ -315,7 +315,7 @@ mod tests {
         let params = GameParams::default();
 
         // Economy
-        assert_eq!(params.economy.starting_treasury, 10_000.0);
+        assert_eq!(params.economy.starting_treasury, 50_000.0);
         assert!((params.economy.default_tax_rate - 0.10).abs() < f32::EPSILON);
         assert_eq!(params.economy.tax_collection_interval_days, 30);
 
@@ -368,14 +368,14 @@ mod tests {
     #[test]
     fn test_saveable_roundtrip() {
         let mut params = GameParams::default();
-        params.economy.starting_treasury = 50_000.0;
+        params.economy.starting_treasury = 75_000.0;
         params.citizen.speed = 100.0;
         params.road.highway.speed = 200.0;
 
         let bytes = params.save_to_bytes().expect("should produce bytes");
         let restored = GameParams::load_from_bytes(&bytes);
 
-        assert!((restored.economy.starting_treasury - 50_000.0).abs() < f64::EPSILON);
+        assert!((restored.economy.starting_treasury - 75_000.0).abs() < f64::EPSILON);
         assert!((restored.citizen.speed - 100.0).abs() < f32::EPSILON);
         assert!((restored.road.highway.speed - 200.0).abs() < f32::EPSILON);
     }

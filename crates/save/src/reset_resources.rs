@@ -10,6 +10,7 @@ use simulation::drought::DroughtState;
 use simulation::economy::CityBudget;
 use simulation::flood_simulation::{FloodGrid, FloodState};
 use simulation::fog::FogState;
+use simulation::game_params::GameParams;
 use simulation::grid::WorldGrid;
 use simulation::groundwater_depletion::GroundwaterDepletionState;
 use simulation::hazardous_waste::HazardousWasteState;
@@ -59,10 +60,11 @@ pub(crate) fn reset_all_resources(world: &mut World) {
         clock.paused = false;
     }
 
-    // Reset budget
+    // Reset budget (starting treasury from GameParams default)
     {
+        let starting_treasury = GameParams::default().economy.starting_treasury;
         let mut budget = world.resource_mut::<CityBudget>();
-        budget.treasury = 50_000.0;
+        budget.treasury = starting_treasury;
         budget.tax_rate = 0.10;
         budget.last_collection_day = 0;
     }

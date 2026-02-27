@@ -20,7 +20,7 @@ fn test_undo_grid_road_restores_cell_and_treasury() {
         let grid = city.grid();
         assert_eq!(grid.get(5, 5).cell_type, CellType::Road);
         let budget = city.budget();
-        10_000.0 - budget.treasury
+        50_000.0 - budget.treasury
     };
 
     // Push an undo action for the road
@@ -62,7 +62,7 @@ fn test_undo_grid_road_restores_cell_and_treasury() {
 
     let budget = city.budget();
     assert!(
-        (budget.treasury - 10_000.0).abs() < 1.0,
+        (budget.treasury - 50_000.0).abs() < 1.0,
         "Treasury should be restored after undo"
     );
 }
