@@ -4,7 +4,7 @@ use bevy_egui::EguiContexts;
 use super::{AdvisorVisible, ChartsVisible, JournalVisible, PoliciesVisible};
 
 /// Toggles UI panel visibility when keybinds are pressed.
-/// J = Event Journal, C = Charts, A = Advisors, P = Policies.
+/// J = Event Journal, C = Charts, F2 = Advisors, P = Policies.
 /// Keys are ignored when egui has keyboard focus (e.g. text input).
 #[allow(clippy::too_many_arguments)]
 pub fn panel_keybinds(

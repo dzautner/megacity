@@ -197,7 +197,7 @@ impl Default for KeyBindings {
             overlay_cycle_next: KeyBinding::simple(KeyCode::Tab),
             toggle_journal: KeyBinding::simple(KeyCode::KeyJ),
             toggle_charts: KeyBinding::simple(KeyCode::KeyC),
-            toggle_advisor: KeyBinding::simple(KeyCode::KeyA),
+            toggle_advisor: KeyBinding::simple(KeyCode::F2),
             toggle_policies: KeyBinding::simple(KeyCode::KeyP),
             toggle_settings: KeyBinding::simple(KeyCode::F10),
             toggle_search: KeyBinding::ctrl(KeyCode::KeyF),
