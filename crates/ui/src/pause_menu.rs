@@ -2,14 +2,17 @@
 //!
 //! Pressing ESC toggles between `AppState::Playing` and `AppState::Paused`.
 //! While paused, a semi-transparent overlay with action buttons is shown.
+//!
+//! "Save Game" and "Load Game" buttons now open the save-slot picker dialogs
+//! from `save_slot_ui` instead of directly triggering save/load events.
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
-use save::{LoadGameEvent, SaveGameEvent};
 use simulation::app_state::AppState;
 use simulation::time_of_day::GameClock;
 
+use crate::save_slot_ui::SaveSlotUiState;
 use crate::settings_menu::SettingsMenuOpen;
 
 // =============================================================================
@@ -89,14 +92,18 @@ fn pause_menu_ui(
     mut contexts: EguiContexts,
     mut next_state: ResMut<NextState<AppState>>,
     mut game_clock: ResMut<GameClock>,
-    mut save_events: EventWriter<SaveGameEvent>,
-    mut load_events: EventWriter<LoadGameEvent>,
     mut confirm: ResMut<MainMenuConfirm>,
     mut settings_menu: ResMut<SettingsMenuOpen>,
+    mut slot_ui: ResMut<SaveSlotUiState>,
     #[cfg(not(target_arch = "wasm32"))] mut exit: EventWriter<AppExit>,
 ) {
     // Don't render pause menu buttons when settings menu is open.
     if settings_menu.open {
+        return;
+    }
+
+    // Don't render pause menu buttons when a save/load dialog is open.
+    if slot_ui.save_dialog_open || slot_ui.load_dialog_open {
         return;
     }
 
@@ -145,20 +152,24 @@ fn pause_menu_ui(
                     next_state.set(AppState::Playing);
                 }
 
-                // Save Game
+                // Save Game — opens save slot picker
                 if ui
                     .add_sized(button_size, egui::Button::new("Save Game"))
                     .clicked()
                 {
-                    save_events.send(SaveGameEvent);
+                    slot_ui.save_dialog_open = true;
+                    slot_ui.save_name_input = String::new();
+                    slot_ui.confirm_overwrite = None;
+                    slot_ui.confirm_delete = None;
                 }
 
-                // Load Game
+                // Load Game — opens load slot picker
                 if ui
                     .add_sized(button_size, egui::Button::new("Load Game"))
                     .clicked()
                 {
-                    load_events.send(LoadGameEvent);
+                    slot_ui.load_dialog_open = true;
+                    slot_ui.confirm_delete = None;
                 }
 
                 // Settings
