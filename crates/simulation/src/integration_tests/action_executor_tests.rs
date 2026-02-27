@@ -4,7 +4,6 @@
 //! verifies the expected world mutations via the [`ActionResultLog`].
 
 use crate::budget::ExtendedBudget;
-use crate::economy::CityBudget;
 use crate::game_actions::queue::ActionSource;
 use crate::game_actions::result_log::ActionResultLog;
 use crate::game_actions::{ActionError, ActionQueue, ActionResult, GameAction};
