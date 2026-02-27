@@ -68,7 +68,7 @@ pub struct TutorialHintsPlugin;
 impl Plugin for TutorialHintsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TutorialUiHint>()
-            .add_systems(Update, update_tutorial_hints);
+            .add_systems(Update, update_tutorial_hints.in_set(crate::SimulationUpdateSet::Visual));
     }
 }
 

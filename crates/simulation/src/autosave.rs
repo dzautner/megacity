@@ -242,7 +242,7 @@ impl Plugin for AutosavePlugin {
                 FixedUpdate,
                 autosave_tick_system.in_set(crate::SimulationSet::PostSim),
             )
-            .add_systems(Update, autosave_notification_system);
+            .add_systems(Update, autosave_notification_system.in_set(crate::SimulationUpdateSet::Visual));
 
         // Register for save/load via the SaveableRegistry
         app.init_resource::<crate::SaveableRegistry>();

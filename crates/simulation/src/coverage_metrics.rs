@@ -39,7 +39,7 @@ pub struct CoverageMetricsPlugin;
 impl Plugin for CoverageMetricsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CoverageMetrics>();
-        app.add_systems(Update, update_coverage_metrics);
+        app.add_systems(Update, update_coverage_metrics.in_set(crate::SimulationUpdateSet::Visual));
     }
 }
 
