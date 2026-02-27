@@ -17,6 +17,8 @@ This document is for any AI agent (Claude, Codex, Gemini, Copilot, Devin, etc.) 
 4. **ONE plugin per line** in `plugin_registration.rs`. No tuples, no grouping.
 5. **500 line hard limit** per file. Target 200-400 lines.
 6. **Always run `cargo fmt --all`** before committing.
+7. **ALWAYS use a git worktree.** Never work directly in the main repo checkout. See "Set Up a Worktree" below — follow the steps EXACTLY.
+8. **NEVER run `git checkout` or `git switch` in the main repo.** This breaks other worktrees. Only use these inside your own worktree.
 
 ## How to Pick Up Work
 
@@ -59,20 +61,54 @@ gh issue comment <NUMBER> --repo dzautner/megacity --body "Working on this."
 
 ## Workflow: From Issue to Merged PR
 
-### 1. Set Up a Worktree
+### 1. Set Up a Worktree (MANDATORY — READ CAREFULLY)
 
-Each agent MUST use a dedicated git worktree to avoid conflicts with other agents working in parallel.
+**You MUST use a git worktree.** Do NOT work directly in the main repo checkout. Do NOT clone the repo again. Do NOT create a branch in the main checkout. Worktrees give each agent an isolated working directory so multiple agents can work simultaneously without stepping on each other.
+
+**Step by step — follow EXACTLY:**
 
 ```bash
+# Step 1: cd into the MAIN repo checkout (not a worktree, not a clone)
 cd /path/to/megacity
+
+# Step 2: Fetch latest main
 git fetch origin main
-git worktree add /tmp/worktree-<short-name> -b claude/issue-<NUMBER>-<short-desc> origin/main
+
+# Step 3: Create the worktree. This creates a NEW directory with a NEW branch.
+# The -b flag creates the branch. origin/main is the starting point.
+git worktree add /tmp/worktree-<short-name> -b <agent>/issue-<NUMBER>-<short-desc> origin/main
+
+# Step 4: cd into the worktree. ALL your work happens here.
 cd /tmp/worktree-<short-name>
+
+# Step 5: Verify you're in the right place
+git branch    # Should show your new branch as active
+pwd           # Should show /tmp/worktree-<short-name>
+ls crates/    # Should show: app, rendering, save, simulation, ui
 ```
 
-Naming conventions:
-- Branch: `claude/issue-<NUMBER>-<short-desc>` (or `codex/issue-...`, `gemini/issue-...`)
-- Worktree: `/tmp/worktree-<short-name>`
+**Naming conventions:**
+- Branch: `<agent>/issue-<NUMBER>-<short-desc>` (e.g., `gemini/issue-1843-grid-road-mode`, `codex/issue-1850-zone-depth`)
+- Worktree directory: `/tmp/worktree-<short-name>` (e.g., `/tmp/worktree-grid-road`, `/tmp/worktree-zone-depth`)
+
+**Common mistakes that WILL break things:**
+- Working in the main repo directory instead of the worktree → conflicts with other agents
+- Running `git checkout` or `git switch` in the main repo → detaches other worktrees
+- Creating a worktree from another worktree → broken refs
+- Forgetting `origin/main` at the end → branch starts from wrong commit
+- Not cd-ing into the worktree before editing files → edits go to main repo
+
+**After your PR is merged, clean up:**
+```bash
+cd /path/to/megacity    # Go back to main repo
+git worktree remove /tmp/worktree-<short-name>
+```
+
+**If the worktree already exists** (from a previous failed run):
+```bash
+git worktree remove /tmp/worktree-<short-name> --force
+# Then create it fresh
+```
 
 ### 2. Understand the Architecture
 
