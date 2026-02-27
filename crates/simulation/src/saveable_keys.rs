@@ -66,6 +66,7 @@ pub const EXPECTED_SAVEABLE_KEYS: &[&str] = &[
     "hotel_demand",
     "housing_affordability",
     "inclusionary_zoning",
+    "input_recorder",
     "keybindings",
     "land_value",
     "lifecycle_timer",

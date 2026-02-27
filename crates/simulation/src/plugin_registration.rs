@@ -360,4 +360,7 @@ pub(crate) fn register_feature_plugins(app: &mut App) {
     app.add_plugins(new_game_config::NewGameConfigPlugin);
     // Bankruptcy and game over warning (PLAY-021)
     app.add_plugins(bankruptcy_warning::BankruptcyWarningPlugin);
+
+    // Input action recorder for deterministic replay (STAB-03)
+    app.add_plugins(input_recorder::InputRecorderPlugin);
 }
