@@ -10,6 +10,7 @@ use simulation::road_segments::RoadSegmentStore;
 use simulation::roads::RoadNetwork;
 use simulation::services::ServiceBuilding;
 use simulation::undo_redo::CityAction;
+use simulation::unlocks::UnlockState;
 use simulation::urban_growth_boundary::UrbanGrowthBoundary;
 use simulation::utilities::{UtilitySource, UtilityType};
 
@@ -26,6 +27,7 @@ use super::types::{
     ActiveTool, CursorGridPos, DrawPhase, IntersectionSnap, RoadDrawState, SelectedBuilding,
     StatusMessage,
 };
+use super::unlock_guard::is_tool_locked;
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
@@ -35,6 +37,7 @@ pub fn handle_tool_input(
         Res<ButtonInput<KeyCode>>,
         Res<AngleSnapState>,
         Res<CurveDrawMode>,
+        Res<UnlockState>,
     ),
     cursor: Res<CursorGridPos>,
     tool: Res<ActiveTool>,
@@ -59,7 +62,7 @@ pub fn handle_tool_input(
     ),
     mut district_map: ResMut<simulation::districts::DistrictMap>,
 ) {
-    let (buttons, keys, angle_snap, curve_mode) = input;
+    let (buttons, keys, angle_snap, curve_mode, unlocks) = input;
     let (left_drag, ugb, snap, brush_size, freehand, mut action_writer) = misc;
 
     if left_drag.is_dragging {
@@ -71,6 +74,14 @@ pub fn handle_tool_input(
     }
 
     if !buttons.pressed(MouseButton::Left) || !cursor.valid {
+        return;
+    }
+
+    // --- Unlock safety check: reject locked tools ---
+    if is_tool_locked(&tool, &unlocks) {
+        if buttons.just_pressed(MouseButton::Left) {
+            status.set("Building not yet unlocked", true);
+        }
         return;
     }
 

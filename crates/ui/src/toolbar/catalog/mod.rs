@@ -10,6 +10,7 @@ use rendering::overlay::OverlayMode;
 
 mod infrastructure;
 mod services;
+pub(super) mod unlock_filter;
 
 // ---------------------------------------------------------------------------
 // Resource: which category popup is open
@@ -236,9 +237,24 @@ fn overlay_description(mode: OverlayMode) -> &'static str {
     }
 }
 
-/// Builds rich tooltip UI content for a tool item.
-pub(super) fn show_tool_tooltip(ui: &mut egui::Ui, item: &ToolItem) {
+/// Builds rich tooltip UI content for a tool item, optionally showing an
+/// unlock hint when the item is locked.
+pub(super) fn show_tool_tooltip(
+    ui: &mut egui::Ui,
+    item: &ToolItem,
+    lock_hint: Option<&str>,
+) {
     ui.set_max_width(250.0);
+
+    // Show lock message prominently if present
+    if let Some(hint) = lock_hint {
+        ui.label(
+            egui::RichText::new(hint)
+                .color(egui::Color32::from_rgb(255, 180, 60))
+                .strong(),
+        );
+        ui.add_space(4.0);
+    }
 
     // Description from tool or overlay
     if let Some(desc) = tool_description(item) {
