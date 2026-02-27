@@ -29,8 +29,7 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
             cursor_preview::spawn_cursor_preview,
             building_meshes::load_building_models,
         )
-            .chain()
-            .after(simulation::world_init::init_world),
+            .chain(),
     );
 
     // Camera controls pipeline:

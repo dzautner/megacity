@@ -13,15 +13,8 @@ use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 
 use crate::app_state::AppState;
-use crate::config::{GRID_HEIGHT, GRID_WIDTH};
-use crate::economy::CityBudget;
-use crate::grid::WorldGrid;
-use crate::groundwater;
-use crate::natural_resources::ResourceGrid;
-use crate::roads::RoadNetwork;
 use crate::time_of_day::GameClock;
 use crate::tutorial::TutorialState;
-use crate::world_init::SkipWorldInit;
 use crate::SimulationPlugin;
 
 /// A headless Bevy App wrapping `SimulationPlugin` for integration testing.
@@ -44,8 +37,6 @@ impl TestCity {
         app.add_plugins(MinimalPlugins);
         app.add_plugins(StatesPlugin);
 
-        // Insert the marker BEFORE SimulationPlugin so init_world skips.
-        app.insert_resource(SkipWorldInit);
         // Skip the tutorial so it doesn't pause the GameClock on first update.
         app.insert_resource(TutorialState {
             completed: true,
@@ -56,18 +47,9 @@ impl TestCity {
         app.insert_state(AppState::Playing);
         app.add_plugins(SimulationPlugin);
 
-        // Insert blank world resources BEFORE the first update, so that
-        // systems which depend on Res<WorldGrid> etc. don't panic.
-        let grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
-        let (gw_grid, wq_grid) = groundwater::init_groundwater(&grid);
-        app.insert_resource(grid);
-        app.insert_resource(RoadNetwork::default());
-        app.insert_resource(CityBudget::default());
-        app.insert_resource(ResourceGrid::default());
-        app.insert_resource(gw_grid);
-        app.insert_resource(wq_grid);
-
-        // Run one update so Startup systems execute (init_world will no-op).
+        // Run one update so Startup systems execute.
+        // SimulationPlugin registers default resources (WorldGrid, etc.)
+        // via init_resource, so no manual insertion is needed.
         app.update();
 
         // After the first update, the tutorial starts active by default
@@ -106,6 +88,9 @@ impl TestCity {
         // Start in Playing state so simulation systems run during tests.
         app.insert_state(AppState::Playing);
         app.add_plugins(SimulationPlugin);
+        // Tel Aviv init is no longer a default Startup system — add it
+        // explicitly so this test harness still gets the prebuilt city.
+        app.add_systems(Startup, crate::world_init::init_world);
         // Run one update so Startup systems execute (init_world runs fully).
         app.update();
 

@@ -25,19 +25,15 @@ pub use self::spawning::{
 };
 pub use self::zoning::apply_zones;
 
-/// Marker resource that, when present, causes `init_world` to skip the
-/// Tel Aviv map generation. Used by the test harness to start with a blank grid.
-#[derive(Resource)]
-pub struct SkipWorldInit;
-
+/// Initialise the world with the full Tel Aviv map.
+///
+/// This is NOT registered as a Startup system — the game boots into an empty
+/// grid.  It is kept public so that `TestCity::with_tel_aviv()` and benchmark
+/// harnesses can opt-in to the prebuilt city.
 pub fn init_world(
     mut commands: Commands,
     mut segments: ResMut<RoadSegmentStore>,
-    skip: Option<Res<SkipWorldInit>>,
 ) {
-    if skip.is_some() {
-        return;
-    }
     let mut grid = WorldGrid::new(GRID_WIDTH, GRID_HEIGHT);
 
     // --- Tel Aviv terrain: Mediterranean coast on west, Yarkon River in north ---

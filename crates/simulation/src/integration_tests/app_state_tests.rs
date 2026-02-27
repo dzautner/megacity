@@ -37,27 +37,15 @@ fn test_simulation_does_not_tick_in_main_menu() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_plugins(StatesPlugin);
-    app.insert_resource(crate::world_init::SkipWorldInit);
     app.insert_resource(crate::tutorial::TutorialState {
         completed: true,
         active: false,
         ..Default::default()
     });
     // Do NOT insert AppState::Playing — let it default to MainMenu.
+    // SimulationPlugin registers default resources (WorldGrid, etc.)
+    // via init_resource, so no manual insertion is needed.
     app.add_plugins(crate::SimulationPlugin);
-
-    // Insert blank world resources.
-    let grid = crate::grid::WorldGrid::new(
-        crate::config::GRID_WIDTH,
-        crate::config::GRID_HEIGHT,
-    );
-    let (gw_grid, wq_grid) = crate::groundwater::init_groundwater(&grid);
-    app.insert_resource(grid);
-    app.insert_resource(crate::roads::RoadNetwork::default());
-    app.insert_resource(crate::economy::CityBudget::default());
-    app.insert_resource(crate::natural_resources::ResourceGrid::default());
-    app.insert_resource(gw_grid);
-    app.insert_resource(wq_grid);
 
     // First update runs Startup systems.
     app.update();
