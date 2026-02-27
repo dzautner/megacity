@@ -15,6 +15,7 @@ use simulation::citizen::{
     WorkLocation,
 };
 use simulation::config::CELL_SIZE;
+use simulation::budget::ExtendedBudget;
 use simulation::economy::CityBudget;
 use simulation::grid::WorldGrid;
 use simulation::land_value::LandValueGrid;
@@ -68,6 +69,7 @@ pub fn progressive_building_inspection_ui(
     noise: Res<NoisePollutionGrid>,
     land_value: Res<LandValueGrid>,
     budget: Res<CityBudget>,
+    ext_budget: Res<ExtendedBudget>,
     tree_grid: Res<TreeGrid>,
     mut tab_state: ResMut<SelectedBuildingTab>,
     mut selected_citizen: ResMut<SelectedCitizen>,
@@ -149,7 +151,7 @@ pub fn progressive_building_inspection_ui(
                         );
                     }
                     BuildingTab::Economy => {
-                        render_economy_tab(ui, entity, building, lv, &citizens, &budget);
+                        render_economy_tab(ui, entity, building, lv, &citizens, &ext_budget);
                     }
                     BuildingTab::Residents => {
                         if building.zone_type.is_residential() {

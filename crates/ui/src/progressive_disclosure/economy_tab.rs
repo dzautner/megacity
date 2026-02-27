@@ -1,17 +1,19 @@
 //! Economy tab renderer for the Building Inspector.
 //!
-//! Shows land value, property value, tax rate, salary/rent estimates,
-//! income distribution (residential) or workforce education (commercial).
+//! Shows land value, property value, zone-specific tax rate, salary/rent
+//! estimates, income distribution (residential) or workforce education
+//! (commercial).
 
 use bevy::prelude::*;
 use bevy_egui::egui;
 
+use simulation::budget::ExtendedBudget;
 use simulation::buildings::Building;
 use simulation::citizen::{
     Citizen, CitizenDetails, CitizenStateComp, Family, HomeLocation, Needs, Personality,
     WorkLocation,
 };
-use simulation::economy::CityBudget;
+use simulation::grid::ZoneType;
 use simulation::wealth::WealthTier;
 
 // =============================================================================
@@ -37,8 +39,11 @@ pub(crate) fn render_economy_tab(
         ),
         With<Citizen>,
     >,
-    budget: &CityBudget,
+    ext_budget: &ExtendedBudget,
 ) {
+    // Determine the zone-specific tax rate for this building
+    let zone_tax_rate = zone_rate_for_building(building.zone_type, ext_budget);
+
     egui::Grid::new("tab_econ_overview")
         .num_columns(2)
         .spacing([16.0, 4.0])
@@ -60,9 +65,9 @@ pub(crate) fn render_economy_tab(
             ui.label(format!("${:.0}", property_value));
             ui.end_row();
 
-            // Tax rate
+            // Zone-specific tax rate
             ui.label("Tax Rate:");
-            ui.label(format!("{:.1}%", budget.tax_rate * 100.0));
+            ui.label(format!("{:.1}%", zone_tax_rate * 100.0));
             ui.end_row();
         });
 
@@ -78,7 +83,8 @@ pub(crate) fn render_economy_tab(
         if !residents.is_empty() {
             let count = residents.len() as f32;
             let avg_salary: f32 = residents.iter().map(|r| r.salary).sum::<f32>() / count;
-            let tax_revenue: f32 = residents.iter().map(|r| r.salary * budget.tax_rate).sum();
+            let tax_revenue: f32 =
+                residents.iter().map(|r| r.salary * zone_tax_rate).sum();
             let avg_rent = avg_salary * 0.3; // estimate 30% of income
 
             egui::Grid::new("tab_econ_res")
@@ -174,5 +180,22 @@ pub(crate) fn render_economy_tab(
         } else {
             ui.label("No workers yet");
         }
+    }
+}
+
+/// Return the zone-specific tax rate for a building's zone type.
+fn zone_rate_for_building(zone_type: ZoneType, ext_budget: &ExtendedBudget) -> f32 {
+    let zt = &ext_budget.zone_taxes;
+    if zone_type.is_residential() || zone_type.is_mixed_use() {
+        zt.residential
+    } else if zone_type.is_commercial() {
+        zt.commercial
+    } else if zone_type == ZoneType::Industrial {
+        zt.industrial
+    } else if zone_type == ZoneType::Office {
+        zt.office
+    } else {
+        // Fallback: average of all zone rates
+        (zt.residential + zt.commercial + zt.industrial + zt.office) / 4.0
     }
 }

@@ -45,8 +45,8 @@ pub fn info_panel_ui(
             // City Attractiveness
             city_overview::draw_attractiveness(ui, &extras.attractiveness, &extras.imm_stats);
 
-            // Budget overview + tax slider
-            finance_section::draw_budget(ui, &mut budget, &mut extras);
+            // Budget overview + per-zone tax sliders
+            finance_section::draw_budget(ui, &mut budget, &mut ext_budget, &mut extras);
 
             // Road Maintenance + Traffic Safety
             finance_section::draw_road_maintenance(ui, &mut extras);
