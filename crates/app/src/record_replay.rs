@@ -99,7 +99,7 @@ pub fn drive_replay_recording(
 
     // Capture every Nth frame.
     let frames_since_warmup = state.frame_count - state.warmup_frames;
-    if frames_since_warmup % state.capture_interval != 0 {
+    if !frames_since_warmup.is_multiple_of(state.capture_interval) {
         return;
     }
 
