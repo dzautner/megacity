@@ -21,9 +21,19 @@ use simulation::SaveLoadState;
 pub(crate) fn register_ui_systems(app: &mut App) {
     let idle = in_state(SaveLoadState::Idle);
     let playing = in_state(AppState::Playing);
+    let replay_viewer_mode = app
+        .world()
+        .contains_resource::<simulation::replay::ReplayViewerMode>();
 
     // Core egui
     app.add_plugins(EguiPlugin);
+
+    // Replay viewer mode gets a minimal watch-only UI surface.
+    if replay_viewer_mode {
+        app.add_plugins(theme::ThemePlugin);
+        app.add_plugins(replay_viewer::ReplayViewerUiPlugin);
+        return;
+    }
 
     // UI feature plugins
     app.add_plugins(theme::ThemePlugin);

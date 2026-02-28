@@ -1,0 +1,34 @@
+{
+  "replays": [
+    {
+      "name": "nemotron-3-nano-30b-a3b:free_42_1772286545",
+      "safe_name": "nemotron-3-nano-30b-a3b_free_42_1772286545",
+      "file": "nemotron-3-nano-30b-a3b_free_42_1772286545.web_x42.replay",
+      "source": "nemotron-3-nano-30b-a3b:free_42_1772286545.replay",
+      "scale": 42,
+      "original_end_tick": 75369,
+      "web_end_tick": 1795,
+      "entry_count": 368
+    },
+    {
+      "name": "nemotron-3-nano-30b-a3b:free_42_1772285791",
+      "safe_name": "nemotron-3-nano-30b-a3b_free_42_1772285791",
+      "file": "nemotron-3-nano-30b-a3b_free_42_1772285791.web_x26.replay",
+      "source": "nemotron-3-nano-30b-a3b:free_42_1772285791.replay",
+      "scale": 26,
+      "original_end_tick": 45169,
+      "web_end_tick": 1738,
+      "entry_count": 168
+    },
+    {
+      "name": "nemotron-3-nano-30b-a3b:free_42_1772284935",
+      "safe_name": "nemotron-3-nano-30b-a3b_free_42_1772284935",
+      "file": "nemotron-3-nano-30b-a3b_free_42_1772284935.web_x15.replay",
+      "source": "nemotron-3-nano-30b-a3b:free_42_1772284935.replay",
+      "scale": 15,
+      "original_end_tick": 25351,
+      "web_end_tick": 1691,
+      "entry_count": 350
+    }
+  ]
+}

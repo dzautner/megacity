@@ -44,6 +44,9 @@ getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] 
 # getrandom 0.4: used by uuid 1.x (Bevy entity/asset IDs)
 getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 uuid = { version = "1", features = ["js"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["Window", "Location", "Response", "UrlSearchParams"] }
 
 [lints]
 workspace = true

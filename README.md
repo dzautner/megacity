@@ -194,6 +194,33 @@ cargo install trunk
 trunk serve --release
 ```
 
+#### Web Replay Viewer (watch-only)
+
+Browser replay mode is enabled with a `replay` query parameter:
+
+```text
+http://localhost:8080/?replay=assets/replays/<file>.replay
+```
+
+In replay viewer mode:
+- camera movement/zoom still works
+- build/edit gameplay input is disabled
+- a minimal top control bar provides play/pause, speed (1x/2x/4x), progress, and reload
+
+Prepare replay assets for web playback:
+
+```bash
+python3 scripts/prepare_web_replays.py \
+  --inputs sessions/<run1>.replay sessions/<run2>.replay \
+  --output-dir crates/app/assets/replays \
+  --target-end-tick 1800
+```
+
+This repository includes prepared examples in `crates/app/assets/replays/`:
+- `nemotron-3-nano-30b-a3b_free_42_1772286545.web_x42.replay`
+- `nemotron-3-nano-30b-a3b_free_42_1772285791.web_x26.replay`
+- `nemotron-3-nano-30b-a3b_free_42_1772284935.web_x15.replay`
+
 ### Development
 
 ```bash

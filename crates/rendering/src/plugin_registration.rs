@@ -14,7 +14,7 @@ use simulation::SaveLoadState;
 /// Systems that query game entities (buildings, citizens, etc.) are gated behind
 /// `SaveLoadState::Idle` to prevent races with the exclusive load/new-game systems
 /// that despawn entities with direct world access (issue #1604).
-pub(crate) fn register_rendering_systems(app: &mut App, headless: bool) {
+pub(crate) fn register_rendering_systems(app: &mut App, headless: bool, replay_viewer: bool) {
     let idle = in_state(SaveLoadState::Idle);
     let playing = in_state(AppState::Playing);
 
@@ -75,7 +75,7 @@ pub(crate) fn register_rendering_systems(app: &mut App, headless: bool) {
 
     // Input and tool handling — gated behind SaveLoadState::Idle (entity safety)
     // and AppState::Playing (no input on main menu or pause, issue #1733).
-    if !headless {
+    if !headless && !replay_viewer {
         app.add_systems(
             Update,
             (
@@ -223,8 +223,9 @@ pub(crate) fn register_rendering_systems(app: &mut App, headless: bool) {
     // Satellite view at maximum zoom-out
     app.add_plugins(satellite_view::SatelliteViewPlugin);
 
-    // Interactive plugins are disabled in headless record mode.
-    if !headless {
+    // Interactive build/edit plugins are disabled in headless record mode
+    // and replay-viewer mode.
+    if !headless && !replay_viewer {
         // Parallel road snapping (UX-026)
         app.add_plugins(parallel_snap::ParallelSnapPlugin);
 

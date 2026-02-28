@@ -7,8 +7,10 @@ pub mod format;
 pub mod player;
 pub mod plugin;
 pub mod recorder;
+pub mod viewer;
 
 pub use format::{ReplayEntry, ReplayFile, ReplayFooter, ReplayHeader};
 pub use player::ReplayPlayer;
 pub use plugin::ReplayPlugin;
 pub use recorder::ReplayRecorder;
+pub use viewer::{ReplayViewerInfo, ReplayViewerMode};
