@@ -251,21 +251,24 @@ class LLMClient:
             "model": self.model,
             "messages": messages,
             "temperature": self.temperature,
-            "max_tokens": 2048,
+            "max_tokens": 4096,
         }
 
-        for attempt in range(3):
+        for attempt in range(8):
             try:
                 resp = requests.post(
-                    OPENROUTER_URL, headers=headers, json=payload, timeout=60,
+                    OPENROUTER_URL, headers=headers, json=payload, timeout=120,
                 )
                 resp.raise_for_status()
                 return resp.json()
             except (requests.RequestException, json.JSONDecodeError) as e:
                 log.warning("API attempt %d failed: %s", attempt + 1, e)
-                if attempt < 2:
-                    time.sleep(2 ** attempt)
-        raise RuntimeError("OpenRouter API failed after 3 attempts")
+                if attempt < 7:
+                    # Exponential backoff: 2, 4, 8, 16, 32, 60, 60 seconds
+                    delay = min(2 ** (attempt + 1), 60)
+                    log.info("  retrying in %ds...", delay)
+                    time.sleep(delay)
+        raise RuntimeError("OpenRouter API failed after 8 attempts")
 
 
 def parse_overview_map(overview_map: str) -> list:
@@ -445,9 +448,33 @@ def format_observation(obs: dict, turn: int = 0) -> str:
             f"Tax: {attr_bd.get('tax', 0):.0%}"
         )
 
-    # Zone demand
+    # Zone demand with explicit guidance
     zd = obs.get("zone_demand", {})
-    parts.append(f"Demand -- R:{zd.get('residential', 0):.0f} C:{zd.get('commercial', 0):.0f} I:{zd.get('industrial', 0):.0f} O:{zd.get('office', 0):.0f}")
+    r_dem = zd.get("residential", 0)
+    c_dem = zd.get("commercial", 0)
+    i_dem = zd.get("industrial", 0)
+    o_dem = zd.get("office", 0)
+    parts.append(f"Demand -- R:{r_dem:.0f} C:{c_dem:.0f} I:{i_dem:.0f} O:{o_dem:.0f}")
+    # Highlight high-demand zones the LLM should prioritize
+    high_demand = []
+    if c_dem > 50:
+        high_demand.append(f"Commercial ({c_dem:.0f}%)")
+    if i_dem > 50:
+        high_demand.append(f"Industrial ({i_dem:.0f}%)")
+    if o_dem > 50:
+        high_demand.append(f"Office ({o_dem:.0f}%)")
+    if r_dem > 50:
+        high_demand.append(f"Residential ({r_dem:.0f}%)")
+    if high_demand:
+        parts.append(f"ACTION NEEDED: High demand for {', '.join(high_demand)} — zone these to grow!")
+
+    # Recent action results (from game engine)
+    recent_results = obs.get("recent_action_results", [])
+    failed_results = [r for r in recent_results if not r.get("success", True)]
+    if failed_results:
+        parts.append("FAILED ACTIONS (last turn):")
+        for r in failed_results[-5:]:
+            parts.append(f"  - {r.get('action_summary', '?')}")
 
     # Warnings
     warnings = obs.get("warnings", [])
@@ -475,6 +502,16 @@ def format_observation(obs: dict, turn: int = 0) -> str:
 
     # Water failure tracking
     global _consecutive_water_turns, _water_fail_positions
+    if _water_fail_positions:
+        total_water_fails = len(_water_fail_positions)
+        if total_water_fails > 3:
+            # Show water-blocked regions so LLM avoids them
+            recent = _water_fail_positions[-10:]
+            coords_str = ", ".join(f"({x},{y})" for x, y in recent)
+            parts.append(
+                f"WATER BLOCKED: {total_water_fails} total failures. Recent water hits: {coords_str}. "
+                f"AVOID these areas — they are rivers/lakes."
+            )
     if _consecutive_water_turns >= 2:
         if _water_fail_positions:
             avg_x = sum(p[0] for p in _water_fail_positions[-6:]) // min(6, len(_water_fail_positions))
@@ -798,7 +835,13 @@ def run_session(args: argparse.Namespace):
             except Exception as e:
                 log.error("LLM error on turn %d: %s", turn, e)
                 stats.llm_errors += 1
-                actions, results, obs = [], [], {}
+                # Still observe so metrics aren't zeros
+                try:
+                    obs_resp = game.observe()
+                    obs = obs_resp.get("observation", obs_resp)
+                except Exception:
+                    obs = {}
+                actions, results = [], []
 
             # Track stats
             stats.treasury_history.append(obs.get("treasury", 0))
