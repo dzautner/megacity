@@ -27,6 +27,15 @@ pub struct CityObservation {
     pub monthly_expenses: f64,
     pub net_income: f64,
 
+    /// Projected monthly income based on current buildings, tax rates, and
+    /// tourism — updated every slow-tick, never stale like `monthly_income`
+    /// which only refreshes on the 30-day tax collection cycle.
+    #[serde(default)]
+    pub estimated_monthly_income: f64,
+    /// Projected monthly expenses (roads + services + policies + fuel).
+    #[serde(default)]
+    pub estimated_monthly_expenses: f64,
+
     // -- Population ---------------------------------------------------------
     pub population: PopulationSnapshot,
 
@@ -160,6 +169,8 @@ mod tests {
             monthly_income: 500.0,
             monthly_expenses: 300.0,
             net_income: 200.0,
+            estimated_monthly_income: 500.0,
+            estimated_monthly_expenses: 300.0,
             population: PopulationSnapshot {
                 total: 100,
                 employed: 80,
