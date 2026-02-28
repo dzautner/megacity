@@ -17,6 +17,7 @@ use crate::economy::CityBudget;
 use crate::game_actions::{ActionResult, ActionResultLog};
 use crate::grid::WorldGrid;
 use crate::immigration::CityAttractiveness;
+use crate::happiness_breakdown::HappinessBreakdown;
 use crate::homelessness::HomelessnessStats;
 use crate::pollution::PollutionGrid;
 use crate::stats::CityStats;
@@ -64,6 +65,7 @@ pub fn build_observation(
     grid: Res<WorldGrid>,
     attract: Res<CityAttractiveness>,
     income_proj: Res<IncomeProjection>,
+    happiness_breakdown: Res<HappinessBreakdown>,
     employed_citizens: Query<(), (With<Citizen>, With<WorkLocation>)>,
     mut current: ResMut<CurrentObservation>,
 ) {
@@ -149,9 +151,7 @@ pub fn build_observation(
 
         happiness: HappinessSnapshot {
             overall: avg_happiness,
-            // TODO: Expose per-factor happiness breakdown once a HappinessBreakdown
-            // resource is added. For now, we only report the aggregate.
-            components: Vec::new(),
+            components: happiness_breakdown.factors.clone(),
         },
 
         attractiveness_score: attract.overall_score,
