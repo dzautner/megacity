@@ -8,7 +8,7 @@ use crate::budget::ExtendedBudget;
 use crate::game_actions::queue::ActionSource;
 use crate::game_actions::result_log::ActionResultLog;
 use crate::game_actions::{ActionQueue, ActionResult, GameAction};
-use crate::grid::{CellType, RoadType, WorldGrid, ZoneType};
+use crate::grid::{CellType, RoadType, ZoneType};
 use crate::observation_builder::CurrentObservation;
 use crate::replay::{ReplayPlayer, ReplayRecorder};
 use crate::services::{ServiceBuilding, ServiceType};
