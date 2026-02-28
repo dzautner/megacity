@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use super::player::{feed_replay_actions, ReplayPlayer};
 use super::recorder::{record_actions, ReplayRecorder};
-use crate::game_actions::ActionQueue;
+use crate::game_actions::{execute_queued_actions, ActionQueue};
 use crate::SimulationSet;
 
 /// Plugin that provides deterministic replay recording and playback.
@@ -28,7 +28,9 @@ impl Plugin for ReplayPlugin {
             FixedUpdate,
             (
                 feed_replay_actions,
-                record_actions.after(feed_replay_actions),
+                record_actions
+                    .after(feed_replay_actions)
+                    .before(execute_queued_actions),
             )
                 .in_set(SimulationSet::PreSim),
         );
