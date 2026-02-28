@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
 use crate::buildings::{Building, UnderConstruction};
-use crate::config::{GRID_HEIGHT, GRID_WIDTH};
 use crate::economy::CityBudget;
 use crate::education_jobs::EmploymentStats;
+use crate::grid::{WorldGrid, ZoneType};
 use crate::happiness::{
     ServiceCoverageGrid, COVERAGE_EDUCATION, COVERAGE_FIRE, COVERAGE_HEALTH, COVERAGE_POLICE,
 };
@@ -26,6 +26,7 @@ pub fn compute_attractiveness(
     city_stats: Res<CityStats>,
     budget: Res<CityBudget>,
     coverage: Res<ServiceCoverageGrid>,
+    grid: Res<WorldGrid>,
     buildings: Query<&Building, Without<UnderConstruction>>,
     mut attractiveness: ResMut<CityAttractiveness>,
 ) {
@@ -52,16 +53,18 @@ pub fn compute_attractiveness(
     let happiness_factor = (raw_happiness / 100.0).clamp(0.0, 1.0);
 
     // --- Services factor ---
-    // Fraction of populated cells covered by health, education, police, fire
-    // Sample every 4th cell for performance
-    let total_cells = GRID_WIDTH * GRID_HEIGHT;
+    // Fraction of *populated* (zoned) cells covered by health, education,
+    // police, fire. Only zoned cells count — empty wilderness is irrelevant.
     let mut health_count = 0u32;
     let mut edu_count = 0u32;
     let mut police_count = 0u32;
     let mut fire_count = 0u32;
     let mut sampled = 0u32;
 
-    for idx in (0..total_cells).step_by(4) {
+    for (idx, cell) in grid.cells.iter().enumerate() {
+        if cell.zone == ZoneType::None {
+            continue;
+        }
         sampled += 1;
         let flags = coverage.flags[idx];
         if flags & COVERAGE_HEALTH != 0 {
@@ -85,7 +88,7 @@ pub fn compute_attractiveness(
         let fire_cov = fire_count as f32 / sampled as f32;
         ((health_cov + edu_cov + police_cov + fire_cov) / 4.0).clamp(0.0, 1.0)
     } else {
-        0.0
+        0.5 // No zones yet — neutral, don't penalize
     };
 
     // --- Housing factor ---

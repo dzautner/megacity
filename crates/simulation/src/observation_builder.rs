@@ -7,8 +7,8 @@ use bevy::prelude::*;
 
 use crate::ascii_map;
 use crate::city_observation::{
-    ActionResultEntry, CityObservation, CityWarning, HappinessSnapshot, PopulationSnapshot,
-    ServiceCoverageSnapshot, ZoneDemandSnapshot,
+    ActionResultEntry, AttractivenessSnapshot, CityObservation, CityWarning, HappinessSnapshot,
+    PopulationSnapshot, ServiceCoverageSnapshot, ZoneDemandSnapshot,
 };
 use crate::citizen::{Citizen, WorkLocation};
 use crate::coverage_metrics::CoverageMetrics;
@@ -16,6 +16,7 @@ use crate::crime::CrimeGrid;
 use crate::economy::CityBudget;
 use crate::game_actions::{ActionResult, ActionResultLog};
 use crate::grid::WorldGrid;
+use crate::immigration::CityAttractiveness;
 use crate::homelessness::HomelessnessStats;
 use crate::pollution::PollutionGrid;
 use crate::stats::CityStats;
@@ -58,6 +59,7 @@ pub fn build_observation(
     crime_grid: Res<CrimeGrid>,
     action_log: Res<ActionResultLog>,
     grid: Res<WorldGrid>,
+    attract: Res<CityAttractiveness>,
     employed_citizens: Query<(), (With<Citizen>, With<WorkLocation>)>,
     mut current: ResMut<CurrentObservation>,
 ) {
@@ -142,6 +144,21 @@ pub fn build_observation(
             // resource is added. For now, we only report the aggregate.
             components: Vec::new(),
         },
+
+        attractiveness_score: attract.overall_score,
+        attractiveness: AttractivenessSnapshot {
+            employment: attract.employment_factor,
+            happiness: attract.happiness_factor,
+            services: attract.services_factor,
+            housing: attract.housing_factor,
+            tax: attract.tax_factor,
+        },
+
+        building_count: stats.residential_buildings
+            + stats.commercial_buildings
+            + stats.industrial_buildings
+            + stats.office_buildings
+            + stats.mixed_use_buildings,
 
         warnings,
 
