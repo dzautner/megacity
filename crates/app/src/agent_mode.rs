@@ -139,7 +139,7 @@ fn process_command(
     app: &mut bevy::app::App,
 ) -> simulation::agent_protocol::AgentResponse {
     use simulation::agent_protocol::{make_response, AgentCommand, ResponsePayload};
-    use simulation::game_actions::{ActionQueue, ActionSource, GameAction};
+    use simulation::game_actions::{ActionQueue, ActionSource};
     use simulation::game_actions::{ActionResult, ActionResultLog};
     use simulation::observation_builder::CurrentObservation;
     use simulation::replay::{ReplayFile, ReplayPlayer, ReplayRecorder};
