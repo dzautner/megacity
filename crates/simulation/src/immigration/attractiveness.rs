@@ -39,8 +39,17 @@ pub fn compute_attractiveness(
     let employment_factor = (1.0 - unemployment * 5.0).clamp(0.0, 1.0);
 
     // --- Happiness factor ---
-    // Average happiness mapped from 0-100 to 0.0-1.0
-    let happiness_factor = (city_stats.average_happiness / 100.0).clamp(0.0, 1.0);
+    // Average happiness mapped from 0-100 to 0.0-1.0.
+    // When no citizens exist yet, treat happiness as a pleasant baseline
+    // (60/100) rather than 0 — an empty city isn't "unhappy", it just has
+    // no one to survey yet.  This prevents a bootstrapping deadlock where
+    // the city can never attract its first residents.
+    let raw_happiness = if city_stats.population == 0 {
+        60.0
+    } else {
+        city_stats.average_happiness
+    };
+    let happiness_factor = (raw_happiness / 100.0).clamp(0.0, 1.0);
 
     // --- Services factor ---
     // Fraction of populated cells covered by health, education, police, fire
@@ -95,8 +104,12 @@ pub fn compute_attractiveness(
         let vacancy_rate = (total_res_capacity.saturating_sub(total_res_occupants)) as f32
             / total_res_capacity as f32;
         // Ideal vacancy is 5-15%. Too low = no room, too high = ghost town.
-        // Peak attractiveness at ~10% vacancy
-        if vacancy_rate < 0.02 {
+        // Peak attractiveness at ~10% vacancy.
+        // Exception: brand-new cities with 0 occupants are attractive (plenty of
+        // room for pioneers), not penalised as abandoned.
+        if total_res_occupants == 0 {
+            0.8 // Brand-new empty housing — very attractive to pioneers
+        } else if vacancy_rate < 0.02 {
             0.1 // Almost no housing available
         } else if vacancy_rate < 0.05 {
             0.3 + (vacancy_rate - 0.02) * 10.0 // 0.3-0.6
