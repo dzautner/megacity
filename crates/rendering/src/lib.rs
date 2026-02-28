@@ -31,6 +31,9 @@ pub struct CameraRenderTarget(pub RenderTarget);
 impl Plugin for RenderingPlugin {
     fn build(&self, app: &mut App) {
         let headless = app.world().contains_resource::<HeadlessRecordMode>();
+        let replay_viewer = app
+            .world()
+            .contains_resource::<simulation::replay::ReplayViewerMode>();
 
         app.init_resource::<CameraDrag>()
             .init_resource::<LeftClickDrag>()
@@ -51,7 +54,7 @@ impl Plugin for RenderingPlugin {
             .init_resource::<IntersectionSnap>();
 
         // Register all rendering systems and plugins (extracted for conflict-free additions)
-        plugin_registration::register_rendering_systems(app, headless);
+        plugin_registration::register_rendering_systems(app, headless, replay_viewer);
     }
 }
 

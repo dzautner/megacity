@@ -19,6 +19,8 @@ use rendering::camera::OrbitCamera;
 mod agent_mode;
 #[cfg(not(target_arch = "wasm32"))]
 mod record_replay;
+#[cfg(target_arch = "wasm32")]
+mod web_replay;
 
 fn main() {
     // -- CLI argument parsing -------------------------------------------------
@@ -41,16 +43,17 @@ fn main() {
         panic!("Agent mode is not supported on WASM");
     }
 
-    // Parse optional --replay <path> for graphical replay playback (native only).
+    // Parse replay source for graphical playback.
+    // Native: `--replay <path>`
+    // WASM:   `?replay=<url>`
     #[cfg(not(target_arch = "wasm32"))]
-    let replay_path: Option<String> = args
+    let replay_source: Option<String> = args
         .windows(2)
         .find(|w| w[0] == "--replay")
         .map(|w| w[1].clone());
-    #[cfg(not(target_arch = "wasm32"))]
-    let replay_mode = replay_path.is_some();
     #[cfg(target_arch = "wasm32")]
-    let replay_mode = false;
+    let replay_source: Option<String> = web_replay::query_replay_url();
+    let replay_mode = replay_source.is_some();
 
     // Parse optional --record <output_dir> for replay frame capture (native only).
     #[cfg(not(target_arch = "wasm32"))]
@@ -174,6 +177,11 @@ fn main() {
         app.insert_state(simulation::AppState::MainMenu);
     }
 
+    // Replay viewer mode is watch-only (camera + playback controls only).
+    if replay_mode {
+        app.insert_resource(simulation::replay::ReplayViewerMode);
+    }
+
     if record_mode {
         // UI depends on egui window contexts; skip it in headless record mode.
         app.add_plugins((
@@ -192,9 +200,18 @@ fn main() {
 
     // Replay mode: register startup system to load the replay file (native only)
     #[cfg(not(target_arch = "wasm32"))]
-    if let Some(path) = replay_path {
+    if let Some(path) = replay_source {
         app.insert_resource(ReplayFilePath(path));
         app.add_systems(Startup, load_replay_file);
+    }
+
+    // WASM replay mode: fetch replay JSON from URL and start playback.
+    #[cfg(target_arch = "wasm32")]
+    if let Some(url) = replay_source {
+        app.insert_resource(web_replay::WebReplaySource(url));
+        app.init_resource::<web_replay::WebReplayLoadBuffer>();
+        app.add_systems(Startup, web_replay::begin_web_replay_load);
+        app.add_systems(Update, web_replay::poll_web_replay_load);
     }
 
     // Replay record mode (native only): capture PNG frames during replay.
@@ -310,6 +327,7 @@ struct ReplayFilePath(String);
 fn load_replay_file(
     replay_path: Res<ReplayFilePath>,
     mut player: ResMut<simulation::replay::ReplayPlayer>,
+    mut commands: Commands,
 ) {
     info!("Loading replay from: {}", replay_path.0);
     let contents = match std::fs::read_to_string(&replay_path.0) {
@@ -335,6 +353,12 @@ fn load_replay_file(
         replay.header.start_tick,
         replay.footer.end_tick,
     );
+    commands.insert_resource(simulation::replay::ReplayViewerInfo {
+        source: replay_path.0.clone(),
+        start_tick: replay.header.start_tick,
+        end_tick: replay.footer.end_tick,
+        entry_count: replay.entries.len() as u64,
+    });
     player.load(replay);
 }
 
