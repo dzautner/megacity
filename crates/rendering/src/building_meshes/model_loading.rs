@@ -21,8 +21,12 @@ pub fn load_building_models(
     };
 
     let residential = load_residential(&load_scene);
+    let residential_medium = load_residential_medium(&load_scene);
+    let residential_high = load_residential_high(&load_scene);
     let (commercial, skyscrapers) = load_commercial(&load_scene);
     let industrial = load_industrial(&load_scene);
+    let office = load_office(&load_scene);
+    let mixed_use = load_mixed_use(&load_scene);
     let vehicles = load_vehicles(&load_scene);
     let characters = load_characters(&load_scene);
     let trees = load_trees(&load_scene);
@@ -38,9 +42,13 @@ pub fn load_building_models(
 
     commands.insert_resource(BuildingModelCache {
         residential,
+        residential_medium,
+        residential_high,
         commercial,
         skyscrapers,
         industrial,
+        office,
+        mixed_use,
         vehicles,
         characters,
         trees,
@@ -66,6 +74,29 @@ fn load_residential(load_scene: &dyn Fn(String) -> Handle<Scene>) -> Vec<Handle<
             ))
         })
         .collect()
+}
+
+fn load_residential_medium(load_scene: &dyn Fn(String) -> Handle<Scene>) -> Vec<Handle<Scene>> {
+    let files = [
+        "models/buildings/zones/external/small-building-a.glb",
+        "models/buildings/zones/external/small-building-b.glb",
+        "models/buildings/zones/external/small-building-c.glb",
+        "models/buildings/zones/external/low-building-a.glb",
+        "models/buildings/zones/external/low-building-b.glb",
+        "models/buildings/zones/external/low-building-c.glb",
+    ];
+    files.iter().map(|path| load_scene((*path).to_string())).collect()
+}
+
+fn load_residential_high(load_scene: &dyn Fn(String) -> Handle<Scene>) -> Vec<Handle<Scene>> {
+    let files = [
+        "models/buildings/zones/external/large-building-a.glb",
+        "models/buildings/zones/external/large-building-b.glb",
+        "models/buildings/zones/external/large-building-c.glb",
+        "models/buildings/skyscrapers/vintage/skyscraper-vintage-a.glb",
+        "models/buildings/skyscrapers/vintage/skyscraper-vintage-b.glb",
+    ];
+    files.iter().map(|path| load_scene((*path).to_string())).collect()
 }
 
 fn load_commercial(
@@ -118,6 +149,29 @@ fn load_industrial(load_scene: &dyn Fn(String) -> Handle<Scene>) -> Vec<Handle<S
         .iter()
         .map(|letter| load_scene(format!("models/buildings/industrial/building-{letter}.glb")))
         .collect()
+}
+
+fn load_office(load_scene: &dyn Fn(String) -> Handle<Scene>) -> Vec<Handle<Scene>> {
+    let files = [
+        "models/buildings/zones/external/tower-a.glb",
+        "models/buildings/skyscrapers/vintage/skyscraper-vintage-c.glb",
+        "models/buildings/skyscrapers/vintage/skyscraper-vintage-d.glb",
+        "models/buildings/skyscrapers/vintage/skyscraper-vintage-e.glb",
+        "models/buildings/skyscrapers/vintage/skyscraper-vintage-f.glb",
+    ];
+    files.iter().map(|path| load_scene((*path).to_string())).collect()
+}
+
+fn load_mixed_use(load_scene: &dyn Fn(String) -> Handle<Scene>) -> Vec<Handle<Scene>> {
+    let files = [
+        "models/buildings/zones/external/small-building-b.glb",
+        "models/buildings/zones/external/small-building-c.glb",
+        "models/buildings/zones/external/low-building-a.glb",
+        "models/buildings/zones/external/large-building-a.glb",
+        "models/buildings/commercial/building-a.glb",
+        "models/buildings/commercial/building-b.glb",
+    ];
+    files.iter().map(|path| load_scene((*path).to_string())).collect()
 }
 
 fn load_vehicles(load_scene: &dyn Fn(String) -> Handle<Scene>) -> Vec<Handle<Scene>> {
@@ -228,9 +282,21 @@ fn load_service_scenes(
         Kindergarten,
         University,
         Library,
+        SmallPark,
+        LargePark,
+        Playground,
+        Plaza,
+        SportsField,
+        Stadium,
+        Cemetery,
         CityHall,
         Museum,
         Cathedral,
+        TVStation,
+        FerryPier,
+        SmallAirstrip,
+        RegionalAirport,
+        InternationalAirport,
         CellTower,
         Crematorium,
         TrainStation,
@@ -257,7 +323,6 @@ fn load_service_scenes(
         YouthCenter,
         CommunityCenter,
         SubstanceAbuseTreatmentCenter,
-        Stadium,
     ];
     let mut map = HashMap::new();
     for st in all_types {

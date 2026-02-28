@@ -1,16 +1,16 @@
 //! Mapping from `ServiceType` → GLB asset path for 3D scene models.
 //!
-//! Each service type is mapped to a GLB file in
-//! `assets/models/buildings/services/{commercial,suburban,industrial}/`.
-//! The models originate from different Kenney asset packs, grouped by
-//! visual style so each subdirectory has the correct shared colormap.
+//! Each service type is mapped to a GLB file in:
+//! - `assets/models/buildings/services/{commercial,suburban,industrial}/`
+//! - `assets/models/buildings/services/external/`
+//!
+//! The external models are open-license assets with source attribution in the
+//! corresponding `SOURCES.md`.
 
 use simulation::services::ServiceType;
 
 /// Returns the asset path (relative to `assets/`) for the given service type.
 ///
-/// Some low-priority services currently use proxy scene assignments (real GLB
-/// models that are semantically close) until dedicated meshes are added.
 pub fn service_scene_path(service_type: ServiceType) -> Option<&'static str> {
     let path = match service_type {
         // -- Emergency (commercial-style buildings) --
@@ -89,21 +89,23 @@ pub fn service_scene_path(service_type: ServiceType) -> Option<&'static str> {
             "models/buildings/services/suburban/substance-abuse-treatment-center.glb"
         }
 
-        // -- Recreation (suburban-style buildings) --
-        // These use nearest-fit open-source proxies where dedicated assets are
-        // still pending.
-        ServiceType::SmallPark => "models/props/tree-park-large.glb",
-        ServiceType::LargePark => "models/props/tree-park-pine-large.glb",
-        ServiceType::Playground => "models/buildings/services/suburban/daycare.glb",
-        ServiceType::Plaza => "models/buildings/services/suburban/community-center.glb",
-        ServiceType::SportsField => "models/buildings/services/suburban/stadium.glb",
+        // -- Recreation --
+        ServiceType::SmallPark => "models/buildings/services/external/small-park.glb",
+        ServiceType::LargePark => "models/buildings/services/external/large-park.glb",
+        ServiceType::Playground => "models/buildings/services/external/playground.glb",
+        ServiceType::Plaza => "models/buildings/services/external/plaza.glb",
+        ServiceType::SportsField => "models/buildings/services/external/sports-field.glb",
         ServiceType::Stadium => "models/buildings/services/suburban/stadium.glb",
-        ServiceType::TVStation => "models/buildings/services/industrial/data-center.glb",
-        ServiceType::Cemetery => "models/buildings/services/commercial/crematorium.glb",
-        ServiceType::FerryPier => "models/buildings/services/industrial/train-station.glb",
-        ServiceType::SmallAirstrip => "models/buildings/services/industrial/bus-depot.glb",
-        ServiceType::RegionalAirport => "models/buildings/services/industrial/train-station.glb",
-        ServiceType::InternationalAirport => "models/buildings/services/industrial/train-station.glb",
+        ServiceType::TVStation => "models/buildings/services/external/tv-station.glb",
+        ServiceType::Cemetery => "models/buildings/services/external/cemetery.glb",
+
+        // -- Transport extras --
+        ServiceType::FerryPier => "models/buildings/services/external/ferry-pier.glb",
+        ServiceType::SmallAirstrip => "models/buildings/services/external/small-airstrip.glb",
+        ServiceType::RegionalAirport => "models/buildings/services/external/regional-airport.glb",
+        ServiceType::InternationalAirport => {
+            "models/buildings/services/external/international-airport.glb"
+        }
     };
     Some(path)
 }
