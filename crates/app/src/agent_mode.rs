@@ -139,7 +139,7 @@ fn process_command(
     app: &mut bevy::app::App,
 ) -> simulation::agent_protocol::AgentResponse {
     use simulation::agent_protocol::{make_response, AgentCommand, ResponsePayload};
-    use simulation::game_actions::{ActionQueue, ActionSource, GameAction};
+    use simulation::game_actions::{ActionQueue, ActionSource};
     use simulation::game_actions::{ActionResult, ActionResultLog};
     use simulation::observation_builder::CurrentObservation;
     use simulation::replay::{ReplayFile, ReplayPlayer, ReplayRecorder};
@@ -221,21 +221,42 @@ fn process_command(
         }
 
         AgentCommand::NewGame { seed } => {
-            // Queue a NewGame action so the executor handles world reset.
-            let tick = app
-                .world()
-                .get_resource::<TickCounter>()
-                .map(|t| t.0)
-                .unwrap_or(0);
-            app.world_mut().resource_mut::<ActionQueue>().push(
-                tick,
-                ActionSource::Agent,
-                GameAction::NewGame {
-                    seed,
-                    map_size: None,
-                },
-            );
+            // Reset the WorldGrid: clear all cells to default (Grass, no zone/road/building)
+            if let Some(mut grid) = app
+                .world_mut()
+                .get_resource_mut::<simulation::grid::WorldGrid>()
+            {
+                for cell in grid.cells.iter_mut() {
+                    cell.cell_type = simulation::grid::CellType::Grass;
+                    cell.zone = simulation::grid::ZoneType::None;
+                    cell.road_type = simulation::grid::RoadType::Local;
+                    cell.building_id = None;
+                    cell.elevation = 0.0;
+                    cell.has_power = false;
+                    cell.has_water = false;
+                }
+
+                // Apply procedural terrain (coastline water bodies from seed)
+                simulation::procedural_terrain::generate_terrain(&mut grid, seed);
+            }
+
+            // Reset TickCounter to 0
+            if let Some(mut tick) = app.world_mut().get_resource_mut::<TickCounter>() {
+                tick.0 = 0;
+            }
+
+            // Reset CityBudget to default (treasury = 50_000.0)
+            app.world_mut()
+                .insert_resource(simulation::economy::CityBudget::default());
+
+            // Restart the ReplayRecorder with the new seed
+            if let Some(mut recorder) = app.world_mut().get_resource_mut::<ReplayRecorder>() {
+                recorder.start(seed, "agent_session".to_string(), 0);
+            }
+
+            // Run one update so systems settle after the reset
             app.update();
+
             make_response(ResponsePayload::Ok)
         }
 
