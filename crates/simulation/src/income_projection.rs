@@ -30,7 +30,7 @@ pub struct IncomeProjection {
 }
 
 /// Recompute projected income/expenses each slow-tick.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn update_income_projection(
     slow_tick: Res<SlowTickTimer>,
     buildings: Query<&Building>,

@@ -142,7 +142,7 @@ fn test_response_observation_includes_city_data() {
         ..Default::default()
     };
     let resp = make_response(ResponsePayload::Observation {
-        observation: obs.clone(),
+        observation: Box::new(obs.clone()),
     });
     let json = serde_json::to_string(&resp).unwrap();
     assert!(json.contains("\"type\":\"observation\""));
@@ -226,7 +226,7 @@ fn test_all_response_variants_produce_valid_json() {
     let variants: Vec<ResponsePayload> = vec![
         ResponsePayload::Ready,
         ResponsePayload::Observation {
-            observation: CityObservation::default(),
+            observation: Box::new(CityObservation::default()),
         },
         ResponsePayload::ActionResult {
             result: ActionResult::Success,
