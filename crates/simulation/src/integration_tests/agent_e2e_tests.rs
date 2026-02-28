@@ -168,7 +168,10 @@ fn test_agent_place_service_spawns_entity() {
 
 #[test]
 fn test_agent_zone_rect_zones_adjacent_cells() {
-    // Place a horizontal road first, then zone cells adjacent to it
+    // Place a horizontal road first, then zone cells adjacent to it.
+    // Note: is_adjacent_to_road uses a 2-cell radius, so cells within 2 of
+    // a road are considered adjacent. We test with y offsets of 1, 2 (adjacent)
+    // and 3 (not adjacent).
     let mut city = TestCity::new();
 
     // Place road from (50,50) to (60,50) via action
@@ -196,10 +199,10 @@ fn test_agent_zone_rect_zones_adjacent_cells() {
     );
 
     // Zone a rect that includes cells above and below the road
-    // The rect covers y=48..52, x=50..60
-    // Only cells adjacent to road (y=49 and y=51) should get zoned
-    // Cells ON the road (y=50) should NOT get zoned
-    // Cells NOT adjacent to road (y=48, y=52) should NOT get zoned
+    // The rect covers y=47..53, x=50..60
+    // Cells within 2 of road (y=48,49,51,52) should get zoned
+    // Cells ON the road (y=50) should NOT get zoned (they are Road type)
+    // Cells 3+ away from road (y=47, y=53) should NOT get zoned
     {
         let world = city.world_mut();
         let tick = world.resource::<TickCounter>().0;
@@ -208,8 +211,8 @@ fn test_agent_zone_rect_zones_adjacent_cells() {
             tick,
             ActionSource::Agent,
             GameAction::ZoneRect {
-                min: (50, 48),
-                max: (60, 52),
+                min: (50, 47),
+                max: (60, 53),
                 zone_type: ZoneType::ResidentialLow,
             },
         );
@@ -218,18 +221,15 @@ fn test_agent_zone_rect_zones_adjacent_cells() {
 
     let grid = city.grid();
 
-    // Cells adjacent to road (y=49 and y=51) should be zoned
+    // Cells within 2-cell radius of road (y=48,49,51,52) should be zoned
     for x in 50..=60 {
-        assert_eq!(
-            grid.get(x, 49).zone,
-            ZoneType::ResidentialLow,
-            "cell ({x}, 49) should be zoned ResidentialLow (adjacent to road)"
-        );
-        assert_eq!(
-            grid.get(x, 51).zone,
-            ZoneType::ResidentialLow,
-            "cell ({x}, 51) should be zoned ResidentialLow (adjacent to road)"
-        );
+        for y in [48, 49, 51, 52] {
+            assert_eq!(
+                grid.get(x, y).zone,
+                ZoneType::ResidentialLow,
+                "cell ({x}, {y}) should be zoned ResidentialLow (within 2 of road)"
+            );
+        }
     }
 
     // Road cells should NOT be zoned (they stay as Road cell type)
@@ -241,17 +241,17 @@ fn test_agent_zone_rect_zones_adjacent_cells() {
         );
     }
 
-    // Non-adjacent cells (y=48, y=52) should NOT be zoned
+    // Cells 3+ away from road (y=47, y=53) should NOT be zoned
     for x in 50..=60 {
         assert_eq!(
-            grid.get(x, 48).zone,
+            grid.get(x, 47).zone,
             ZoneType::None,
-            "cell ({x}, 48) should NOT be zoned (not adjacent to road)"
+            "cell ({x}, 47) should NOT be zoned (3 cells from road)"
         );
         assert_eq!(
-            grid.get(x, 52).zone,
+            grid.get(x, 53).zone,
             ZoneType::None,
-            "cell ({x}, 52) should NOT be zoned (not adjacent to road)"
+            "cell ({x}, 53) should NOT be zoned (3 cells from road)"
         );
     }
 }
