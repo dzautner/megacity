@@ -9,6 +9,8 @@ use rendering::camera::OrbitCamera;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod agent_mode;
+#[cfg(not(target_arch = "wasm32"))]
+mod record_replay;
 
 fn main() {
     // -- CLI argument parsing -------------------------------------------------
@@ -41,6 +43,13 @@ fn main() {
     let replay_mode = replay_path.is_some();
     #[cfg(target_arch = "wasm32")]
     let replay_mode = false;
+
+    // Parse optional --record <output_dir> for frame capture (native only).
+    #[cfg(not(target_arch = "wasm32"))]
+    let record_dir: Option<String> = args
+        .windows(2)
+        .find(|w| w[0] == "--record")
+        .map(|w| w[1].clone());
 
     let mut app = App::new();
 
@@ -113,6 +122,23 @@ fn main() {
     if let Some(path) = replay_path {
         app.insert_resource(ReplayFilePath(path));
         app.add_systems(Startup, load_replay_file);
+    }
+
+    // Record mode: capture frames during replay playback (native only).
+    // Requires --replay to also be set.
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(dir) = record_dir {
+        if !replay_mode {
+            eprintln!("Warning: --record requires --replay to be set; ignoring.");
+        } else {
+            // Create output directory if it doesn't exist.
+            if let Err(e) = std::fs::create_dir_all(&dir) {
+                eprintln!("Failed to create record output dir '{}': {}", dir, e);
+            } else {
+                app.insert_resource(record_replay::ReplayRecordState::new(dir));
+                app.add_systems(Update, record_replay::drive_replay_recording);
+            }
+        }
     }
 
     // Screenshot mode: takes preset screenshots and exits (native only)

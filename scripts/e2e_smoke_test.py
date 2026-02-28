@@ -6,7 +6,7 @@ Validates the full LLM gameplay flow:
 1. Launch game in --agent mode
 2. LLM plays N turns via OpenRouter API
 3. Save and validate the replay file
-4. Print summary report
+4. (Optional) Convert replay to video via ffmpeg
 
 Usage:
     export OPENROUTER_API_KEY=sk-or-...
@@ -16,14 +16,17 @@ Requirements:
     - Python 3.10+
     - requests (pip install requests)
     - Game binary with --agent mode support
+    - (Optional) ffmpeg for video generation
 """
 
 import argparse
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -81,6 +84,8 @@ class SmokeStats:
     replay_entry_count: int = 0
     start_time: float = 0.0
     elapsed: float = 0.0
+    video_path: str = ""
+    video_generated: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -464,11 +469,85 @@ def validate_replay(path: str) -> tuple[bool, int, list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: Report
+# Phase 3: Replay to video (optional)
 # ---------------------------------------------------------------------------
 
-def print_report(stats: SmokeStats, replay_valid: bool, replay_entries: int,
-                 replay_issues: list[str]):
+def generate_video(
+    binary: str,
+    replay_path: str,
+    video_path: str,
+    framerate: int = 30,
+) -> tuple[bool, str]:
+    """Convert a replay to video using the game's --record mode + ffmpeg.
+
+    Returns (success, video_path_or_error_message).
+    """
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        return False, "ffmpeg not found on PATH"
+
+    frame_dir = tempfile.mkdtemp(prefix="megacity_frames_")
+    log.info("Capturing frames to: %s", frame_dir)
+
+    try:
+        # Run game in replay+record mode
+        cmd = [binary, "--replay", replay_path, "--record", frame_dir]
+        log.info("Running: %s", " ".join(cmd))
+        result = subprocess.run(cmd, timeout=600)
+        if result.returncode != 0:
+            return False, f"Game exited with code {result.returncode}"
+
+        # Count captured frames
+        frames = sorted(Path(frame_dir).glob("frame_*.png"))
+        if len(frames) == 0:
+            return False, "No frames were captured"
+
+        log.info("Captured %d frames", len(frames))
+
+        # Stitch with ffmpeg
+        input_pattern = os.path.join(frame_dir, "frame_%05d.png")
+        ffmpeg_cmd = [
+            ffmpeg,
+            "-y",
+            "-framerate", str(framerate),
+            "-i", input_pattern,
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            video_path,
+        ]
+        log.info("Encoding: %s", " ".join(ffmpeg_cmd))
+        result = subprocess.run(
+            ffmpeg_cmd, capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0:
+            return False, f"ffmpeg failed: {result.stderr[:500]}"
+
+        size_mb = Path(video_path).stat().st_size / 1024 / 1024
+        duration = len(frames) / framerate
+        log.info(
+            "Video saved: %s (%.1f MB, %.1fs at %d fps)",
+            video_path, size_mb, duration, framerate,
+        )
+        return True, video_path
+
+    except subprocess.TimeoutExpired:
+        return False, "Process timed out"
+    except Exception as exc:
+        return False, str(exc)
+    finally:
+        shutil.rmtree(frame_dir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Report
+# ---------------------------------------------------------------------------
+
+def print_report(
+    stats: SmokeStats,
+    replay_valid: bool,
+    replay_entries: int,
+    replay_issues: list[str],
+):
     """Print a human-readable summary of the smoke test."""
     ok = (
         stats.turns_played > 0
@@ -499,6 +578,10 @@ def print_report(stats: SmokeStats, replay_valid: bool, replay_entries: int,
         print("  Replay issues:")
         for issue in replay_issues:
             print(f"    - {issue}")
+    if stats.video_path:
+        print()
+        print(f"  Video file:         {stats.video_path}")
+        print(f"  Video generated:    {stats.video_generated}")
     print("=" * 60)
 
     return ok
@@ -535,6 +618,14 @@ def main():
     parser.add_argument(
         "--replay-path", default="/tmp/megacity_e2e_replay.json",
         help="Path for the replay file (default: /tmp/megacity_e2e_replay.json)",
+    )
+    parser.add_argument(
+        "--video-path", default="/tmp/megacity_e2e_replay.mp4",
+        help="Path for the video file (default: /tmp/megacity_e2e_replay.mp4)",
+    )
+    parser.add_argument(
+        "--no-video", action="store_true",
+        help="Skip Phase 3 (replay-to-video conversion)",
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true",
@@ -575,7 +666,28 @@ def main():
         args.replay_path,
     )
 
-    # Phase 3: Report
+    # Phase 3: Replay to video (optional)
+    if not args.no_video:
+        ffmpeg_available = shutil.which("ffmpeg") is not None
+        if ffmpeg_available and replay_valid:
+            log.info(
+                "Phase 3: Converting replay to video -> %s", args.video_path,
+            )
+            success, result = generate_video(
+                args.binary, args.replay_path, args.video_path,
+            )
+            stats.video_generated = success
+            stats.video_path = args.video_path if success else result
+        elif not ffmpeg_available:
+            log.info("Phase 3: Skipped (ffmpeg not available)")
+            stats.video_path = "(skipped: ffmpeg not found)"
+        else:
+            log.info("Phase 3: Skipped (replay not valid)")
+            stats.video_path = "(skipped: invalid replay)"
+    else:
+        log.info("Phase 3: Skipped (--no-video)")
+
+    # Report
     ok = print_report(stats, replay_valid, replay_entries, replay_issues)
 
     sys.exit(0 if ok else 1)
