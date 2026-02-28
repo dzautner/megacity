@@ -14,7 +14,7 @@ use simulation::SaveLoadState;
 /// Systems that query game entities (buildings, citizens, etc.) are gated behind
 /// `SaveLoadState::Idle` to prevent races with the exclusive load/new-game systems
 /// that despawn entities with direct world access (issue #1604).
-pub(crate) fn register_rendering_systems(app: &mut App) {
+pub(crate) fn register_rendering_systems(app: &mut App, headless: bool) {
     let idle = in_state(SaveLoadState::Idle);
     let playing = in_state(AppState::Playing);
 
@@ -41,20 +41,22 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
     // Camera input is gated behind AppState::Playing so that the camera
     // cannot be moved from the main menu or while paused (issue #1733).
     // The smoothing + apply systems always run so the camera stays valid.
-    app.add_systems(
-        Update,
-        (
-            camera::camera_pan_keyboard,
-            camera::camera_pan_drag,
-            camera::camera_left_drag,
-            camera::camera_orbit_drag,
-            camera::camera_zoom,
-            camera::camera_zoom_keyboard,
-            camera::camera_rotate_keyboard,
-        )
-            .after(camera_smoothing::sync_target_from_external_changes)
-            .run_if(playing.clone()),
-    );
+    if !headless {
+        app.add_systems(
+            Update,
+            (
+                camera::camera_pan_keyboard,
+                camera::camera_pan_drag,
+                camera::camera_left_drag,
+                camera::camera_orbit_drag,
+                camera::camera_zoom,
+                camera::camera_zoom_keyboard,
+                camera::camera_rotate_keyboard,
+            )
+                .after(camera_smoothing::sync_target_from_external_changes)
+                .run_if(playing.clone()),
+        );
+    }
     app.add_systems(
         Update,
         (
@@ -73,36 +75,38 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
 
     // Input and tool handling — gated behind SaveLoadState::Idle (entity safety)
     // and AppState::Playing (no input on main menu or pause, issue #1733).
-    app.add_systems(
-        Update,
-        (
-            input::update_cursor_grid_pos,
-            angle_snap::update_angle_snap,
-            input::update_intersection_snap,
-            grid_align::align_cursor_to_grid
-                .after(angle_snap::update_angle_snap)
-                .after(parallel_snap::apply_parallel_snap_to_cursor)
-                .before(input::handle_tool_input),
-            grid_align::align_angle_snap_to_grid
-                .after(angle_snap::update_angle_snap)
-                .before(input::handle_tool_input),
-            grid_align::align_intersection_snap_to_grid
-                .after(input::update_intersection_snap)
-                .before(input::handle_tool_input),
-            input::handle_tool_input,
-            input::handle_tree_tool,
-            input::handle_road_upgrade_tool,
-            input::keyboard_tool_switch,
-            input::toggle_grid_snap,
-            input::toggle_curve_draw_mode,
-            input::handle_escape_key,
-            input::delete_selected_building,
-            input::tick_status_message,
-            overlay::toggle_overlay_keys,
-        )
-            .run_if(idle.clone())
-            .run_if(playing.clone()),
-    );
+    if !headless {
+        app.add_systems(
+            Update,
+            (
+                input::update_cursor_grid_pos,
+                angle_snap::update_angle_snap,
+                input::update_intersection_snap,
+                grid_align::align_cursor_to_grid
+                    .after(angle_snap::update_angle_snap)
+                    .after(parallel_snap::apply_parallel_snap_to_cursor)
+                    .before(input::handle_tool_input),
+                grid_align::align_angle_snap_to_grid
+                    .after(angle_snap::update_angle_snap)
+                    .before(input::handle_tool_input),
+                grid_align::align_intersection_snap_to_grid
+                    .after(input::update_intersection_snap)
+                    .before(input::handle_tool_input),
+                input::handle_tool_input,
+                input::handle_tree_tool,
+                input::handle_road_upgrade_tool,
+                input::keyboard_tool_switch,
+                input::toggle_grid_snap,
+                input::toggle_curve_draw_mode,
+                input::handle_escape_key,
+                input::delete_selected_building,
+                input::tick_status_message,
+                overlay::toggle_overlay_keys,
+            )
+                .run_if(idle.clone())
+                .run_if(playing.clone()),
+        );
+    }
 
     // Terrain and road rendering
     app.add_systems(
@@ -219,29 +223,32 @@ pub(crate) fn register_rendering_systems(app: &mut App) {
     // Satellite view at maximum zoom-out
     app.add_plugins(satellite_view::SatelliteViewPlugin);
 
-    // Parallel road snapping (UX-026)
-    app.add_plugins(parallel_snap::ParallelSnapPlugin);
+    // Interactive plugins are disabled in headless record mode.
+    if !headless {
+        // Parallel road snapping (UX-026)
+        app.add_plugins(parallel_snap::ParallelSnapPlugin);
 
-    // Parallel road drawing mode (UX-021)
-    app.add_plugins(parallel_draw::ParallelDrawPlugin);
+        // Parallel road drawing mode (UX-021)
+        app.add_plugins(parallel_draw::ParallelDrawPlugin);
 
-    // Box selection (UX-011)
-    app.add_plugins(box_selection::BoxSelectionPlugin);
+        // Box selection (UX-011)
+        app.add_plugins(box_selection::BoxSelectionPlugin);
 
-    // Zone brush preview (UX-018)
-    app.add_plugins(zone_brush_preview::ZoneBrushPreviewPlugin);
+        // Zone brush preview (UX-018)
+        app.add_plugins(zone_brush_preview::ZoneBrushPreviewPlugin);
 
-    // Enhanced click-to-select with priority ordering (UX-009)
-    app.add_plugins(enhanced_select::EnhancedSelectPlugin);
+        // Enhanced click-to-select with priority ordering (UX-009)
+        app.add_plugins(enhanced_select::EnhancedSelectPlugin);
 
-    // Intersection auto-detection preview (UX-023)
-    app.add_plugins(intersection_preview::IntersectionPreviewPlugin);
+        // Intersection auto-detection preview (UX-023)
+        app.add_plugins(intersection_preview::IntersectionPreviewPlugin);
 
-    // Freehand road drawing (UX-020)
-    app.add_plugins(freehand_draw::FreehandDrawPlugin);
+        // Freehand road drawing (UX-020)
+        app.add_plugins(freehand_draw::FreehandDrawPlugin);
 
-    // Auto-grid road placement (TRAF-010)
-    app.add_plugins(auto_grid_draw::AutoGridDrawPlugin);
+        // Auto-grid road placement (TRAF-010)
+        app.add_plugins(auto_grid_draw::AutoGridDrawPlugin);
+    }
 
     // Power grid overlay (POWER-020)
     app.add_plugins(power_overlay::PowerOverlayPlugin);
