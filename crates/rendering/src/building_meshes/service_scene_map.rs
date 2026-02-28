@@ -7,8 +7,10 @@
 
 use simulation::services::ServiceType;
 
-/// Returns the asset path (relative to `assets/`) for the given service type,
-/// or `None` if no GLB model has been assigned yet (fallback to procedural mesh).
+/// Returns the asset path (relative to `assets/`) for the given service type.
+///
+/// Some low-priority services currently use proxy scene assignments (real GLB
+/// models that are semantically close) until dedicated meshes are added.
 pub fn service_scene_path(service_type: ServiceType) -> Option<&'static str> {
     let path = match service_type {
         // -- Emergency (commercial-style buildings) --
@@ -88,20 +90,105 @@ pub fn service_scene_path(service_type: ServiceType) -> Option<&'static str> {
         }
 
         // -- Recreation (suburban-style buildings) --
+        // These use nearest-fit open-source proxies where dedicated assets are
+        // still pending.
+        ServiceType::SmallPark => "models/props/tree-park-large.glb",
+        ServiceType::LargePark => "models/props/tree-park-pine-large.glb",
+        ServiceType::Playground => "models/buildings/services/suburban/daycare.glb",
+        ServiceType::Plaza => "models/buildings/services/suburban/community-center.glb",
+        ServiceType::SportsField => "models/buildings/services/suburban/stadium.glb",
         ServiceType::Stadium => "models/buildings/services/suburban/stadium.glb",
-
-        // -- No GLB model yet — keep procedural mesh as fallback --
-        ServiceType::SmallPark
-        | ServiceType::LargePark
-        | ServiceType::Playground
-        | ServiceType::Plaza
-        | ServiceType::SportsField
-        | ServiceType::TVStation
-        | ServiceType::Cemetery
-        | ServiceType::FerryPier
-        | ServiceType::SmallAirstrip
-        | ServiceType::RegionalAirport
-        | ServiceType::InternationalAirport => return None,
+        ServiceType::TVStation => "models/buildings/services/industrial/data-center.glb",
+        ServiceType::Cemetery => "models/buildings/services/commercial/crematorium.glb",
+        ServiceType::FerryPier => "models/buildings/services/industrial/train-station.glb",
+        ServiceType::SmallAirstrip => "models/buildings/services/industrial/bus-depot.glb",
+        ServiceType::RegionalAirport => "models/buildings/services/industrial/train-station.glb",
+        ServiceType::InternationalAirport => "models/buildings/services/industrial/train-station.glb",
     };
     Some(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::service_scene_path;
+    use simulation::services::ServiceType;
+    use std::path::PathBuf;
+
+    fn asset_path(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../app/assets")
+            .join(rel)
+    }
+
+    #[test]
+    fn all_service_types_have_scene_mapping_and_file_exists() {
+        let all = [
+            ServiceType::FireStation,
+            ServiceType::PoliceStation,
+            ServiceType::Hospital,
+            ServiceType::ElementarySchool,
+            ServiceType::HighSchool,
+            ServiceType::University,
+            ServiceType::Library,
+            ServiceType::SmallPark,
+            ServiceType::LargePark,
+            ServiceType::Playground,
+            ServiceType::Plaza,
+            ServiceType::SportsField,
+            ServiceType::Stadium,
+            ServiceType::Landfill,
+            ServiceType::RecyclingCenter,
+            ServiceType::Incinerator,
+            ServiceType::Cemetery,
+            ServiceType::Crematorium,
+            ServiceType::CityHall,
+            ServiceType::Museum,
+            ServiceType::Cathedral,
+            ServiceType::TVStation,
+            ServiceType::BusDepot,
+            ServiceType::TrainStation,
+            ServiceType::FireHouse,
+            ServiceType::FireHQ,
+            ServiceType::PoliceKiosk,
+            ServiceType::PoliceHQ,
+            ServiceType::Prison,
+            ServiceType::MedicalClinic,
+            ServiceType::MedicalCenter,
+            ServiceType::Kindergarten,
+            ServiceType::SubwayStation,
+            ServiceType::TramDepot,
+            ServiceType::FerryPier,
+            ServiceType::SmallAirstrip,
+            ServiceType::RegionalAirport,
+            ServiceType::InternationalAirport,
+            ServiceType::TransferStation,
+            ServiceType::CellTower,
+            ServiceType::DataCenter,
+            ServiceType::HomelessShelter,
+            ServiceType::WelfareOffice,
+            ServiceType::PostOffice,
+            ServiceType::MailSortingCenter,
+            ServiceType::HeatingBoiler,
+            ServiceType::DistrictHeatingPlant,
+            ServiceType::GeothermalPlant,
+            ServiceType::WaterTreatmentPlant,
+            ServiceType::WellPump,
+            ServiceType::Daycare,
+            ServiceType::Eldercare,
+            ServiceType::CommunityCenter,
+            ServiceType::SubstanceAbuseTreatmentCenter,
+            ServiceType::SeniorCenter,
+            ServiceType::YouthCenter,
+        ];
+
+        for ty in all {
+            let rel = service_scene_path(ty).unwrap_or_else(|| panic!("missing scene path for {ty:?}"));
+            let abs = asset_path(rel);
+            assert!(
+                abs.exists(),
+                "service scene path does not exist for {ty:?}: {}",
+                abs.display()
+            );
+        }
+    }
 }

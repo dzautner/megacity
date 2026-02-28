@@ -160,21 +160,34 @@ pub(crate) fn register_rendering_systems(app: &mut App, headless: bool, replay_v
             .run_if(idle.clone()),
     );
 
-    // Status icons and trees — queries Building entities
-    app.add_systems(
-        Update,
-        (
-            building_render::spawn_planted_tree_meshes,
-            building_render::cleanup_planted_tree_meshes
-                .run_if(on_timer(std::time::Duration::from_secs(1))),
-            status_icons::update_building_status_icons
-                .run_if(on_timer(std::time::Duration::from_secs(2))),
-            building_status_enhanced::update_enhanced_status_icons
-                .run_if(on_timer(std::time::Duration::from_secs(2))),
-            building_status_enhanced::lod_enhanced_status_icons,
-        )
-            .run_if(idle.clone()),
-    );
+    // Status icons and trees — queries Building entities.
+    // Replay viewer mode suppresses utility-warning icon clutter for cleaner watch output.
+    if replay_viewer {
+        app.add_systems(
+            Update,
+            (
+                building_render::spawn_planted_tree_meshes,
+                building_render::cleanup_planted_tree_meshes
+                    .run_if(on_timer(std::time::Duration::from_secs(1))),
+            )
+                .run_if(idle.clone()),
+        );
+    } else {
+        app.add_systems(
+            Update,
+            (
+                building_render::spawn_planted_tree_meshes,
+                building_render::cleanup_planted_tree_meshes
+                    .run_if(on_timer(std::time::Duration::from_secs(1))),
+                status_icons::update_building_status_icons
+                    .run_if(on_timer(std::time::Duration::from_secs(2))),
+                building_status_enhanced::update_enhanced_status_icons
+                    .run_if(on_timer(std::time::Duration::from_secs(2))),
+                building_status_enhanced::lod_enhanced_status_icons,
+            )
+                .run_if(idle.clone()),
+        );
+    }
 
     // Construction animations — queries Building/UnderConstruction entities
     app.add_systems(
@@ -212,7 +225,9 @@ pub(crate) fn register_rendering_systems(app: &mut App, headless: bool, replay_v
     app.add_plugins(traffic_arrows::TrafficArrowsPlugin);
     app.add_plugins(wind_streamlines::WindStreamlinesPlugin);
     app.add_plugins(tree_props::TreePropsPlugin);
-    app.add_plugins(network_viz::NetworkVizPlugin);
+    if !replay_viewer {
+        app.add_plugins(network_viz::NetworkVizPlugin);
+    }
 
     // Screenshot plugin (F12 to capture)
     app.add_plugins(screenshot::ScreenshotPlugin);
@@ -255,7 +270,9 @@ pub(crate) fn register_rendering_systems(app: &mut App, headless: bool, replay_v
     app.add_plugins(power_overlay::PowerOverlayPlugin);
 
     // Zoning visual feedback (PLAY-P1-01)
-    app.add_plugins(zoning_feedback::ZoningFeedbackPlugin);
+    if !replay_viewer {
+        app.add_plugins(zoning_feedback::ZoningFeedbackPlugin);
+    }
 
     // Audio playback — consumes PlaySfxEvent (PLAY-007)
     app.add_plugins(audio_playback::AudioPlaybackPlugin);
