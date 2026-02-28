@@ -138,6 +138,7 @@ fn process_command(
     cmd: simulation::agent_protocol::AgentCommand,
     app: &mut bevy::app::App,
 ) -> simulation::agent_protocol::AgentResponse {
+    use bevy::prelude::*;
     use simulation::agent_protocol::{make_response, AgentCommand, ResponsePayload};
     use simulation::game_actions::{ActionQueue, ActionSource};
     use simulation::game_actions::{ActionResult, ActionResultLog};
@@ -147,6 +148,20 @@ fn process_command(
 
     match cmd {
         AgentCommand::Observe => {
+            // Force the SlowTickTimer to a cadence boundary so that
+            // coverage-metrics and other slow systems run on this Update.
+            {
+                let mut timer = app.world_mut().resource_mut::<simulation::SlowTickTimer>();
+                let interval = simulation::SlowTickTimer::INTERVAL;
+                timer.counter = (timer.counter / interval) * interval;
+            }
+            // Run Update schedule so coverage metrics and other Update-only
+            // systems refresh before we snapshot the observation.
+            app.world_mut().run_schedule(Update);
+            // Run one more FixedUpdate so the observation builder (PostSim)
+            // captures the freshest state.
+            app.world_mut().run_schedule(FixedUpdate);
+
             let obs = app
                 .world()
                 .get_resource::<CurrentObservation>()
@@ -168,8 +183,11 @@ fn process_command(
                 .resource_mut::<ActionQueue>()
                 .push(tick, ActionSource::Agent, action);
 
-            // Run one tick so the executor processes the action.
-            app.update();
+            // Run one FixedUpdate tick so the executor processes the action.
+            // We call run_schedule(FixedUpdate) directly (like the test harness)
+            // because app.update() in headless mode doesn't advance virtual time
+            // enough for FixedUpdate to fire.
+            app.world_mut().run_schedule(FixedUpdate);
 
             let result = app
                 .world()
@@ -195,7 +213,7 @@ fn process_command(
                     action,
                 );
 
-                app.update();
+                app.world_mut().run_schedule(FixedUpdate);
 
                 let result = app
                     .world()
@@ -211,8 +229,11 @@ fn process_command(
         AgentCommand::Step { ticks } => {
             // Cap at 10 000 ticks to prevent accidental infinite loops.
             let n = ticks.min(10_000);
+            // Run FixedUpdate directly (same approach as the test harness).
+            // Bevy's virtual time system doesn't advance properly with
+            // MinimalPlugins in headless mode, so we bypass it entirely.
             for _ in 0..n {
-                app.update();
+                app.world_mut().run_schedule(FixedUpdate);
             }
             let tick = app
                 .world()
@@ -256,8 +277,8 @@ fn process_command(
                 recorder.start(seed, "agent_session".to_string(), 0);
             }
 
-            // Run one update so systems settle after the reset
-            app.update();
+            // Run one tick so systems settle after the reset.
+            app.world_mut().run_schedule(FixedUpdate);
 
             make_response(ResponsePayload::Ok)
         }
