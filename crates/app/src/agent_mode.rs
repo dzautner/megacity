@@ -152,7 +152,9 @@ fn process_command(
                 .get_resource::<CurrentObservation>()
                 .map(|co| co.observation.clone())
                 .unwrap_or_default();
-            make_response(ResponsePayload::Observation { observation: obs })
+            make_response(ResponsePayload::Observation {
+                observation: Box::new(obs),
+            })
         }
 
         AgentCommand::Act { action } => {

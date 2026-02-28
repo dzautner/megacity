@@ -85,7 +85,7 @@ pub enum ResponsePayload {
 
     /// A city observation snapshot.
     #[serde(rename = "observation")]
-    Observation { observation: CityObservation },
+    Observation { observation: Box<CityObservation> },
 
     /// Result of a single `act` command.
     #[serde(rename = "action_result")]
@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn serialize_observation_response() {
         let obs = CityObservation::default();
-        let resp = make_response(ResponsePayload::Observation { observation: obs });
+        let resp = make_response(ResponsePayload::Observation { observation: Box::new(obs) });
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"type\":\"observation\""));
         assert!(json.contains("\"tick\":0"));
