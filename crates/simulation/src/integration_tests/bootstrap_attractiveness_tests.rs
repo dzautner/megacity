@@ -67,7 +67,7 @@ fn test_bootstrap_blank_city_attracts_first_residents() {
 }
 
 /// Verify the happiness baseline: with population=0, the happiness
-/// factor should be 0.6 (= 60/100), not 0.0.
+/// factor should be 0.65 (= 65/100), not 0.0.
 #[test]
 fn test_bootstrap_happiness_baseline_for_empty_city() {
     let mut city = build_bootstrap_city();
@@ -80,8 +80,8 @@ fn test_bootstrap_happiness_baseline_for_empty_city() {
 
     let attractiveness = city.resource::<CityAttractiveness>();
     assert!(
-        (attractiveness.happiness_factor - 0.6).abs() < 0.01,
-        "Happiness factor should be 0.6 (baseline 60) for an empty city. \
+        (attractiveness.happiness_factor - 0.65).abs() < 0.01,
+        "Happiness factor should be 0.65 (baseline 65) for an empty city. \
          Got {:.3}",
         attractiveness.happiness_factor,
     );
