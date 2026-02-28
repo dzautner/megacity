@@ -89,7 +89,7 @@ fn load_commercial(
     }
 
     let skyscraper_files = ["a", "b", "c", "d", "e"];
-    let skyscrapers: Vec<Handle<Scene>> = skyscraper_files
+    let mut skyscrapers: Vec<Handle<Scene>> = skyscraper_files
         .iter()
         .map(|letter| {
             load_scene(format!(
@@ -97,6 +97,14 @@ fn load_commercial(
             ))
         })
         .collect();
+    // Extra CC0 skyline variants (Kenney via Poly Pizza) for more distinctive
+    // high-density/office silhouettes.
+    let vintage_files = ["a", "b", "c", "d", "e", "f"];
+    for letter in &vintage_files {
+        skyscrapers.push(load_scene(format!(
+            "models/buildings/skyscrapers/vintage/skyscraper-vintage-{letter}.glb"
+        )));
+    }
 
     (commercial, skyscrapers)
 }
