@@ -404,32 +404,58 @@ def format_observation(obs: dict, turn: int = 0) -> str:
     treasury = obs.get("treasury", 0)
     income = obs.get("monthly_income", 0)
     expenses = obs.get("monthly_expenses", 0)
-    parts.append(f"Treasury: ${treasury:,.0f} | Income: ${income:,.0f} | Expenses: ${expenses:,.0f}")
+    parts.append(f"Treasury: ${treasury:,.0f} | Income: ${income:,.0f}/mo | Expenses: ${expenses:,.0f}/mo")
 
     # Population
     pop = obs.get("population", {})
     total = pop.get("total", 0)
     employed = pop.get("employed", 0)
-    parts.append(f"Population: {total} (employed: {employed})")
+    unemployed = pop.get("unemployed", 0)
+    homeless = pop.get("homeless", 0)
+    parts.append(f"Population: {total} | Employed: {employed} | Unemployed: {unemployed} | Homeless: {homeless}")
 
-    # Coverage
+    # Happiness
+    hap = obs.get("happiness", {})
+    happiness = hap.get("overall", 0)
+    parts.append(f"Happiness: {happiness:.1f}/100")
+
+    # Coverage (infrastructure + services)
     power_cov = obs.get("power_coverage", 0)
     water_cov = obs.get("water_coverage", 0)
-    parts.append(f"Power: {power_cov:.0%} | Water: {water_cov:.0%}")
+    svcs = obs.get("services", {})
+    parts.append(
+        f"Coverage -- Power: {power_cov:.0%} | Water: {water_cov:.0%} | "
+        f"Fire: {svcs.get('fire', 0):.0%} | Police: {svcs.get('police', 0):.0%} | "
+        f"Health: {svcs.get('health', 0):.0%} | Education: {svcs.get('education', 0):.0%}"
+    )
 
-    # Happiness, buildings, attractiveness
-    hap = obs.get("happiness", {})
+    # Buildings and attractiveness
     bldgs = obs.get("building_count", 0)
     attract = obs.get("attractiveness_score", 0)
-    parts.append(f"Buildings: {bldgs} | Attractiveness: {attract:.1f}")
+    parts.append(f"Buildings: {bldgs} | Attractiveness: {attract:.1f}/100 (need >60 for immigration)")
+
+    # Attractiveness breakdown (if available)
+    attr_bd = obs.get("attractiveness", {})
+    if attr_bd:
+        parts.append(
+            f"  Attract breakdown -- Employment: {attr_bd.get('employment', 0):.0%} | "
+            f"Happiness: {attr_bd.get('happiness', 0):.0%} | "
+            f"Services: {attr_bd.get('services', 0):.0%} | "
+            f"Housing: {attr_bd.get('housing', 0):.0%} | "
+            f"Tax: {attr_bd.get('tax', 0):.0%}"
+        )
 
     # Zone demand
     zd = obs.get("zone_demand", {})
-    parts.append(f"Demand — R:{zd.get('residential', 0):.0f} C:{zd.get('commercial', 0):.0f} I:{zd.get('industrial', 0):.0f} O:{zd.get('office', 0):.0f}")
+    parts.append(f"Demand -- R:{zd.get('residential', 0):.0f} C:{zd.get('commercial', 0):.0f} I:{zd.get('industrial', 0):.0f} O:{zd.get('office', 0):.0f}")
+
+    # Warnings
+    warnings = obs.get("warnings", [])
+    if warnings:
+        parts.append(f"WARNINGS: {', '.join(warnings)}")
 
     # Proactive hints based on city state
-    svcs = obs.get("services", {})
-    if total > 100 and hap.get('overall', 50) < 40:
+    if total > 100 and happiness < 40:
         missing = []
         if svcs.get('fire', 0) < 0.5:
             missing.append("FireStation")
@@ -440,23 +466,22 @@ def format_observation(obs: dict, turn: int = 0) -> str:
         if svcs.get('education', 0) < 0.5:
             missing.append("ElementarySchool")
         if missing:
-            parts.append(f"TIP: Happiness is low! Place services near buildings: {', '.join(missing)}")
+            parts.append(f"TIP: Happiness is low! Place services near your buildings: {', '.join(missing)}")
 
     # Buildable area (cached from terrain query)
     global _buildable_area_info
     if _buildable_area_info:
         parts.append(_buildable_area_info)
 
-    # Water failure tracking — critical for helping LLM navigate terrain
+    # Water failure tracking
     global _consecutive_water_turns, _water_fail_positions
     if _consecutive_water_turns >= 2:
-        # Find the general direction of water failures
         if _water_fail_positions:
             avg_x = sum(p[0] for p in _water_fail_positions[-6:]) // min(6, len(_water_fail_positions))
             avg_y = sum(p[1] for p in _water_fail_positions[-6:]) // min(6, len(_water_fail_positions))
             parts.append(
                 f"WARNING: You hit water {_consecutive_water_turns} turns in a row near ({avg_x},{avg_y})! "
-                f"STOP building in this direction. Go back to your last successful area and expand in a DIFFERENT direction."
+                f"STOP building in this direction. Expand in a DIFFERENT direction."
             )
 
     return "\n".join(parts)
@@ -800,7 +825,8 @@ def run_session(args: argparse.Namespace):
             _bldgs = obs.get("building_count", 0)
             _attract = obs.get("attractiveness_score", 0)
             _treas = obs.get("treasury", 0)
-            log.info("  Pop=%d | Bldgs=%d | Attract=%.1f | Treasury=$%.0f", _pop, _bldgs, _attract, _treas)
+            _hap = hap.get("overall", 0)
+            log.info("  Pop=%d | Bldgs=%d | Happy=%.0f | Attract=%.1f | Treasury=$%.0f", _pop, _bldgs, _hap, _attract, _treas)
 
             if actions:
                 log.info(

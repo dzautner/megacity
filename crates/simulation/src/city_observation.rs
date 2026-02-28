@@ -43,6 +43,16 @@ pub struct CityObservation {
     // -- Happiness ----------------------------------------------------------
     pub happiness: HappinessSnapshot,
 
+    // -- Attractiveness (immigration driver, 0-100) -------------------------
+    #[serde(default)]
+    pub attractiveness_score: f32,
+    #[serde(default)]
+    pub attractiveness: AttractivenessSnapshot,
+
+    // -- Building counts ----------------------------------------------------
+    #[serde(default)]
+    pub building_count: u32,
+
     // -- Warnings -----------------------------------------------------------
     pub warnings: Vec<CityWarning>,
 
@@ -86,6 +96,15 @@ pub struct ServiceCoverageSnapshot {
 pub struct HappinessSnapshot {
     pub overall: f32,
     pub components: Vec<(String, f32)>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AttractivenessSnapshot {
+    pub employment: f32,
+    pub happiness: f32,
+    pub services: f32,
+    pub housing: f32,
+    pub tax: f32,
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +184,15 @@ mod tests {
                 overall: 65.0,
                 components: vec![("employment".into(), 80.0), ("safety".into(), 50.0)],
             },
+            attractiveness_score: 65.0,
+            attractiveness: AttractivenessSnapshot {
+                employment: 0.8,
+                happiness: 0.65,
+                services: 0.5,
+                housing: 0.6,
+                tax: 0.55,
+            },
+            building_count: 42,
             warnings: vec![CityWarning::NegativeBudget],
             recent_action_results: vec![ActionResultEntry {
                 action_summary: "Built road".into(),
