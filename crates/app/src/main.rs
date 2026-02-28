@@ -1,5 +1,7 @@
 use bevy::prelude::*;
-use bevy::window::{ExitCondition, PresentMode};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::window::ExitCondition;
+use bevy::window::PresentMode;
 use bevy::winit::{UpdateMode, WinitSettings};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -68,6 +70,7 @@ fn main() {
     // winit attaches event listeners to the right element. We also enable
     // `fit_canvas_to_parent` so the drawing-buffer resolution stays in sync with
     // the CSS layout size, preventing coordinate mismatches.
+    #[allow(unused_mut)]
     let mut window_plugin = WindowPlugin {
         primary_window: {
             #[cfg(not(target_arch = "wasm32"))]
