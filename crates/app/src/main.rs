@@ -31,6 +31,17 @@ fn main() {
         panic!("Agent mode is not supported on WASM");
     }
 
+    // Parse optional --replay <path> for graphical replay playback (native only).
+    #[cfg(not(target_arch = "wasm32"))]
+    let replay_path: Option<String> = args
+        .windows(2)
+        .find(|w| w[0] == "--replay")
+        .map(|w| w[1].clone());
+    #[cfg(not(target_arch = "wasm32"))]
+    let replay_mode = replay_path.is_some();
+    #[cfg(target_arch = "wasm32")]
+    let replay_mode = false;
+
     let mut app = App::new();
 
     // --- Window configuration ---------------------------------------------------
@@ -82,6 +93,10 @@ fn main() {
     if screenshot_mode {
         app.insert_state(simulation::AppState::Playing);
         app.add_systems(Startup, simulation::world_init::init_world);
+    } else if replay_mode {
+        // Replay mode: skip main menu, start directly in Playing state.
+        // The replay starts from a blank grid (same as agent mode).
+        app.insert_state(simulation::AppState::Playing);
     } else {
         app.insert_state(simulation::AppState::MainMenu);
     }
@@ -92,6 +107,13 @@ fn main() {
         ui::UiPlugin,
         save::SavePlugin,
     ));
+
+    // Replay mode: register startup system to load the replay file (native only)
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(path) = replay_path {
+        app.insert_resource(ReplayFilePath(path));
+        app.add_systems(Startup, load_replay_file);
+    }
 
     // Screenshot mode: takes preset screenshots and exits (native only)
     #[cfg(not(target_arch = "wasm32"))]
@@ -173,6 +195,54 @@ fn main() {
 
     app.run();
 }
+
+// ---------------------------------------------------------------------------
+// Replay playback (native only)
+// ---------------------------------------------------------------------------
+
+/// Resource holding the path to the replay file, consumed by the startup system.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource)]
+struct ReplayFilePath(String);
+
+/// Startup system that reads a replay file from disk and loads it into the
+/// `ReplayPlayer` for automatic playback. The `feed_replay_actions` system
+/// (registered by `ReplayPlugin`) handles injecting actions each tick.
+#[cfg(not(target_arch = "wasm32"))]
+fn load_replay_file(
+    replay_path: Res<ReplayFilePath>,
+    mut player: ResMut<simulation::replay::ReplayPlayer>,
+) {
+    info!("Loading replay from: {}", replay_path.0);
+    let contents = match std::fs::read_to_string(&replay_path.0) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to read replay file '{}': {e}", replay_path.0);
+            return;
+        }
+    };
+    let replay = match simulation::replay::ReplayFile::from_json(&contents) {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Failed to parse replay file '{}': {e}", replay_path.0);
+            return;
+        }
+    };
+    if let Err(e) = replay.validate() {
+        warn!("Replay validation warning: {}", e);
+    }
+    info!(
+        "Replay loaded: {} entries, ticks {}..{}",
+        replay.entries.len(),
+        replay.header.start_tick,
+        replay.footer.end_tick,
+    );
+    player.load(replay);
+}
+
+// ---------------------------------------------------------------------------
+// Screenshot mode (native only)
+// ---------------------------------------------------------------------------
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
