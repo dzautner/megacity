@@ -24,6 +24,7 @@ use crate::time_of_day::GameClock;
 use crate::traffic_congestion::TrafficCongestion;
 use crate::virtual_population::VirtualPopulation;
 use crate::zones::ZoneDemand;
+use crate::income_projection::IncomeProjection;
 use crate::TickCounter;
 
 // ---------------------------------------------------------------------------
@@ -54,15 +55,20 @@ pub fn build_observation(
     coverage: Res<CoverageMetrics>,
     homelessness: Res<HomelessnessStats>,
     virtual_pop: Res<VirtualPopulation>,
-    traffic_congestion: Res<TrafficCongestion>,
-    pollution_grid: Res<PollutionGrid>,
-    crime_grid: Res<CrimeGrid>,
+    grids: (
+        Res<TrafficCongestion>,
+        Res<PollutionGrid>,
+        Res<CrimeGrid>,
+    ),
     action_log: Res<ActionResultLog>,
     grid: Res<WorldGrid>,
     attract: Res<CityAttractiveness>,
+    income_proj: Res<IncomeProjection>,
     employed_citizens: Query<(), (With<Citizen>, With<WorkLocation>)>,
     mut current: ResMut<CurrentObservation>,
 ) {
+    let (traffic_congestion, pollution_grid, crime_grid) = grids;
+
     let real_employed = employed_citizens.iter().count() as u32;
     let total_employed = real_employed + virtual_pop.virtual_employed;
 
@@ -113,6 +119,9 @@ pub fn build_observation(
         monthly_income: budget.monthly_income,
         monthly_expenses: budget.monthly_expenses,
         net_income: budget.monthly_income - budget.monthly_expenses,
+
+        estimated_monthly_income: income_proj.projected_income,
+        estimated_monthly_expenses: income_proj.projected_expenses,
 
         population: PopulationSnapshot {
             total: population_total,
