@@ -37,121 +37,48 @@ log = logging.getLogger("llm_player")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
-DEFAULT_TICKS_PER_TURN = 100
+DEFAULT_TICKS_PER_TURN = 1500
 DEFAULT_MAX_TURNS = 200
 PROTOCOL_VERSION = 1
 
 SYSTEM_PROMPT = """\
-## You Are Playing Megacity
+You are playing Megacity, a 256x256 grid city builder. Each turn you receive stats and respond with JSON actions.
 
-You are a city builder AI managing a 256x256 grid city. Each turn (~1 game day),
-you receive the city state and respond with building actions. Your goal: maximize
-population, happiness, and treasury.
+## CRITICAL RULES
+1. People need BOTH housing AND jobs. Zone Residential AND Commercial/Industrial every turn.
+2. Utilities MUST be ON a road cell. Utilities on grass = zero coverage.
+3. If you get BlockedByWater errors, STOP going that direction. Try north, south, or west instead.
+4. Use LARGE zone rects (e.g. 5x10) not tiny 1x1 zones. More zones = more buildings = more people.
 
-## Coordinate System
-- Grid: 256x256 cells. (0,0) = top-left, (255,255) = bottom-right
-- All actions use (x, y) grid coordinates as integers
-- Water cells (~) cannot be built on
-- The overview map shows 64x64 (each char = 4x4 cells)
-- The detail map shows 1:1 (each char = 1 cell, coordinates labeled)
+## Building Pattern
+For each new block: Road → Utility ON road → Zone rect on BOTH sides of road.
 
-## Game Mechanics
+Example: Build a road from (100,80) to (120,80), place PowerPlant at (105,80) and WaterTower at (110,80),
+then zone residential (100,81) to (120,85) on one side and commercial (100,75) to (120,79) on the other side.
 
-### Roads -- BUILD THESE FIRST
-| Type      | Cost | Maintenance | Speed | Allows Zoning |
-|-----------|------|-------------|-------|---------------|
-| Local     | $10  | $0.3/mo     | 30    | Yes           |
-| Avenue    | $20  | $0.5/mo     | 50    | Yes           |
-| Boulevard | $30  | $1.5/mo     | 60    | Yes           |
-| Highway   | $40  | $2.0/mo     | 100   | NO            |
+## Actions (respond with ONLY a JSON object, no other text)
+{"actions": [
+  {"PlaceRoadLine": {"start": [x,y], "end": [x,y], "road_type": "Local"}},
+  {"ZoneRect": {"min": [x,y], "max": [x,y], "zone_type": "ResidentialLow"}},
+  {"PlaceUtility": {"pos": [x,y], "utility_type": "PowerPlant"}},
+  {"PlaceService": {"pos": [x,y], "service_type": "FireStation"}},
+  {"SetTaxRates": {"residential": 0.09, "commercial": 0.09, "industrial": 0.09, "office": 0.09}}
+]}
 
-PlaceRoadLine draws a straight line between two grid points.
-Roads carry power and water from utilities to buildings via the network.
+## Zone Types
+ResidentialLow, ResidentialMedium, ResidentialHigh, CommercialLow, CommercialHigh, Industrial, Office, MixedUse
 
-### Zoning -- Place ADJACENT to Roads
-| Zone Type       | Max Level | L1 Cap | L5 Cap  |
-|-----------------|-----------|--------|---------|
-| ResidentialLow  | 3         | 10     | 80      |
-| ResidentialHigh | 5         | 50     | 2000    |
-| CommercialLow   | 3         | 8      | 60      |
-| CommercialHigh  | 5         | 30     | 1200    |
-| Industrial      | 5         | 20     | 600     |
-| Office          | 5         | 30     | 1500    |
+## Utilities (MUST be ON road cells!)
+PowerPlant ($1000, range 30), WaterTower ($200, range 25)
 
-ZoneRect sets a rectangle of cells to a zone type. Only grass cells adjacent
-to a road will be zoned. Buildings spawn automatically in zoned cells that
-have road access + power + water.
+## Services
+FireStation ($800), PoliceStation ($600), Hospital ($2000), ElementarySchool ($2000), HighSchool ($1500)
 
-### Utilities -- Build BEFORE Zoning
-| Type        | Cost   | Range | Notes                    |
-|-------------|--------|-------|--------------------------|
-| PowerPlant  | $1000  | 30    | Covers ~30 cells via roads |
-| WaterTower  | $200   | 25    | Covers ~25 cells via roads |
-| SolarFarm   | $1200  | 20    | Lower output, clean      |
-| WindTurbine | $600   | 15    | Weather dependent        |
-
-Power and water propagate through the road network from utility positions.
-Buildings without both power AND water will not grow.
-
-### Services -- Build as Population Grows
-| Type             | Cost   | Radius | Monthly |
-|------------------|--------|--------|---------|
-| FireStation      | $800   | 16     | ~$100   |
-| PoliceStation    | $600   | 16     | ~$80    |
-| Hospital         | $2000  | 25     | ~$200   |
-| ElementarySchool | $2000  | 20     | ~$150   |
-| HighSchool       | $1500  | 20     | ~$120   |
-
-Services cover buildings within their radius. Gaps = unhappy citizens.
-
-### Economy
-- Income: property tax on buildings. Higher level buildings = more tax.
-- Expenses: road maintenance + service maintenance + utility upkeep
+## Key Facts
+- Zone rects must be adjacent to a road (within 2 cells)
+- Buildings need power AND water to grow (from utilities on the road network)
+- Water (~) is unbuildable. Rivers and lakes exist inside the map.
 - Starting treasury: $50,000
-- Default tax rate: 9% per zone type (adjustable 0-100%)
-- Bankruptcy (deep negative treasury) = game over
-
-### Zone Demand (0-100 scale)
-- Residential demand: driven by jobs availability
-- Commercial demand: driven by population needing shops
-- Industrial demand: driven by goods demand
-- High demand = buildings upgrade faster, more immigrants
-- Balance all four for healthy growth
-
-### Happiness (0-100)
-- Affected by: employment, services, commute time, pollution, taxes, housing
-- High happiness -> immigration -> population growth
-- Low happiness -> emigration -> population decline
-
-## Available Actions
-```json
-{"PlaceRoadLine": {"start": [x,y], "end": [x,y], "road_type": "Local"|"Avenue"|"Boulevard"|"Highway"}}
-{"ZoneRect": {"min": [x,y], "max": [x,y], "zone_type": "ResidentialLow"|"ResidentialHigh"|"CommercialLow"|"CommercialHigh"|"Industrial"|"Office"}}
-{"PlaceUtility": {"pos": [x,y], "utility_type": "PowerPlant"|"WaterTower"|"SolarFarm"|"WindTurbine"}}
-{"PlaceService": {"pos": [x,y], "service_type": "FireStation"|"PoliceStation"|"Hospital"|"ElementarySchool"|"HighSchool"}}
-{"BulldozeRect": {"min": [x,y], "max": [x,y]}}
-{"SetTaxRates": {"residential": 0.09, "commercial": 0.09, "industrial": 0.09, "office": 0.09}}
-```
-
-## Querying Layers
-Before acting, you may request detail layers:
-```json
-{"query": ["map", "buildings", "services", "utilities", "roads", "zones", "terrain"]}
-```
-You'll receive the data, then respond with your actions.
-
-## Strategy Guide
-Turn 1-3: Build a main avenue through the center. Place PowerPlant and WaterTower
-          near it. Zone ResidentialLow and CommercialLow along the avenue.
-Turn 4-10: Extend road network with local roads. Expand zones. Add FireStation.
-Turn 10-20: Add PoliceStation, first school. Zone Industrial (away from residential).
-Turn 20+: Add Hospital. Expand to ResidentialHigh/CommercialHigh. Balance budget.
-
-## Response Format
-Respond with ONLY a JSON object:
-- To query: {"query": ["map", "buildings"]}
-- To act: {"actions": [{"PlaceRoadLine": {...}}, ...]}
-- To pass: {"actions": []}
 """
 
 
@@ -191,7 +118,10 @@ class ConversationManager:
         messages.append({"role": "user", "content": current_observation})
         return messages
 
-    def record_turn(self, turn: int, observation: str, response: str, results: list):
+    def record_turn(
+        self, turn: int, observation: str, response: str, results: list,
+        treasury: float = 0, population: int = 0,
+    ):
         """Record a completed turn and compress history periodically."""
         self.recent_turns.append((observation, response))
         if len(self.recent_turns) > 6:
@@ -200,6 +130,8 @@ class ConversationManager:
             "turn": turn,
             "obs_snippet": observation[:200],
             "results": results,
+            "treasury": treasury,
+            "population": population,
         })
         if turn > 0 and turn % 10 == 0:
             self._compress_history(turn)
@@ -209,7 +141,20 @@ class ConversationManager:
         block_start = max(1, current_turn - 9)
         block = self.turn_log[block_start - 1 : current_turn]
         actions_taken = sum(len(t.get("results", [])) for t in block)
-        summary = f"Turns {block_start}-{current_turn}: {actions_taken} actions executed."
+        successes = sum(
+            sum(1 for r in t.get("results", []) if r.get("success", False))
+            for t in block
+        )
+        failures = actions_taken - successes
+        # Include metrics from last turn in block
+        last = block[-1] if block else {}
+        treasury = last.get("treasury", "?")
+        pop = last.get("population", "?")
+        summary = (
+            f"Turns {block_start}-{current_turn}: "
+            f"{actions_taken} actions ({successes} ok, {failures} failed). "
+            f"Treasury=${treasury}, Pop={pop}."
+        )
         self.history_summary += summary + "\n"
 
 
@@ -229,6 +174,12 @@ class GameProcess:
             text=True,
             bufsize=1,
         )
+        # The game sends a "ready" message on startup — consume it so
+        # subsequent send/recv pairs stay aligned.
+        ready_line = self.proc.stdout.readline()
+        if ready_line:
+            ready = json.loads(ready_line)
+            log.info("Game ready (protocol v%s)", ready.get("protocol_version", "?"))
 
     def send(self, command: dict) -> dict:
         """Send a JSON command and read the JSON response."""
@@ -317,89 +268,197 @@ class LLMClient:
         raise RuntimeError("OpenRouter API failed after 3 attempts")
 
 
-def format_observation(obs: dict) -> str:
-    """Format a city observation into a rich text summary for the LLM."""
-    parts = [f"## Turn Observation (tick {obs.get('tick', '?')})"]
+def parse_overview_map(overview_map: str) -> list:
+    """Parse overview map string into grid lines (64 strings, each char = 4x4 block)."""
+    if not overview_map:
+        return []
+    lines = overview_map.strip().split("\n")
+    grid_lines = []
+    for line in lines[1:]:  # skip column header
+        if not line.strip():
+            break  # stop at legend separator
+        if "|" in line:
+            _, _, content = line.partition("|")
+            grid_lines.append(content.rstrip())
+    return grid_lines
+
+
+def build_water_set(grid_lines: list) -> set:
+    """Build a set of grid coordinates known to be water from the overview map."""
+    water = set()
+    scale = 4  # overview is 64x64 for 256x256 grid
+    for oy, row in enumerate(grid_lines):
+        for ox, ch in enumerate(row):
+            if ch == '~':
+                for dy in range(scale):
+                    for dx in range(scale):
+                        water.add((ox * scale + dx, oy * scale + dy))
+    return water
+
+
+def compute_buildable_area(grid_lines: list) -> str:
+    """Find safe buildable area from parsed overview grid lines."""
+    if not grid_lines:
+        return ""
+
+    # Find bounds of buildable (non-water) cells
+    min_x, min_y = 999, 999
+    max_x, max_y = 0, 0
+    for y, row in enumerate(grid_lines):
+        for x, ch in enumerate(row):
+            if ch != '~' and ch != ' ':  # Not water or padding
+                min_x = min(min_x, x)
+                max_x = max(max_x, x)
+                min_y = min(min_y, y)
+                max_y = max(max_y, y)
+    if min_x > max_x:
+        return ""
+    # Scale from overview coords (64x64) to grid coords (256x256)
+    scale = 4
+    gx0, gy0 = min_x * scale, min_y * scale
+    gx1, gy1 = (max_x + 1) * scale - 1, (max_y + 1) * scale - 1
+    # Clamp to grid bounds
+    gx0 = max(0, min(gx0, 255))
+    gy0 = max(0, min(gy0, 255))
+    gx1 = max(0, min(gx1, 255))
+    gy1 = max(0, min(gy1, 255))
+    # Find a safe center point (well away from water edges)
+    margin = 5 * scale  # 5 overview cells = 20 grid cells margin
+    sx0, sy0 = gx0 + margin, gy0 + margin
+    sx1, sy1 = gx1 - margin, gy1 - margin
+    cx, cy = (sx0 + sx1) // 2, (sy0 + sy1) // 2
+    # Cap center to safe range
+    cx = max(sx0, min(cx, sx1))
+    cy = max(sy0, min(cy, sy1))
+    return (f"Buildable land: ({sx0},{sy0}) to ({sx1},{sy1}). Center: ({cx},{cy}). "
+            f"Build roads starting near the center. "
+            f"NOTE: Rivers/lakes exist INSIDE this area — if you hit water, try a different direction.")
+
+
+# Cache for buildable area (set on turn 1)
+_buildable_area_info = ""
+
+# Set of known water grid coordinates — built from overview map + runtime failures
+_water_cells: set = set()
+
+# Track consecutive water failures to help LLM change direction
+_water_fail_positions: list = []
+_consecutive_water_turns = 0
+
+
+def _action_coords(action: dict) -> list:
+    """Extract all grid coordinate pairs from an action."""
+    coords = []
+    for _key, params in action.items():
+        if isinstance(params, dict):
+            for ck in ["start", "end", "pos", "min", "max"]:
+                v = params.get(ck)
+                if isinstance(v, list) and len(v) >= 2:
+                    coords.append((int(v[0]), int(v[1])))
+            # For road lines, check intermediate points
+            start = params.get("start")
+            end = params.get("end")
+            if isinstance(start, list) and isinstance(end, list):
+                x0, y0 = int(start[0]), int(start[1])
+                x1, y1 = int(end[0]), int(end[1])
+                if x0 == x1:  # vertical
+                    for y in range(min(y0, y1), max(y0, y1) + 1):
+                        coords.append((x0, y))
+                elif y0 == y1:  # horizontal
+                    for x in range(min(x0, x1), max(x0, x1) + 1):
+                        coords.append((x, y0))
+    return coords
+
+
+def _action_hits_water(action: dict) -> bool:
+    """Check if any coordinate of this action is in known water."""
+    if not _water_cells:
+        return False
+    return any(c in _water_cells for c in _action_coords(action))
+
+
+def _action_out_of_bounds(action: dict) -> bool:
+    """Check if any coordinate of this action is outside the 256x256 grid."""
+    for x, y in _action_coords(action):
+        if x < 0 or x >= 256 or y < 0 or y >= 256:
+            return True
+    return False
+
+
+def _record_water_failure(action: dict):
+    """Add coordinates from a water-blocked action to the water set."""
+    for coord in _action_coords(action):
+        _water_cells.add(coord)
+        # Also mark surrounding cells as likely water (water comes in patches)
+        x, y = coord
+        for dx in range(-2, 3):
+            for dy in range(-2, 3):
+                _water_cells.add((x + dx, y + dy))
+
+
+def format_observation(obs: dict, turn: int = 0) -> str:
+    """Format a city observation into a compact summary for the LLM."""
+    parts = [f"## Turn {turn}"]
 
     # Economy
     treasury = obs.get("treasury", 0)
     income = obs.get("monthly_income", 0)
     expenses = obs.get("monthly_expenses", 0)
-    net = obs.get("net_income", income - expenses)
-    parts.append("\n### Economy")
-    parts.append(f"Treasury: ${treasury:,.0f}")
-    parts.append(f"Monthly income: ${income:,.0f}")
-    parts.append(f"Monthly expenses: ${expenses:,.0f}")
-    parts.append(f"Net: ${net:,.0f}")
+    parts.append(f"Treasury: ${treasury:,.0f} | Income: ${income:,.0f} | Expenses: ${expenses:,.0f}")
 
     # Population
     pop = obs.get("population", {})
     total = pop.get("total", 0)
     employed = pop.get("employed", 0)
-    unemployed = pop.get("unemployed", 0)
-    homeless = pop.get("homeless", 0)
-    parts.append("\n### Population")
-    parts.append(f"Total: {total}")
-    parts.append(f"Employed: {employed} | Unemployed: {unemployed} | Homeless: {homeless}")
-
-    # Zone demand
-    zd = obs.get("zone_demand", {})
-    parts.append("\n### Zone Demand (0-100)")
-    parts.append(
-        f"R: {zd.get('residential', 0):.0f} | "
-        f"C: {zd.get('commercial', 0):.0f} | "
-        f"I: {zd.get('industrial', 0):.0f} | "
-        f"O: {zd.get('office', 0):.0f}"
-    )
+    parts.append(f"Population: {total} (employed: {employed})")
 
     # Coverage
     power_cov = obs.get("power_coverage", 0)
     water_cov = obs.get("water_coverage", 0)
-    svcs = obs.get("services", {})
-    parts.append("\n### Coverage")
     parts.append(f"Power: {power_cov:.0%} | Water: {water_cov:.0%}")
-    parts.append(
-        f"Fire: {svcs.get('fire', 0):.0%} | "
-        f"Police: {svcs.get('police', 0):.0%} | "
-        f"Health: {svcs.get('health', 0):.0%} | "
-        f"Education: {svcs.get('education', 0):.0%}"
-    )
 
-    # Happiness
+    # Happiness, buildings, attractiveness
     hap = obs.get("happiness", {})
-    overall = hap.get("overall", 0)
-    parts.append(f"\n### Happiness: {overall:.1f}/100")
+    bldgs = obs.get("building_count", 0)
+    attract = obs.get("attractiveness_score", 0)
+    parts.append(f"Buildings: {bldgs} | Attractiveness: {attract:.1f}")
 
-    # Warnings
-    warnings = obs.get("warnings", [])
-    if warnings:
-        parts.append("\n### Warnings")
-        for w in warnings:
-            parts.append(f"  - {w}")
+    # Zone demand
+    zd = obs.get("zone_demand", {})
+    parts.append(f"Demand — R:{zd.get('residential', 0):.0f} C:{zd.get('commercial', 0):.0f} I:{zd.get('industrial', 0):.0f} O:{zd.get('office', 0):.0f}")
 
-    # Recent action results
-    recent_results = obs.get("recent_action_results", [])
-    if recent_results:
-        parts.append("\n### Recent Action Results")
-        for r in recent_results[-8:]:
-            status = "OK" if r.get("success") else "FAIL"
-            reason = r.get("reason", "")
-            summary = r.get("action_summary", "?")
-            line = f"  [{status}] {summary}"
-            if not r.get("success") and reason:
-                line += f" -- {reason}"
-            parts.append(line)
+    # Proactive hints based on city state
+    svcs = obs.get("services", {})
+    if total > 100 and hap.get('overall', 50) < 40:
+        missing = []
+        if svcs.get('fire', 0) < 0.5:
+            missing.append("FireStation")
+        if svcs.get('police', 0) < 0.5:
+            missing.append("PoliceStation")
+        if svcs.get('health', 0) < 0.5:
+            missing.append("Hospital")
+        if svcs.get('education', 0) < 0.5:
+            missing.append("ElementarySchool")
+        if missing:
+            parts.append(f"TIP: Happiness is low! Place services near buildings: {', '.join(missing)}")
 
-    # Overview map
-    overview = obs.get("overview_map", "")
-    if overview:
-        parts.append("\n### Overview Map (64x64, each char = 4x4 cells)")
-        parts.append(overview)
+    # Buildable area (cached from terrain query)
+    global _buildable_area_info
+    if _buildable_area_info:
+        parts.append(_buildable_area_info)
 
-    parts.append(
-        "\nRespond with a JSON object. To query layers: "
-        '{"query": ["map", ...]}. To act: {"actions": [...]}'
-    )
+    # Water failure tracking — critical for helping LLM navigate terrain
+    global _consecutive_water_turns, _water_fail_positions
+    if _consecutive_water_turns >= 2:
+        # Find the general direction of water failures
+        if _water_fail_positions:
+            avg_x = sum(p[0] for p in _water_fail_positions[-6:]) // min(6, len(_water_fail_positions))
+            avg_y = sum(p[1] for p in _water_fail_positions[-6:]) // min(6, len(_water_fail_positions))
+            parts.append(
+                f"WARNING: You hit water {_consecutive_water_turns} turns in a row near ({avg_x},{avg_y})! "
+                f"STOP building in this direction. Go back to your last successful area and expand in a DIFFERENT direction."
+            )
+
     return "\n".join(parts)
 
 
@@ -423,13 +482,14 @@ def format_layers(layer_response: dict) -> str:
 
 def parse_response(content: str) -> dict:
     """Parse LLM response as either {"actions": [...]} or {"query": [...]}."""
+    import re
     text = content.strip()
-    # Strip markdown fences
-    if text.startswith("```"):
-        lines = text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        text = "\n".join(lines).strip()
 
+    # Strip markdown fences (```json ... ```)
+    text = re.sub(r'```\w*\s*', '', text).strip()
+    text = text.rstrip('`').strip()
+
+    # Try direct parse
     try:
         parsed = json.loads(text)
         if isinstance(parsed, dict):
@@ -439,7 +499,16 @@ def parse_response(content: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # Try to find JSON in text
+    # Try to find {"actions": [...]} or {"query": [...]} pattern
+    for pattern in [r'\{"actions"\s*:\s*\[.*\]\s*\}', r'\{"query"\s*:\s*\[.*\]\s*\}']:
+        m = re.search(pattern, text, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group())
+            except json.JSONDecodeError:
+                pass
+
+    # Try outermost braces/brackets
     for start_char, end_char in [("{", "}"), ("[", "]")]:
         start = text.find(start_char)
         end = text.rfind(end_char)
@@ -453,8 +522,80 @@ def parse_response(content: str) -> dict:
             except json.JSONDecodeError:
                 pass
 
+    # Try to extract individual action objects from text
+    action_types = ["PlaceRoadLine", "ZoneRect", "PlaceUtility", "PlaceService",
+                    "BulldozeRect", "SetTaxRates"]
+    actions = []
+    for action_type in action_types:
+        for m in re.finditer(r'\{"' + action_type + r'"\s*:\s*\{[^}]*\}\s*\}', text):
+            try:
+                actions.append(json.loads(m.group()))
+            except json.JSONDecodeError:
+                pass
+    if actions:
+        return {"actions": actions}
+
+    # Try to fix truncated JSON by adding closing brackets
+    for start_char in ["{", "["]:
+        start = text.find(start_char)
+        if start != -1:
+            fragment = text[start:]
+            for suffix in ["]}", "]}}", "}", "]}}}", '"]}']:
+                try:
+                    parsed = json.loads(fragment + suffix)
+                    if isinstance(parsed, list):
+                        return {"actions": parsed}
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    continue
+
     log.warning("Could not parse LLM response: %s", text[:200])
     return {"actions": []}
+
+
+ZONE_TYPE_ALIASES = {
+    "IndustrialLow": "Industrial",
+    "IndustrialHigh": "Industrial",
+    "OfficeLow": "Office",
+    "OfficeHigh": "Office",
+    "ResLow": "ResidentialLow",
+    "ResHigh": "ResidentialHigh",
+    "ComLow": "CommercialLow",
+    "ComHigh": "CommercialHigh",
+    "Residential": "ResidentialLow",
+    "Commercial": "CommercialLow",
+    "MixedUse": "MixedUse",
+}
+
+
+def normalize_action(action: dict) -> dict:
+    """Fix common LLM mistakes in action parameters."""
+    if not isinstance(action, dict):
+        return action
+    for key, params in action.items():
+        if isinstance(params, dict):
+            # Fix zone type aliases
+            if "zone_type" in params:
+                zt = params["zone_type"]
+                if zt in ZONE_TYPE_ALIASES:
+                    params["zone_type"] = ZONE_TYPE_ALIASES[zt]
+            # Fix road type aliases
+            if "road_type" in params:
+                rt = params["road_type"]
+                if rt.lower() == "local":
+                    params["road_type"] = "Local"
+                elif rt.lower() == "avenue":
+                    params["road_type"] = "Avenue"
+                elif rt.lower() == "boulevard":
+                    params["road_type"] = "Boulevard"
+                elif rt.lower() == "highway":
+                    params["road_type"] = "Highway"
+            # Ensure coordinate values are integers
+            for coord_key in ["start", "end", "pos", "min", "max"]:
+                if coord_key in params and isinstance(params[coord_key], list):
+                    params[coord_key] = [int(round(v)) for v in params[coord_key]]
+    return action
 
 
 def _summarize_action(action: dict) -> str:
@@ -481,18 +622,19 @@ def play_turn(
     observation = obs_response.get("observation", obs_response)
 
     # 3. Format observation
-    user_msg = format_observation(observation)
+    user_msg = format_observation(observation, turn)
 
-    # 4. On turn 1, auto-query all layers for spatial awareness
-    if turn == 1:
-        try:
-            query_response = game.send({
-                "cmd": "query",
-                "layers": ["map", "buildings", "services", "utilities", "terrain"],
-            })
-            user_msg += "\n\n" + format_layers(query_response)
-        except Exception as e:
-            log.warning("Initial layer query failed: %s", e)
+    # 4. Compute buildable area + water set from overview map on turn 1
+    global _buildable_area_info, _water_cells
+    if turn == 1 and not _buildable_area_info:
+        overview = observation.get("overview_map", "")
+        if overview:
+            grid_lines = parse_overview_map(overview)
+            _buildable_area_info = compute_buildable_area(grid_lines)
+            _water_cells = build_water_set(grid_lines)
+            if _buildable_area_info:
+                log.info("Computed buildable area: %s", _buildable_area_info)
+            log.info("Water cells mapped: %d cells", len(_water_cells))
 
     # 5. Send to LLM
     messages = conv_mgr.build_messages(user_msg)
@@ -520,30 +662,78 @@ def play_turn(
             log.warning("Layer query failed: %s", e)
             parsed = {"actions": []}
 
-    # 8. Execute actions
-    actions = parsed.get("actions", [])
+    # 8. Execute actions (with normalization + water pre-filtering)
+    raw_actions = [normalize_action(a) for a in parsed.get("actions", [])]
+    # Pre-filter: skip actions that would land in water or out of bounds
+    actions = []
+    for a in raw_actions:
+        if _action_out_of_bounds(a):
+            log.info("  SKIP (bounds): %s", _summarize_action(a))
+        elif _action_hits_water(a):
+            log.info("  SKIP (water): %s", _summarize_action(a))
+        else:
+            actions.append(a)
+
     results = []
     for action in actions:
         try:
             result = game.act(action)
-            success = result.get("result") == "Success"
+            res_val = result.get("result", "")
+            success = res_val == "Success"
+            reason = ""
+            if not success and isinstance(res_val, dict) and "Error" in res_val:
+                reason = res_val["Error"]
+                # Track runtime water failures
+                if reason == "BlockedByWater":
+                    _record_water_failure(action)
             results.append({
                 "action": action,
                 "result": result,
                 "success": success,
+                "reason": reason,
                 "action_summary": _summarize_action(action),
             })
+            if success:
+                log.info("  OK: %s", _summarize_action(action))
+            else:
+                log.warning("  FAIL: %s -> %s", _summarize_action(action), reason or res_val)
         except Exception as e:
             log.error("Action error: %s", e)
             results.append({
                 "action": action,
                 "result": {"error": str(e)},
                 "success": False,
+                "reason": str(e),
                 "action_summary": _summarize_action(action),
             })
 
-    # 9. Record turn
-    conv_mgr.record_turn(turn, user_msg, response, results)
+    # 9. Track water failures for directional hints to LLM
+    global _consecutive_water_turns, _water_fail_positions
+    water_fails_this_turn = [
+        r for r in results
+        if not r.get("success") and "BlockedByWater" in str(r.get("reason", ""))
+    ]
+    if water_fails_this_turn:
+        _consecutive_water_turns += 1
+        for r in water_fails_this_turn:
+            act = r.get("action", {})
+            for _key, params in act.items():
+                if isinstance(params, dict):
+                    for coord_key in ["start", "pos", "min"]:
+                        if coord_key in params:
+                            coords = params[coord_key]
+                            if isinstance(coords, list) and len(coords) >= 2:
+                                _water_fail_positions.append((coords[0], coords[1]))
+                                break
+    else:
+        _consecutive_water_turns = 0
+
+    # 10. Record turn with metrics
+    conv_mgr.record_turn(
+        turn, user_msg, response, results,
+        treasury=observation.get("treasury", 0),
+        population=observation.get("population", {}).get("total", 0),
+    )
 
     return actions, results, observation
 
@@ -605,6 +795,13 @@ def run_session(args: argparse.Namespace):
                         r.get("result", {}),
                     )
 
+            # Always log key metrics
+            _pop = pop.get("total", 0)
+            _bldgs = obs.get("building_count", 0)
+            _attract = obs.get("attractiveness_score", 0)
+            _treas = obs.get("treasury", 0)
+            log.info("  Pop=%d | Bldgs=%d | Attract=%.1f | Treasury=$%.0f", _pop, _bldgs, _attract, _treas)
+
             if actions:
                 log.info(
                     "Executed %d action(s): %d ok, %d failed",
@@ -622,10 +819,17 @@ def run_session(args: argparse.Namespace):
                 "treasury": obs.get("treasury", 0),
                 "population": pop.get("total", 0),
                 "happiness": hap.get("overall", 0),
+                "power_coverage": obs.get("power_coverage", 0),
+                "water_coverage": obs.get("water_coverage", 0),
+                "income": obs.get("monthly_income", 0),
+                "expenses": obs.get("monthly_expenses", 0),
+                "building_count": obs.get("building_count", 0),
+                "attractiveness": obs.get("attractiveness_score", 0),
                 "warnings": obs.get("warnings", []),
                 "actions": actions,
                 "results": [
-                    {"success": r["success"], "summary": r.get("action_summary", "")}
+                    {"success": r["success"], "summary": r.get("action_summary", ""),
+                     "reason": r.get("reason", "")}
                     for r in results
                 ],
             }
@@ -673,8 +877,8 @@ def run_session(args: argparse.Namespace):
 def main():
     parser = argparse.ArgumentParser(description="Megacity LLM Gameplay Harness")
     parser.add_argument(
-        "--binary", default="./target/release/app",
-        help="Path to game binary (default: ./target/release/app)",
+        "--binary", default="./target/release/megacity",
+        help="Path to game binary (default: ./target/release/megacity)",
     )
     parser.add_argument(
         "--model", default=DEFAULT_MODEL,
@@ -693,8 +897,8 @@ def main():
         help=f"Simulation ticks per turn (default: {DEFAULT_TICKS_PER_TURN})",
     )
     parser.add_argument(
-        "--temperature", type=float, default=0.7,
-        help="LLM temperature (default: 0.7)",
+        "--temperature", type=float, default=0.3,
+        help="LLM temperature (default: 0.3)",
     )
     parser.add_argument(
         "--log-dir", default="sessions",

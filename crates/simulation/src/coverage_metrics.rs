@@ -95,7 +95,7 @@ fn compute_utility_coverage(grid: &WorldGrid) -> (f32, f32) {
         }
     }
     if total == 0 {
-        return (1.0, 1.0);
+        return (0.0, 0.0);
     }
     (powered as f32 / total as f32, watered as f32 / total as f32)
 }

@@ -45,7 +45,7 @@ pub fn compute_attractiveness(
     // no one to survey yet.  This prevents a bootstrapping deadlock where
     // the city can never attract its first residents.
     let raw_happiness = if city_stats.population == 0 {
-        60.0
+        65.0
     } else {
         city_stats.average_happiness
     };
