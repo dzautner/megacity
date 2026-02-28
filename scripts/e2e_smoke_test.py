@@ -104,10 +104,17 @@ class GameProcess:
             cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
             bufsize=1,
         )
+        # Consume the "ready" handshake message before sending commands.
+        ready_line = self.proc.stdout.readline()
+        if not ready_line:
+            raise ConnectionError("Game process closed stdout before ready")
+        ready = json.loads(ready_line)
+        if ready.get("type") != "ready":
+            raise RuntimeError(f"Expected 'ready' handshake, got: {ready}")
 
     def send(self, command: dict) -> dict:
         """Send a JSON command and read the JSON response."""
