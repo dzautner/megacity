@@ -52,6 +52,10 @@ pub enum AgentCommand {
     #[serde(rename = "load_replay")]
     LoadReplay { path: String },
 
+    /// Request one or more spatial data layers.
+    #[serde(rename = "query")]
+    Query { layers: Vec<String> },
+
     /// Gracefully shut down the agent session.
     #[serde(rename = "quit")]
     Quit,
@@ -94,6 +98,10 @@ pub enum ResponsePayload {
     /// The simulation has advanced; reports the current tick counter.
     #[serde(rename = "step_complete")]
     StepComplete { tick: u64 },
+
+    /// Results of a `query` command — a JSON object keyed by layer name.
+    #[serde(rename = "query_result")]
+    QueryResult { layers: serde_json::Value },
 
     /// Generic success acknowledgement (used for stubs, new_game, etc.).
     #[serde(rename = "ok")]
@@ -193,6 +201,28 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_query_command() {
+        let json = r#"{"cmd":"query","layers":["map","buildings"]}"#;
+        let cmd: AgentCommand = serde_json::from_str(json).unwrap();
+        if let AgentCommand::Query { layers } = cmd {
+            assert_eq!(layers, vec!["map", "buildings"]);
+        } else {
+            panic!("expected Query");
+        }
+    }
+
+    #[test]
+    fn deserialize_query_command_empty_layers() {
+        let json = r#"{"cmd":"query","layers":[]}"#;
+        let cmd: AgentCommand = serde_json::from_str(json).unwrap();
+        if let AgentCommand::Query { layers } = cmd {
+            assert!(layers.is_empty());
+        } else {
+            panic!("expected Query");
+        }
+    }
+
+    #[test]
     fn deserialize_quit_command() {
         let json = r#"{"cmd":"quit"}"#;
         let cmd: AgentCommand = serde_json::from_str(json).unwrap();
@@ -241,6 +271,22 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"type\":\"step_complete\""));
         assert!(json.contains("\"tick\":42"));
+    }
+
+    #[test]
+    fn serialize_query_result_response() {
+        let mut map = serde_json::Map::new();
+        map.insert(
+            "overview".to_string(),
+            serde_json::Value::String("test map data".to_string()),
+        );
+        let resp = make_response(ResponsePayload::QueryResult {
+            layers: serde_json::Value::Object(map),
+        });
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"type\":\"query_result\""));
+        assert!(json.contains("\"overview\""));
+        assert!(json.contains("test map data"));
     }
 
     #[test]

@@ -298,6 +298,99 @@ fn process_command(
             }
         }
 
+        AgentCommand::Query { layers } => handle_query(layers, app),
+
         AgentCommand::Quit => make_response(ResponsePayload::Goodbye),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Query command handler
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+fn handle_query(
+    layers: Vec<String>,
+    app: &mut bevy::app::App,
+) -> simulation::agent_protocol::AgentResponse {
+    use simulation::agent_protocol::{make_response, ResponsePayload};
+
+    let mut result = serde_json::Map::new();
+
+    // Build the world snapshot once if any snapshot-based layers are requested
+    let needs_snapshot = layers.iter().any(|l| {
+        matches!(
+            l.as_str(),
+            "buildings" | "services" | "utilities" | "roads" | "zones" | "terrain"
+        )
+    });
+
+    let snapshot = if needs_snapshot {
+        Some(simulation::world_snapshot::build_world_snapshot(
+            app.world_mut(),
+        ))
+    } else {
+        None
+    };
+
+    for layer in &layers {
+        match layer.as_str() {
+            "map" => {
+                let grid = app.world().resource::<simulation::grid::WorldGrid>();
+                let detail = simulation::ascii_map::build_detail_map(grid, 10);
+                result.insert("map".to_string(), serde_json::Value::String(detail));
+            }
+            "overview" => {
+                let grid = app.world().resource::<simulation::grid::WorldGrid>();
+                let overview = simulation::ascii_map::build_overview_map(grid);
+                result.insert("overview".to_string(), serde_json::Value::String(overview));
+            }
+            "buildings" => {
+                let text = simulation::world_snapshot_format::format_buildings(
+                    &snapshot.as_ref().unwrap().buildings,
+                );
+                result.insert("buildings".to_string(), serde_json::Value::String(text));
+            }
+            "services" => {
+                let text = simulation::world_snapshot_format::format_services(
+                    &snapshot.as_ref().unwrap().services,
+                );
+                result.insert("services".to_string(), serde_json::Value::String(text));
+            }
+            "utilities" => {
+                let text = simulation::world_snapshot_format::format_utilities(
+                    &snapshot.as_ref().unwrap().utilities,
+                );
+                result.insert("utilities".to_string(), serde_json::Value::String(text));
+            }
+            "roads" => {
+                let text = simulation::world_snapshot_format::format_roads_summary(
+                    &snapshot.as_ref().unwrap().road_cells,
+                );
+                result.insert("roads".to_string(), serde_json::Value::String(text));
+            }
+            "zones" => {
+                let text = simulation::world_snapshot_format::format_zones_summary(
+                    &snapshot.as_ref().unwrap().zone_regions,
+                );
+                result.insert("zones".to_string(), serde_json::Value::String(text));
+            }
+            "terrain" => {
+                let text = simulation::world_snapshot_format::format_terrain(
+                    &snapshot.as_ref().unwrap().water_regions,
+                );
+                result.insert("terrain".to_string(), serde_json::Value::String(text));
+            }
+            unknown => {
+                result.insert(
+                    unknown.to_string(),
+                    serde_json::Value::String(format!("Unknown layer: {}", unknown)),
+                );
+            }
+        }
+    }
+
+    make_response(ResponsePayload::QueryResult {
+        layers: serde_json::Value::Object(result),
+    })
 }
