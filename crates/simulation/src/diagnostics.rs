@@ -38,12 +38,12 @@ use bevy::prelude::*;
 pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // Add diagnostic plugins only in debug builds to avoid overhead in release.
         #[cfg(debug_assertions)]
         {
-            app.add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin);
-            app.add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin);
+            _app.add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin);
+            _app.add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin);
         }
     }
 }

@@ -38,7 +38,7 @@ logging.basicConfig(
 log = logging.getLogger("e2e_smoke")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929"
+DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
 
 SYSTEM_PROMPT = """\
 You are playing Megacity, a 256x256 grid city builder.

@@ -36,7 +36,7 @@ logging.basicConfig(
 log = logging.getLogger("llm_player")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929"
+DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
 DEFAULT_TICKS_PER_TURN = 100
 DEFAULT_MAX_TURNS = 200
 PROTOCOL_VERSION = 1
