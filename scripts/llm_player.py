@@ -49,6 +49,9 @@ You are playing Megacity, a 256x256 grid city builder. Each turn you receive sta
 2. Utilities MUST be ON a road cell. Utilities on grass = zero coverage.
 3. If you get BlockedByWater errors, STOP going that direction. Try north, south, or west instead.
 4. Use LARGE zone rects (e.g. 5x10) not tiny 1x1 zones. More zones = more buildings = more people.
+5. NEVER lower taxes below 8%. Low taxes = no income = bankruptcy. Keep all tax rates at 8-12%.
+6. Watch the zone demand numbers! If Commercial/Industrial/Office demand is high, zone those types.
+7. Don't place things where you already built — check the map for existing roads/buildings.
 
 ## Building Pattern
 For each new block: Road → Utility ON road → Zone rect on BOTH sides of road.
@@ -407,7 +410,19 @@ def format_observation(obs: dict, turn: int = 0) -> str:
     treasury = obs.get("treasury", 0)
     income = obs.get("monthly_income", 0)
     expenses = obs.get("monthly_expenses", 0)
-    parts.append(f"Treasury: ${treasury:,.0f} | Income: ${income:,.0f}/mo | Expenses: ${expenses:,.0f}/mo")
+    est_income = obs.get("estimated_monthly_income", 0)
+    est_expenses = obs.get("estimated_monthly_expenses", 0)
+    # Use estimated values when actual monthly values haven't been computed yet
+    show_income = income if income > 0 else est_income
+    show_expenses = expenses if expenses > 0 else est_expenses
+    parts.append(f"Treasury: ${treasury:,.0f} | Income: ${show_income:,.0f}/mo | Expenses: ${show_expenses:,.0f}/mo")
+    if show_expenses > show_income and show_expenses > 0:
+        deficit = show_expenses - show_income
+        months_left = treasury / deficit if deficit > 0 and treasury > 0 else 0
+        if treasury > 0 and months_left < 12:
+            parts.append(f"WARNING: Running a deficit of ${deficit:,.0f}/mo — bankruptcy in ~{months_left:.0f} months!")
+        elif treasury < 0:
+            parts.append(f"CRITICAL: BANKRUPT! Treasury is negative. RAISE TAXES immediately or cut spending!")
 
     # Population
     pop = obs.get("population", {})
@@ -448,23 +463,23 @@ def format_observation(obs: dict, turn: int = 0) -> str:
             f"Tax: {attr_bd.get('tax', 0):.0%}"
         )
 
-    # Zone demand with explicit guidance
+    # Zone demand with explicit guidance (values are 0.0-1.0 floats)
     zd = obs.get("zone_demand", {})
     r_dem = zd.get("residential", 0)
     c_dem = zd.get("commercial", 0)
     i_dem = zd.get("industrial", 0)
     o_dem = zd.get("office", 0)
-    parts.append(f"Demand -- R:{r_dem:.0f} C:{c_dem:.0f} I:{i_dem:.0f} O:{o_dem:.0f}")
+    parts.append(f"Demand -- R:{r_dem:.0%} C:{c_dem:.0%} I:{i_dem:.0%} O:{o_dem:.0%}")
     # Highlight high-demand zones the LLM should prioritize
     high_demand = []
-    if c_dem > 50:
-        high_demand.append(f"Commercial ({c_dem:.0f}%)")
-    if i_dem > 50:
-        high_demand.append(f"Industrial ({i_dem:.0f}%)")
-    if o_dem > 50:
-        high_demand.append(f"Office ({o_dem:.0f}%)")
-    if r_dem > 50:
-        high_demand.append(f"Residential ({r_dem:.0f}%)")
+    if c_dem > 0.5:
+        high_demand.append(f"Commercial ({c_dem:.0%})")
+    if i_dem > 0.5:
+        high_demand.append(f"Industrial ({i_dem:.0%})")
+    if o_dem > 0.5:
+        high_demand.append(f"Office ({o_dem:.0%})")
+    if r_dem > 0.5:
+        high_demand.append(f"Residential ({r_dem:.0%})")
     if high_demand:
         parts.append(f"ACTION NEEDED: High demand for {', '.join(high_demand)} — zone these to grow!")
 
