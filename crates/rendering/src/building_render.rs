@@ -8,7 +8,7 @@ use simulation::trees::PlantedTree;
 use simulation::utilities::UtilitySource;
 
 use crate::building_mesh_variants::BuildingVariant;
-use crate::building_meshes::{building_scale, BuildingModelCache};
+use crate::building_meshes::{building_scale, service_building_scale, BuildingModelCache};
 use crate::building_variant_proportions;
 
 /// Marker for 3D building entities (both GLB scenes and procedural meshes)
@@ -20,6 +20,10 @@ pub struct BuildingMesh3d {
 /// Marker to distinguish zone buildings (GLB SceneRoot) from procedural service/utility meshes
 #[derive(Component)]
 pub struct ZoneBuilding;
+
+/// Marker for service/utility buildings spawned as GLB SceneRoot
+#[derive(Component)]
+pub struct ServiceUtilitySceneBuilding;
 
 /// Determine the yaw rotation so a building faces the nearest road.
 /// Returns a yaw angle (0, PI/2, PI, or 3*PI/2) pointing toward the adjacent road.
@@ -122,13 +126,11 @@ pub fn spawn_building_meshes(
         ));
     }
 
-    // Service buildings -> procedural meshes (kept as Mesh3d)
+    // Service buildings -> prefer GLB scene, fall back to procedural mesh
     for (entity, service) in &services {
         if tracked.contains(&entity) {
             continue;
         }
-        let mesh_handle = model_cache.get_or_create_service_mesh(service.service_type, &mut meshes);
-        let mat_handle = model_cache.fallback_material.clone();
 
         let (fw, fh) = ServiceBuilding::footprint(service.service_type);
         let (wx, _wy) = WorldGrid::grid_to_world(service.grid_x, service.grid_y);
@@ -136,39 +138,81 @@ pub fn spawn_building_meshes(
         let wy = grid.elevation_y(service.grid_x, service.grid_y);
         let offset_x = (fw as f32 - 1.0) * CELL_SIZE * 0.5;
         let offset_z = (fh as f32 - 1.0) * CELL_SIZE * 0.5;
+        let hash = position_hash(service.grid_x, service.grid_y);
 
-        commands.spawn((
-            BuildingMesh3d {
-                tracked_entity: entity,
-            },
-            Mesh3d(mesh_handle),
-            MeshMaterial3d(mat_handle),
-            Transform::from_xyz(wx + offset_x, wy, wz + offset_z),
-            Visibility::default(),
-        ));
+        if let Some(scene_handle) = model_cache.get_service_scene(service.service_type) {
+            let scale = service_building_scale(fw, fh);
+            let yaw = building_facing_road(&grid, service.grid_x, service.grid_y, hash);
+            commands.spawn((
+                BuildingMesh3d {
+                    tracked_entity: entity,
+                },
+                ServiceUtilitySceneBuilding,
+                SceneRoot(scene_handle),
+                Transform::from_xyz(wx + offset_x, wy, wz + offset_z)
+                    .with_rotation(Quat::from_rotation_y(yaw))
+                    .with_scale(Vec3::splat(scale)),
+                Visibility::default(),
+            ));
+        } else {
+            // Fallback: procedural mesh
+            let mesh_handle =
+                model_cache.get_or_create_service_mesh(service.service_type, &mut meshes);
+            let mat_handle = model_cache.fallback_material.clone();
+
+            commands.spawn((
+                BuildingMesh3d {
+                    tracked_entity: entity,
+                },
+                Mesh3d(mesh_handle),
+                MeshMaterial3d(mat_handle),
+                Transform::from_xyz(wx + offset_x, wy, wz + offset_z),
+                Visibility::default(),
+            ));
+        }
     }
 
-    // Utility buildings -> procedural meshes
+    // Utility buildings -> prefer GLB scene, fall back to procedural mesh
     for (entity, utility) in &utilities {
         if tracked.contains(&entity) {
             continue;
         }
-        let mesh_handle = model_cache.get_or_create_utility_mesh(utility.utility_type, &mut meshes);
-        let mat_handle = model_cache.fallback_material.clone();
 
         let (wx, _wy) = WorldGrid::grid_to_world(utility.grid_x, utility.grid_y);
         let wz = utility.grid_y as f32 * CELL_SIZE + CELL_SIZE * 0.5;
         let wy = grid.elevation_y(utility.grid_x, utility.grid_y);
+        let hash = position_hash(utility.grid_x, utility.grid_y);
 
-        commands.spawn((
-            BuildingMesh3d {
-                tracked_entity: entity,
-            },
-            Mesh3d(mesh_handle),
-            MeshMaterial3d(mat_handle),
-            Transform::from_xyz(wx, wy, wz),
-            Visibility::default(),
-        ));
+        if let Some(scene_handle) = model_cache.get_utility_scene(utility.utility_type) {
+            let scale = service_building_scale(1, 1);
+            let yaw = building_facing_road(&grid, utility.grid_x, utility.grid_y, hash);
+            commands.spawn((
+                BuildingMesh3d {
+                    tracked_entity: entity,
+                },
+                ServiceUtilitySceneBuilding,
+                SceneRoot(scene_handle),
+                Transform::from_xyz(wx, wy, wz)
+                    .with_rotation(Quat::from_rotation_y(yaw))
+                    .with_scale(Vec3::splat(scale)),
+                Visibility::default(),
+            ));
+        } else {
+            // Fallback: procedural mesh
+            let mesh_handle =
+                model_cache.get_or_create_utility_mesh(utility.utility_type, &mut meshes);
+            let mat_handle = model_cache.fallback_material.clone();
+
+            commands.spawn((
+                BuildingMesh3d {
+                    tracked_entity: entity,
+                },
+                Mesh3d(mesh_handle),
+                MeshMaterial3d(mat_handle),
+                Transform::from_xyz(wx, wy, wz),
+                Visibility::default(),
+            ));
+        }
     }
 }
 

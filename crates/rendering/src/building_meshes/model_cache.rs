@@ -1,4 +1,5 @@
-//! GLB model cache resource and the startup system that populates it.
+//! `BuildingModelCache` resource: holds pre-loaded GLB scene handles and
+//! procedural-mesh fallbacks for every building category.
 
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -141,7 +142,12 @@ pub struct BuildingModelCache {
     /// Urban prop scenes (benches, lights, etc.)
     pub props: Vec<Handle<Scene>>,
 
-    /// Fallback procedural meshes for service/utility buildings that don't have GLB models
+    /// GLB scenes for service buildings (keyed by ServiceType)
+    pub service_scenes: HashMap<ServiceType, Handle<Scene>>,
+    /// GLB scenes for utility buildings (keyed by UtilityType)
+    pub utility_scenes: HashMap<UtilityType, Handle<Scene>>,
+
+    /// Fallback procedural meshes for service/utility buildings without GLB models
     pub service_meshes: HashMap<ServiceType, Handle<Mesh>>,
     pub utility_meshes: HashMap<UtilityType, Handle<Mesh>>,
     pub fallback_material: Handle<StandardMaterial>,
@@ -248,6 +254,16 @@ impl BuildingModelCache {
         self.props[hash % self.props.len()].clone()
     }
 
+    /// Get a GLB scene for a service building, if one exists.
+    pub fn get_service_scene(&self, service_type: ServiceType) -> Option<Handle<Scene>> {
+        self.service_scenes.get(&service_type).cloned()
+    }
+
+    /// Get a GLB scene for a utility building, if one exists.
+    pub fn get_utility_scene(&self, utility_type: UtilityType) -> Option<Handle<Scene>> {
+        self.utility_scenes.get(&utility_type).cloned()
+    }
+
     pub fn get_or_create_service_mesh(
         &mut self,
         service_type: ServiceType,
@@ -269,168 +285,6 @@ impl BuildingModelCache {
             .or_insert_with(|| meshes.add(generate_utility_mesh(utility_type)))
             .clone()
     }
-}
-
-// ---------------------------------------------------------------------------
-// Startup system: load all GLB models
-// ---------------------------------------------------------------------------
-
-/// Startup system: load all GLB models from assets/models/ directory
-pub fn load_building_models(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let load_scene = |path: String| -> Handle<Scene> {
-        asset_server.load(bevy::gltf::GltfAssetLabel::Scene(0).from_asset(path))
-    };
-
-    let residential_files = [
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r",
-        "s", "t", "u",
-    ];
-    let residential: Vec<Handle<Scene>> = residential_files
-        .iter()
-        .map(|letter| {
-            load_scene(format!(
-                "models/buildings/residential/building-type-{letter}.glb"
-            ))
-        })
-        .collect();
-
-    let commercial_files = [
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n",
-    ];
-    let mut commercial: Vec<Handle<Scene>> = commercial_files
-        .iter()
-        .map(|letter| load_scene(format!("models/buildings/commercial/building-{letter}.glb")))
-        .collect();
-
-    let low_detail_files = [
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n",
-    ];
-    for letter in &low_detail_files {
-        commercial.push(load_scene(format!(
-            "models/buildings/commercial/low-detail-building-{letter}.glb"
-        )));
-    }
-
-    let skyscraper_files = ["a", "b", "c", "d", "e"];
-    let skyscrapers: Vec<Handle<Scene>> = skyscraper_files
-        .iter()
-        .map(|letter| {
-            load_scene(format!(
-                "models/buildings/skyscrapers/building-skyscraper-{letter}.glb"
-            ))
-        })
-        .collect();
-
-    let industrial_files = [
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r",
-        "s", "t",
-    ];
-    let industrial: Vec<Handle<Scene>> = industrial_files
-        .iter()
-        .map(|letter| load_scene(format!("models/buildings/industrial/building-{letter}.glb")))
-        .collect();
-
-    let vehicle_files = [
-        "sedan",
-        "sedan-sports",
-        "hatchback-sports",
-        "suv",
-        "suv-luxury",
-        "van",
-        "truck",
-        "taxi",
-        "police",
-        "ambulance",
-        "firetruck",
-        "garbage-truck",
-        "delivery",
-        "delivery-flat",
-        "truck-flat",
-    ];
-    let vehicles: Vec<Handle<Scene>> = vehicle_files
-        .iter()
-        .map(|name| load_scene(format!("models/vehicles/{name}.glb")))
-        .collect();
-
-    let character_files = [
-        "character-female-a",
-        "character-female-b",
-        "character-female-c",
-        "character-female-d",
-        "character-female-e",
-        "character-female-f",
-        "character-male-a",
-        "character-male-b",
-        "character-male-c",
-        "character-male-d",
-        "character-male-e",
-        "character-male-f",
-    ];
-    let characters: Vec<Handle<Scene>> = character_files
-        .iter()
-        .map(|name| load_scene(format!("models/characters/{name}.glb")))
-        .collect();
-
-    let tree_files = [
-        "tree-suburban",
-        "tree-retro-large",
-        "tree-park-large",
-        "tree-park-pine-large",
-    ];
-    let mut trees: Vec<Handle<Scene>> = tree_files
-        .iter()
-        .map(|name| load_scene(format!("models/props/{name}.glb")))
-        .collect();
-
-    let nature_tree_files = [
-        "tree_cone_fall",
-        "tree_pineRoundA",
-        "tree_pineRoundB",
-        "tree_pineRoundC",
-        "tree_tall_dark",
-        "tree_palmTall",
-        "tree_palmDetailedShort",
-    ];
-    for name in &nature_tree_files {
-        trees.push(load_scene(format!("models/nature/{name}.glb")));
-    }
-
-    let prop_files = [
-        "detail-bench",
-        "detail-light-single",
-        "detail-light-double",
-        "detail-barrier-type-a",
-        "detail-dumpster-closed",
-        "planter",
-    ];
-    let props: Vec<Handle<Scene>> = prop_files
-        .iter()
-        .map(|name| load_scene(format!("models/props/{name}.glb")))
-        .collect();
-
-    let fallback_material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        perceptual_roughness: 0.8,
-        ..default()
-    });
-
-    commands.insert_resource(BuildingModelCache {
-        residential,
-        commercial,
-        skyscrapers,
-        industrial,
-        vehicles,
-        characters,
-        trees,
-        props,
-        service_meshes: HashMap::new(),
-        utility_meshes: HashMap::new(),
-        fallback_material,
-    });
 }
 
 // ---------------------------------------------------------------------------
@@ -487,4 +341,13 @@ pub fn building_scale(zone: ZoneType, level: u8) -> f32 {
 
         _ => base,
     }
+}
+
+/// Scale factor for service/utility GLB scenes.
+/// Kenney models are ~1 unit wide; CELL_SIZE = 16 units.
+/// Single-cell buildings fill ~80% of a cell; multi-cell buildings scale up.
+pub fn service_building_scale(footprint_w: usize, footprint_h: usize) -> f32 {
+    let base = CELL_SIZE * 0.8;
+    let cells = footprint_w.max(footprint_h) as f32;
+    base * cells
 }
