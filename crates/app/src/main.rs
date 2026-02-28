@@ -214,9 +214,20 @@ fn load_replay_file(
     mut player: ResMut<simulation::replay::ReplayPlayer>,
 ) {
     info!("Loading replay from: {}", replay_path.0);
-    let contents = std::fs::read_to_string(&replay_path.0).expect("Failed to read replay file");
-    let replay =
-        simulation::replay::ReplayFile::from_json(&contents).expect("Failed to parse replay file");
+    let contents = match std::fs::read_to_string(&replay_path.0) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to read replay file '{}': {e}", replay_path.0);
+            return;
+        }
+    };
+    let replay = match simulation::replay::ReplayFile::from_json(&contents) {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Failed to parse replay file '{}': {e}", replay_path.0);
+            return;
+        }
+    };
     if let Err(e) = replay.validate() {
         warn!("Replay validation warning: {}", e);
     }
