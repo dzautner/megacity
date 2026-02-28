@@ -82,12 +82,17 @@ pub struct LeftClickDrag {
 
 const LEFT_DRAG_THRESHOLD: f32 = 5.0;
 
-pub fn setup_camera(mut commands: Commands) {
+pub fn setup_camera(mut commands: Commands, offscreen_target: Option<Res<crate::CameraRenderTarget>>) {
     let orbit = OrbitCamera::default();
     let (pos, look_at) = orbit_to_transform(&orbit);
+    let mut camera = Camera::default();
+    if let Some(target) = offscreen_target {
+        camera.target = target.0.clone();
+    }
 
     commands.spawn((
         Camera3d::default(),
+        camera,
         Transform::from_translation(pos).looking_at(look_at, Vec3::Y),
     ));
     commands.insert_resource(orbit);

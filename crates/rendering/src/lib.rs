@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::render::camera::RenderTarget;
 
 // Auto-discover all public modules from src/ directory.
 // plugin_registration is declared manually below because it is private.
@@ -18,8 +19,19 @@ use props::PropsSpawned;
 
 pub struct RenderingPlugin;
 
+/// Marker resource: replay/video capture is running in headless mode.
+#[derive(Resource)]
+pub struct HeadlessRecordMode;
+
+/// Optional render target override for the primary 3D camera.
+/// When present, the camera renders to this target instead of a window.
+#[derive(Resource, Clone)]
+pub struct CameraRenderTarget(pub RenderTarget);
+
 impl Plugin for RenderingPlugin {
     fn build(&self, app: &mut App) {
+        let headless = app.world().contains_resource::<HeadlessRecordMode>();
+
         app.init_resource::<CameraDrag>()
             .init_resource::<LeftClickDrag>()
             .init_resource::<RightClickDrag>()
@@ -39,7 +51,7 @@ impl Plugin for RenderingPlugin {
             .init_resource::<IntersectionSnap>();
 
         // Register all rendering systems and plugins (extracted for conflict-free additions)
-        plugin_registration::register_rendering_systems(app);
+        plugin_registration::register_rendering_systems(app, headless);
     }
 }
 

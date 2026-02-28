@@ -1,7 +1,15 @@
 use bevy::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::window::ExitCondition;
 use bevy::window::PresentMode;
 use bevy::winit::{UpdateMode, WinitSettings};
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::render::camera::RenderTarget;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::render::render_asset::RenderAssetUsages;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 #[cfg(not(target_arch = "wasm32"))]
@@ -9,6 +17,8 @@ use rendering::camera::OrbitCamera;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod agent_mode;
+#[cfg(not(target_arch = "wasm32"))]
+mod record_replay;
 
 fn main() {
     // -- CLI argument parsing -------------------------------------------------
@@ -42,46 +52,109 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let replay_mode = false;
 
+    // Parse optional --record <output_dir> for replay frame capture (native only).
+    #[cfg(not(target_arch = "wasm32"))]
+    let record_dir: Option<String> = args
+        .windows(2)
+        .find(|w| w[0] == "--record")
+        .map(|w| w[1].clone());
+    #[cfg(not(target_arch = "wasm32"))]
+    let record_mode = replay_mode && record_dir.is_some();
+    #[cfg(target_arch = "wasm32")]
+    let record_mode = false;
+
     let mut app = App::new();
 
     // --- Window configuration ---------------------------------------------------
     // On WASM we must point Bevy at the existing <canvas id="bevy-canvas"> so
     // winit attaches event listeners to the right element. We also enable
     // `fit_canvas_to_parent` so the drawing-buffer resolution stays in sync with
-    // the CSS layout size, preventing the coordinate mismatch that made every
-    // click land in the wrong place and the UI appear unresponsive.
-    let primary_window = {
-        #[allow(unused_mut)]
-        let mut win = Window {
-            title: "MegaCity".to_string(),
-            resolution: (1280.0, 720.0).into(),
-            present_mode: PresentMode::AutoVsync,
-            ..default()
-        };
+    // the CSS layout size, preventing coordinate mismatches.
+    #[allow(unused_mut)]
+    let mut window_plugin = WindowPlugin {
+        primary_window: {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if record_mode {
+                    // Headless replay recording: no game window is created.
+                    None
+                } else {
+                    Some(Window {
+                        title: "MegaCity".to_string(),
+                        resolution: (1280.0, 720.0).into(),
+                        present_mode: PresentMode::AutoVsync,
+                        ..default()
+                    })
+                }
+            }
 
-        // WASM-specific canvas binding
-        #[cfg(target_arch = "wasm32")]
-        {
-            win.canvas = Some("#bevy-canvas".to_string());
-            win.fit_canvas_to_parent = true;
-            win.prevent_default_event_handling = true;
-        }
-
-        win
+            #[cfg(target_arch = "wasm32")]
+            {
+                let mut win = Window {
+                    title: "MegaCity".to_string(),
+                    resolution: (1280.0, 720.0).into(),
+                    present_mode: PresentMode::AutoVsync,
+                    ..default()
+                };
+                win.canvas = Some("#bevy-canvas".to_string());
+                win.fit_canvas_to_parent = true;
+                win.prevent_default_event_handling = true;
+                Some(win)
+            }
+        },
+        ..default()
     };
 
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(primary_window),
-        ..default()
-    }))
-    .insert_resource(WinitSettings {
-        // Continuous ensures the game loop runs every frame (driven by
-        // requestAnimationFrame on WASM). reactive_low_power was previously used
-        // here, but on WASM the timer-based wake could stall the event loop
-        // and make the simulation appear frozen.
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::reactive_low_power(std::time::Duration::from_millis(100)),
-    });
+    #[cfg(not(target_arch = "wasm32"))]
+    if record_mode {
+        // Without windows, default exit-on-window-close would terminate instantly.
+        window_plugin.exit_condition = ExitCondition::DontExit;
+        window_plugin.close_when_requested = false;
+    }
+
+    app.add_plugins(DefaultPlugins.set(window_plugin))
+        .insert_resource(WinitSettings {
+            // Continuous ensures the game loop runs every frame (driven by
+            // requestAnimationFrame on WASM). reactive_low_power was previously used
+            // here, but on WASM the timer-based wake could stall the event loop
+            // and make the simulation appear frozen.
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::reactive_low_power(std::time::Duration::from_millis(100)),
+        });
+
+    // In record mode we render into an offscreen image and capture that target.
+    #[cfg(not(target_arch = "wasm32"))]
+    if record_mode {
+        const RECORD_WIDTH: u32 = 1280;
+        const RECORD_HEIGHT: u32 = 720;
+        let size = Extent3d {
+            width: RECORD_WIDTH,
+            height: RECORD_HEIGHT,
+            depth_or_array_layers: 1,
+        };
+        let mut render_target_image = Image::new_fill(
+            size,
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::bevy_default(),
+            RenderAssetUsages::default(),
+        );
+        render_target_image.texture_descriptor.usage = TextureUsages::COPY_SRC
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT
+            | TextureUsages::TEXTURE_BINDING;
+
+        let render_target_handle = {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            images.add(render_target_image)
+        };
+
+        app.insert_resource(rendering::HeadlessRecordMode);
+        app.insert_resource(rendering::CameraRenderTarget(RenderTarget::Image(
+            render_target_handle.clone(),
+        )));
+        app.insert_resource(record_replay::ReplayCaptureTarget(render_target_handle));
+    }
 
     // Screenshot mode needs the Tel Aviv map and active simulation;
     // normal startup boots into MainMenu with an empty grid.
@@ -101,18 +174,43 @@ fn main() {
         app.insert_state(simulation::AppState::MainMenu);
     }
 
-    app.add_plugins((
-        simulation::SimulationPlugin,
-        rendering::RenderingPlugin,
-        ui::UiPlugin,
-        save::SavePlugin,
-    ));
+    if record_mode {
+        // UI depends on egui window contexts; skip it in headless record mode.
+        app.add_plugins((
+            simulation::SimulationPlugin,
+            rendering::RenderingPlugin,
+            save::SavePlugin,
+        ));
+    } else {
+        app.add_plugins((
+            simulation::SimulationPlugin,
+            rendering::RenderingPlugin,
+            ui::UiPlugin,
+            save::SavePlugin,
+        ));
+    }
 
     // Replay mode: register startup system to load the replay file (native only)
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(path) = replay_path {
         app.insert_resource(ReplayFilePath(path));
         app.add_systems(Startup, load_replay_file);
+    }
+
+    // Replay record mode (native only): capture PNG frames during replay.
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(dir) = record_dir {
+        if !replay_mode {
+            eprintln!("Warning: --record requires --replay; ignoring --record.");
+        } else if let Err(e) = std::fs::create_dir_all(&dir) {
+            eprintln!(
+                "Failed to create --record output directory '{}': {}",
+                dir, e
+            );
+        } else {
+            app.insert_resource(record_replay::ReplayRecordState::new(dir));
+            app.add_systems(Update, record_replay::drive_replay_recording);
+        }
     }
 
     // Screenshot mode: takes preset screenshots and exits (native only)
