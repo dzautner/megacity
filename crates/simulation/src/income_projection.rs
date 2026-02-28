@@ -13,9 +13,15 @@ use crate::economy::property_tax_for_building;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::land_value::LandValueGrid;
 use crate::policies::Policies;
+use crate::production::types::CityGoods;
 use crate::services::ServiceBuilding;
 use crate::tourism::Tourism;
 use crate::SlowTickTimer;
+
+/// Minutes per game day (1 tick = 1 minute).
+const TICKS_PER_DAY: f64 = 1440.0;
+/// Days per collection month.
+const DAYS_PER_MONTH: f64 = 30.0;
 
 /// Projected income and expenses based on current city state.
 ///
@@ -47,6 +53,7 @@ pub fn update_income_projection(
         Res<crate::oil_power::OilPowerState>,
         Res<crate::biomass_power::BiomassPowerState>,
     ),
+    city_goods: Res<CityGoods>,
     mut projection: ResMut<IncomeProjection>,
 ) {
     if !slow_tick.should_run() {
@@ -124,7 +131,15 @@ pub fn update_income_projection(
         + oil_state.total_fuel_cost as f64
         + biomass_state.total_fuel_cost as f64;
 
-    let expenses = road_expense + service_expense + policy_expense + fuel_expense;
+    // Trade costs: CityGoods.trade_balance is per-tick (negative = importing).
+    // Scale to monthly: trade_per_tick * ticks_per_day * days_per_month
+    let trade_cost = if city_goods.trade_balance < 0.0 {
+        -city_goods.trade_balance * TICKS_PER_DAY * DAYS_PER_MONTH
+    } else {
+        0.0
+    };
+
+    let expenses = road_expense + service_expense + policy_expense + fuel_expense + trade_cost;
 
     projection.projected_income = income;
     projection.projected_expenses = expenses;
