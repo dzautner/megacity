@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
+use crate::budget::ExtendedBudget;
 use crate::buildings::{Building, UnderConstruction};
-use crate::economy::CityBudget;
 use crate::education_jobs::EmploymentStats;
 use crate::grid::{WorldGrid, ZoneType};
 use crate::happiness::{
@@ -24,7 +24,7 @@ pub fn compute_attractiveness(
     tick: Res<TickCounter>,
     employment_stats: Res<EmploymentStats>,
     city_stats: Res<CityStats>,
-    budget: Res<CityBudget>,
+    ext_budget: Res<ExtendedBudget>,
     coverage: Res<ServiceCoverageGrid>,
     grid: Res<WorldGrid>,
     buildings: Query<&Building, Without<UnderConstruction>>,
@@ -128,9 +128,15 @@ pub fn compute_attractiveness(
     };
 
     // --- Tax factor ---
+    // Use the actual per-zone tax rates from ExtendedBudget (set by the UI
+    // via SetTaxRates action) instead of the legacy CityBudget.tax_rate.
+    // Weighted average of all four zone tax rates.
+    let taxes = &ext_budget.zone_taxes;
+    let avg_tax =
+        (taxes.residential + taxes.commercial + taxes.industrial + taxes.office) / 4.0;
     // 10% baseline is neutral (0.5). Lower = more attractive, higher = less.
     let baseline_tax = 0.10;
-    let tax_diff = budget.tax_rate - baseline_tax;
+    let tax_diff = avg_tax - baseline_tax;
     // Each 1% deviation from baseline shifts factor by 0.05
     let tax_factor = (0.5 - tax_diff * 5.0).clamp(0.0, 1.0);
 
