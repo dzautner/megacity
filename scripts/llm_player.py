@@ -74,14 +74,26 @@ ResidentialLow, ResidentialMedium, ResidentialHigh, CommercialLow, CommercialHig
 ## Utilities (MUST be ON road cells!)
 PowerPlant ($1000, range 30), WaterTower ($200, range 25)
 
-## Services
+## Services (place ON or near road cells)
+### Essential (place early!):
 FireStation ($800), PoliceStation ($600), Hospital ($2000), ElementarySchool ($2000), HighSchool ($1500)
+### CRITICAL for health/happiness:
+Landfill ($300) — garbage collection, prevents -10 happiness penalty
+WaterTreatmentPlant ($1500) — wastewater treatment, prevents -35 health penalty
+Cemetery ($400) — handles deaths, prevents health penalty
+### Nice to have:
+SmallPark ($200) — +happiness for nearby residents
+RecyclingCenter ($800) — better waste management
+Library ($500) — education boost
 
 ## Key Facts
 - Zone rects must be adjacent to a road (within 2 cells)
 - Buildings need power AND water to grow (from utilities on the road network)
 - Water (~) is unbuildable. Rivers and lakes exist inside the map.
 - Starting treasury: $50,000
+- Garbage and wastewater are the BIGGEST happiness drags. Build Landfill + WaterTreatmentPlant early!
+- Commercial buildings IMPORT goods (costs money per tick!). Industrial buildings PRODUCE goods. Balance them or go bankrupt from import costs!
+- If treasury drops fast, zone MORE Industrial to reduce goods imports.
 """
 
 
@@ -402,6 +414,9 @@ def _record_water_failure(action: dict):
                 _water_cells.add((x + dx, y + dy))
 
 
+_prev_treasury = [50000.0]  # track previous turn treasury for delta
+
+
 def format_observation(obs: dict, turn: int = 0) -> str:
     """Format a city observation into a compact summary for the LLM."""
     parts = [f"## Turn {turn}"]
@@ -415,7 +430,14 @@ def format_observation(obs: dict, turn: int = 0) -> str:
     # Use estimated values when actual monthly values haven't been computed yet
     show_income = income if income > 0 else est_income
     show_expenses = expenses if expenses > 0 else est_expenses
-    parts.append(f"Treasury: ${treasury:,.0f} | Income: ${show_income:,.0f}/mo | Expenses: ${show_expenses:,.0f}/mo")
+    # Show actual treasury change per turn (includes hidden trade costs)
+    delta = treasury - _prev_treasury[0]
+    _prev_treasury[0] = treasury
+    parts.append(f"Treasury: ${treasury:,.0f} (change: ${delta:+,.0f}/turn) | Income: ${show_income:,.0f}/mo | Expenses: ${show_expenses:,.0f}/mo")
+    if delta < -5000:
+        parts.append(f"*** MONEY DRAIN: Lost ${abs(delta):,.0f} this turn from goods imports! Zone more Industrial to produce locally. ***")
+    if treasury < 5000:
+        parts.append(f"*** LOW FUNDS: Only ${treasury:,.0f} left! Do NOT place buildings/utilities/services. Only zone (free) or set taxes. ***")
     if show_expenses > show_income and show_expenses > 0:
         deficit = show_expenses - show_income
         months_left = treasury / deficit if deficit > 0 and treasury > 0 else 0
@@ -432,10 +454,21 @@ def format_observation(obs: dict, turn: int = 0) -> str:
     homeless = pop.get("homeless", 0)
     parts.append(f"Population: {total} | Employed: {employed} | Unemployed: {unemployed} | Homeless: {homeless}")
 
-    # Happiness
+    # Happiness with breakdown
     hap = obs.get("happiness", {})
     happiness = hap.get("overall", 0)
+    components = hap.get("components", [])
     parts.append(f"Happiness: {happiness:.1f}/100")
+    if components:
+        # Show top negative factors so LLM knows what to fix
+        negatives = sorted([(name, val) for name, val in components if val < -1], key=lambda x: x[1])
+        if negatives:
+            neg_strs = [f"{name}={val:+.1f}" for name, val in negatives[:5]]
+            parts.append(f"  Biggest drags: {', '.join(neg_strs)}")
+        positives = sorted([(name, val) for name, val in components if val > 1], key=lambda x: -x[1])
+        if positives:
+            pos_strs = [f"{name}={val:+.1f}" for name, val in positives[:3]]
+            parts.append(f"  Top positives: {', '.join(pos_strs)}")
 
     # Coverage (infrastructure + services)
     power_cov = obs.get("power_coverage", 0)
@@ -496,19 +529,20 @@ def format_observation(obs: dict, turn: int = 0) -> str:
     if warnings:
         parts.append(f"WARNINGS: {', '.join(warnings)}")
 
-    # Proactive hints based on city state
-    if total > 100 and happiness < 40:
-        missing = []
-        if svcs.get('fire', 0) < 0.5:
-            missing.append("FireStation")
-        if svcs.get('police', 0) < 0.5:
-            missing.append("PoliceStation")
-        if svcs.get('health', 0) < 0.5:
-            missing.append("Hospital")
-        if svcs.get('education', 0) < 0.5:
-            missing.append("ElementarySchool")
-        if missing:
-            parts.append(f"TIP: Happiness is low! Place services near your buildings: {', '.join(missing)}")
+    # Proactive hints based on happiness breakdown
+    if total > 50 and components:
+        component_dict = {name: val for name, val in components}
+        tips = []
+        if component_dict.get("garbage", 0) < -3:
+            tips.append("Place a Landfill near your buildings (fixes garbage=-{:.0f})".format(abs(component_dict["garbage"])))
+        if component_dict.get("health", 0) < -10:
+            tips.append("Place a WaterTreatmentPlant + Cemetery (fixes health=-{:.0f})".format(abs(component_dict["health"])))
+        if component_dict.get("crime", 0) < -3:
+            tips.append("Place more PoliceStations (fixes crime=-{:.0f})".format(abs(component_dict["crime"])))
+        if component_dict.get("noise", 0) < -3:
+            tips.append("Place SmallParks between Industrial and Residential zones")
+        if tips:
+            parts.append("FIX HAPPINESS: " + " | ".join(tips))
 
     # Buildable area (cached from terrain query)
     global _buildable_area_info
@@ -646,6 +680,9 @@ ZONE_TYPE_ALIASES = {
 }
 
 
+TAX_FLOOR = 0.08  # Enforce minimum 8% tax rate — LLM keeps lowering to 1-2%
+
+
 def normalize_action(action: dict) -> dict:
     """Fix common LLM mistakes in action parameters."""
     if not isinstance(action, dict):
@@ -672,6 +709,14 @@ def normalize_action(action: dict) -> dict:
             for coord_key in ["start", "end", "pos", "min", "max"]:
                 if coord_key in params and isinstance(params[coord_key], list):
                     params[coord_key] = [int(round(v)) for v in params[coord_key]]
+            # Enforce minimum tax rates — LLM keeps setting 1-3% causing bankruptcy
+            if key == "SetTaxRates":
+                for tax_key in ["residential", "commercial", "industrial", "office"]:
+                    if tax_key in params:
+                        val = float(params[tax_key])
+                        if val < TAX_FLOOR:
+                            log.info("  Tax floor: %s %.1f%% -> %.1f%%", tax_key, val*100, TAX_FLOOR*100)
+                            params[tax_key] = TAX_FLOOR
     return action
 
 
@@ -739,17 +784,49 @@ def play_turn(
             log.warning("Layer query failed: %s", e)
             parsed = {"actions": []}
 
-    # 8. Execute actions (with normalization + water pre-filtering)
+    # 8. Execute actions (with normalization + budget/water pre-filtering)
     raw_actions = [normalize_action(a) for a in parsed.get("actions", [])]
-    # Pre-filter: skip actions that would land in water or out of bounds
+    treasury = observation.get("treasury", 0)
+
+    # Approximate costs for budget-aware filtering
+    ACTION_COSTS = {
+        "PlaceRoadLine": 200,    # varies, but ~$10-40 per cell, ~10 cells
+        "ZoneRect": 0,           # zoning is free
+        "PlaceUtility": 600,     # PowerPlant=$1000, WaterTower=$200, avg ~$600
+        "PlaceService": 1000,    # $600-$2000
+        "BulldozeRect": 0,       # free
+        "SetTaxRates": 0,        # free
+    }
+    MAX_UTILITIES_PER_TURN = 2  # LLM spams 6-10 utilities, cap it
+
     actions = []
+    utility_count = 0
+    spent_estimate = 0.0
     for a in raw_actions:
         if _action_out_of_bounds(a):
             log.info("  SKIP (bounds): %s", _summarize_action(a))
-        elif _action_hits_water(a):
+            continue
+        if _action_hits_water(a):
             log.info("  SKIP (water): %s", _summarize_action(a))
-        else:
-            actions.append(a)
+            continue
+
+        action_type = next(iter(a), "") if isinstance(a, dict) else ""
+
+        # Cap utilities per turn
+        if action_type == "PlaceUtility":
+            utility_count += 1
+            if utility_count > MAX_UTILITIES_PER_TURN:
+                log.info("  SKIP (utility cap): %s", _summarize_action(a))
+                continue
+
+        # Budget check: skip expensive actions when treasury is low
+        cost = ACTION_COSTS.get(action_type, 500)
+        if cost > 0 and (treasury - spent_estimate) < cost:
+            log.info("  SKIP (budget): %s (need ~$%d, have ~$%.0f)", _summarize_action(a), cost, treasury - spent_estimate)
+            continue
+
+        spent_estimate += cost
+        actions.append(a)
 
     results = []
     for action in actions:
@@ -907,6 +984,8 @@ def run_session(args: argparse.Namespace):
                 "water_coverage": obs.get("water_coverage", 0),
                 "income": obs.get("monthly_income", 0),
                 "expenses": obs.get("monthly_expenses", 0),
+                "est_income": obs.get("estimated_monthly_income", 0),
+                "est_expenses": obs.get("estimated_monthly_expenses", 0),
                 "building_count": obs.get("building_count", 0),
                 "attractiveness": obs.get("attractiveness_score", 0),
                 "warnings": obs.get("warnings", []),
