@@ -1,9 +1,23 @@
+use crate::buildings::types::Building;
 use crate::economy::CityBudget;
 use crate::grid::{RoadType, WorldGrid, ZoneType};
 use crate::services::ServiceType;
 use crate::stats::CityStats;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
+
+/// Fill all buildings to full occupancy so property tax is collected.
+fn fill_buildings(city: &mut TestCity) {
+    let world = city.world_mut();
+    let mut q = world.query::<(bevy::prelude::Entity, &Building)>();
+    let entities: Vec<(bevy::prelude::Entity, u32)> =
+        q.iter(world).map(|(e, b)| (e, b.capacity)).collect();
+    for (e, cap) in entities {
+        if let Some(mut b) = world.get_mut::<Building>(e) {
+            b.occupants = cap;
+        }
+    }
+}
 
 // ====================================================================
 // TEST-062: Negative Budget Consequences
@@ -161,6 +175,7 @@ fn test_budget_recovery_from_negative() {
         }
     }
 
+    fill_buildings(&mut city);
     let initial_treasury = city.budget().treasury;
     assert!(initial_treasury < 0.0);
 

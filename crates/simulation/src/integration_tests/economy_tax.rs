@@ -1,7 +1,21 @@
+use crate::buildings::types::Building;
 use crate::grid::{RoadType, ZoneType};
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
+
+/// Fill all buildings to full occupancy so property tax is collected.
+fn fill_buildings(city: &mut TestCity) {
+    let world = city.world_mut();
+    let mut q = world.query::<(bevy::prelude::Entity, &Building)>();
+    let entities: Vec<(bevy::prelude::Entity, u32)> =
+        q.iter(world).map(|(e, b)| (e, b.capacity)).collect();
+    for (e, cap) in entities {
+        if let Some(mut b) = world.get_mut::<Building>(e) {
+            b.occupants = cap;
+        }
+    }
+}
 
 // ====================================================================
 // Economy tax collection tests (issue #834 / TEST-054)
@@ -29,6 +43,7 @@ fn test_economy_tax_collection_increases_treasury() {
         .with_citizen((14, 11), (20, 11))
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
     let treasury_before = city.budget().treasury;
 
     // Advance clock past the 30-day tax collection interval
@@ -53,6 +68,8 @@ fn test_economy_monthly_income_positive_with_buildings() {
         .with_building(16, 11, ZoneType::Industrial, 1)
         .with_citizen((12, 11), (14, 11))
         .with_budget(10_000.0);
+
+    fill_buildings(&mut city);
 
     // Advance past tax collection interval
     force_clock_to_day(&mut city, 32);
@@ -98,6 +115,7 @@ fn test_economy_treasury_change_equals_net_income() {
         .with_citizen((12, 11), (14, 11))
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
     let treasury_before = city.budget().treasury;
 
     // Force tax collection
@@ -122,6 +140,8 @@ fn test_economy_tax_collection_respects_interval() {
         .with_building(12, 11, ZoneType::ResidentialLow, 2)
         .with_citizen((12, 11), (12, 11))
         .with_budget(10_000.0);
+
+    fill_buildings(&mut city);
 
     // First collection
     force_clock_to_day(&mut city, 32);
@@ -194,6 +214,7 @@ fn test_economy_residential_tax_income() {
         .with_building(50, 50, ZoneType::ResidentialLow, 2)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
     force_clock_to_day(&mut city, 32);
     city.tick(10);
 
@@ -214,6 +235,7 @@ fn test_economy_commercial_tax_income() {
         .with_building(50, 50, ZoneType::CommercialLow, 2)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
     force_clock_to_day(&mut city, 32);
     city.tick(10);
 
@@ -234,6 +256,7 @@ fn test_economy_industrial_tax_income() {
         .with_building(50, 50, ZoneType::Industrial, 2)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
     force_clock_to_day(&mut city, 32);
     city.tick(10);
 
@@ -255,6 +278,7 @@ fn test_economy_higher_level_building_more_tax() {
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city_low);
     force_clock_to_day(&mut city_low, 32);
     city_low.tick(10);
 
@@ -268,6 +292,7 @@ fn test_economy_higher_level_building_more_tax() {
         .with_building(50, 50, ZoneType::ResidentialLow, 3)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city_high);
     force_clock_to_day(&mut city_high, 32);
     city_high.tick(10);
 
@@ -314,6 +339,8 @@ fn test_economy_multiple_tax_collections_over_time() {
         .with_building(52, 50, ZoneType::CommercialLow, 2)
         .with_citizen((50, 50), (52, 50))
         .with_budget(10_000.0);
+
+    fill_buildings(&mut city);
 
     // First collection at day 32
     force_clock_to_day(&mut city, 32);
