@@ -86,7 +86,7 @@ fn test_zone_rect_far_from_road_returns_error() {
             GameAction::ZoneRect {
                 min: (100, 100),
                 max: (105, 105),
-                zone_type: ZoneType::Commercial,
+                zone_type: ZoneType::CommercialLow,
             },
         );
     }
