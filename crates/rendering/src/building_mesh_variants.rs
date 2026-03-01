@@ -100,10 +100,18 @@ fn select_variant_scene(
     match zone {
         ZoneType::ResidentialLow => select_from_pool(&cache.residential, level, hash),
         ZoneType::ResidentialMedium => {
-            select_from_pool(&cache.commercial, level, hash)
+            if !cache.residential_medium.is_empty() {
+                select_from_pool(&cache.residential_medium, level, hash)
+            } else if !cache.commercial.is_empty() {
+                select_from_pool(&cache.commercial, level, hash)
+            } else {
+                select_from_pool(&cache.residential, level, hash)
+            }
         }
         ZoneType::ResidentialHigh => {
-            if level >= 3 && !cache.skyscrapers.is_empty() {
+            if !cache.residential_high.is_empty() {
+                select_from_pool(&cache.residential_high, level, hash)
+            } else if level >= 3 && !cache.skyscrapers.is_empty() {
                 select_from_pool(&cache.skyscrapers, level, hash)
             } else if !cache.commercial.is_empty() {
                 select_from_pool(&cache.commercial, level, hash)
@@ -127,14 +135,18 @@ fn select_variant_scene(
         }
         ZoneType::Industrial => select_from_pool(&cache.industrial, level, hash),
         ZoneType::Office => {
-            if level >= 3 && !cache.skyscrapers.is_empty() {
+            if !cache.office.is_empty() {
+                select_from_pool(&cache.office, level, hash)
+            } else if level >= 3 && !cache.skyscrapers.is_empty() {
                 select_from_pool(&cache.skyscrapers, level, hash)
             } else {
                 select_from_pool(&cache.commercial, level, hash)
             }
         }
         ZoneType::MixedUse => {
-            if level >= 3 && !cache.skyscrapers.is_empty() {
+            if !cache.mixed_use.is_empty() {
+                select_from_pool(&cache.mixed_use, level, hash)
+            } else if level >= 3 && !cache.skyscrapers.is_empty() {
                 select_from_pool(&cache.skyscrapers, level, hash)
             } else {
                 select_from_pool(&cache.commercial, level, hash)

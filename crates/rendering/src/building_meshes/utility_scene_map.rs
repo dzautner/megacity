@@ -24,3 +24,44 @@ pub fn utility_scene_path(utility_type: UtilityType) -> Option<&'static str> {
     };
     Some(path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::utility_scene_path;
+    use simulation::utilities::UtilityType;
+    use std::path::PathBuf;
+
+    fn asset_path(rel: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../app/assets")
+            .join(rel)
+    }
+
+    #[test]
+    fn all_utility_scene_paths_exist() {
+        let all = [
+            UtilityType::PowerPlant,
+            UtilityType::SolarFarm,
+            UtilityType::WindTurbine,
+            UtilityType::WaterTower,
+            UtilityType::SewagePlant,
+            UtilityType::NuclearPlant,
+            UtilityType::Geothermal,
+            UtilityType::PumpingStation,
+            UtilityType::WaterTreatment,
+            UtilityType::HydroDam,
+            UtilityType::OilPlant,
+            UtilityType::GasPlant,
+        ];
+
+        for ty in all {
+            let rel = utility_scene_path(ty).unwrap_or_else(|| panic!("missing scene path for {ty:?}"));
+            let abs = asset_path(rel);
+            assert!(
+                abs.exists(),
+                "utility scene path does not exist for {ty:?}: {}",
+                abs.display()
+            );
+        }
+    }
+}

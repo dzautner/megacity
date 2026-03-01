@@ -1,0 +1,73 @@
+External service models imported from Poly Pizza.
+
+License notes
+- Sources include both `CC0 1.0` and `CC-BY 3.0` assets.
+- Every imported model is listed below with model page + direct asset URL.
+
+Imports
+- `small-park.glb`
+  - Title: `Park Bench`
+  - Creator: `Alex Safayan`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/d4pMr084-nF
+  - Asset URL: https://static.poly.pizza/c08c4a78-b4e0-4ce4-9a35-c527a8c44577.glb
+- `large-park.glb`
+  - Title: `Ballpark`
+  - Creator: `Poly by Google`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/45Ez39JSdz6
+  - Asset URL: https://static.poly.pizza/98e54cbc-cca3-425b-9424-2c5a3d29a095.glb
+- `playground.glb`
+  - Title: `Modular Skate Park kit`
+  - Creator: `Kenney`
+  - License: `CC0 1.0`
+  - Model page: https://poly.pizza/m/A12Uas8wUG
+  - Asset URL: https://static.poly.pizza/cf414885-6639-4f31-adc0-c27b76d89de4.glb
+- `plaza.glb`
+  - Title: `Parking Lot`
+  - Creator: `Alex Safayan`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/4NYtgQKdVMy
+  - Asset URL: https://static.poly.pizza/21a1f34b-24ae-4d6d-a530-e96fc5635cbf.glb
+- `sports-field.glb`
+  - Title: `Football stadium`
+  - Creator: `Poly by Google`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/6TZCkGh76m5
+  - Asset URL: https://static.poly.pizza/c64ea3bf-399e-4e55-ab07-497e0457e699.glb
+- `tv-station.glb`
+  - Title: `TV Tower`
+  - Creator: `Quaternius`
+  - License: `CC0 1.0`
+  - Model page: https://poly.pizza/m/R8DtfW6Nx5
+  - Asset URL: https://static.poly.pizza/fc13f23c-953b-4dc9-bfd1-87b086ce4bf0.glb
+- `cemetery.glb`
+  - Title: `Cemetary`
+  - Creator: `Poly by Google`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/c5L6hAdX3ua
+  - Asset URL: https://static.poly.pizza/14a18e42-df46-4b93-a9db-02a5b88ca378.glb
+- `ferry-pier.glb`
+  - Title: `Shipping Port`
+  - Creator: `Quaternius`
+  - License: `CC0 1.0`
+  - Model page: https://poly.pizza/m/mJXJPCIkbM
+  - Asset URL: https://static.poly.pizza/29f44f43-65d5-4733-8f42-bc9d61048e98.glb
+- `small-airstrip.glb`
+  - Title: `Airplane`
+  - Creator: `Poly by Google`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/6D4MwQoxK-K
+  - Asset URL: https://static.poly.pizza/77ae023d-57c0-4746-b7e4-6b9e2551aac8.glb
+- `regional-airport.glb`
+  - Title: `Airplane`
+  - Creator: `Poly by Google`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/2eG17I-VDiG
+  - Asset URL: https://static.poly.pizza/ecd6c1f3-1aa9-4927-abce-53ebac9ed3f6.glb
+- `international-airport.glb`
+  - Title: `Jet`
+  - Creator: `Poly by Google`
+  - License: `CC-BY 3.0`
+  - Model page: https://poly.pizza/m/3B3Pa6BHXn1
+  - Asset URL: https://static.poly.pizza/fd29b917-dada-4982-92e0-f812d71f0afe.glb
