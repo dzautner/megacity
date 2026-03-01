@@ -51,13 +51,27 @@ You are playing Megacity, a 256x256 grid city builder. Each turn you receive sta
 4. Use LARGE zone rects (e.g. 5x10) not tiny 1x1 zones. More zones = more buildings = more people.
 5. NEVER lower taxes below 8%. Low taxes = no income = bankruptcy. Keep all tax rates at 8-12%.
 6. Watch the zone demand numbers! If Commercial/Industrial/Office demand is high, zone those types.
-7. Don't place things where you already built — check the map for existing roads/buildings.
+7. NEVER place things at the same position twice — each new building/utility/service needs a UNIQUE position.
+8. Each turn, place buildings at NEW coordinates you haven't used before.
 
-## Building Pattern
-For each new block: Road → Utility ON road → Zone rect on BOTH sides of road.
+## Building Pattern — ROAD GRID
+Water and power only reach 1 cell from roads. Zone rects more than 1 cell from a road get NO utilities!
 
-Example: Build a road from (100,80) to (120,80), place PowerPlant at (105,80) and WaterTower at (110,80),
-then zone residential (100,81) to (120,85) on one side and commercial (100,75) to (120,79) on the other side.
+Build a GRID of roads spaced 3 cells apart, then zone the 1-cell gaps between roads:
+1. Build horizontal road: (100,80)→(120,80)
+2. Build parallel road: (100,83)→(120,83)  ← 3 cells south
+3. Zone the 2 rows between: (100,81)-(120,82)  ← only 2 cells deep, both adjacent to a road!
+4. Build cross-roads: (100,80)→(100,83), (110,80)→(110,83), (120,80)→(120,83)
+
+Example turn 1: Road (100,80)→(120,80), PowerPlant@(105,80), WaterTower@(110,80), zone ResLow (100,81)-(120,82).
+Example turn 2: Road (100,83)→(120,83), WaterTower@(105,83), zone ComLow (100,81)-(120,82), zone Industrial (100,84)-(120,85).
+Example turn 3: Cross-roads (100,80)→(100,86), (110,80)→(110,86), (120,80)→(120,86). Zone Office (101,84)-(109,85).
+
+KEY RULES:
+- Zone rects should be MAX 2 cells deep (1 cell on each side of a road)
+- Build a GRID pattern, not just parallel lines — connect roads with cross-roads
+- Each turn, use DIFFERENT coordinates than previous turns
+- Build CLOSE to existing development (within 20 cells)
 
 ## Actions (respond with ONLY a JSON object, no other text)
 {"actions": [
@@ -71,29 +85,31 @@ then zone residential (100,81) to (120,85) on one side and commercial (100,75) t
 ## Zone Types
 ResidentialLow, ResidentialMedium, ResidentialHigh, CommercialLow, CommercialHigh, Industrial, Office, MixedUse
 
-## Utilities (MUST be ON road cells!)
-PowerPlant ($1000, range 30), WaterTower ($200, range 25)
+## Utilities — provide COVERAGE (MUST be ON road cells!)
+- PowerPlant ($1000) → provides POWER to nearby buildings (range 30)
+- WaterTower ($200) → provides WATER to nearby buildings (range 25)
+IMPORTANT: You need BOTH PowerPlant AND WaterTower for buildings to grow!
+Place one of each every few turns as you expand.
 
 ## Services (place ON or near road cells)
-### Essential (place early!):
+Services do NOT provide power or water. They improve happiness and health.
+### Essential (place 1-2 per turn as city grows):
 FireStation ($800), PoliceStation ($600), Hospital ($2000), ElementarySchool ($2000), HighSchool ($1500)
-### CRITICAL for health/happiness:
-Landfill ($300) — garbage collection, prevents -10 happiness penalty
-WaterTreatmentPlant ($1500) — wastewater treatment, prevents -35 health penalty
-Cemetery ($400) — handles deaths, prevents health penalty
+### Health services (place early to avoid happiness penalties):
+Landfill ($300) — garbage collection
+WaterTreatmentPlant ($1500) — wastewater (NOT the same as WaterTower!)
+Cemetery ($400) — death care
 ### Nice to have:
-SmallPark ($200) — +happiness for nearby residents
-RecyclingCenter ($800) — better waste management
-Library ($500) — education boost
+SmallPark ($200), RecyclingCenter ($800), Library ($500)
 
 ## Key Facts
+- Buildings need POWER (from PowerPlant) AND WATER (from WaterTower) to grow
+- WaterTower = WATER COVERAGE utility. WaterTreatmentPlant = health SERVICE. Different things!
 - Zone rects must be adjacent to a road (within 2 cells)
-- Buildings need power AND water to grow (from utilities on the road network)
-- Water (~) is unbuildable. Rivers and lakes exist inside the map.
+- Water (~) on the map is unbuildable terrain (rivers/lakes)
 - Starting treasury: $50,000
-- Garbage and wastewater are the BIGGEST happiness drags. Build Landfill + WaterTreatmentPlant early!
-- Commercial buildings IMPORT goods (costs money per tick!). Industrial buildings PRODUCE goods. Balance them or go bankrupt from import costs!
-- If treasury drops fast, zone MORE Industrial to reduce goods imports.
+- Commercial buildings IMPORT goods (costs money!). Industrial PRODUCE goods. Balance them.
+- If treasury drops fast, zone MORE Industrial to reduce import costs.
 """
 
 
@@ -415,6 +431,12 @@ def _record_water_failure(action: dict):
 
 
 _prev_treasury = [50000.0]  # track previous turn treasury for delta
+_last_treasury_delta = [0.0]  # saved delta for use in action filtering
+_placed_positions: set = set()  # track all positions where things were successfully placed
+_last_tax_rates: dict = {}  # track last SetTaxRates to skip redundant calls
+_road_cells: set = set()  # track all road cell positions for fallback utility placement
+_next_road_y = [95]  # next Y for auto-road expansion (starts after typical initial roads)
+_water_tower_positions: list = []  # track WaterTower positions for spatial spreading
 
 
 def format_observation(obs: dict, turn: int = 0) -> str:
@@ -433,9 +455,12 @@ def format_observation(obs: dict, turn: int = 0) -> str:
     # Show actual treasury change per turn (includes hidden trade costs)
     delta = treasury - _prev_treasury[0]
     _prev_treasury[0] = treasury
+    _last_treasury_delta[0] = delta  # save for action filtering
     parts.append(f"Treasury: ${treasury:,.0f} (change: ${delta:+,.0f}/turn) | Income: ${show_income:,.0f}/mo | Expenses: ${show_expenses:,.0f}/mo")
     if delta < -5000:
         parts.append(f"*** MONEY DRAIN: Lost ${abs(delta):,.0f} this turn from goods imports! Zone more Industrial to produce locally. ***")
+    if delta < -3000 and treasury < 50000:
+        parts.append(f"*** SLOW DOWN: Stop building new zones until treasury stabilizes! Only place utilities and Industrial zones. ***")
     if treasury < 5000:
         parts.append(f"*** LOW FUNDS: Only ${treasury:,.0f} left! Do NOT place buildings/utilities/services. Only zone (free) or set taxes. ***")
     if show_expenses > show_income and show_expenses > 0:
@@ -479,6 +504,11 @@ def format_observation(obs: dict, turn: int = 0) -> str:
         f"Fire: {svcs.get('fire', 0):.0%} | Police: {svcs.get('police', 0):.0%} | "
         f"Health: {svcs.get('health', 0):.0%} | Education: {svcs.get('education', 0):.0%}"
     )
+    # Highlight critical utility needs
+    if power_cov < 0.8:
+        parts.append(f"  >>> NEED PowerPlant! Power coverage is only {power_cov:.0%}. Place PlaceUtility with utility_type=PowerPlant ON a road.")
+    if water_cov < 0.8:
+        parts.append(f"  >>> NEED WaterTower! Water coverage is only {water_cov:.0%}. Place PlaceUtility with utility_type=WaterTower ON a road.")
 
     # Buildings and attractiveness
     bldgs = obs.get("building_count", 0)
@@ -524,23 +554,34 @@ def format_observation(obs: dict, turn: int = 0) -> str:
         for r in failed_results[-5:]:
             parts.append(f"  - {r.get('action_summary', '?')}")
 
-    # Warnings
+    # Warnings with specific remediation
     warnings = obs.get("warnings", [])
     if warnings:
         parts.append(f"WARNINGS: {', '.join(warnings)}")
+        # Give SPECIFIC fix instructions per warning
+        for w in warnings:
+            if w == "PowerShortage":
+                parts.append("  FIX: Place more PowerPlant utilities ON road cells! (PlaceUtility with utility_type=PowerPlant)")
+            elif w == "WaterShortage":
+                parts.append("  FIX: Place more WaterTower utilities ON road cells! (PlaceUtility with utility_type=WaterTower)")
+                parts.append("  NOTE: WaterTower is the utility. WaterTreatmentPlant is a different thing (service for wastewater).")
+            elif w == "HighUnemployment":
+                parts.append("  FIX: Zone more Commercial, Industrial, or Office areas for jobs!")
+            elif w == "HighHomelessness":
+                parts.append("  FIX: Zone more ResidentialLow or ResidentialMedium areas!")
 
     # Proactive hints based on happiness breakdown
     if total > 50 and components:
         component_dict = {name: val for name, val in components}
         tips = []
         if component_dict.get("garbage", 0) < -3:
-            tips.append("Place a Landfill near your buildings (fixes garbage=-{:.0f})".format(abs(component_dict["garbage"])))
+            tips.append("Place Landfill (fixes garbage={:.0f})".format(component_dict["garbage"]))
         if component_dict.get("health", 0) < -10:
-            tips.append("Place a WaterTreatmentPlant + Cemetery (fixes health=-{:.0f})".format(abs(component_dict["health"])))
+            tips.append("Place WaterTreatmentPlant + Cemetery as SERVICES (fixes health={:.0f})".format(component_dict["health"]))
         if component_dict.get("crime", 0) < -3:
-            tips.append("Place more PoliceStations (fixes crime=-{:.0f})".format(abs(component_dict["crime"])))
+            tips.append("Place PoliceStation (fixes crime={:.0f})".format(component_dict["crime"]))
         if component_dict.get("noise", 0) < -3:
-            tips.append("Place SmallParks between Industrial and Residential zones")
+            tips.append("Place SmallPark between zones")
         if tips:
             parts.append("FIX HAPPINESS: " + " | ".join(tips))
 
@@ -707,6 +748,20 @@ def normalize_action(action: dict) -> dict:
             for coord_key in ["start", "end", "pos", "min", "max"]:
                 if coord_key in params and isinstance(params[coord_key], list):
                     params[coord_key] = [int(round(v)) for v in params[coord_key]]
+            # Cap zone rects to max 3 cells deep (water only reaches 1 cell from roads)
+            if key == "ZoneRect" and "min" in params and "max" in params:
+                mn, mx = params["min"], params["max"]
+                if isinstance(mn, list) and isinstance(mx, list) and len(mn) >= 2 and len(mx) >= 2:
+                    dx = mx[0] - mn[0]
+                    dy = mx[1] - mn[1]
+                    if dx > 20:  # cap width to 20
+                        mx[0] = mn[0] + 20
+                    if dy > 3:  # cap depth to 3 (1-2 cells from road each side)
+                        mx[1] = mn[1] + 3
+                    if dx < -20:
+                        mn[0] = mx[0] + 20
+                    if dy < -3:
+                        mn[1] = mx[1] + 3
             # Enforce minimum tax rates — LLM keeps setting 1-3% causing bankruptcy
             if key == "SetTaxRates":
                 for tax_key in ["residential", "commercial", "industrial", "office"]:
@@ -728,6 +783,104 @@ def normalize_action(action: dict) -> dict:
             action = {"PlaceService": {"pos": action["PlaceUtility"]["pos"], "service_type": ut}}
 
     return action
+
+
+def _pick_furthest_from(positions: list, candidates: list) -> tuple:
+    """Pick the candidate cell furthest from any position in the reference list."""
+    if not positions:
+        # No reference points: pick from the middle of candidates
+        return candidates[len(candidates) // 2]
+    best_pos = candidates[0]
+    best_dist = -1
+    for pos in candidates:
+        min_dist = min(abs(pos[0] - ref[0]) + abs(pos[1] - ref[1]) for ref in positions)
+        if min_dist > best_dist:
+            best_dist = min_dist
+            best_pos = pos
+    return best_pos
+
+
+def _inject_critical_utilities(obs: dict, llm_actions: list) -> list:
+    """Auto-inject WaterTower/PowerPlant when coverage is critically low.
+
+    WaterTowers are placed at positions FURTHEST from existing WaterTowers
+    to maximize new coverage area instead of clustering.
+    """
+    injected = []
+    treasury = obs.get("treasury", 0)
+    power_cov = obs.get("power_coverage", 0)
+    water_cov = obs.get("water_coverage", 0)
+
+    if treasury < 500:
+        return []
+
+    # Check if LLM already placed the needed utility type this turn
+    llm_utility_types = set()
+    for a in llm_actions:
+        if isinstance(a, dict) and "PlaceUtility" in a:
+            llm_utility_types.add(a["PlaceUtility"].get("utility_type", ""))
+
+    available_road = list(_road_cells - _placed_positions)
+    if not available_road:
+        return []
+
+    # Water < 80%: inject WaterTowers at spatially optimal positions
+    if water_cov < 0.8 and treasury >= 200:
+        count = 2 if water_cov < 0.5 else 1
+        for _ in range(min(count, len(available_road))):
+            pos = _pick_furthest_from(_water_tower_positions, available_road)
+            available_road.remove(pos)
+            injected.append({"PlaceUtility": {"pos": list(pos), "utility_type": "WaterTower"}})
+
+    # Power < 80% and LLM didn't place PowerPlant
+    if power_cov < 0.8 and "PowerPlant" not in llm_utility_types and treasury >= 1200:
+        if available_road:
+            pos = _pick_furthest_from([], available_road)  # just pick middle
+            injected.append({"PlaceUtility": {"pos": list(pos), "utility_type": "PowerPlant"}})
+
+    return injected
+
+
+def _generate_fallback_actions(obs: dict) -> list:
+    """Generate sensible fallback actions when the LLM returns nothing.
+
+    Prevents the city from stagnating during idle turns by auto-placing
+    critical infrastructure (WaterTower, PowerPlant) and extending roads.
+    """
+    global _next_road_y
+    actions = []
+    treasury = obs.get("treasury", 0)
+    power_cov = obs.get("power_coverage", 0)
+    water_cov = obs.get("water_coverage", 0)
+
+    if treasury < 500:
+        return []  # Can't afford anything
+
+    # Find available road cells for utility placement
+    available_road = sorted(_road_cells - _placed_positions)
+
+    # Priority 1: Place WaterTower if water < 80%
+    if water_cov < 0.8 and available_road and treasury >= 200:
+        pos = available_road[0]
+        actions.append({"PlaceUtility": {"pos": list(pos), "utility_type": "WaterTower"}})
+        available_road = available_road[1:]
+
+    # Priority 2: Place PowerPlant if power < 80%
+    if power_cov < 0.8 and available_road and treasury >= 1200:
+        pos = available_road[0]
+        actions.append({"PlaceUtility": {"pos": list(pos), "utility_type": "PowerPlant"}})
+
+    # Priority 3: Extend road network southward in grid pattern
+    if treasury >= 500 and len(actions) < 3:
+        y = _next_road_y[0]
+        if y < 200 and not _action_hits_water({"PlaceRoadLine": {"start": [100, y], "end": [120, y]}}):
+            actions.append({"PlaceRoadLine": {"start": [100, y], "end": [120, y], "road_type": "Local"}})
+            # Zone only 1-2 cells deep (adjacent to road for water coverage)
+            actions.append({"ZoneRect": {"min": [100, y + 1], "max": [120, y + 1], "zone_type": "ResidentialLow"}})
+            actions.append({"ZoneRect": {"min": [100, y - 1], "max": [120, y - 1], "zone_type": "Industrial"}})
+            _next_road_y[0] = y + 3  # Grid spacing: every 3 cells
+
+    return actions
 
 
 def _summarize_action(action: dict) -> str:
@@ -794,8 +947,22 @@ def play_turn(
             log.warning("Layer query failed: %s", e)
             parsed = {"actions": []}
 
-    # 8. Execute actions (with normalization + budget/water pre-filtering)
-    raw_actions = [normalize_action(a) for a in parsed.get("actions", [])]
+    # 7b. Generate fallback actions if LLM returned nothing
+    raw_llm_actions = parsed.get("actions", [])
+    if not raw_llm_actions:
+        fallback = _generate_fallback_actions(observation)
+        if fallback:
+            log.info("  LLM idle — injecting %d fallback actions", len(fallback))
+            raw_llm_actions = fallback
+
+    # 7c. Auto-inject critical utilities when coverage is low (even if LLM provided actions)
+    injected = _inject_critical_utilities(observation, raw_llm_actions)
+    if injected:
+        log.info("  Auto-injecting %d critical utilities", len(injected))
+        raw_llm_actions = raw_llm_actions + injected
+
+    # 8. Execute actions (with normalization + budget/water/dupe pre-filtering)
+    raw_actions = [normalize_action(a) for a in raw_llm_actions]
     treasury = observation.get("treasury", 0)
 
     # Approximate costs for budget-aware filtering
@@ -807,10 +974,24 @@ def play_turn(
         "BulldozeRect": 0,       # free
         "SetTaxRates": 0,        # free
     }
-    MAX_UTILITIES_PER_TURN = 4  # Allow more utilities for infrastructure catch-up
+    MAX_UTILITIES_PER_TURN = 4
+    MAX_PER_SERVICE_TYPE = 2  # Max of any single service type per turn
+    # Throttle zoning when treasury is declining to prevent bankruptcy before first tax collection
+    treas_delta = _last_treasury_delta[0]
+    MAX_ZONES_PER_TURN = 6  # default
+    if treas_delta < -3000 and treasury < 50000:
+        MAX_ZONES_PER_TURN = 2  # slow down expansion when losing money fast
+        log.info("  Throttling zones (treasury declining $%.0f/turn, only $%.0f left)", abs(treas_delta), treasury)
+    elif treas_delta < -5000:
+        MAX_ZONES_PER_TURN = 3  # moderate throttle even with high treasury
+        log.info("  Moderate zone throttle (treasury declining $%.0f/turn)", abs(treas_delta))
+
+    global _placed_positions, _last_tax_rates
 
     actions = []
     utility_count = 0
+    zone_count = 0
+    service_type_counts: dict = {}  # track service type counts this turn
     spent_estimate = 0.0
     for a in raw_actions:
         if _action_out_of_bounds(a):
@@ -821,12 +1002,46 @@ def play_turn(
             continue
 
         action_type = next(iter(a), "") if isinstance(a, dict) else ""
+        params = a.get(action_type, {}) if isinstance(a, dict) else {}
 
-        # Cap utilities per turn
+        # Skip redundant SetTaxRates (same rates as last time)
+        if action_type == "SetTaxRates":
+            rates = {k: params.get(k, 0.09) for k in ["residential", "commercial", "industrial", "office"]}
+            if rates == _last_tax_rates:
+                log.debug("  SKIP (same taxes): %s", _summarize_action(a))
+                continue
+
+        # Skip PlaceUtility/PlaceService at already-occupied positions
+        if action_type in ("PlaceUtility", "PlaceService"):
+            pos = params.get("pos")
+            if isinstance(pos, list) and len(pos) >= 2:
+                pos_key = (int(pos[0]), int(pos[1]))
+                if pos_key in _placed_positions:
+                    log.info("  SKIP (occupied): %s at %s", action_type, pos_key)
+                    continue
+
+        # Cap utilities per turn (except WaterTower — always allow, it's cheap and critical)
         if action_type == "PlaceUtility":
-            utility_count += 1
-            if utility_count > MAX_UTILITIES_PER_TURN:
-                log.info("  SKIP (utility cap): %s", _summarize_action(a))
+            ut_type = params.get("utility_type", "")
+            if ut_type != "WaterTower":
+                utility_count += 1
+                if utility_count > MAX_UTILITIES_PER_TURN:
+                    log.info("  SKIP (utility cap): %s", _summarize_action(a))
+                    continue
+
+        # Cap per service type per turn (prevent 10x Cemetery spam)
+        if action_type == "PlaceService":
+            stype = params.get("service_type", "")
+            service_type_counts[stype] = service_type_counts.get(stype, 0) + 1
+            if service_type_counts[stype] > MAX_PER_SERVICE_TYPE:
+                log.info("  SKIP (service cap %s=%d): %s", stype, service_type_counts[stype], _summarize_action(a))
+                continue
+
+        # Throttle zone rects when treasury is declining
+        if action_type == "ZoneRect":
+            zone_count += 1
+            if zone_count > MAX_ZONES_PER_TURN:
+                log.info("  SKIP (zone cap): %s", _summarize_action(a))
                 continue
 
         # Budget check: skip expensive actions when treasury is low
@@ -850,6 +1065,42 @@ def play_turn(
                 # Track runtime water failures
                 if reason == "BlockedByWater":
                     _record_water_failure(action)
+                # Track AlreadyExists failures as occupied positions
+                if reason == "AlreadyExists":
+                    act_type = next(iter(action), "") if isinstance(action, dict) else ""
+                    act_params = action.get(act_type, {}) if isinstance(action, dict) else {}
+                    pos = act_params.get("pos")
+                    if isinstance(pos, list) and len(pos) >= 2:
+                        _placed_positions.add((int(pos[0]), int(pos[1])))
+            # Track successful placements
+            if success:
+                act_type = next(iter(action), "") if isinstance(action, dict) else ""
+                act_params = action.get(act_type, {}) if isinstance(action, dict) else {}
+                if act_type in ("PlaceUtility", "PlaceService"):
+                    pos = act_params.get("pos")
+                    if isinstance(pos, list) and len(pos) >= 2:
+                        pos_tuple = (int(pos[0]), int(pos[1]))
+                        _placed_positions.add(pos_tuple)
+                        if act_type == "PlaceUtility" and act_params.get("utility_type") == "WaterTower":
+                            _water_tower_positions.append(pos_tuple)
+                if act_type == "PlaceRoadLine":
+                    start = act_params.get("start", [])
+                    end = act_params.get("end", [])
+                    if len(start) >= 2 and len(end) >= 2:
+                        x0, y0 = int(start[0]), int(start[1])
+                        x1, y1 = int(end[0]), int(end[1])
+                        if x0 == x1:
+                            for y in range(min(y0, y1), max(y0, y1) + 1):
+                                _road_cells.add((x0, y))
+                        elif y0 == y1:
+                            for x in range(min(x0, x1), max(x0, x1) + 1):
+                                _road_cells.add((x, y0))
+                        # Update next road Y for fallback expansion
+                        max_y = max(y0, y1)
+                        if max_y + 5 > _next_road_y[0]:
+                            _next_road_y[0] = max_y + 5
+                if act_type == "SetTaxRates":
+                    _last_tax_rates = {k: act_params.get(k, 0.09) for k in ["residential", "commercial", "industrial", "office"]}
             results.append({
                 "action": action,
                 "result": result,
@@ -998,7 +1249,9 @@ def run_session(args: argparse.Namespace):
                 "est_expenses": obs.get("estimated_monthly_expenses", 0),
                 "building_count": obs.get("building_count", 0),
                 "attractiveness": obs.get("attractiveness_score", 0),
+                "happiness_components": obs.get("happiness", {}).get("components", []),
                 "warnings": obs.get("warnings", []),
+                "placed_positions_tracked": len(_placed_positions),
                 "actions": actions,
                 "results": [
                     {"success": r["success"], "summary": r.get("action_summary", ""),
