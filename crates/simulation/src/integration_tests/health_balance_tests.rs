@@ -102,22 +102,21 @@ fn test_health_zero_penalty_capped_at_20() {
 /// Test that a citizen with health=100 gets at least +8 happiness bonus
 /// compared to a health=50 citizen (neutral baseline).
 ///
-/// We intentionally omit power/water to keep base happiness low enough
-/// that the health=100 citizen does not hit the 100.0 happiness cap.
+/// Uses unemployed citizens (lower base happiness) with power/water to keep
+/// happiness in the 30-70 range, avoiding both the 0 floor and 100 cap.
 ///
 /// New balance:
 /// - Healthy bonus (health > 80): +8
 #[test]
 fn test_health_100_bonus_at_least_8() {
     let home = (120, 120);
-    let work = (125, 120);
-    // No utilities: both citizens lack power/water, so happiness stays
-    // well below 100.0, avoiding the clamp that would hide the bonus.
+    // Use unemployed citizens: lower base happiness avoids the 100 cap
     let mut city = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
-        .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
-        .with_citizen(home, work)
-        .with_citizen(home, work);
+        .with_unemployed_citizen(home)
+        .with_unemployed_citizen(home)
+        .with_utility(home.0 + 1, home.1, UtilityType::PowerPlant)
+        .with_utility(home.0 - 1, home.1, UtilityType::WaterTower);
 
     // Capture the two entities we spawned
     let initial = citizen_entities(&mut city);
@@ -125,31 +124,27 @@ fn test_health_100_bonus_at_least_8() {
     let citizen_a = initial[0]; // Will have health=100
     let citizen_b = initial[1]; // Will have health=50
 
-    // Set health: citizen_a = 100 (healthy), citizen_b = 50 (neutral)
+    // Set health and zero out savings to avoid wealth-based differences
     {
         let world = city.world_mut();
-        world
-            .get_mut::<CitizenDetails>(citizen_a)
-            .unwrap()
-            .health = 100.0;
-        world
-            .get_mut::<CitizenDetails>(citizen_b)
-            .unwrap()
-            .health = 50.0;
+        let mut da = world.get_mut::<CitizenDetails>(citizen_a).unwrap();
+        da.health = 100.0;
+        da.savings = 0.0;
+        let mut db = world.get_mut::<CitizenDetails>(citizen_b).unwrap();
+        db.health = 50.0;
+        db.savings = 0.0;
     }
     city.tick(21);
 
-    // Re-set health and tick again for stability
+    // Re-set health and savings, then tick again for stability
     {
         let world = city.world_mut();
-        world
-            .get_mut::<CitizenDetails>(citizen_a)
-            .unwrap()
-            .health = 100.0;
-        world
-            .get_mut::<CitizenDetails>(citizen_b)
-            .unwrap()
-            .health = 50.0;
+        let mut da = world.get_mut::<CitizenDetails>(citizen_a).unwrap();
+        da.health = 100.0;
+        da.savings = 0.0;
+        let mut db = world.get_mut::<CitizenDetails>(citizen_b).unwrap();
+        db.health = 50.0;
+        db.savings = 0.0;
     }
     city.tick(21);
 
@@ -160,11 +155,16 @@ fn test_health_100_bonus_at_least_8() {
         .happiness;
     let h50 = world.get::<CitizenDetails>(citizen_b).unwrap().happiness;
 
-    // Neither citizen should be clamped at 100 (no utilities = big penalties)
+    // Verify neither citizen hit the floor or cap
     assert!(
-        h100 < 100.0,
-        "Health=100 citizen should not be clamped at 100.0 (got {:.1})",
+        h100 < 99.0 && h100 > 1.0,
+        "Health=100 citizen happiness should be in mid-range, got {:.1}",
         h100,
+    );
+    assert!(
+        h50 < 99.0 && h50 > 1.0,
+        "Health=50 citizen happiness should be in mid-range, got {:.1}",
+        h50,
     );
 
     let bonus = h100 - h50;
