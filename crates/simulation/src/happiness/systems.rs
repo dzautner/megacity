@@ -206,15 +206,18 @@ fn compute_citizen_happiness(
     let poll_diminished = diminishing_returns(poll_ratio, DIMINISHING_K_NEGATIVE);
     happiness -= poll_diminished * (255.0 / 25.0) * weights.pollution;
 
-    // --- Garbage penalty ---
-    if garbage_grid.get(home.grid_x, home.grid_y) > 10 {
-        happiness -= GARBAGE_PENALTY;
+    // --- Garbage penalty (scaled linearly: 0 at level 10, full at level 100) ---
+    let garbage_level = garbage_grid.get(home.grid_x, home.grid_y) as f32;
+    if garbage_level > 10.0 {
+        let ratio = ((garbage_level - 10.0) / 90.0).clamp(0.0, 1.0);
+        happiness -= GARBAGE_PENALTY * ratio;
     }
 
-    // --- Uncollected waste penalty (WASTE-003) ---
+    // --- Uncollected waste penalty (WASTE-003, scaled: 0 at 100 lbs, full at 1000 lbs) ---
     let uncollected = waste_collection.uncollected(home.grid_x, home.grid_y);
     if uncollected > 100.0 {
-        happiness -= crate::garbage::UNCOLLECTED_WASTE_HAPPINESS_PENALTY;
+        let ratio = ((uncollected - 100.0) / 900.0).clamp(0.0, 1.0);
+        happiness -= crate::garbage::UNCOLLECTED_WASTE_HAPPINESS_PENALTY * ratio;
     }
 
     // --- Accumulated waste happiness penalty (WASTE-010) ---
