@@ -234,7 +234,7 @@ fn compute_citizen_happiness(
     }
 
     // --- Noise penalty ---
-    happiness -= (noise_grid.get(home.grid_x, home.grid_y) as f32) / 20.0;
+    happiness -= (noise_grid.get(home.grid_x, home.grid_y) as f32) / 25.0;
 
     // --- Land value with diminishing returns ---
     let land_value = land_value_grid.get(home.grid_x, home.grid_y) as f32;

@@ -226,7 +226,7 @@ pub fn compute_happiness_breakdown(
         factors[F_CRIME] = crime_contrib;
 
         // Noise
-        factors[F_NOISE] = -(extras.noise_grid.get(home.grid_x, home.grid_y) as f32) / 20.0;
+        factors[F_NOISE] = -(extras.noise_grid.get(home.grid_x, home.grid_y) as f32) / 25.0;
 
         // Land value
         let land_value = extras.land_value_grid.get(home.grid_x, home.grid_y) as f32;

@@ -8,9 +8,9 @@
 //!
 //! Source dB levels:
 //! - Highway:              80 dB
-//! - Boulevard:            70 dB
-//! - Avenue:               65 dB
-//! - Local / OneWay road:  55 dB
+//! - Boulevard:            55 dB
+//! - Avenue:               45 dB
+//! - Local / OneWay road:  35 dB
 //! - Path:                  0 dB (no noise)
 //! - Industrial building:  75 dB
 //! - SmallAirstrip:        80 dB
@@ -36,10 +36,10 @@ use crate::services::{ServiceBuilding, ServiceType};
 pub fn road_source_db(road_type: RoadType) -> f32 {
     match road_type {
         RoadType::Highway => 80.0,
-        RoadType::Boulevard => 70.0,
-        RoadType::Avenue => 65.0,
-        RoadType::Local => 55.0,
-        RoadType::OneWay => 55.0,
+        RoadType::Boulevard => 55.0,
+        RoadType::Avenue => 45.0,
+        RoadType::Local => 35.0,
+        RoadType::OneWay => 35.0,
         RoadType::Path => 0.0,
     }
 }
@@ -86,7 +86,7 @@ pub fn db_to_grid_u8(db: f32) -> u8 {
 /// contribute non-zero noise. Precomputed to limit the propagation radius.
 pub fn max_radius(source_db: f32) -> i32 {
     // Binary search or iterate: find max d where attenuated_db > 0
-    // For 95 dB that is around 34 cells; for 55 dB around 16 cells.
+    // For 95 dB that is around 34 cells; for 35 dB around 8 cells.
     let mut d = 1;
     while d < 50 {
         if attenuated_db(source_db, d as f32) <= 0.0 {
@@ -347,10 +347,10 @@ mod tests {
     #[test]
     fn test_road_source_db_values() {
         assert!((road_source_db(RoadType::Highway) - 80.0).abs() < f32::EPSILON);
-        assert!((road_source_db(RoadType::Boulevard) - 70.0).abs() < f32::EPSILON);
-        assert!((road_source_db(RoadType::Avenue) - 65.0).abs() < f32::EPSILON);
-        assert!((road_source_db(RoadType::Local) - 55.0).abs() < f32::EPSILON);
-        assert!((road_source_db(RoadType::OneWay) - 55.0).abs() < f32::EPSILON);
+        assert!((road_source_db(RoadType::Boulevard) - 55.0).abs() < f32::EPSILON);
+        assert!((road_source_db(RoadType::Avenue) - 45.0).abs() < f32::EPSILON);
+        assert!((road_source_db(RoadType::Local) - 35.0).abs() < f32::EPSILON);
+        assert!((road_source_db(RoadType::OneWay) - 35.0).abs() < f32::EPSILON);
         assert!((road_source_db(RoadType::Path) - 0.0).abs() < f32::EPSILON);
     }
 

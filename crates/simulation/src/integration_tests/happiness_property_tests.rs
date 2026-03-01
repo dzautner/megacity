@@ -188,7 +188,7 @@ fn test_property_happiness_formula_always_clamped() {
         happiness -= crime_dim * CRIME_PENALTY_MAX;
         if crime > CRITICAL_CRIME_THRESHOLD { happiness -= CRITICAL_CRIME_PENALTY; }
 
-        happiness -= rng.gen_range(0.0..=255.0f32) / 20.0;
+        happiness -= rng.gen_range(0.0..=255.0f32) / 25.0;
 
         let lv: f32 = rng.gen_range(0.0..=255.0);
         let lv_dim = diminishing_returns((lv / 255.0).clamp(0.0, 1.0), DIMINISHING_K_DEFAULT);
@@ -252,7 +252,7 @@ fn test_property_happiness_worst_case_clamps_to_zero() {
     h += crate::waste_effects::waste_happiness_penalty(10000.0);
     let crime_dim = diminishing_returns(1.0, DIMINISHING_K_NEGATIVE);
     h -= crime_dim * CRIME_PENALTY_MAX + CRITICAL_CRIME_PENALTY;
-    h -= 255.0 / 20.0;
+    h -= 255.0 / 25.0;
     h -= CONGESTION_PENALTY;
     h -= HIGH_TAX_PENALTY * 2.0;
     h += weather_happiness_factor(-15.0);
