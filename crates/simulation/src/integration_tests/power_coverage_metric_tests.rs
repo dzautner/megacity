@@ -5,7 +5,7 @@
 //! deflate coverage.
 
 use crate::coverage_metrics::compute_utility_coverage;
-use crate::grid::{CellType, ZoneType};
+use crate::grid::ZoneType;
 use crate::test_harness::TestCity;
 
 #[test]
