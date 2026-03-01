@@ -15,7 +15,7 @@ use crate::citizen::{Citizen, WorkLocation};
 use crate::coverage_metrics::CoverageMetrics;
 use crate::crime::CrimeGrid;
 use crate::economy::CityBudget;
-use crate::game_actions::ActionResultLog;
+use crate::game_actions::{ActionResult, ActionResultLog};
 use crate::grid::{WorldGrid, ZoneType};
 use crate::happiness_breakdown::HappinessBreakdown;
 use crate::homelessness::HomelessnessStats;
@@ -127,6 +127,10 @@ pub fn build_observation(
                 action_summary: summary,
                 success: result.is_success(),
                 warning: result.warning().map(String::from),
+                error: match result {
+                    ActionResult::Error(e) => Some(format!("{:?}", e)),
+                    _ => None,
+                },
             }
         })
         .collect();

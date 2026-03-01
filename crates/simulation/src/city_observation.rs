@@ -180,6 +180,10 @@ pub struct ActionResultEntry {
     /// the caller should be aware of (e.g. zone overwrites).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,
+    /// When `success` is false, the specific error reason (e.g. "OutOfBounds",
+    /// "InsufficientFunds"). `None` when the action succeeded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[cfg(test)]
@@ -284,6 +288,7 @@ mod tests {
                 action_summary: "Built road".into(),
                 success: true,
                 warning: None,
+                error: None,
             }],
             overview_map: String::new(),
         };
@@ -302,6 +307,7 @@ mod tests {
             action_summary: "ZoneRect".into(),
             success: true,
             warning: Some("Overwrote 5 CommercialLow cells".into()),
+            error: None,
         };
         let json = serde_json::to_string(&entry).unwrap();
         assert!(json.contains("\"warning\""));
