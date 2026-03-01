@@ -265,10 +265,10 @@ fn compute_citizen_happiness(
 
     // --- Health with critical threshold ---
     if details.health < 50.0 {
-        happiness -= (50.0 - details.health) * 0.3;
+        happiness -= (50.0 - details.health) * 0.2;
     }
     if details.health > 80.0 {
-        happiness += 3.0;
+        happiness += 8.0;
     }
     if details.health < CRITICAL_HEALTH_THRESHOLD {
         happiness -= CRITICAL_HEALTH_PENALTY;

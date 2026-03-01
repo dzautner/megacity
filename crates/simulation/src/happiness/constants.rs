@@ -55,7 +55,7 @@ pub const CRITICAL_NO_WATER_PENALTY: f32 = 25.0;
 pub const CRITICAL_NO_POWER_PENALTY: f32 = 15.0;
 /// Very low health (< 30): severe happiness penalty.
 pub const CRITICAL_HEALTH_THRESHOLD: f32 = 30.0;
-pub const CRITICAL_HEALTH_PENALTY: f32 = 20.0;
+pub const CRITICAL_HEALTH_PENALTY: f32 = 10.0;
 /// Very low needs satisfaction (< 0.2): severe happiness penalty.
 pub const CRITICAL_NEEDS_THRESHOLD: f32 = 0.2;
 pub const CRITICAL_NEEDS_PENALTY: f32 = 15.0;
