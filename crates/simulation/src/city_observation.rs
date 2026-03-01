@@ -142,6 +142,10 @@ pub enum CityWarning {
 pub struct ActionResultEntry {
     pub action_summary: String,
     pub success: bool,
+    /// Optional warning message when the action succeeded but had side effects
+    /// the caller should be aware of (e.g. zone overwrites).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }
 
 #[cfg(test)]
@@ -208,12 +212,27 @@ mod tests {
             recent_action_results: vec![ActionResultEntry {
                 action_summary: "Built road".into(),
                 success: true,
+                warning: None,
             }],
             overview_map: String::new(),
         };
         let json = serde_json::to_string(&obs).unwrap();
         assert!(json.contains("\"tick\":42"));
         assert!(json.contains("NegativeBudget"));
+        // warning: None should be omitted from JSON
+        assert!(!json.contains("\"warning\""));
+    }
+
+    #[test]
+    fn action_result_entry_with_warning_serializes() {
+        let entry = ActionResultEntry {
+            action_summary: "ZoneRect".into(),
+            success: true,
+            warning: Some("Overwrote 5 CommercialLow cells".into()),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        assert!(json.contains("\"warning\""));
+        assert!(json.contains("Overwrote 5 CommercialLow"));
     }
 
     #[test]
@@ -223,5 +242,13 @@ mod tests {
         let obs: CityObservation = serde_json::from_str(json).unwrap();
         assert_eq!(obs.tick, 10);
         assert!(obs.overview_map.is_empty());
+    }
+
+    #[test]
+    fn observation_deserializes_without_warning_field() {
+        // Simulate old action result entry JSON without the warning field
+        let json = r#"{"action_summary":"test","success":true}"#;
+        let entry: ActionResultEntry = serde_json::from_str(json).unwrap();
+        assert!(entry.warning.is_none());
     }
 }
