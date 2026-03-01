@@ -204,12 +204,15 @@ pub fn compute_happiness_breakdown(
 
         // Garbage (combines garbage grid, uncollected waste, waste accumulation)
         let mut garbage_contrib = 0.0_f32;
-        if extras.garbage_grid.get(home.grid_x, home.grid_y) > 10 {
-            garbage_contrib -= GARBAGE_PENALTY;
+        let garbage_level = extras.garbage_grid.get(home.grid_x, home.grid_y) as f32;
+        if garbage_level > 10.0 {
+            let ratio = ((garbage_level - 10.0) / 90.0).clamp(0.0, 1.0);
+            garbage_contrib -= GARBAGE_PENALTY * ratio;
         }
         let uncollected = extras.waste_collection.uncollected(home.grid_x, home.grid_y);
         if uncollected > 100.0 {
-            garbage_contrib -= crate::garbage::UNCOLLECTED_WASTE_HAPPINESS_PENALTY;
+            let ratio = ((uncollected - 100.0) / 900.0).clamp(0.0, 1.0);
+            garbage_contrib -= crate::garbage::UNCOLLECTED_WASTE_HAPPINESS_PENALTY * ratio;
         }
         let accumulated = extras.waste_accumulation.get(home.grid_x, home.grid_y);
         garbage_contrib += crate::waste_effects::waste_happiness_penalty(accumulated);
