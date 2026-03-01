@@ -131,6 +131,7 @@ pub enum CityWarning {
     NegativeBudget,
     HighHomelessness,
     TrafficCongestion,
+    TradeDeficit,
 }
 
 // ---------------------------------------------------------------------------

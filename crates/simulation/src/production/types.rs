@@ -121,7 +121,7 @@ impl GoodsType {
 
     /// Import price per unit of deficit (more expensive than export).
     pub fn import_price(self) -> f64 {
-        self.export_price() * 1.8
+        self.export_price() * 1.2
     }
 }
 

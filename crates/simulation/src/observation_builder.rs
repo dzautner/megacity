@@ -20,6 +20,7 @@ use crate::immigration::CityAttractiveness;
 use crate::happiness_breakdown::HappinessBreakdown;
 use crate::homelessness::HomelessnessStats;
 use crate::pollution::PollutionGrid;
+use crate::production::types::CityGoods;
 use crate::stats::CityStats;
 use crate::time_of_day::GameClock;
 use crate::traffic_congestion::TrafficCongestion;
@@ -60,6 +61,7 @@ pub fn build_observation(
         Res<TrafficCongestion>,
         Res<PollutionGrid>,
         Res<CrimeGrid>,
+        Res<CityGoods>,
     ),
     action_log: Res<ActionResultLog>,
     grid: Res<WorldGrid>,
@@ -69,7 +71,7 @@ pub fn build_observation(
     employed_citizens: Query<(), (With<Citizen>, With<WorkLocation>)>,
     mut current: ResMut<CurrentObservation>,
 ) {
-    let (traffic_congestion, pollution_grid, crime_grid) = grids;
+    let (traffic_congestion, pollution_grid, crime_grid, city_goods) = grids;
 
     let real_employed = employed_citizens.iter().count() as u32;
     let total_employed = real_employed + virtual_pop.virtual_employed;
@@ -89,6 +91,7 @@ pub fn build_observation(
         &traffic_congestion,
         &pollution_grid,
         &crime_grid,
+        &city_goods,
         population_total,
         unemployed,
     );
@@ -191,6 +194,7 @@ fn compute_warnings(
     traffic_congestion: &TrafficCongestion,
     pollution_grid: &PollutionGrid,
     crime_grid: &CrimeGrid,
+    city_goods: &CityGoods,
     population: u32,
     unemployed: u32,
 ) -> Vec<CityWarning> {
@@ -237,6 +241,11 @@ fn compute_warnings(
     let avg_crime = average_grid_level(&crime_grid.levels);
     if avg_crime > 128.0 {
         warnings.push(CityWarning::HighCrime);
+    }
+
+    // Trade deficit: negative trade balance indicates costly imports
+    if city_goods.trade_balance < -0.5 {
+        warnings.push(CityWarning::TradeDeficit);
     }
 
     warnings

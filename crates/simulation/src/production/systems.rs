@@ -286,7 +286,7 @@ pub fn update_production_chains(
         let net = city_goods.net(g);
         if net < -0.1 {
             // City is consuming more than producing; import the deficit
-            let deficit = (-net).min(50.0); // cap auto-import rate
+            let deficit = (-net).min(10.0); // cap auto-import rate
             trade_balance -= deficit as f64 * g.import_price() * 0.01;
             // Add imported goods to stockpile
             *city_goods.available.entry(g).or_insert(0.0) += deficit * 0.5;
