@@ -136,6 +136,7 @@ pub fn update_production_chains(
         return;
     }
 
+
     // -------------------------------------------------------------------------
     // 1. Reset per-cycle production/consumption rates
     // -------------------------------------------------------------------------
@@ -281,10 +282,10 @@ pub fn update_production_chains(
                                                                        // Cap stockpile at 100 (export the rest)
             city_goods.available.insert(g, 100.0);
         }
-        // Deficit: if stock is negative (shouldn't normally happen) or very low,
-        // auto-import at higher cost. We handle this via the consumption_rate > production_rate check.
+        // Deficit: if stock is negative or very low and there are citizens,
+        // auto-import at higher cost. Skip when population is 0 to avoid phantom trade costs (#1969).
         let net = city_goods.net(g);
-        if net < -0.1 {
+        if net < -0.1 && stats.population > 0 {
             // City is consuming more than producing; import the deficit
             let deficit = (-net).min(10.0); // cap auto-import rate
             trade_balance -= deficit as f64 * g.import_price() * 0.01;
