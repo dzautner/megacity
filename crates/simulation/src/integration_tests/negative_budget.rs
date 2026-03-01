@@ -156,7 +156,9 @@ fn test_budget_recovery_from_negative() {
     for y in (10..50).step_by(2) {
         city = city
             .with_building(12, y, ZoneType::ResidentialLow, 3)
-            .with_building(9, y, ZoneType::CommercialLow, 3);
+            .with_building(9, y, ZoneType::CommercialLow, 3)
+            .with_citizen((12, y), (9, y))
+            .with_citizen((12, y), (9, y));
         building_positions.push((12, y));
         building_positions.push((9, y));
     }
@@ -175,7 +177,6 @@ fn test_budget_recovery_from_negative() {
         }
     }
 
-    fill_buildings(&mut city);
     let initial_treasury = city.budget().treasury;
     assert!(initial_treasury < 0.0);
 
