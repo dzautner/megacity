@@ -13,13 +13,15 @@ use bevy::prelude::*;
 use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::citizen::{Citizen, CitizenDetails};
+use crate::citizen::{Citizen, CitizenDetails, HomeLocation};
 use crate::pollution::PollutionGrid;
 use crate::services::{ServiceBuilding, ServiceType};
 use crate::stats::CityStats;
 use crate::time_of_day::GameClock;
 use crate::weather::Weather;
 use crate::SlowTickTimer;
+use crate::happiness::ServiceCoverageGrid;
+use crate::happiness::COVERAGE_HEALTH;
 
 // ---------------------------------------------------------------------------
 // Disease types
@@ -192,7 +194,8 @@ pub fn spread_diseases(
     stats: Res<CityStats>,
     disease_state: Res<DiseaseState>,
     clock: Res<GameClock>,
-    citizens: Query<(Entity, &CitizenDetails), (With<Citizen>, Without<DiseaseStatus>)>,
+    coverage: Res<ServiceCoverageGrid>,
+    citizens: Query<(Entity, &CitizenDetails, &HomeLocation), (With<Citizen>, Without<DiseaseStatus>)>,
     mut commands: Commands,
 ) {
     if !timer.should_run() {
@@ -213,7 +216,7 @@ pub fn spread_diseases(
         * (1.0 + average_pollution(&pollution) * 3.0);
     let flu_pressure = 1.0 + (disease_state.flu_count as f32 / population as f32) * 2.0;
 
-    for (entity, details) in citizens.iter() {
+    for (entity, details, home) in citizens.iter() {
         let resistance = (details.health / 100.0).clamp(0.0, 1.0);
         let age_factor = match details.age {
             0..=5 => 1.5,
@@ -223,12 +226,20 @@ pub fn spread_diseases(
             _ => 1.8,
         };
 
+        // Hospital coverage reduces infection probability by 40%
+        let cov_idx = ServiceCoverageGrid::idx(home.grid_x, home.grid_y);
+        let hospital_factor = if coverage.flags[cov_idx] & COVERAGE_HEALTH != 0 {
+            0.6
+        } else {
+            1.0
+        };
+
         let hash = ((entity.index() as u64).wrapping_mul(2654435761)
             ^ (day_seed as u64).wrapping_mul(40503))
             % 10000;
         let roll = hash as f32 / 10000.0;
 
-        let effective_flu = flu_rate * flu_pressure * age_factor * (1.0 - resistance * 0.5);
+        let effective_flu = flu_rate * flu_pressure * age_factor * (1.0 - resistance * 0.5) * hospital_factor;
         if roll < effective_flu {
             commands.entity(entity).insert(DiseaseStatus {
                 disease_type: DiseaseType::Flu,
@@ -239,7 +250,7 @@ pub fn spread_diseases(
         }
 
         let roll2 = ((hash.wrapping_mul(31)) % 10000) as f32 / 10000.0;
-        let effective_food = food_rate * age_factor * (1.0 - resistance * 0.3);
+        let effective_food = food_rate * age_factor * (1.0 - resistance * 0.3) * hospital_factor;
         if roll2 < effective_food {
             commands.entity(entity).insert(DiseaseStatus {
                 disease_type: DiseaseType::FoodPoisoning,
@@ -250,7 +261,7 @@ pub fn spread_diseases(
         }
 
         let roll3 = ((hash.wrapping_mul(127)) % 10000) as f32 / 10000.0;
-        let effective_resp = respiratory_rate * age_factor * (1.0 - resistance * 0.4);
+        let effective_resp = respiratory_rate * age_factor * (1.0 - resistance * 0.4) * hospital_factor;
         if roll3 < effective_resp {
             commands.entity(entity).insert(DiseaseStatus {
                 disease_type: DiseaseType::Respiratory,
@@ -301,7 +312,7 @@ pub fn progress_disease(
 
         if status.recovery_remaining <= recovery_speed {
             commands.entity(entity).remove::<DiseaseStatus>();
-            details.health = (details.health + 5.0).clamp(0.0, 100.0);
+            details.health = (details.health + 15.0).clamp(0.0, 100.0);
             continue;
         }
         status.recovery_remaining -= recovery_speed;
