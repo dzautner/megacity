@@ -7,18 +7,20 @@ use bevy::prelude::*;
 
 use crate::ascii_map;
 use crate::city_observation::{
-    ActionResultEntry, AttractivenessSnapshot, CityObservation, CityWarning, HappinessSnapshot,
-    PopulationSnapshot, ServiceCoverageSnapshot, ZoneDemandSnapshot,
+    ActionResultEntry, AttractivenessSnapshot, BuildingBreakdown, CityObservation, CityWarning,
+    HappinessSnapshot, PopulationSnapshot, ServiceCoverageSnapshot, ZoneDemandSnapshot,
+    ZoneDistribution,
 };
 use crate::citizen::{Citizen, WorkLocation};
 use crate::coverage_metrics::CoverageMetrics;
 use crate::crime::CrimeGrid;
 use crate::economy::CityBudget;
 use crate::game_actions::ActionResultLog;
-use crate::grid::WorldGrid;
-use crate::immigration::CityAttractiveness;
+use crate::grid::{WorldGrid, ZoneType};
 use crate::happiness_breakdown::HappinessBreakdown;
 use crate::homelessness::HomelessnessStats;
+use crate::immigration::CityAttractiveness;
+use crate::income_projection::IncomeProjection;
 use crate::pollution::PollutionGrid;
 use crate::production::types::CityGoods;
 use crate::stats::CityStats;
@@ -26,7 +28,6 @@ use crate::time_of_day::GameClock;
 use crate::traffic_congestion::TrafficCongestion;
 use crate::virtual_population::VirtualPopulation;
 use crate::zones::ZoneDemand;
-use crate::income_projection::IncomeProjection;
 use crate::TickCounter;
 
 // ---------------------------------------------------------------------------
@@ -83,8 +84,20 @@ pub fn build_observation(
     // individual happiness in the ECS).
     let avg_happiness = stats.average_happiness;
 
+    // Building breakdown from CityStats
+    let building_breakdown = BuildingBreakdown {
+        residential: stats.residential_buildings,
+        commercial: stats.commercial_buildings,
+        industrial: stats.industrial_buildings,
+        office: stats.office_buildings,
+        mixed_use: stats.mixed_use_buildings,
+    };
+
+    // Zone distribution from grid cells
+    let zone_distribution = compute_zone_distribution(&grid);
+
     // Compute warning thresholds
-    let warnings = compute_warnings(
+    let mut warnings = compute_warnings(
         &budget,
         &coverage,
         &homelessness,
@@ -95,6 +108,13 @@ pub fn build_observation(
         population_total,
         unemployed,
     );
+
+    // NoJobZones: residential buildings exist but zero job-providing buildings
+    let job_buildings =
+        stats.commercial_buildings + stats.industrial_buildings + stats.office_buildings;
+    if stats.residential_buildings > 0 && job_buildings == 0 {
+        warnings.push(CityWarning::NoJobZones);
+    }
 
     // Populate recent action results from the ActionResultLog.
     let recent_action_results: Vec<ActionResultEntry> = action_log
@@ -173,12 +193,40 @@ pub fn build_observation(
             + stats.office_buildings
             + stats.mixed_use_buildings,
 
+        building_breakdown,
+        zone_distribution,
+
         warnings,
 
         recent_action_results,
 
         overview_map,
     };
+}
+
+// ---------------------------------------------------------------------------
+// Zone distribution helper
+// ---------------------------------------------------------------------------
+
+/// Count grid cells by zone type, collapsing sub-types (e.g.
+/// ResidentialLow/Med/High) into a single residential bucket.
+fn compute_zone_distribution(grid: &WorldGrid) -> ZoneDistribution {
+    let mut dist = ZoneDistribution::default();
+    for cell in &grid.cells {
+        match cell.zone {
+            ZoneType::ResidentialLow
+            | ZoneType::ResidentialMedium
+            | ZoneType::ResidentialHigh => dist.residential += 1,
+            ZoneType::CommercialLow | ZoneType::CommercialHigh => {
+                dist.commercial += 1;
+            }
+            ZoneType::Industrial => dist.industrial += 1,
+            ZoneType::Office => dist.office += 1,
+            ZoneType::MixedUse => dist.mixed_use += 1,
+            ZoneType::None => {}
+        }
+    }
+    dist
 }
 
 // ---------------------------------------------------------------------------

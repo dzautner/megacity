@@ -62,6 +62,16 @@ pub struct CityObservation {
     #[serde(default)]
     pub building_count: u32,
 
+    /// Per-zone-type building counts so the agent can see the mix.
+    #[serde(default)]
+    pub building_breakdown: BuildingBreakdown,
+
+    // -- Zone distribution (zoned cell counts) ------------------------------
+    /// Number of grid cells zoned for each type (regardless of whether a
+    /// building has been placed there yet).
+    #[serde(default)]
+    pub zone_distribution: ZoneDistribution,
+
     // -- Warnings -----------------------------------------------------------
     pub warnings: Vec<CityWarning>,
 
@@ -116,6 +126,26 @@ pub struct AttractivenessSnapshot {
     pub tax: f32,
 }
 
+/// Per-zone-type building counts.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BuildingBreakdown {
+    pub residential: u32,
+    pub commercial: u32,
+    pub industrial: u32,
+    pub office: u32,
+    pub mixed_use: u32,
+}
+
+/// Number of grid cells zoned for each type.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ZoneDistribution {
+    pub residential: u32,
+    pub commercial: u32,
+    pub industrial: u32,
+    pub office: u32,
+    pub mixed_use: u32,
+}
+
 // ---------------------------------------------------------------------------
 // Warnings
 // ---------------------------------------------------------------------------
@@ -132,6 +162,9 @@ pub enum CityWarning {
     HighHomelessness,
     TrafficCongestion,
     TradeDeficit,
+    /// Residential buildings exist but there are zero job-providing buildings
+    /// (commercial + industrial + office). Citizens will have nowhere to work.
+    NoJobZones,
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +193,26 @@ mod tests {
         assert!(obs.warnings.is_empty());
         assert!(obs.recent_action_results.is_empty());
         assert!(obs.overview_map.is_empty());
+    }
+
+    #[test]
+    fn building_breakdown_default_is_zero() {
+        let bb = BuildingBreakdown::default();
+        assert_eq!(bb.residential, 0);
+        assert_eq!(bb.commercial, 0);
+        assert_eq!(bb.industrial, 0);
+        assert_eq!(bb.office, 0);
+        assert_eq!(bb.mixed_use, 0);
+    }
+
+    #[test]
+    fn zone_distribution_default_is_zero() {
+        let zd = ZoneDistribution::default();
+        assert_eq!(zd.residential, 0);
+        assert_eq!(zd.commercial, 0);
+        assert_eq!(zd.industrial, 0);
+        assert_eq!(zd.office, 0);
+        assert_eq!(zd.mixed_use, 0);
     }
 
     #[test]
@@ -198,7 +251,10 @@ mod tests {
             },
             happiness: HappinessSnapshot {
                 overall: 65.0,
-                components: vec![("employment".into(), 80.0), ("safety".into(), 50.0)],
+                components: vec![
+                    ("employment".into(), 80.0),
+                    ("safety".into(), 50.0),
+                ],
             },
             attractiveness_score: 65.0,
             attractiveness: AttractivenessSnapshot {
@@ -209,6 +265,20 @@ mod tests {
                 tax: 0.55,
             },
             building_count: 42,
+            building_breakdown: BuildingBreakdown {
+                residential: 20,
+                commercial: 10,
+                industrial: 5,
+                office: 5,
+                mixed_use: 2,
+            },
+            zone_distribution: ZoneDistribution {
+                residential: 100,
+                commercial: 60,
+                industrial: 30,
+                office: 20,
+                mixed_use: 10,
+            },
             warnings: vec![CityWarning::NegativeBudget],
             recent_action_results: vec![ActionResultEntry {
                 action_summary: "Built road".into(),
@@ -220,6 +290,8 @@ mod tests {
         let json = serde_json::to_string(&obs).unwrap();
         assert!(json.contains("\"tick\":42"));
         assert!(json.contains("NegativeBudget"));
+        assert!(json.contains("building_breakdown"));
+        assert!(json.contains("zone_distribution"));
         // warning: None should be omitted from JSON
         assert!(!json.contains("\"warning\""));
     }
@@ -237,12 +309,22 @@ mod tests {
     }
 
     #[test]
-    fn observation_deserializes_without_overview_map() {
-        // Simulate an old observation JSON without the overview_map field
+    fn observation_deserializes_without_new_fields() {
+        // Simulate an old observation JSON without building_breakdown,
+        // zone_distribution, or overview_map fields
         let json = r#"{"tick":10,"day":1,"hour":6.0,"speed":1.0,"paused":false,"treasury":0.0,"monthly_income":0.0,"monthly_expenses":0.0,"net_income":0.0,"population":{"total":0,"employed":0,"unemployed":0,"homeless":0},"zone_demand":{"residential":0.0,"commercial":0.0,"industrial":0.0,"office":0.0},"power_coverage":0.0,"water_coverage":0.0,"services":{"fire":0.0,"police":0.0,"health":0.0,"education":0.0},"happiness":{"overall":0.0,"components":[]},"warnings":[],"recent_action_results":[]}"#;
         let obs: CityObservation = serde_json::from_str(json).unwrap();
         assert_eq!(obs.tick, 10);
         assert!(obs.overview_map.is_empty());
+        assert_eq!(obs.building_breakdown.residential, 0);
+        assert_eq!(obs.zone_distribution.commercial, 0);
+    }
+
+    #[test]
+    fn no_job_zones_warning_serializes() {
+        let warning = CityWarning::NoJobZones;
+        let json = serde_json::to_string(&warning).unwrap();
+        assert_eq!(json, "\"NoJobZones\"");
     }
 
     #[test]
