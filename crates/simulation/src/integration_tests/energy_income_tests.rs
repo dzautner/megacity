@@ -41,8 +41,7 @@ fn test_energy_revenue_reflected_in_income_projection() {
     city.world_mut().spawn(make_plant(500.0, 25.0));
     spawn_demand(&mut city, 100.0);
 
-    // Tick enough for pricing to accumulate revenue (8 ticks for demand +
-    // dispatch + pricing to all fire).
+    // Tick enough for pricing to accumulate revenue.
     city.tick(8);
 
     // Verify energy economics has accumulated non-zero net income.
@@ -58,23 +57,23 @@ fn test_energy_revenue_reflected_in_income_projection() {
     city.tick(8);
 
     // After billing, last_cycle_net_income should be set.
-    let econ = city.resource::<EnergyEconomics>();
+    let last_cycle = city.resource::<EnergyEconomics>().last_cycle_net_income;
     assert!(
-        econ.last_cycle_net_income != 0.0,
+        last_cycle != 0.0,
         "last_cycle_net_income should be set after billing cycle, got {}",
-        econ.last_cycle_net_income,
+        last_cycle,
     );
 
     // Now run a slow tick cycle so the income projection updates.
     city.tick_slow_cycle();
 
     // The projected income should include energy revenue.
-    let proj = city.resource::<IncomeProjection>();
+    let projected = city.resource::<IncomeProjection>().projected_income;
     assert!(
-        proj.projected_income >= econ.last_cycle_net_income,
+        projected >= last_cycle,
         "projected_income ({}) should include energy revenue ({})",
-        proj.projected_income,
-        econ.last_cycle_net_income,
+        projected,
+        last_cycle,
     );
 }
 
@@ -103,15 +102,14 @@ fn test_energy_revenue_included_in_monthly_income() {
 
     // Trigger tax collection by advancing the day past the collection
     // interval (default 30 days from day 1).
-    // The budget's last_collection_day starts at 0, so day 32 should trigger.
     city.world_mut().resource_mut::<GameClock>().day = 62;
     city.tick(8);
 
-    let budget = city.budget();
+    let monthly_income = city.budget().monthly_income;
     assert!(
-        budget.monthly_income >= energy_income,
+        monthly_income >= energy_income,
         "monthly_income ({}) should include energy revenue ({})",
-        budget.monthly_income,
+        monthly_income,
         energy_income,
     );
 }
@@ -129,24 +127,25 @@ fn test_energy_income_projection_uses_current_accumulator_before_first_cycle() {
     // Tick to accumulate some energy revenue (no billing cycle yet).
     city.tick(8);
 
-    let econ = city.resource::<EnergyEconomics>();
+    let net_income = city.resource::<EnergyEconomics>().net_income;
     assert!(
-        econ.net_income > 0.0,
+        net_income > 0.0,
         "net_income should be positive before first billing cycle"
     );
+    let last_cycle = city.resource::<EnergyEconomics>().last_cycle_net_income;
     assert!(
-        econ.last_cycle_net_income == 0.0,
+        last_cycle == 0.0,
         "last_cycle_net_income should be zero before first billing cycle"
     );
 
     // Run a slow tick so income projection updates.
     city.tick_slow_cycle();
 
-    let proj = city.resource::<IncomeProjection>();
+    let projected = city.resource::<IncomeProjection>().projected_income;
     // The projection should use the current accumulator as a fallback.
     assert!(
-        proj.projected_income > 0.0,
+        projected > 0.0,
         "projected_income should be positive even before first billing cycle, got {}",
-        proj.projected_income,
+        projected,
     );
 }
