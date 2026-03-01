@@ -113,6 +113,10 @@ pub fn propagate_utilities(
     }
 }
 
+/// Radius (Manhattan distance) around each visited road cell within which
+/// grass/zone cells receive utility coverage.
+const SEEP_RADIUS: i32 = 2;
+
 fn bfs_propagate(
     grid: &mut WorldGrid,
     source: &UtilitySource,
@@ -120,6 +124,7 @@ fn bfs_propagate(
     visited: &mut [bool],
 ) {
     let width = grid.width;
+    let height = grid.height;
     visited.fill(false);
     let mut queue = VecDeque::new();
 
@@ -136,23 +141,50 @@ fn bfs_propagate(
             continue;
         }
 
-        // Spread through road network
+        // Mark grass cells within SEEP_RADIUS of this road cell
+        mark_nearby_grass(grid, x, y, width, height, source.utility_type);
+
+        // Continue BFS through adjacent road cells
         let (neighbors, ncount) = grid.neighbors4(x, y);
         for &(nx, ny) in &neighbors[..ncount] {
             let idx = ny * width + nx;
             if visited[idx] {
                 continue;
             }
-
-            let cell_type = grid.get(nx, ny).cell_type;
-            if cell_type == CellType::Road || cell_type == CellType::Grass {
+            if grid.get(nx, ny).cell_type == CellType::Road {
                 visited[idx] = true;
                 mark_cell(grid, nx, ny, source.utility_type);
+                queue.push_back(((nx, ny), dist + 1));
+            }
+        }
+    }
+}
 
-                // Only continue BFS through roads
-                if cell_type == CellType::Road {
-                    queue.push_back(((nx, ny), dist + 1));
-                }
+/// Marks all grass cells within `SEEP_RADIUS` Manhattan distance of (cx, cy).
+fn mark_nearby_grass(
+    grid: &mut WorldGrid,
+    cx: usize,
+    cy: usize,
+    width: usize,
+    height: usize,
+    utility: UtilityType,
+) {
+    let cx_i = cx as i32;
+    let cy_i = cy as i32;
+    for dy in -SEEP_RADIUS..=SEEP_RADIUS {
+        for dx in -SEEP_RADIUS..=SEEP_RADIUS {
+            if dx.abs() + dy.abs() > SEEP_RADIUS {
+                continue;
+            }
+            let nx = cx_i + dx;
+            let ny = cy_i + dy;
+            if nx < 0 || ny < 0 || nx >= width as i32 || ny >= height as i32 {
+                continue;
+            }
+            let ux = nx as usize;
+            let uy = ny as usize;
+            if grid.get(ux, uy).cell_type == CellType::Grass {
+                mark_cell(grid, ux, uy, utility);
             }
         }
     }
@@ -166,6 +198,17 @@ fn mark_cell(grid: &mut WorldGrid, x: usize, y: usize, utility: UtilityType) {
     if utility.is_water() {
         cell.has_water = true;
     }
+}
+
+/// Public wrapper for `bfs_propagate` used by integration tests.
+#[doc(hidden)]
+pub fn bfs_propagate_pub(
+    grid: &mut WorldGrid,
+    source: &UtilitySource,
+    effective_range: u32,
+    visited: &mut [bool],
+) {
+    bfs_propagate(grid, source, effective_range, visited);
 }
 
 #[cfg(test)]
