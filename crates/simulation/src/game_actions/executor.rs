@@ -6,6 +6,8 @@
 //! validates inputs, mutates the grid/resources, and returns an
 //! [`ActionResult`].
 
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 
 use crate::budget::ExtendedBudget;
@@ -167,6 +169,7 @@ fn execute_place_road_line(
 }
 
 /// Zone a rectangular area. Only grass cells adjacent to a road are zoned.
+/// Returns a warning if any cells with a different zone type were overwritten.
 fn execute_zone_rect(
     min: (u32, u32),
     max: (u32, u32),
@@ -187,13 +190,35 @@ fn execute_zone_rect(
     let hx = x0.max(x1);
     let hy = y0.max(y1);
 
+    // First pass: count existing zones that will be overwritten
+    let mut overwritten: HashMap<ZoneType, u32> = HashMap::new();
     for y in ly..=hy {
         for x in lx..=hx {
             if !grid.in_bounds(x, y) {
                 continue;
             }
             let cell = grid.get(x, y);
-            // Only zone grass cells (not road, not water, not already built)
+            if cell.cell_type != CellType::Grass || cell.building_id.is_some() {
+                continue;
+            }
+            if !is_adjacent_to_road(grid, x, y) {
+                continue;
+            }
+            // This cell will be zoned — check if it already has a different zone
+            let existing = cell.zone;
+            if existing != ZoneType::None && existing != zone_type {
+                *overwritten.entry(existing).or_insert(0) += 1;
+            }
+        }
+    }
+
+    // Second pass: apply the zone
+    for y in ly..=hy {
+        for x in lx..=hx {
+            if !grid.in_bounds(x, y) {
+                continue;
+            }
+            let cell = grid.get(x, y);
             if cell.cell_type != CellType::Grass || cell.building_id.is_some() {
                 continue;
             }
@@ -203,7 +228,18 @@ fn execute_zone_rect(
             grid.get_mut(x, y).zone = zone_type;
         }
     }
-    ActionResult::Success
+
+    if overwritten.is_empty() {
+        ActionResult::Success
+    } else {
+        let mut parts: Vec<String> = overwritten
+            .iter()
+            .map(|(zt, count)| format!("{} {:?}", count, zt))
+            .collect();
+        parts.sort();
+        let warning = format!("Overwrote existing zones: {}", parts.join(", "));
+        ActionResult::SuccessWithWarning(warning)
+    }
 }
 
 /// Place a utility source: validate, deduct cost, spawn entity, set grid cell.

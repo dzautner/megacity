@@ -14,7 +14,7 @@ use crate::citizen::{Citizen, WorkLocation};
 use crate::coverage_metrics::CoverageMetrics;
 use crate::crime::CrimeGrid;
 use crate::economy::CityBudget;
-use crate::game_actions::{ActionResult, ActionResultLog};
+use crate::game_actions::ActionResultLog;
 use crate::grid::WorldGrid;
 use crate::immigration::CityAttractiveness;
 use crate::happiness_breakdown::HappinessBreakdown;
@@ -102,7 +102,8 @@ pub fn build_observation(
             summary.truncate(100);
             ActionResultEntry {
                 action_summary: summary,
-                success: matches!(result, ActionResult::Success),
+                success: result.is_success(),
+                warning: result.warning().map(String::from),
             }
         })
         .collect();
