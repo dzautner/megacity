@@ -261,10 +261,10 @@ pub fn compute_happiness_breakdown(
         // Health
         let mut health_contrib = 0.0_f32;
         if details.health < 50.0 {
-            health_contrib -= (50.0 - details.health) * 0.3;
+            health_contrib -= (50.0 - details.health) * 0.2;
         }
         if details.health > 80.0 {
-            health_contrib += 3.0;
+            health_contrib += 8.0;
         }
         if details.health < CRITICAL_HEALTH_THRESHOLD {
             health_contrib -= CRITICAL_HEALTH_PENALTY;
