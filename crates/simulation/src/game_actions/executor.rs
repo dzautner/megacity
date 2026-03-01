@@ -6,7 +6,7 @@
 //! validates inputs, mutates the grid/resources, and returns an
 //! [`ActionResult`].
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use bevy::prelude::*;
 
@@ -191,7 +191,7 @@ fn execute_zone_rect(
     let hy = y0.max(y1);
 
     // First pass: count existing zones that will be overwritten
-    let mut overwritten: BTreeMap<ZoneType, u32> = BTreeMap::new();
+    let mut overwritten: HashMap<ZoneType, u32> = HashMap::new();
     for y in ly..=hy {
         for x in lx..=hx {
             if !grid.in_bounds(x, y) {
@@ -232,10 +232,11 @@ fn execute_zone_rect(
     if overwritten.is_empty() {
         ActionResult::Success
     } else {
-        let parts: Vec<String> = overwritten
+        let mut parts: Vec<String> = overwritten
             .iter()
             .map(|(zt, count)| format!("{} {:?}", count, zt))
             .collect();
+        parts.sort();
         let warning = format!("Overwrote existing zones: {}", parts.join(", "));
         ActionResult::SuccessWithWarning(warning)
     }
