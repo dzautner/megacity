@@ -136,6 +136,12 @@ pub fn update_production_chains(
         return;
     }
 
+    // No population means no workers and no consumption — skip production and
+    // trade entirely to avoid phantom import costs draining the treasury.
+    if stats.population == 0 {
+        return;
+    }
+
     // -------------------------------------------------------------------------
     // 1. Reset per-cycle production/consumption rates
     // -------------------------------------------------------------------------
