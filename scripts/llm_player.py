@@ -696,15 +696,13 @@ def normalize_action(action: dict) -> dict:
                     params["zone_type"] = ZONE_TYPE_ALIASES[zt]
             # Fix road type aliases
             if "road_type" in params:
-                rt = params["road_type"]
-                if rt.lower() == "local":
-                    params["road_type"] = "Local"
-                elif rt.lower() == "avenue":
-                    params["road_type"] = "Avenue"
-                elif rt.lower() == "boulevard":
-                    params["road_type"] = "Boulevard"
-                elif rt.lower() == "highway":
-                    params["road_type"] = "Highway"
+                rt = params["road_type"].lower()
+                road_map = {
+                    "local": "Local", "avenue": "Avenue", "boulevard": "Boulevard",
+                    "highway": "Highway", "main": "Avenue", "arterial": "Avenue",
+                    "collector": "Local", "residential": "Local",
+                }
+                params["road_type"] = road_map.get(rt, "Local")
             # Ensure coordinate values are integers
             for coord_key in ["start", "end", "pos", "min", "max"]:
                 if coord_key in params and isinstance(params[coord_key], list):
@@ -717,6 +715,18 @@ def normalize_action(action: dict) -> dict:
                         if val < TAX_FLOOR:
                             log.info("  Tax floor: %s %.1f%% -> %.1f%%", tax_key, val*100, TAX_FLOOR*100)
                             params[tax_key] = TAX_FLOOR
+
+    # Fix service types used as utilities: WaterTreatmentPlant, Landfill, etc. are services
+    SERVICE_TYPES_AS_UTILITY = {
+        "WaterTreatmentPlant", "Landfill", "RecyclingCenter", "Incinerator",
+        "Cemetery", "Crematorium", "SmallPark", "LargePark", "Library",
+    }
+    if isinstance(action, dict) and "PlaceUtility" in action:
+        ut = action["PlaceUtility"].get("utility_type", "")
+        if ut in SERVICE_TYPES_AS_UTILITY:
+            log.info("  Fixing: %s is a service, not utility", ut)
+            action = {"PlaceService": {"pos": action["PlaceUtility"]["pos"], "service_type": ut}}
+
     return action
 
 
@@ -797,7 +807,7 @@ def play_turn(
         "BulldozeRect": 0,       # free
         "SetTaxRates": 0,        # free
     }
-    MAX_UTILITIES_PER_TURN = 2  # LLM spams 6-10 utilities, cap it
+    MAX_UTILITIES_PER_TURN = 4  # Allow more utilities for infrastructure catch-up
 
     actions = []
     utility_count = 0
