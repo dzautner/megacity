@@ -102,19 +102,22 @@ fn test_health_zero_penalty_capped_at_20() {
 /// Test that a citizen with health=100 gets at least +8 happiness bonus
 /// compared to a health=50 citizen (neutral baseline).
 ///
+/// We intentionally omit power/water to keep base happiness low enough
+/// that the health=100 citizen does not hit the 100.0 happiness cap.
+///
 /// New balance:
 /// - Healthy bonus (health > 80): +8
 #[test]
 fn test_health_100_bonus_at_least_8() {
     let home = (120, 120);
     let work = (125, 120);
+    // No utilities: both citizens lack power/water, so happiness stays
+    // well below 100.0, avoiding the clamp that would hide the bonus.
     let mut city = TestCity::new()
         .with_building(home.0, home.1, ZoneType::ResidentialLow, 1)
         .with_building(work.0, work.1, ZoneType::CommercialLow, 1)
         .with_citizen(home, work)
-        .with_citizen(home, work)
-        .with_utility(home.0 + 1, home.1, UtilityType::PowerPlant)
-        .with_utility(home.0 - 1, home.1, UtilityType::WaterTower);
+        .with_citizen(home, work);
 
     // Capture the two entities we spawned
     let initial = citizen_entities(&mut city);
@@ -156,6 +159,13 @@ fn test_health_100_bonus_at_least_8() {
         .unwrap()
         .happiness;
     let h50 = world.get::<CitizenDetails>(citizen_b).unwrap().happiness;
+
+    // Neither citizen should be clamped at 100 (no utilities = big penalties)
+    assert!(
+        h100 < 100.0,
+        "Health=100 citizen should not be clamped at 100.0 (got {:.1})",
+        h100,
+    );
 
     let bonus = h100 - h50;
     assert!(
