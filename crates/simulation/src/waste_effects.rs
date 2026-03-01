@@ -169,12 +169,16 @@ pub fn waste_health_penalty(
     }
 }
 
+/// Maximum accumulated waste (in lbs) at which the full penalty applies.
+pub const WASTE_HAPPINESS_MAX_ACCUMULATED_LBS: f32 = 500.0;
+
 /// Returns the happiness penalty for a cell with accumulated waste.
 ///
-/// Returns -5 if the cell has any accumulated waste (> 0 lbs), 0 otherwise.
+/// Scales linearly from 0 to -5 for accumulated waste in 0-500 lbs range.
 pub fn waste_happiness_penalty(accumulated_lbs: f32) -> f32 {
     if accumulated_lbs > 0.0 {
-        -WASTE_HAPPINESS_PENALTY
+        let ratio = (accumulated_lbs / WASTE_HAPPINESS_MAX_ACCUMULATED_LBS).clamp(0.0, 1.0);
+        -WASTE_HAPPINESS_PENALTY * ratio
     } else {
         0.0
     }
@@ -293,10 +297,14 @@ mod tests {
 
     #[test]
     fn test_happiness_penalty_with_waste() {
-        // Any accumulated waste => -5 penalty
-        assert_eq!(waste_happiness_penalty(100.0), -5.0);
-        assert_eq!(waste_happiness_penalty(1.0), -5.0);
-        assert_eq!(waste_happiness_penalty(0.01), -5.0);
+        // Full penalty at >= 500 lbs
+        assert_eq!(waste_happiness_penalty(500.0), -5.0);
+        assert_eq!(waste_happiness_penalty(1000.0), -5.0);
+        // Half penalty at 250 lbs
+        assert!((waste_happiness_penalty(250.0) - (-2.5)).abs() < 0.01);
+        // Small waste gives small penalty
+        assert!(waste_happiness_penalty(50.0) > -1.0);
+        assert!(waste_happiness_penalty(50.0) < 0.0);
     }
 
     #[test]
