@@ -10,6 +10,7 @@ use bevy::prelude::*;
 use crate::budget::ExtendedBudget;
 use crate::buildings::{Building, MixedUseBuilding};
 use crate::economy::property_tax_for_building;
+use crate::energy_pricing::EnergyEconomics;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::land_value::LandValueGrid;
 use crate::policies::Policies;
@@ -54,6 +55,7 @@ pub fn update_income_projection(
         Res<crate::biomass_power::BiomassPowerState>,
     ),
     city_goods: Res<CityGoods>,
+    energy_econ: Res<EnergyEconomics>,
     mut projection: ResMut<IncomeProjection>,
 ) {
     if !slow_tick.should_run() {
@@ -131,7 +133,15 @@ pub fn update_income_projection(
         total_tax += property_tax_for_building(lv, b.level, rate) * occupancy_ratio;
     }
 
-    let income = total_tax + tourism.monthly_tourism_income;
+    // Energy revenue: use the last completed billing cycle if available,
+    // otherwise extrapolate the current in-progress cycle to a full month.
+    let energy_income = if energy_econ.last_cycle_net_income != 0.0 {
+        energy_econ.last_cycle_net_income
+    } else {
+        energy_econ.net_income
+    };
+
+    let income = total_tax + tourism.monthly_tourism_income + energy_income;
 
     // ── Expenses ──────────────────────────────────────────────────────
     let road_expense: f64 = grid_res

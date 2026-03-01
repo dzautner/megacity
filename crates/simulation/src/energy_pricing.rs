@@ -126,6 +126,9 @@ pub struct EnergyEconomics {
     pub total_generation_mwh: f32,
     /// Day of last billing cycle reset.
     pub last_billing_day: u32,
+    /// Net income from the last completed billing cycle ($/month).
+    /// Used by income projection and tax collection to include energy revenue.
+    pub last_cycle_net_income: f64,
     /// Cumulative energy cost impact on citizens (used by happiness system).
     /// Higher values indicate citizens are paying more for energy.
     pub citizen_cost_burden: f32,
@@ -147,6 +150,7 @@ impl Default for EnergyEconomics {
             total_consumption_mwh: 0.0,
             total_generation_mwh: 0.0,
             last_billing_day: 0,
+            last_cycle_net_income: 0.0,
             citizen_cost_burden: 0.0,
         }
     }
@@ -285,6 +289,9 @@ pub fn energy_billing_cycle(
 
     // Transfer net income to treasury.
     budget.treasury += economics.net_income;
+
+    // Remember the completed cycle net income for income projection.
+    economics.last_cycle_net_income = economics.net_income;
 
     // Reset accumulators for next billing cycle.
     economics.total_revenue = 0.0;

@@ -6,6 +6,7 @@ use crate::game_params::GameParams;
 use crate::grid::{CellType, WorldGrid, ZoneType};
 use crate::services::ServiceBuilding;
 use crate::time_of_day::GameClock;
+use crate::energy_pricing::EnergyEconomics;
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct CityBudget {
@@ -60,6 +61,7 @@ pub fn collect_taxes(
     policies: Res<crate::policies::Policies>,
     tourism: Res<crate::tourism::Tourism>,
     mut extended: ResMut<crate::budget::ExtendedBudget>,
+    energy_econ: Res<EnergyEconomics>,
     params: (
         Res<GameParams>,
         Res<crate::coal_power::CoalPowerState>,
@@ -179,6 +181,15 @@ pub fn collect_taxes(
     // Tourism income
     income += tourism.monthly_tourism_income;
 
+    // Energy revenue: use the last completed billing cycle net income.
+    // This is set by energy_billing_cycle when a 30-day cycle completes.
+    let energy_income = if energy_econ.last_cycle_net_income != 0.0 {
+        energy_econ.last_cycle_net_income
+    } else {
+        energy_econ.net_income
+    };
+    income += energy_income;
+
     // Expenses: road maintenance (scaled by road type)
     let road_expense: f64 = grid_res
         .cells
@@ -219,6 +230,7 @@ pub fn collect_taxes(
     extended.income_breakdown.industrial_tax = industrial_tax;
     extended.income_breakdown.office_tax = office_tax;
     extended.income_breakdown.trade_income = tourism.monthly_tourism_income;
+    extended.income_breakdown.energy_income = energy_income;
     extended.expense_breakdown.road_maintenance = road_expense;
     extended.expense_breakdown.service_costs = service_expense;
     extended.expense_breakdown.policy_costs = policy_expense;

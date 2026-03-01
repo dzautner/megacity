@@ -130,6 +130,8 @@ pub struct IncomeBreakdown {
     pub industrial_tax: f64,
     pub office_tax: f64,
     pub trade_income: f64,
+    #[serde(default)]
+    pub energy_income: f64,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
