@@ -115,7 +115,10 @@ fn test_economy_treasury_change_equals_net_income() {
         .with_citizen((12, 11), (14, 11))
         .with_budget(10_000.0);
 
-    fill_buildings(&mut city);
+    // Don't call fill_buildings here — this test has a citizen that provides
+    // natural occupancy. fill_buildings creates a mismatch between the income
+    // projection and actual tax collection when simulation_invariants corrects
+    // the occupancy downward.
     let treasury_before = city.budget().treasury;
 
     // Force tax collection
