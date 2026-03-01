@@ -12,37 +12,15 @@ use crate::grid::ZoneType;
 use crate::test_harness::TestCity;
 use crate::utilities::UtilityType;
 
-/// Set health for all citizens to the given values (indexed by spawn order).
-fn set_citizen_health(city: &mut TestCity, health_values: &[f32]) {
+/// Collect all citizen entities currently in the world (sorted for stability).
+fn citizen_entities(city: &mut TestCity) -> Vec<Entity> {
     let world = city.world_mut();
     let mut entities: Vec<Entity> = world
         .query_filtered::<Entity, With<Citizen>>()
         .iter(world)
         .collect();
     entities.sort();
-
-    for (i, &health) in health_values.iter().enumerate() {
-        if i < entities.len() {
-            if let Some(mut details) = world.get_mut::<CitizenDetails>(entities[i]) {
-                details.health = health;
-            }
-        }
-    }
-}
-
-/// Read happiness for all citizens (sorted by entity).
-fn read_citizen_happiness(city: &mut TestCity) -> Vec<f32> {
-    let world = city.world_mut();
-    let mut entities: Vec<Entity> = world
-        .query_filtered::<Entity, With<Citizen>>()
-        .iter(world)
-        .collect();
-    entities.sort();
-
     entities
-        .iter()
-        .map(|&e| world.get::<CitizenDetails>(e).unwrap().happiness)
-        .collect()
 }
 
 /// Test that a citizen with health=0 gets no more than -20 happiness from
@@ -64,25 +42,54 @@ fn test_health_zero_penalty_capped_at_20() {
         .with_utility(home.0 + 1, home.1, UtilityType::PowerPlant)
         .with_utility(home.0 - 1, home.1, UtilityType::WaterTower);
 
-    // Set health: citizen 0 = 0 (worst case), citizen 1 = 50 (neutral)
-    set_citizen_health(&mut city, &[0.0, 50.0]);
+    // Capture the two entities we spawned (before any immigration runs)
+    let initial = citizen_entities(&mut city);
+    assert!(initial.len() >= 2, "Need at least 2 citizens spawned");
+    let citizen_a = initial[0]; // Will have health=0
+    let citizen_b = initial[1]; // Will have health=50
+
+    // Set health: citizen_a = 0 (worst case), citizen_b = 50 (neutral)
+    {
+        let world = city.world_mut();
+        world
+            .get_mut::<CitizenDetails>(citizen_a)
+            .unwrap()
+            .health = 0.0;
+        world
+            .get_mut::<CitizenDetails>(citizen_b)
+            .unwrap()
+            .health = 50.0;
+    }
     city.tick(21);
 
     // Re-set health (may have drifted from health system) and tick again
-    set_citizen_health(&mut city, &[0.0, 50.0]);
+    {
+        let world = city.world_mut();
+        world
+            .get_mut::<CitizenDetails>(citizen_a)
+            .unwrap()
+            .health = 0.0;
+        world
+            .get_mut::<CitizenDetails>(citizen_b)
+            .unwrap()
+            .health = 50.0;
+    }
     city.tick(21);
 
-    let happiness = read_citizen_happiness(&mut city);
-    assert_eq!(happiness.len(), 2, "Expected 2 citizens");
+    let world = city.world_mut();
+    let h0 = world.get::<CitizenDetails>(citizen_a).unwrap().happiness;
+    let h50 = world.get::<CitizenDetails>(citizen_b).unwrap().happiness;
 
-    let penalty = happiness[1] - happiness[0];
+    // The health=0 citizen should have at most 20 less happiness than health=50
+    // (linear: 50*0.2=10, critical: 10, total: 20)
+    let penalty = h50 - h0;
     assert!(
         penalty <= 21.0,
         "Health=0 penalty vs health=50 should be <= 20 (with 1.0 margin), \
          got {:.1}. h0={:.1}, h50={:.1}",
         penalty,
-        happiness[0],
-        happiness[1],
+        h0,
+        h50,
     );
     assert!(
         penalty >= 0.0,
@@ -109,24 +116,54 @@ fn test_health_100_bonus_at_least_8() {
         .with_utility(home.0 + 1, home.1, UtilityType::PowerPlant)
         .with_utility(home.0 - 1, home.1, UtilityType::WaterTower);
 
-    // Set health: citizen 0 = 100 (healthy), citizen 1 = 50 (neutral)
-    set_citizen_health(&mut city, &[100.0, 50.0]);
+    // Capture the two entities we spawned
+    let initial = citizen_entities(&mut city);
+    assert!(initial.len() >= 2, "Need at least 2 citizens spawned");
+    let citizen_a = initial[0]; // Will have health=100
+    let citizen_b = initial[1]; // Will have health=50
+
+    // Set health: citizen_a = 100 (healthy), citizen_b = 50 (neutral)
+    {
+        let world = city.world_mut();
+        world
+            .get_mut::<CitizenDetails>(citizen_a)
+            .unwrap()
+            .health = 100.0;
+        world
+            .get_mut::<CitizenDetails>(citizen_b)
+            .unwrap()
+            .health = 50.0;
+    }
     city.tick(21);
 
     // Re-set health and tick again for stability
-    set_citizen_health(&mut city, &[100.0, 50.0]);
+    {
+        let world = city.world_mut();
+        world
+            .get_mut::<CitizenDetails>(citizen_a)
+            .unwrap()
+            .health = 100.0;
+        world
+            .get_mut::<CitizenDetails>(citizen_b)
+            .unwrap()
+            .health = 50.0;
+    }
     city.tick(21);
 
-    let happiness = read_citizen_happiness(&mut city);
-    assert_eq!(happiness.len(), 2, "Expected 2 citizens");
+    let world = city.world_mut();
+    let h100 = world
+        .get::<CitizenDetails>(citizen_a)
+        .unwrap()
+        .happiness;
+    let h50 = world.get::<CitizenDetails>(citizen_b).unwrap().happiness;
 
-    let bonus = happiness[0] - happiness[1];
+    let bonus = h100 - h50;
     assert!(
         bonus >= 7.5,
         "Health=100 bonus vs health=50 should be >= 8 (with 0.5 margin), \
          got {:.1}. h100={:.1}, h50={:.1}",
         bonus,
-        happiness[0],
-        happiness[1],
+        h100,
+        h50,
     );
 }
