@@ -53,7 +53,7 @@ fn total_power_plant_fuel_cost(
 pub fn collect_taxes(
     clock: Res<GameClock>,
     mut budget: ResMut<CityBudget>,
-    buildings: Query<&Building>,
+    buildings: Query<(&Building, Option<&MixedUseBuilding>)>,
     services_q: Query<&ServiceBuilding>,
     grid_res: Res<WorldGrid>,
     land_value: Res<crate::land_value::LandValueGrid>,
@@ -94,7 +94,7 @@ pub fn collect_taxes(
     let mut industrial_tax = 0.0_f64;
     let mut office_tax = 0.0_f64;
 
-    for b in &buildings {
+    for (b, mixed_use) in &buildings {
         // Look up land value at the building's grid cell
         let lv = if grid_res.in_bounds(b.grid_x, b.grid_y) {
             land_value.get(b.grid_x, b.grid_y) as f64
@@ -104,7 +104,8 @@ pub fn collect_taxes(
 
         if b.zone_type.is_mixed_use() {
             // MixedUse buildings generate both residential and commercial tax,
-            // split proportionally based on static capacity ratios for the level.
+            // split proportionally based on static capacity ratios for the level,
+            // scaled by actual occupancy.
             let (comm_cap, res_cap) = MixedUseBuilding::capacities_for_level(b.level);
             let total_cap = comm_cap + res_cap;
             if total_cap > 0 {
@@ -114,8 +115,30 @@ pub fn collect_taxes(
                     property_tax_for_building(lv * res_fraction, b.level, zone_rates.residential);
                 let comm_tax =
                     property_tax_for_building(lv * comm_fraction, b.level, zone_rates.commercial);
-                residential_tax += res_tax;
-                commercial_tax += comm_tax;
+                // Scale by per-component occupancy ratio
+                if let Some(mu) = mixed_use {
+                    let res_occ = if mu.residential_capacity > 0 {
+                        mu.residential_occupants as f64 / mu.residential_capacity as f64
+                    } else {
+                        0.0
+                    };
+                    let comm_occ = if mu.commercial_capacity > 0 {
+                        mu.commercial_occupants as f64 / mu.commercial_capacity as f64
+                    } else {
+                        0.0
+                    };
+                    residential_tax += res_tax * res_occ;
+                    commercial_tax += comm_tax * comm_occ;
+                } else {
+                    // Fallback: use overall building occupancy
+                    let occupancy_ratio = if b.capacity > 0 {
+                        b.occupants as f64 / b.capacity as f64
+                    } else {
+                        0.0
+                    };
+                    residential_tax += res_tax * occupancy_ratio;
+                    commercial_tax += comm_tax * occupancy_ratio;
+                }
             }
             continue;
         }
@@ -132,7 +155,12 @@ pub fn collect_taxes(
             0.0
         };
 
-        let tax = property_tax_for_building(lv, b.level, rate);
+        let occupancy_ratio = if b.capacity > 0 {
+            b.occupants as f64 / b.capacity as f64
+        } else {
+            0.0
+        };
+        let tax = property_tax_for_building(lv, b.level, rate) * occupancy_ratio;
 
         if b.zone_type.is_residential() {
             residential_tax += tax;

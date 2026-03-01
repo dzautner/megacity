@@ -3,9 +3,23 @@
 //! UI tax slider was disconnected from the economy system.
 
 use crate::budget::ExtendedBudget;
+use crate::buildings::types::Building;
 use crate::grid::ZoneType;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
+
+/// Fill all buildings to full occupancy so property tax is collected.
+fn fill_buildings(city: &mut TestCity) {
+    let world = city.world_mut();
+    let mut q = world.query::<(bevy::prelude::Entity, &Building)>();
+    let entities: Vec<(bevy::prelude::Entity, u32)> =
+        q.iter(world).map(|(e, b)| (e, b.capacity)).collect();
+    for (e, cap) in entities {
+        if let Some(mut b) = world.get_mut::<Building>(e) {
+            b.occupants = cap;
+        }
+    }
+}
 
 /// Helper: set the game clock day to force a tax collection cycle.
 fn force_clock_to_day(city: &mut TestCity, day: u32) {
@@ -27,6 +41,7 @@ fn test_residential_tax_rate_change_affects_income() {
             .zone_taxes
             .residential = 0.05;
     }
+    fill_buildings(&mut city_low);
     force_clock_to_day(&mut city_low, 32);
     city_low.tick(10);
     let low_tax = city_low
@@ -45,6 +60,7 @@ fn test_residential_tax_rate_change_affects_income() {
             .zone_taxes
             .residential = 0.20;
     }
+    fill_buildings(&mut city_high);
     force_clock_to_day(&mut city_high, 32);
     city_high.tick(10);
     let high_tax = city_high
@@ -80,6 +96,7 @@ fn test_commercial_tax_rate_change_affects_income() {
             .zone_taxes
             .commercial = 0.05;
     }
+    fill_buildings(&mut city_low);
     force_clock_to_day(&mut city_low, 32);
     city_low.tick(10);
     let low_tax = city_low
@@ -97,6 +114,7 @@ fn test_commercial_tax_rate_change_affects_income() {
             .zone_taxes
             .commercial = 0.15;
     }
+    fill_buildings(&mut city_high);
     force_clock_to_day(&mut city_high, 32);
     city_high.tick(10);
     let high_tax = city_high
@@ -124,6 +142,7 @@ fn test_zero_tax_rate_produces_zero_revenue() {
             .zone_taxes
             .residential = 0.0;
     }
+    fill_buildings(&mut city);
     force_clock_to_day(&mut city, 32);
     city.tick(10);
 
@@ -155,6 +174,7 @@ fn test_each_zone_uses_its_own_rate() {
         ext.zone_taxes.industrial = 0.15;
         ext.zone_taxes.office = 0.20;
     }
+    fill_buildings(&mut city);
     force_clock_to_day(&mut city, 32);
     city.tick(10);
 

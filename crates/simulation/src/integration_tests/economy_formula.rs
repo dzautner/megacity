@@ -4,12 +4,26 @@
 //! calculation, treasury updates, loan interest. Verifies no NaN/Inf in treasury.
 
 use crate::budget::{ExtendedBudget, Loan, ZoneTaxRates};
+use crate::buildings::types::Building;
 use crate::economy::{property_tax_for_building, CityBudget};
 use crate::grid::{RoadType, ZoneType};
 use crate::loans::{LoanBook, LoanTier};
 use crate::services::ServiceType;
 use crate::test_harness::TestCity;
 use crate::time_of_day::GameClock;
+
+/// Fill all buildings to full occupancy so property tax is collected.
+fn fill_buildings(city: &mut TestCity) {
+    let world = city.world_mut();
+    let mut q = world.query::<(bevy::prelude::Entity, &Building)>();
+    let entities: Vec<(bevy::prelude::Entity, u32)> =
+        q.iter(world).map(|(e, b)| (e, b.capacity)).collect();
+    for (e, cap) in entities {
+        if let Some(mut b) = world.get_mut::<Building>(e) {
+            b.occupants = cap;
+        }
+    }
+}
 
 // ====================================================================
 // 1. Tax collection formula with known population and rate
@@ -63,6 +77,8 @@ fn test_formula_residential_tax_collection_with_known_rate() {
         .with_building(50, 50, ZoneType::ResidentialLow, 2)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
+
     // Set a known tax rate
     {
         let world = city.world_mut();
@@ -90,6 +106,8 @@ fn test_formula_commercial_tax_with_known_rate() {
         .with_building(50, 50, ZoneType::CommercialLow, 3)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
+
     {
         let world = city.world_mut();
         world.resource_mut::<ExtendedBudget>().zone_taxes.commercial = 0.15;
@@ -111,6 +129,8 @@ fn test_formula_industrial_tax_with_known_rate() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::Industrial, 2)
         .with_budget(10_000.0);
+
+    fill_buildings(&mut city);
 
     {
         let world = city.world_mut();
@@ -134,6 +154,8 @@ fn test_formula_office_tax_with_known_rate() {
         .with_building(50, 50, ZoneType::Office, 2)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
+
     {
         let world = city.world_mut();
         world.resource_mut::<ExtendedBudget>().zone_taxes.office = 0.10;
@@ -156,6 +178,7 @@ fn test_formula_higher_level_produces_proportional_tax() {
     let mut city_l1 = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 1)
         .with_budget(10_000.0);
+    fill_buildings(&mut city_l1);
     force_clock_to_day(&mut city_l1, 32);
     city_l1.tick(10);
     let tax_l1 = city_l1
@@ -167,6 +190,7 @@ fn test_formula_higher_level_produces_proportional_tax() {
     let mut city_l3 = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 3)
         .with_budget(10_000.0);
+    fill_buildings(&mut city_l3);
     force_clock_to_day(&mut city_l3, 32);
     city_l3.tick(10);
     let tax_l3 = city_l3
@@ -339,6 +363,10 @@ fn test_formula_treasury_delta_equals_net_income() {
         .with_citizen((12, 11), (14, 11))
         .with_budget(10_000.0);
 
+    // NOTE: don't fill_buildings here — this test has a citizen that provides
+    // natural occupancy. fill_buildings would create a mismatch between the
+    // projected monthly_income and actual treasury collection.
+
     let treasury_before = city.budget().treasury;
 
     force_clock_to_day(&mut city, 32);
@@ -363,6 +391,8 @@ fn test_formula_treasury_increases_when_income_exceeds_expenses() {
         .with_building(52, 50, ZoneType::CommercialLow, 3)
         .with_building(54, 50, ZoneType::Industrial, 3)
         .with_budget(10_000.0);
+
+    fill_buildings(&mut city);
 
     let before = city.budget().treasury;
 
@@ -414,6 +444,8 @@ fn test_formula_income_breakdown_sums_to_monthly_income() {
         .with_building(54, 50, ZoneType::Industrial, 2)
         .with_building(56, 50, ZoneType::Office, 2)
         .with_budget(10_000.0);
+
+    fill_buildings(&mut city);
 
     force_clock_to_day(&mut city, 32);
     city.tick(10);
@@ -826,6 +858,8 @@ fn test_formula_multiple_collections_accumulate() {
         .with_building(52, 50, ZoneType::CommercialLow, 2)
         .with_budget(10_000.0);
 
+    fill_buildings(&mut city);
+
     // First collection
     force_clock_to_day(&mut city, 32);
     city.tick(10);
@@ -860,6 +894,8 @@ fn test_formula_collection_idempotent_within_interval() {
     let mut city = TestCity::new()
         .with_building(50, 50, ZoneType::ResidentialLow, 2)
         .with_budget(10_000.0);
+
+    fill_buildings(&mut city);
 
     force_clock_to_day(&mut city, 32);
     city.tick(10);

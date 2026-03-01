@@ -39,7 +39,7 @@ pub struct IncomeProjection {
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn update_income_projection(
     slow_tick: Res<SlowTickTimer>,
-    buildings: Query<&Building>,
+    buildings: Query<(&Building, Option<&MixedUseBuilding>)>,
     services_q: Query<&ServiceBuilding>,
     grid_res: Res<WorldGrid>,
     land_value: Res<LandValueGrid>,
@@ -67,7 +67,7 @@ pub fn update_income_projection(
     // ── Income: property taxes ────────────────────────────────────────
     let mut total_tax = 0.0_f64;
 
-    for b in &buildings {
+    for (b, mixed_use) in &buildings {
         let lv = if grid_res.in_bounds(b.grid_x, b.grid_y) {
             land_value.get(b.grid_x, b.grid_y) as f64
         } else {
@@ -80,10 +80,33 @@ pub fn update_income_projection(
             if total_cap > 0 {
                 let res_frac = res_cap as f64 / total_cap as f64;
                 let comm_frac = comm_cap as f64 / total_cap as f64;
-                total_tax +=
+                let res_tax =
                     property_tax_for_building(lv * res_frac, b.level, zone_rates.residential);
-                total_tax +=
+                let comm_tax =
                     property_tax_for_building(lv * comm_frac, b.level, zone_rates.commercial);
+                // Scale by per-component occupancy ratio
+                if let Some(mu) = mixed_use {
+                    let res_occ = if mu.residential_capacity > 0 {
+                        mu.residential_occupants as f64 / mu.residential_capacity as f64
+                    } else {
+                        0.0
+                    };
+                    let comm_occ = if mu.commercial_capacity > 0 {
+                        mu.commercial_occupants as f64 / mu.commercial_capacity as f64
+                    } else {
+                        0.0
+                    };
+                    total_tax += res_tax * res_occ;
+                    total_tax += comm_tax * comm_occ;
+                } else {
+                    let occupancy_ratio = if b.capacity > 0 {
+                        b.occupants as f64 / b.capacity as f64
+                    } else {
+                        0.0
+                    };
+                    total_tax += res_tax * occupancy_ratio;
+                    total_tax += comm_tax * occupancy_ratio;
+                }
             }
             continue;
         }
@@ -100,7 +123,12 @@ pub fn update_income_projection(
             0.0
         };
 
-        total_tax += property_tax_for_building(lv, b.level, rate);
+        let occupancy_ratio = if b.capacity > 0 {
+            b.occupants as f64 / b.capacity as f64
+        } else {
+            0.0
+        };
+        total_tax += property_tax_for_building(lv, b.level, rate) * occupancy_ratio;
     }
 
     let income = total_tax + tourism.monthly_tourism_income;
