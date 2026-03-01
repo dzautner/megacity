@@ -79,12 +79,20 @@ enum ServiceCategory {
     Telecom,
 }
 
-fn compute_utility_coverage(grid: &WorldGrid) -> (f32, f32) {
+/// Compute the fraction of occupied zoned cells that have power/water.
+///
+/// The denominator only counts zoned cells that have a building on them
+/// (`building_id.is_some()`). Zoned cells without buildings are not yet
+/// developed and should not count against utility coverage.
+pub fn compute_utility_coverage(grid: &WorldGrid) -> (f32, f32) {
     let mut total = 0u32;
     let mut powered = 0u32;
     let mut watered = 0u32;
     for cell in &grid.cells {
-        if cell.cell_type == CellType::Grass && cell.zone != ZoneType::None {
+        if cell.cell_type == CellType::Grass
+            && cell.zone != ZoneType::None
+            && cell.building_id.is_some()
+        {
             total += 1;
             if cell.has_power {
                 powered += 1;
