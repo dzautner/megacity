@@ -212,7 +212,8 @@ fn execute_zone_rect(
         }
     }
 
-    // Second pass: apply the zone
+    // Second pass: apply the zone and count cells actually zoned
+    let mut zoned_count: u32 = 0;
     for y in ly..=hy {
         for x in lx..=hx {
             if !grid.in_bounds(x, y) {
@@ -226,7 +227,12 @@ fn execute_zone_rect(
                 continue;
             }
             grid.get_mut(x, y).zone = zone_type;
+            zoned_count += 1;
         }
+    }
+
+    if zoned_count == 0 {
+        return ActionResult::Error(ActionError::NoCellsZoned);
     }
 
     if overwritten.is_empty() {

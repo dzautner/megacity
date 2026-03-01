@@ -41,4 +41,5 @@ pub enum ActionError {
     InternalError,
     NotFound,
     InvalidParameter(String),
+    NoCellsZoned,
 }
