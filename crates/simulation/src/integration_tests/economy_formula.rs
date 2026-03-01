@@ -363,7 +363,9 @@ fn test_formula_treasury_delta_equals_net_income() {
         .with_citizen((12, 11), (14, 11))
         .with_budget(10_000.0);
 
-    fill_buildings(&mut city);
+    // NOTE: don't fill_buildings here — this test has a citizen that provides
+    // natural occupancy. fill_buildings would create a mismatch between the
+    // projected monthly_income and actual treasury collection.
 
     let treasury_before = city.budget().treasury;
 
