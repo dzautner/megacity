@@ -304,6 +304,9 @@ fn execute_place_service(
             if cell.cell_type == CellType::Water {
                 return ActionResult::Error(ActionError::BlockedByWater);
             }
+            if cell.cell_type == CellType::Road {
+                return ActionResult::Error(ActionError::BlockedByRoad);
+            }
             if cell.building_id.is_some() {
                 return ActionResult::Error(ActionError::AlreadyExists);
             }
@@ -347,6 +350,9 @@ fn validate_building_placement(
     let cell = grid.get(x, y);
     if cell.cell_type == CellType::Water {
         return Err(ActionResult::Error(ActionError::BlockedByWater));
+    }
+    if cell.cell_type == CellType::Road {
+        return Err(ActionResult::Error(ActionError::BlockedByRoad));
     }
     if cell.building_id.is_some() {
         return Err(ActionResult::Error(ActionError::AlreadyExists));

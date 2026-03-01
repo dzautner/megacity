@@ -30,6 +30,7 @@ pub enum ActionError {
     OutOfBounds,
     InsufficientFunds,
     BlockedByWater,
+    BlockedByRoad,
     BlockedByBuilding,
     InvalidRoadGeometry,
     ZoneNotAdjacentToRoad,

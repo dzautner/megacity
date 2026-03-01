@@ -51,6 +51,9 @@ impl RoadNetwork {
         if cell.cell_type == CellType::Road {
             return false; // already a road
         }
+        if cell.building_id.is_some() {
+            return false;
+        }
 
         grid.get_mut(x, y).cell_type = CellType::Road;
         grid.get_mut(x, y).road_type = road_type;
