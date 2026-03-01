@@ -21,5 +21,5 @@ pub enum ActionError {
     NotSupported,
     InternalError,
     NotFound,
-    InvalidParameter,
+    InvalidParameter(String),
 }

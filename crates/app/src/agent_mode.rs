@@ -106,9 +106,15 @@ pub fn run_agent_mode(seed: Option<u64>) {
         let cmd: AgentCommand = match serde_json::from_str(&line) {
             Ok(c) => c,
             Err(e) => {
-                let resp = make_response(ResponsePayload::Error {
-                    message: format!("Parse error: {e}"),
-                });
+                // For act/batch_act commands, return the parse error as an
+                // ActionResult so the LLM gets structured feedback about
+                // invalid parameters (e.g. unknown service_type/utility_type).
+                let resp = match try_act_parse_error_response(&line, &e) {
+                    Some(r) => r,
+                    None => make_response(ResponsePayload::Error {
+                        message: format!("Parse error: {e}"),
+                    }),
+                };
                 let _ = writeln!(stdout, "{}", serde_json::to_string(&resp).unwrap());
                 let _ = stdout.flush();
                 continue;
@@ -127,6 +133,47 @@ pub fn run_agent_mode(seed: Option<u64>) {
     }
 
     eprintln!("megacity agent mode shutting down");
+}
+
+// ---------------------------------------------------------------------------
+// Parse-error recovery for act/batch_act commands
+// ---------------------------------------------------------------------------
+
+/// When serde fails to parse an `act` or `batch_act` command (e.g. because of
+/// an unknown `service_type` or `utility_type` variant), return the error as a
+/// structured `ActionResult` instead of a generic protocol error. This gives
+/// the LLM agent useful feedback about which parameter was wrong and what the
+/// valid values are.
+#[cfg(not(target_arch = "wasm32"))]
+fn try_act_parse_error_response(
+    raw_line: &str,
+    err: &serde_json::Error,
+) -> Option<simulation::agent_protocol::AgentResponse> {
+    use simulation::agent_protocol::{make_response, ResponsePayload};
+    use simulation::game_actions::{ActionError, ActionResult};
+
+    // Quick check: only attempt recovery for act/batch_act commands.
+    let value: serde_json::Value = serde_json::from_str(raw_line).ok()?;
+    let cmd = value.get("cmd")?.as_str()?;
+
+    match cmd {
+        "act" => {
+            let message = format!("{err}");
+            let result = ActionResult::Error(ActionError::InvalidParameter(message));
+            Some(make_response(ResponsePayload::ActionResult { result }))
+        }
+        "batch_act" => {
+            let message = format!("{err}");
+            let result = ActionResult::Error(ActionError::InvalidParameter(message));
+            // Return a single error result for the whole batch since we
+            // cannot determine which action within the batch caused the
+            // parse failure.
+            Some(make_response(ResponsePayload::BatchResult {
+                results: vec![result],
+            }))
+        }
+        _ => None,
+    }
 }
 
 // ---------------------------------------------------------------------------
