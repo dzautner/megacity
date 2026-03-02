@@ -140,6 +140,84 @@ pub fn filter_short_segments(points: &[Vec2], min_len: f32) -> Vec<Vec2> {
     result
 }
 
+/// Fit Catmull-Rom spline through polyline points, output as cubic Bezier tuples.
+///
+/// Each tuple is `(p0, control1, control2, p3)` — a cubic Bezier segment.
+/// Adjacent segments share endpoints and have C1-continuous tangents.
+///
+/// Edge cases:
+/// - 0 or 1 points → empty vec
+/// - 2 points → single straight-line segment (control points at 1/3 intervals)
+/// - 3+ points → smooth Catmull-Rom fitted Bezier curves
+pub fn fit_catmull_rom_beziers(points: &[Vec2]) -> Vec<(Vec2, Vec2, Vec2, Vec2)> {
+    if points.len() < 2 {
+        return Vec::new();
+    }
+
+    if points.len() == 2 {
+        // Degenerate case: straight line
+        let p0 = points[0];
+        let p3 = points[1];
+        let c1 = p0 + (p3 - p0) / 3.0;
+        let c2 = p0 + (p3 - p0) * (2.0 / 3.0);
+        return vec![(p0, c1, c2, p3)];
+    }
+
+    let n = points.len();
+    let mut result = Vec::with_capacity(n - 1);
+
+    for i in 0..(n - 1) {
+        let p0 = points[i];
+        let p3 = points[i + 1];
+        let seg_len = (p3 - p0).length();
+
+        // Compute tangent at p0
+        let tangent_i = if i == 0 {
+            // First point: use direction to next point
+            (points[1] - points[0]).normalize_or_zero()
+        } else {
+            (points[i + 1] - points[i - 1]).normalize_or_zero()
+        };
+
+        // Compute tangent at p3
+        let tangent_i1 = if i + 1 == n - 1 {
+            // Last point: use direction from previous point
+            (points[n - 1] - points[n - 2]).normalize_or_zero()
+        } else {
+            (points[i + 2] - points[i]).normalize_or_zero()
+        };
+
+        let c1 = p0 + tangent_i * (seg_len / 3.0);
+        let c2 = p3 - tangent_i1 * (seg_len / 3.0);
+
+        result.push((p0, c1, c2, p3));
+    }
+
+    result
+}
+
+/// Evaluate a cubic Bezier curve at parameter `t` in [0, 1].
+pub fn bezier_point(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
+    let u = 1.0 - t;
+    let uu = u * u;
+    let tt = t * t;
+    u * uu * p0 + 3.0 * uu * t * p1 + 3.0 * u * tt * p2 + t * tt * p3
+}
+
+/// Approximate arc length of a cubic Bezier by sampling `steps` sub-segments.
+pub fn bezier_arc_length(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, steps: usize) -> f32 {
+    let steps = steps.max(1);
+    let mut length = 0.0_f32;
+    let mut prev = p0;
+    for i in 1..=steps {
+        let t = i as f32 / steps as f32;
+        let pt = bezier_point(p0, p1, p2, p3, t);
+        length += (pt - prev).length();
+        prev = pt;
+    }
+    length
+}
+
 pub struct FreehandRoadPlugin;
 
 impl Plugin for FreehandRoadPlugin {

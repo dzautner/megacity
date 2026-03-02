@@ -11,8 +11,8 @@ use simulation::app_state::AppState;
 use simulation::config::CELL_SIZE;
 use simulation::economy::CityBudget;
 use simulation::freehand_road::{
-    filter_short_segments, simplify_rdp, FreehandDrawState, FREEHAND_MIN_SEGMENT_LEN,
-    FREEHAND_SIMPLIFY_TOLERANCE,
+    bezier_arc_length, bezier_point, filter_short_segments, fit_catmull_rom_beziers, simplify_rdp,
+    FreehandDrawState, FREEHAND_MIN_SEGMENT_LEN, FREEHAND_SIMPLIFY_TOLERANCE,
 };
 use simulation::grid::RoadType;
 use simulation::road_segments::RoadSegmentStore;
@@ -33,6 +33,10 @@ impl Plugin for FreehandDrawPlugin {
                 .chain()
                 .before(crate::input::handle_tool_input)
                 .run_if(in_state(AppState::Playing)),
+        );
+        app.add_systems(
+            Update,
+            draw_freehand_preview.run_if(in_state(AppState::Playing)),
         );
     }
 }
@@ -147,8 +151,12 @@ pub fn handle_freehand_draw(
             return;
         }
 
-        // Estimate total cost
-        let total_world_dist: f32 = simplified.windows(2).map(|w| (w[1] - w[0]).length()).sum();
+        // Estimate total cost using Bezier arc lengths
+        let bezier_preview = fit_catmull_rom_beziers(&simplified);
+        let total_world_dist: f32 = bezier_preview
+            .iter()
+            .map(|(p0, c1, c2, p3)| bezier_arc_length(*p0, *c1, *c2, *p3, 32))
+            .sum();
         let approx_cells = (total_world_dist / CELL_SIZE).ceil() as usize;
         let total_cost = road_type.cost() * approx_cells as f64;
 
@@ -158,25 +166,27 @@ pub fn handle_freehand_draw(
             return;
         }
 
-        // Create segments between consecutive simplified points
+        // Fit smooth Catmull-Rom Bezier curves through simplified points
+        let beziers = fit_catmull_rom_beziers(&simplified);
         let mut total_actual_cost = 0.0;
-        let segment_count = simplified.len() - 1;
+        let segment_count = beziers.len();
 
-        for pair in simplified.windows(2) {
-            let from = pair[0];
-            let to = pair[1];
-
-            if (to - from).length() < CELL_SIZE * 0.5 {
+        for (p0, c1, c2, p3) in &beziers {
+            if (*p3 - *p0).length() < CELL_SIZE * 0.5 {
                 continue;
             }
 
-            let (_seg_id, cells) =
-                segments.add_straight_segment(from, to, road_type, 24.0, &mut grid, &mut roads);
+            let start_node = segments.find_or_create_node(*p0, 24.0);
+            let end_node = segments.find_or_create_node(*p3, 24.0);
+            let seg_id = segments.add_segment(
+                start_node, end_node, *p0, *c1, *c2, *p3, road_type, &mut grid, &mut roads,
+            );
 
-            total_actual_cost += road_type.cost() * cells.len() as f64;
-
-            for &(cx, cy) in &cells {
-                mark_chunk_dirty_at(cx, cy, &chunks, &mut commands);
+            if let Some(seg) = segments.get_segment(seg_id) {
+                total_actual_cost += road_type.cost() * seg.rasterized_cells.len() as f64;
+                for &(cx, cy) in &seg.rasterized_cells {
+                    mark_chunk_dirty_at(cx, cy, &chunks, &mut commands);
+                }
             }
         }
 
@@ -197,6 +207,61 @@ pub fn handle_freehand_draw(
     if buttons.just_pressed(MouseButton::Right) && freehand.drawing {
         freehand.reset_stroke();
         status.set("Freehand stroke cancelled", false);
+    }
+}
+
+
+/// Draw a real-time gizmo preview of the freehand curve while the user is dragging.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_freehand_preview(
+    freehand: Res<FreehandDrawState>,
+    cursor: Res<CursorGridPos>,
+    tool: Res<ActiveTool>,
+    mut gizmos: Gizmos,
+) {
+    if !freehand.drawing || freehand.raw_points.len() < 2 || !cursor.valid {
+        return;
+    }
+
+    // Only show for road tools
+    if road_type_for_tool(&tool).is_none() {
+        return;
+    }
+
+    // Build preview points: raw samples + current cursor position
+    let mut preview_pts = freehand.raw_points.clone();
+    if let Some(&last) = preview_pts.last() {
+        if (cursor.world_pos - last).length() > 1.0 {
+            preview_pts.push(cursor.world_pos);
+        }
+    }
+
+    if preview_pts.len() < 2 {
+        return;
+    }
+
+    // Simplify and fit curves
+    let simplified = simplify_rdp(&preview_pts, FREEHAND_SIMPLIFY_TOLERANCE);
+    let simplified = filter_short_segments(&simplified, FREEHAND_MIN_SEGMENT_LEN);
+
+    if simplified.len() < 2 {
+        return;
+    }
+
+    let beziers = fit_catmull_rom_beziers(&simplified);
+    let preview_color = Color::srgba(1.0, 1.0, 1.0, 0.6);
+    let y = 0.6; // slightly above ground
+    let samples_per_curve = 20;
+
+    for (p0, c1, c2, p3) in &beziers {
+        let mut prev = Vec3::new(p0.x, y, p0.y);
+        for j in 1..=samples_per_curve {
+            let t = j as f32 / samples_per_curve as f32;
+            let pt = bezier_point(*p0, *c1, *c2, *p3, t);
+            let curr = Vec3::new(pt.x, y, pt.y);
+            gizmos.line(prev, curr, preview_color);
+            prev = curr;
+        }
     }
 }
 
