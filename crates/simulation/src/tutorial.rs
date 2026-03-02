@@ -320,16 +320,10 @@ pub fn check_tutorial_progress(
         return;
     }
 
-    // Pause during instruction steps (not during ObserveGrowth or ManageBudget)
-    let should_pause = matches!(
-        tutorial.current_step,
-        TutorialStep::Welcome
-            | TutorialStep::PlaceRoad
-            | TutorialStep::ZoneResidential
-            | TutorialStep::ZoneCommercial
-            | TutorialStep::PlacePowerPlant
-            | TutorialStep::PlaceWaterTower
-    );
+    // Only pause during the Welcome intro step. Action steps (PlaceRoad,
+    // ZoneResidential, etc.) must NOT pause because the player needs the
+    // toolbar and game interaction to complete them.
+    let should_pause = matches!(tutorial.current_step, TutorialStep::Welcome);
 
     if should_pause && !clock.paused {
         clock.paused = true;
