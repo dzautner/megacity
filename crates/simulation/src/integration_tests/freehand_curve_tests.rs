@@ -62,7 +62,7 @@ fn test_fit_three_points_returns_two_smooth_curves() {
 
     // Verify C1 continuity at the shared point: tangent directions should be equal
     // The tangent at t=1 of segment 0 should be parallel to tangent at t=0 of segment 1
-    let (p0_0, c1_0, c2_0, p3_0) = result[0];
+    let (_p0_0, _c1_0, c2_0, p3_0) = result[0];
     let (p0_1, c1_1, _c2_1, _p3_1) = result[1];
 
     // Tangent at t=1: 3*(p3 - c2), tangent at t=0: 3*(c1 - p0)
