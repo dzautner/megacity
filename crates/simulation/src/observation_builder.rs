@@ -96,6 +96,13 @@ pub fn build_observation(
     // Zone distribution from grid cells
     let zone_distribution = compute_zone_distribution(&grid);
 
+    // Total building count (used for warnings and the observation field)
+    let building_count = stats.residential_buildings
+        + stats.commercial_buildings
+        + stats.industrial_buildings
+        + stats.office_buildings
+        + stats.mixed_use_buildings;
+
     // Compute warning thresholds
     let mut warnings = compute_warnings(
         &budget,
@@ -107,6 +114,7 @@ pub fn build_observation(
         &city_goods,
         population_total,
         unemployed,
+        building_count,
     );
 
     // NoJobZones: residential buildings exist but zero job-providing buildings
@@ -191,11 +199,7 @@ pub fn build_observation(
             tax: attract.tax_factor,
         },
 
-        building_count: stats.residential_buildings
-            + stats.commercial_buildings
-            + stats.industrial_buildings
-            + stats.office_buildings
-            + stats.mixed_use_buildings,
+        building_count,
 
         building_breakdown,
         zone_distribution,
@@ -249,6 +253,7 @@ fn compute_warnings(
     city_goods: &CityGoods,
     population: u32,
     unemployed: u32,
+    building_count: u32,
 ) -> Vec<CityWarning> {
     let mut warnings = Vec::new();
 
@@ -257,13 +262,13 @@ fn compute_warnings(
         warnings.push(CityWarning::NegativeBudget);
     }
 
-    // Power shortage (coverage below 80%)
-    if coverage.power < 0.8 {
+    // Power shortage (coverage below 80%) — only warn if there are buildings
+    if building_count > 0 && coverage.power < 0.8 {
         warnings.push(CityWarning::PowerShortage);
     }
 
-    // Water shortage (coverage below 80%)
-    if coverage.water < 0.8 {
+    // Water shortage (coverage below 80%) — only warn if there are buildings
+    if building_count > 0 && coverage.water < 0.8 {
         warnings.push(CityWarning::WaterShortage);
     }
 
