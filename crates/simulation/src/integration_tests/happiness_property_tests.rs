@@ -209,8 +209,8 @@ fn test_property_happiness_formula_always_clamped() {
         if satisfaction < CRITICAL_NEEDS_THRESHOLD { happiness -= CRITICAL_NEEDS_PENALTY; }
 
         let health: f32 = rng.gen_range(0.0..=100.0);
-        if health < 50.0 { happiness -= (50.0 - health) * 0.3; }
-        if health > 80.0 { happiness += 3.0; }
+        if health < 50.0 { happiness -= (50.0 - health) * 0.2; }
+        if health > 80.0 { happiness += 8.0; }
         if health < CRITICAL_HEALTH_THRESHOLD { happiness -= CRITICAL_HEALTH_PENALTY; }
 
         happiness += wealth_satisfaction(rng.gen_range(-5000.0..50000.0));
@@ -258,7 +258,7 @@ fn test_property_happiness_worst_case_clamps_to_zero() {
     h += weather_happiness_factor(-15.0);
     h += (diminishing_returns(0.0, DIMINISHING_K_DEFAULT) - 0.7769) * 35.0;
     h -= CRITICAL_NEEDS_PENALTY;
-    h -= 50.0 * 0.3 + CRITICAL_HEALTH_PENALTY;
+    h -= 50.0 * 0.2 + CRITICAL_HEALTH_PENALTY;
     h += wealth_satisfaction(0.0);
     h -= HOMELESS_PENALTY + POOR_ROAD_PENALTY + 10.0 + 8.0;
     assert_eq!(h.clamp(0.0, 100.0), 0.0, "Worst case raw={}", h);
