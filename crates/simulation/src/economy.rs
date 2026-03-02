@@ -4,9 +4,16 @@ use serde::{Deserialize, Serialize};
 use crate::buildings::{Building, MixedUseBuilding};
 use crate::game_params::GameParams;
 use crate::grid::{CellType, WorldGrid, ZoneType};
+use crate::production::CityGoods;
+use crate::production_chain::DeepProductionChainState;
 use crate::services::ServiceBuilding;
 use crate::time_of_day::GameClock;
 use crate::energy_pricing::EnergyEconomics;
+
+/// Minutes per game day (1 tick = 1 minute).
+const TICKS_PER_DAY: f64 = 1440.0;
+/// Days per collection month.
+const DAYS_PER_MONTH: f64 = 30.0;
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct CityBudget {
@@ -62,6 +69,8 @@ pub fn collect_taxes(
     tourism: Res<crate::tourism::Tourism>,
     mut extended: ResMut<crate::budget::ExtendedBudget>,
     energy_econ: Res<EnergyEconomics>,
+    city_goods: Res<CityGoods>,
+    chain_state: Res<DeepProductionChainState>,
     params: (
         Res<GameParams>,
         Res<crate::coal_power::CoalPowerState>,
@@ -237,9 +246,25 @@ pub fn collect_taxes(
     extended.expense_breakdown.loan_payments = loan_payments;
     extended.expense_breakdown.fuel_costs = fuel_expense;
 
+    // Trade costs: per-tick trade_balance (negative = importing) extrapolated to monthly.
+    // Matches formula in income_projection.rs.
+    let goods_trade_cost = if city_goods.trade_balance < 0.0 {
+        -city_goods.trade_balance * TICKS_PER_DAY * DAYS_PER_MONTH
+    } else {
+        0.0
+    };
+    let commodity_trade_cost = if chain_state.commodity_trade_balance < 0.0 {
+        -chain_state.commodity_trade_balance * TICKS_PER_DAY * DAYS_PER_MONTH
+    } else {
+        0.0
+    };
+    let trade_deficit = goods_trade_cost + commodity_trade_cost;
+
+    extended.expense_breakdown.trade_deficit = trade_deficit;
+
     budget.monthly_income = income;
     budget.monthly_expenses =
-        road_expense + service_expense + policy_expense + fuel_expense;
+        road_expense + service_expense + policy_expense + fuel_expense + trade_deficit;
     budget.treasury += budget.monthly_income - budget.monthly_expenses;
 }
 

@@ -142,6 +142,8 @@ pub struct ExpenseBreakdown {
     pub loan_payments: f64,
     #[serde(default)]
     pub fuel_costs: f64,
+    #[serde(default)]
+    pub trade_deficit: f64,
 }
 
 impl ExtendedBudget {
