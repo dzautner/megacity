@@ -1,16 +1,18 @@
 //! Zoning visual feedback (PLAY-P1-01).
 //!
 //! When a player zones cells, they need immediate feedback about why buildings
-//! aren't spawning. This module draws gizmo indicators on zoned cells that
-//! have no building and are missing power, water, or both.
+//! aren't spawning. This module shows floating 3D badge icons above clusters
+//! of zoned cells that are missing power, water, or both.
 //!
-//! Indicators are small colored diamonds drawn at ground level:
-//!   - Red diamond: missing power
-//!   - Blue diamond: missing water
-//!   - Yellow diamond: missing both power and water
+//! Badges are procedural mesh silhouettes (Cities: Skylines 2-style):
+//!   - Lightning bolt: missing power
+//!   - Water drop: missing water
+//!   - Warning triangle: missing both
 //!
-//! Indicators only appear when the camera is close enough (LOD) and are
-//! updated on a timer (every 2 seconds) to avoid per-frame grid scans.
+//! Nearby cells of the same missing-utility type are clustered together so
+//! that one badge represents an entire zone area, not individual cells.
+//! Badges appear when the camera is close enough (LOD) and are rebuilt
+//! on a 2-second timer.
 
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
@@ -23,33 +25,28 @@ use simulation::SaveLoadState;
 
 use crate::camera::OrbitCamera;
 use crate::colorblind_palette::{self, UtilityIconKind};
+use crate::zoning_feedback_clustering::{cluster_cells, ZoneCluster, ZoneFeedbackCell};
+use crate::zoning_feedback_meshes;
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/// Camera distance beyond which zone feedback indicators are hidden.
-/// These are small ground-level markers, so they disappear sooner than
-/// building status icons.
-const MAX_VISIBLE_DISTANCE: f32 = 600.0;
+/// Camera distance beyond which zone feedback badges are hidden.
+const MAX_VISIBLE_DISTANCE: f32 = 800.0;
 
-/// Height offset above ground for the gizmo markers.
-const MARKER_Y: f32 = 0.8;
+/// Height above ground for floating badges.
+const BADGE_Y: f32 = 15.0;
 
-/// Half-size of the diamond marker in world units.
-const DIAMOND_HALF: f32 = 2.5;
+/// Base scale for badge meshes (world units).
+const BADGE_BASE_SCALE: f32 = 3.0;
+
+/// Maximum number of badges displayed at once (largest clusters first).
+const MAX_BADGES: usize = 25;
 
 // ---------------------------------------------------------------------------
-// Resource: cached zone status cells
+// Resources
 // ---------------------------------------------------------------------------
-
-/// A zoned cell that is missing utilities and has no building.
-#[derive(Clone, Copy)]
-struct ZoneFeedbackCell {
-    gx: usize,
-    gy: usize,
-    kind: UtilityIconKind,
-}
 
 /// Cached list of zoned-but-empty cells that need utility feedback.
 /// Rebuilt on a timer to avoid scanning the full grid every frame.
@@ -58,33 +55,58 @@ struct ZoneFeedbackCells {
     cells: Vec<ZoneFeedbackCell>,
 }
 
+/// Clustered badge data, rebuilt from `ZoneFeedbackCells`.
+#[derive(Resource, Default)]
+struct ZoneBadgeClusters {
+    clusters: Vec<ZoneCluster>,
+    generation: u64,
+}
+
+/// Pre-built mesh handles for badge icons.
+#[derive(Resource)]
+struct ZoneBadgeAssets {
+    bolt_mesh: Handle<Mesh>,
+    drop_mesh: Handle<Mesh>,
+    warning_mesh: Handle<Mesh>,
+}
+
+/// Marker component for zone utility badge entities.
+#[derive(Component)]
+struct ZoneBadgeMarker;
+
 // ---------------------------------------------------------------------------
 // Systems
 // ---------------------------------------------------------------------------
 
+fn setup_badge_assets(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+    let bolt = meshes.add(zoning_feedback_meshes::build_lightning_bolt_mesh());
+    let drop = meshes.add(zoning_feedback_meshes::build_water_drop_mesh());
+    let warning = meshes.add(zoning_feedback_meshes::build_warning_mesh());
+
+    commands.insert_resource(ZoneBadgeAssets {
+        bolt_mesh: bolt,
+        drop_mesh: drop,
+        warning_mesh: warning,
+    });
+}
+
 /// Scan the grid for zoned cells without buildings that are missing utilities.
-/// Runs on a 2-second timer to match the status icon update cadence.
-fn rebuild_zone_feedback(
-    grid: Res<WorldGrid>,
-    mut feedback: ResMut<ZoneFeedbackCells>,
-) {
+fn rebuild_zone_feedback(grid: Res<WorldGrid>, mut feedback: ResMut<ZoneFeedbackCells>) {
     let mut cells = Vec::new();
 
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {
             let cell = grid.get(x, y);
 
-            // Only care about zoned cells without a building
             if cell.zone == ZoneType::None || cell.building_id.is_some() {
                 continue;
             }
 
-            // Classify missing utilities
             let kind = match (cell.has_power, cell.has_water) {
                 (false, false) => UtilityIconKind::NoPowerNoWater,
                 (false, true) => UtilityIconKind::NoPower,
                 (true, false) => UtilityIconKind::NoWater,
-                (true, true) => continue, // All utilities present, no feedback needed
+                (true, true) => continue,
             };
 
             cells.push(ZoneFeedbackCell { gx: x, gy: y, kind });
@@ -94,43 +116,96 @@ fn rebuild_zone_feedback(
     feedback.cells = cells;
 }
 
-/// Draw gizmo diamond markers on zoned cells missing utilities.
-/// Only draws when camera is close enough for the markers to be visible.
-fn draw_zone_feedback(
+/// Build clusters from the cached feedback cells.
+fn rebuild_zone_clusters(
     feedback: Res<ZoneFeedbackCells>,
-    orbit: Res<OrbitCamera>,
-    cb_settings: Res<ColorblindSettings>,
-    mut gizmos: Gizmos,
+    mut badge_clusters: ResMut<ZoneBadgeClusters>,
 ) {
-    if orbit.distance > MAX_VISIBLE_DISTANCE {
+    let clusters = cluster_cells(&feedback.cells);
+    badge_clusters.clusters = clusters;
+    badge_clusters.generation = badge_clusters.generation.wrapping_add(1);
+}
+
+/// Synchronize badge entities with the current cluster data.
+fn sync_zone_badges(
+    mut commands: Commands,
+    badge_clusters: Res<ZoneBadgeClusters>,
+    badge_assets: Res<ZoneBadgeAssets>,
+    cb_settings: Res<ColorblindSettings>,
+    existing: Query<Entity, With<ZoneBadgeMarker>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut last_gen: Local<u64>,
+) {
+    if *last_gen == badge_clusters.generation {
         return;
     }
+    *last_gen = badge_clusters.generation;
 
-    if feedback.cells.is_empty() {
-        return;
+    // Despawn old badges
+    for entity in &existing {
+        commands.entity(entity).despawn();
     }
 
-    for cell in &feedback.cells {
-        let (wx, _) = WorldGrid::grid_to_world(cell.gx, cell.gy);
-        let wz = cell.gy as f32 * CELL_SIZE + CELL_SIZE * 0.5;
-        let center = Vec3::new(wx, MARKER_Y, wz);
+    // Spawn new badges (up to MAX_BADGES, largest first)
+    let count = badge_clusters.clusters.len().min(MAX_BADGES);
+    for cluster in &badge_clusters.clusters[..count] {
+        let (wx, _) = WorldGrid::grid_to_world(
+            cluster.centroid_gx as usize,
+            cluster.centroid_gy as usize,
+        );
+        let wz = cluster.centroid_gy * CELL_SIZE + CELL_SIZE * 0.5;
 
-        let color = colorblind_palette::utility_icon_color(cell.kind, cb_settings.mode);
+        let color = colorblind_palette::utility_icon_color(cluster.kind, cb_settings.mode);
 
-        // Draw a diamond shape (rotated square) as 4 lines
-        let top = Vec3::new(center.x, MARKER_Y, center.z - DIAMOND_HALF);
-        let right = Vec3::new(center.x + DIAMOND_HALF, MARKER_Y, center.z);
-        let bottom = Vec3::new(center.x, MARKER_Y, center.z + DIAMOND_HALF);
-        let left = Vec3::new(center.x - DIAMOND_HALF, MARKER_Y, center.z);
+        let mesh_handle = match cluster.kind {
+            UtilityIconKind::NoPower => badge_assets.bolt_mesh.clone(),
+            UtilityIconKind::NoWater => badge_assets.drop_mesh.clone(),
+            UtilityIconKind::NoPowerNoWater => badge_assets.warning_mesh.clone(),
+        };
 
-        gizmos.line(top, right, color);
-        gizmos.line(right, bottom, color);
-        gizmos.line(bottom, left, color);
-        gizmos.line(left, top, color);
+        let material = materials.add(StandardMaterial {
+            base_color: color,
+            emissive: color.to_linear() * 2.0,
+            unlit: true,
+            double_sided: true,
+            cull_mode: None,
+            ..default()
+        });
 
-        // Draw cross inside for better visibility
-        gizmos.line(top, bottom, color);
-        gizmos.line(left, right, color);
+        // Scale grows with cluster size: 1.0 + 0.3 * log2(cell_count), clamped
+        let size_factor =
+            (1.0 + 0.3 * (cluster.cell_count as f32).log2()).clamp(1.0, 3.0);
+        let scale = BADGE_BASE_SCALE * size_factor;
+
+        // The mesh lies in XZ plane; rotate -90deg around X to stand upright
+        let transform = Transform {
+            translation: Vec3::new(wx, BADGE_Y, wz),
+            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+            scale: Vec3::splat(scale),
+        };
+
+        commands.spawn((
+            ZoneBadgeMarker,
+            Mesh3d(mesh_handle),
+            MeshMaterial3d(material),
+            transform,
+            Visibility::default(),
+        ));
+    }
+}
+
+/// Hide badges when the camera is too far away.
+fn lod_zone_badges(
+    orbit: Res<OrbitCamera>,
+    mut badges: Query<&mut Visibility, With<ZoneBadgeMarker>>,
+) {
+    let visible = orbit.distance <= MAX_VISIBLE_DISTANCE;
+    for mut vis in &mut badges {
+        *vis = if visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
     }
 }
 
@@ -140,14 +215,17 @@ fn draw_zone_feedback(
 
 /// Plugin that provides visual feedback on zoned cells missing utilities.
 ///
-/// Draws colored diamond gizmos on zoned-but-empty cells that lack
-/// power and/or water, helping players understand why buildings aren't
-/// spawning in their zoned areas.
+/// Spawns floating 3D badge icons above clusters of zoned-but-empty cells
+/// that lack power and/or water, helping players understand why buildings
+/// aren't spawning in their zoned areas.
 pub struct ZoningFeedbackPlugin;
 
 impl Plugin for ZoningFeedbackPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ZoneFeedbackCells>();
+        app.init_resource::<ZoneBadgeClusters>();
+
+        app.add_systems(Startup, setup_badge_assets);
 
         let idle = in_state(SaveLoadState::Idle);
         let playing = in_state(AppState::Playing);
@@ -157,8 +235,9 @@ impl Plugin for ZoningFeedbackPlugin {
             (
                 rebuild_zone_feedback
                     .run_if(on_timer(std::time::Duration::from_secs(2))),
-                draw_zone_feedback
-                    .after(rebuild_zone_feedback),
+                rebuild_zone_clusters.after(rebuild_zone_feedback),
+                sync_zone_badges.after(rebuild_zone_clusters),
+                lod_zone_badges.after(sync_zone_badges),
             )
                 .run_if(idle)
                 .run_if(playing),
@@ -185,7 +264,6 @@ mod tests {
     #[test]
     fn test_rebuild_finds_missing_power() {
         let mut grid = WorldGrid::new(10, 10);
-        // Zone a cell with water but no power
         let idx = grid.index(5, 5);
         grid.cells[idx].zone = ZoneType::ResidentialLow;
         grid.cells[idx].cell_type = CellType::Grass;
@@ -193,16 +271,14 @@ mod tests {
         grid.cells[idx].has_water = true;
 
         let mut feedback = ZoneFeedbackCells::default();
-        // Simulate rebuild logic
         let cell = grid.get(5, 5);
         if cell.zone != ZoneType::None && cell.building_id.is_none() {
-            match (cell.has_power, cell.has_water) {
-                (false, true) => feedback.cells.push(ZoneFeedbackCell {
+            if let (false, true) = (cell.has_power, cell.has_water) {
+                feedback.cells.push(ZoneFeedbackCell {
                     gx: 5,
                     gy: 5,
                     kind: UtilityIconKind::NoPower,
-                }),
-                _ => {}
+                });
             }
         }
 
@@ -254,16 +330,7 @@ mod tests {
         grid.cells[idx].building_id = Some(Entity::from_raw(42));
 
         let cell = grid.get(5, 5);
-        // Cell with building_id should be skipped
         assert!(cell.building_id.is_some());
-    }
-
-    #[test]
-    fn test_rebuild_skips_unzoned_cells() {
-        let grid = WorldGrid::new(10, 10);
-        let cell = grid.get(5, 5);
-        assert_eq!(cell.zone, ZoneType::None);
-        // Unzoned cells should not generate feedback
     }
 
     #[test]
@@ -283,16 +350,11 @@ mod tests {
 
     #[test]
     fn test_icon_colors_are_reused_from_palette() {
-        // Verify we get valid colors from the shared palette
         let settings = ColorblindSettings::default();
-        let _c1 = colorblind_palette::utility_icon_color(
-            UtilityIconKind::NoPower,
-            settings.mode,
-        );
-        let _c2 = colorblind_palette::utility_icon_color(
-            UtilityIconKind::NoWater,
-            settings.mode,
-        );
+        let _c1 =
+            colorblind_palette::utility_icon_color(UtilityIconKind::NoPower, settings.mode);
+        let _c2 =
+            colorblind_palette::utility_icon_color(UtilityIconKind::NoWater, settings.mode);
         let _c3 = colorblind_palette::utility_icon_color(
             UtilityIconKind::NoPowerNoWater,
             settings.mode,
@@ -302,16 +364,12 @@ mod tests {
     #[test]
     fn test_icon_colors_distinct_all_modes() {
         for mode in ColorblindMode::ALL {
-            let c1 = colorblind_palette::utility_icon_color(
-                UtilityIconKind::NoPower,
-                mode,
-            )
-            .to_srgba();
-            let c2 = colorblind_palette::utility_icon_color(
-                UtilityIconKind::NoWater,
-                mode,
-            )
-            .to_srgba();
+            let c1 =
+                colorblind_palette::utility_icon_color(UtilityIconKind::NoPower, mode)
+                    .to_srgba();
+            let c2 =
+                colorblind_palette::utility_icon_color(UtilityIconKind::NoWater, mode)
+                    .to_srgba();
             let diff = (c1.red - c2.red).abs()
                 + (c1.green - c2.green).abs()
                 + (c1.blue - c2.blue).abs();
@@ -327,11 +385,5 @@ mod tests {
     fn test_max_visible_distance_reasonable() {
         assert!(MAX_VISIBLE_DISTANCE > 0.0);
         assert!(MAX_VISIBLE_DISTANCE < 4000.0);
-    }
-
-    #[test]
-    fn test_diamond_half_reasonable() {
-        assert!(DIAMOND_HALF > 0.0);
-        assert!(DIAMOND_HALF < CELL_SIZE);
     }
 }

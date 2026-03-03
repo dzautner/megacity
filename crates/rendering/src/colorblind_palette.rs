@@ -132,7 +132,7 @@ pub fn zone_color(kind: ZoneColorKind, mode: ColorblindMode) -> (f32, f32, f32) 
 // ---------------------------------------------------------------------------
 
 /// Utility status icon kind.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UtilityIconKind {
     NoPower,
     NoWater,
