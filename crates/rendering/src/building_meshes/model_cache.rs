@@ -125,14 +125,22 @@ fn generate_service_mesh(service_type: ServiceType) -> Mesh {
 /// Pre-loaded scene handles for all building GLB models
 #[derive(Resource)]
 pub struct BuildingModelCache {
-    /// Residential building scenes (suburban houses)
+    /// Residential low-density building scenes (suburban houses)
     pub residential: Vec<Handle<Scene>>,
+    /// Residential medium-density scenes
+    pub residential_medium: Vec<Handle<Scene>>,
+    /// Residential high-density scenes
+    pub residential_high: Vec<Handle<Scene>>,
     /// Commercial building scenes
     pub commercial: Vec<Handle<Scene>>,
     /// Commercial skyscraper scenes (tall buildings)
     pub skyscrapers: Vec<Handle<Scene>>,
     /// Industrial building scenes
     pub industrial: Vec<Handle<Scene>>,
+    /// Office scenes
+    pub office: Vec<Handle<Scene>>,
+    /// Mixed-use scenes
+    pub mixed_use: Vec<Handle<Scene>>,
     /// Vehicle scenes (sedan, SUV, van, truck, etc.)
     pub vehicles: Vec<Handle<Scene>>,
     /// Character scenes (male/female variants)
@@ -162,6 +170,25 @@ impl BuildingModelCache {
         self.residential[hash % self.residential.len()].clone()
     }
 
+    /// Get a residential medium-density scene handle.
+    pub fn get_residential_medium(&self, hash: usize) -> Handle<Scene> {
+        if self.residential_medium.is_empty() {
+            return self.get_residential(hash);
+        }
+        self.residential_medium[hash % self.residential_medium.len()].clone()
+    }
+
+    /// Get a residential high-density scene handle.
+    pub fn get_residential_high(&self, level: u8, hash: usize) -> Handle<Scene> {
+        if !self.residential_high.is_empty() {
+            return self.residential_high[hash % self.residential_high.len()].clone();
+        }
+        if level >= 3 && !self.skyscrapers.is_empty() {
+            return self.skyscrapers[hash % self.skyscrapers.len()].clone();
+        }
+        self.get_residential_medium(hash)
+    }
+
     /// Get a commercial building scene based on level and hash
     pub fn get_commercial(&self, level: u8, hash: usize) -> Handle<Scene> {
         if level >= 4 && !self.skyscrapers.is_empty() {
@@ -181,43 +208,39 @@ impl BuildingModelCache {
         self.industrial[hash % self.industrial.len()].clone()
     }
 
+    /// Get an office scene handle.
+    pub fn get_office(&self, level: u8, hash: usize) -> Handle<Scene> {
+        if !self.office.is_empty() {
+            return self.office[hash % self.office.len()].clone();
+        }
+        if level >= 3 && !self.skyscrapers.is_empty() {
+            return self.skyscrapers[hash % self.skyscrapers.len()].clone();
+        }
+        self.get_commercial(level, hash)
+    }
+
+    /// Get a mixed-use scene handle.
+    pub fn get_mixed_use(&self, level: u8, hash: usize) -> Handle<Scene> {
+        if !self.mixed_use.is_empty() {
+            return self.mixed_use[hash % self.mixed_use.len()].clone();
+        }
+        if level >= 3 && !self.skyscrapers.is_empty() {
+            return self.skyscrapers[hash % self.skyscrapers.len()].clone();
+        }
+        self.get_commercial(level, hash)
+    }
+
     /// Get a building scene for any zone type and level
     pub fn get_zone_scene(&self, zone: ZoneType, level: u8, hash: usize) -> Handle<Scene> {
         match zone {
             ZoneType::ResidentialLow => self.get_residential(hash),
-            ZoneType::ResidentialMedium => {
-                if !self.commercial.is_empty() {
-                    self.commercial[hash % self.commercial.len()].clone()
-                } else {
-                    self.get_residential(hash)
-                }
-            }
-            ZoneType::ResidentialHigh => {
-                if level >= 3 && !self.skyscrapers.is_empty() {
-                    self.skyscrapers[hash % self.skyscrapers.len()].clone()
-                } else if !self.commercial.is_empty() {
-                    self.commercial[hash % self.commercial.len()].clone()
-                } else {
-                    self.get_residential(hash)
-                }
-            }
+            ZoneType::ResidentialMedium => self.get_residential_medium(hash),
+            ZoneType::ResidentialHigh => self.get_residential_high(level, hash),
             ZoneType::CommercialLow => self.get_commercial(level, hash),
             ZoneType::CommercialHigh => self.get_commercial(level, hash),
             ZoneType::Industrial => self.get_industrial(hash),
-            ZoneType::Office => {
-                if level >= 3 && !self.skyscrapers.is_empty() {
-                    self.skyscrapers[hash % self.skyscrapers.len()].clone()
-                } else {
-                    self.get_commercial(level, hash)
-                }
-            }
-            ZoneType::MixedUse => {
-                if level >= 3 && !self.skyscrapers.is_empty() {
-                    self.skyscrapers[hash % self.skyscrapers.len()].clone()
-                } else {
-                    self.get_commercial(level, hash)
-                }
-            }
+            ZoneType::Office => self.get_office(level, hash),
+            ZoneType::MixedUse => self.get_mixed_use(level, hash),
             ZoneType::None => self.get_residential(hash),
         }
     }
