@@ -42,10 +42,10 @@ pub fn tutorial_ui(
     egui::Window::new("Tutorial")
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .default_pos([ctx.screen_rect().max.x - 470.0, 60.0])
         .default_width(440.0)
         .frame(frame)
-        .title_bar(false)
+        .title_bar(true)
         .show(ctx, |ui| {
             render_progress(ui, step, step_index, total);
             render_title(ui, step);

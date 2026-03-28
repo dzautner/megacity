@@ -115,12 +115,22 @@ pub(crate) fn register_ui_systems(app: &mut App) {
             info_panel::budget_panel_ui,
             info_panel::groundwater_tooltip_ui,
             water_dashboard::water_dashboard_ui,
-            tutorial::tutorial_ui,
             day_night_panel::day_night_panel_ui,
             road_cost_display::road_cost_display_ui,
         )
             .run_if(idle.clone())
             .run_if(playing.clone()),
+    );
+
+    // Tutorial UI must run in both Playing and Paused states because the
+    // tutorial pauses the GameClock (which sync_pause_state mirrors to
+    // AppState::Paused). Without this, the tutorial panel is hidden behind
+    // the pause menu and the user cannot advance or skip the tutorial.
+    app.add_systems(
+        Update,
+        tutorial::tutorial_ui
+            .run_if(idle.clone())
+            .run_if(in_state(AppState::Playing).or(in_state(AppState::Paused))),
     );
 
     // Keybinds that must remain active during save/load (they trigger

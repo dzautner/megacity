@@ -104,8 +104,15 @@ fn pause_menu_ui(
     mut confirm: ResMut<MainMenuConfirm>,
     mut settings_menu: ResMut<SettingsMenuOpen>,
     mut slot_ui: ResMut<SaveSlotUiState>,
+    tutorial: Res<simulation::tutorial::TutorialState>,
     #[cfg(not(target_arch = "wasm32"))] mut exit: EventWriter<AppExit>,
 ) {
+    // Don't render pause menu when the tutorial is the one that paused the
+    // game — the tutorial panel handles its own Next/Skip UI.
+    if tutorial.paused_by_tutorial {
+        return;
+    }
+
     // Don't render pause menu buttons when settings menu is open.
     if settings_menu.open {
         return;

@@ -426,7 +426,13 @@ pub fn toolbar_ui(
 
                                         if response.clicked() {
                                             if let Some(ref t) = item.tool {
-                                                *tool = *t;
+                                                // Toggle: clicking an active tool
+                                                // deselects it (returns to Inspect).
+                                                if *tool == *t {
+                                                    *tool = ActiveTool::Inspect;
+                                                } else {
+                                                    *tool = *t;
+                                                }
                                                 should_close = true;
                                             } else if let Some(ov) = item.overlay {
                                                 overlay.mode = if overlay.mode == ov {
